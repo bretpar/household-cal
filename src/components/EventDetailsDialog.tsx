@@ -75,13 +75,13 @@ export function EventDetailsDialog() {
       toast.error(error);
       return;
     }
-    updateEvent(occurrence, draftFromFormState(state, event.source_calendar), scope);
+    void updateEvent(occurrence, draftFromFormState(state, event.calendar_source_id), scope);
     toast.success(`${state.title.trim()} updated`);
     closeOccurrence();
   };
 
   const confirmDelete = () => {
-    deleteEvent(occurrence, needsScope ? scope : "series");
+    void deleteEvent(occurrence, needsScope ? scope : "series");
     toast.success(`${event.title} deleted`);
     closeOccurrence();
   };

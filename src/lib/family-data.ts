@@ -1,9 +1,10 @@
 /**
- * Data model for Parker Family Calendar.
+ * Household-agnostic calendar domain model.
  *
- * The shapes below mirror the eventual database tables so that Google Calendar
- * sync can be layered on later without redesigning the app:
- *   family_members / events / event_members / calendar_sources
+ * Shapes mirror the database tables (families / family_users / family_members /
+ * calendar_sources / events / event_members / activities). Nothing in this file
+ * assumes a particular household, member set, initial, color or calendar name —
+ * every value is derived from database records at runtime.
  */
 
 import {
@@ -15,20 +16,12 @@ import {
   startOfWeek,
 } from "date-fns";
 
-export type MemberId = "d" | "m" | "b" | "e" | "j";
-export type Role = "parent" | "child" | "caregiver";
-export type AccessLevel = "full" | "view_only";
+export type MemberId = string;
+export type FamilyId = string;
 
-export interface FamilyMember {
-  id: MemberId;
-  name: string;
-  initial: string;
-  /** design-system token key, resolved to classes in memberStyles */
-  color: MemberId;
-  role: Role;
-  access: AccessLevel;
-  active: boolean;
-}
+export type FamilyRole = "owner" | "editor" | "viewer";
+export type MemberRole = "parent" | "child" | "caregiver" | "other";
+export type AccessLevel = "full" | "view_only";
 
 export type EventType =
   | "school"
@@ -39,102 +32,83 @@ export type EventType =
   | "family"
   | "other";
 
-export type SourceCalendarId = "parker_family" | "babysitter";
 export type DisplayMode = "events" | "coverage_background";
+export type CalendarProvider = "local" | "google";
+
+/** Palette keys a household can assign to its own members. */
+export type MemberColor =
+  | "sky"
+  | "rose"
+  | "amber"
+  | "sage"
+  | "teal"
+  | "lilac"
+  | "coral"
+  | "sand";
+
+export interface Family {
+  id: FamilyId;
+  name: string;
+  role: FamilyRole;
+}
+
+export interface FamilyMember {
+  id: MemberId;
+  family_id: FamilyId;
+  name: string;
+  initial: string;
+  color: MemberColor;
+  role: MemberRole;
+  access: AccessLevel;
+  active: boolean;
+  sort_order: number;
+}
 
 export interface CalendarSource {
-  id: SourceCalendarId;
+  id: string;
+  family_id: FamilyId;
   name: string;
-  source_type: "local" | "google";
+  provider: CalendarProvider;
   external_calendar_id: string | null;
   display_mode: DisplayMode;
+  active: boolean;
 }
 
 export interface CalendarEvent {
   id: string;
+  family_id: FamilyId;
+  calendar_source_id: string | null;
+  /** resolved from the event's calendar source — drives coverage vs. event rendering */
+  display_mode: DisplayMode;
   title: string;
-  /** ISO datetime of the first occurrence */
   start_at: string;
   end_at: string;
   all_day: boolean;
   location: string | null;
   notes: string | null;
   event_type: EventType;
-  /** simplified RRULE placeholder, null = single event */
+  /** simplified RRULE, null = single event */
   recurrence_rule: string | null;
-  /** ISO date (yyyy-MM-dd) of the last day the series may occur — mirrors RRULE UNTIL */
-  recurrence_until?: string | null;
-  /** ISO dates (yyyy-MM-dd) removed from the series — mirrors Google EXDATE */
-  excluded_dates?: string[];
-  source_calendar: SourceCalendarId;
-  google_calendar_id: string | null;
-  google_event_id: string | null;
-  /** event_members join table, flattened for the mock layer */
+  /** yyyy-MM-dd last day the series may occur — mirrors RRULE UNTIL */
+  recurrence_until: string | null;
+  /** yyyy-MM-dd dates removed from the series — mirrors Google EXDATE */
+  excluded_dates: string[];
+  external_event_id: string | null;
+  external_recurring_event_id: string | null;
   member_ids: MemberId[];
 }
 
 export interface FamilyActivity {
   id: string;
+  family_id: FamilyId;
   name: string;
-  member_ids: MemberId[];
-  schedule_label: string;
-  location: string;
-  recurrence_rule: string;
+  event_type: EventType;
+  location: string | null;
+  schedule_label: string | null;
+  recurrence_rule: string | null;
   active: boolean;
+  member_ids: MemberId[];
 }
-
-export const FAMILY_MEMBERS: FamilyMember[] = [
-  { id: "d", name: "Dad", initial: "D", color: "d", role: "parent", access: "full", active: true },
-  { id: "m", name: "Mom", initial: "M", color: "m", role: "parent", access: "full", active: true },
-  {
-    id: "b",
-    name: "Bailey",
-    initial: "B",
-    color: "b",
-    role: "child",
-    access: "view_only",
-    active: true,
-  },
-  {
-    id: "e",
-    name: "Ellison",
-    initial: "E",
-    color: "e",
-    role: "child",
-    access: "view_only",
-    active: true,
-  },
-  {
-    id: "j",
-    name: "Jack",
-    initial: "J",
-    color: "j",
-    role: "child",
-    access: "view_only",
-    active: true,
-  },
-];
-
-export const CAREGIVERS = [
-  { id: "babysitter", name: "Babysitter", role: "caregiver" as Role, access: "view_only" as const },
-];
-
-export const CALENDAR_SOURCES: CalendarSource[] = [
-  {
-    id: "parker_family",
-    name: "Parker Family",
-    source_type: "local",
-    external_calendar_id: null,
-    display_mode: "events",
-  },
-  {
-    id: "babysitter",
-    name: "Babysitter",
-    source_type: "local",
-    external_calendar_id: null,
-    display_mode: "coverage_background",
-  },
-];
 
 export const EVENT_TYPES: { id: EventType; label: string }[] = [
   { id: "school", label: "School" },
@@ -155,251 +129,87 @@ export const RECURRENCE_OPTIONS = [
   { id: "custom", label: "Custom (coming soon)", rule: "CUSTOM" },
 ] as const;
 
-export const memberStyles: Record<
-  MemberId,
-  { badge: string; soft: string; ring: string; dot: string }
-> = {
-  d: {
-    badge: "bg-member-d text-member-foreground",
-    soft: "bg-member-d-soft",
-    ring: "ring-member-d",
-    dot: "bg-member-d",
+export interface MemberStyle {
+  badge: string;
+  soft: string;
+  ring: string;
+  dot: string;
+}
+
+/** Static class map so Tailwind can see every palette utility. */
+export const MEMBER_PALETTE: Record<MemberColor, MemberStyle> = {
+  sky: {
+    badge: "bg-member-sky text-member-foreground",
+    soft: "bg-member-sky-soft",
+    ring: "ring-member-sky",
+    dot: "bg-member-sky",
   },
-  m: {
-    badge: "bg-member-m text-member-foreground",
-    soft: "bg-member-m-soft",
-    ring: "ring-member-m",
-    dot: "bg-member-m",
+  rose: {
+    badge: "bg-member-rose text-member-foreground",
+    soft: "bg-member-rose-soft",
+    ring: "ring-member-rose",
+    dot: "bg-member-rose",
   },
-  b: {
-    badge: "bg-member-b text-member-foreground",
-    soft: "bg-member-b-soft",
-    ring: "ring-member-b",
-    dot: "bg-member-b",
+  amber: {
+    badge: "bg-member-amber text-member-foreground",
+    soft: "bg-member-amber-soft",
+    ring: "ring-member-amber",
+    dot: "bg-member-amber",
   },
-  e: {
-    badge: "bg-member-e text-member-foreground",
-    soft: "bg-member-e-soft",
-    ring: "ring-member-e",
-    dot: "bg-member-e",
+  sage: {
+    badge: "bg-member-sage text-member-foreground",
+    soft: "bg-member-sage-soft",
+    ring: "ring-member-sage",
+    dot: "bg-member-sage",
   },
-  j: {
-    badge: "bg-member-j text-member-foreground",
-    soft: "bg-member-j-soft",
-    ring: "ring-member-j",
-    dot: "bg-member-j",
+  teal: {
+    badge: "bg-member-teal text-member-foreground",
+    soft: "bg-member-teal-soft",
+    ring: "ring-member-teal",
+    dot: "bg-member-teal",
+  },
+  lilac: {
+    badge: "bg-member-lilac text-member-foreground",
+    soft: "bg-member-lilac-soft",
+    ring: "ring-member-lilac",
+    dot: "bg-member-lilac",
+  },
+  coral: {
+    badge: "bg-member-coral text-member-foreground",
+    soft: "bg-member-coral-soft",
+    ring: "ring-member-coral",
+    dot: "bg-member-coral",
+  },
+  sand: {
+    badge: "bg-member-sand text-member-foreground",
+    soft: "bg-member-sand-soft",
+    ring: "ring-member-sand",
+    dot: "bg-member-sand",
   },
 };
 
-export function getMember(id: MemberId): FamilyMember {
-  return FAMILY_MEMBERS.find((m) => m.id === id) ?? FAMILY_MEMBERS[0]!;
+export const MEMBER_COLORS = Object.keys(MEMBER_PALETTE) as MemberColor[];
+
+export const FALLBACK_MEMBER_STYLE: MemberStyle = {
+  badge: "bg-surface-muted text-muted-foreground",
+  soft: "bg-surface-muted",
+  ring: "ring-border",
+  dot: "bg-border",
+};
+
+export function styleForColor(color: string | undefined): MemberStyle {
+  return MEMBER_PALETTE[(color ?? "") as MemberColor] ?? FALLBACK_MEMBER_STYLE;
 }
 
-/* ---------------------------------------------------------------- mock data */
-
-function iso(base: Date, dayOffset: number, hour: number, minute = 0): string {
-  const d = addDays(startOfDay(base), dayOffset);
-  d.setHours(hour, minute, 0, 0);
-  return d.toISOString();
+/** id -> style map for a household's own members. */
+export function buildMemberStyles(members: FamilyMember[]): Record<MemberId, MemberStyle> {
+  return Object.fromEntries(members.map((m) => [m.id, styleForColor(m.color)]));
 }
 
-/** Monday of the current week — mock data is anchored here so it always looks current. */
+/** Monday of the given week — views are Monday-first. */
 export function anchorMonday(today = new Date()): Date {
   return startOfWeek(today, { weekStartsOn: 1 });
 }
-
-export function buildSampleEvents(today = new Date()): CalendarEvent[] {
-  const mon = anchorMonday(today);
-  const base = (
-    e: Omit<CalendarEvent, "google_calendar_id" | "google_event_id" | "source_calendar"> &
-      Partial<Pick<CalendarEvent, "source_calendar">>,
-  ): CalendarEvent => ({
-    google_calendar_id: null,
-    google_event_id: null,
-    source_calendar: "parker_family",
-    ...e,
-  });
-
-  /** Recurring series start 6 weeks back so earlier weeks/months look populated. */
-  const backdate = (e: CalendarEvent): CalendarEvent =>
-    e.recurrence_rule && e.recurrence_rule !== "CUSTOM"
-      ? {
-          ...e,
-          start_at: addDays(new Date(e.start_at), -42).toISOString(),
-          end_at: addDays(new Date(e.end_at), -42).toISOString(),
-        }
-      : e;
-
-  return [
-    base({
-      id: "ev-school",
-      title: "School",
-      start_at: iso(mon, 0, 8),
-      end_at: iso(mon, 0, 15),
-      all_day: false,
-      location: "Maplewood Elementary",
-      notes: "Regular school day",
-      event_type: "school",
-      recurrence_rule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
-      member_ids: ["b", "e", "j"],
-    }),
-    base({
-      id: "ev-soccer",
-      title: "Soccer Practice",
-      start_at: iso(mon, 1, 16, 30),
-      end_at: iso(mon, 1, 17, 30),
-      all_day: false,
-      location: "Riverside Fields",
-      notes: "Bring water bottle + shin guards",
-      event_type: "activity",
-      recurrence_rule: "FREQ=WEEKLY;BYDAY=TU",
-      member_ids: ["j"],
-    }),
-    base({
-      id: "ev-dance",
-      title: "Dance",
-      start_at: iso(mon, 2, 16),
-      end_at: iso(mon, 2, 17),
-      all_day: false,
-      location: "Studio 12",
-      notes: "Recital prep",
-      event_type: "activity",
-      recurrence_rule: "FREQ=WEEKLY;BYDAY=WE",
-      member_ids: ["e"],
-    }),
-    base({
-      id: "ev-appt",
-      title: "Dentist Appointment",
-      start_at: iso(mon, 3, 15, 30),
-      end_at: iso(mon, 3, 16, 30),
-      all_day: false,
-      location: "Bright Smiles Pediatric Dentistry",
-      notes: "6-month cleaning",
-      event_type: "appointment",
-      recurrence_rule: null,
-      member_ids: ["b"],
-    }),
-    base({
-      id: "ev-dinner",
-      title: "Family Dinner",
-      start_at: iso(mon, 6, 17, 30),
-      end_at: iso(mon, 6, 19),
-      all_day: false,
-      location: "Home",
-      notes: "Sunday pasta night",
-      event_type: "family",
-      recurrence_rule: "FREQ=WEEKLY;BYDAY=SU",
-      member_ids: ["d", "m", "b", "e", "j"],
-    }),
-    base({
-      id: "ev-dad-work",
-      title: "Dad Work",
-      start_at: iso(mon, 0, 9),
-      end_at: iso(mon, 0, 17),
-      all_day: false,
-      location: "Downtown office",
-      notes: null,
-      event_type: "work",
-      recurrence_rule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
-      member_ids: ["d"],
-    }),
-    base({
-      id: "ev-mom-work",
-      title: "Mom Work",
-      start_at: iso(mon, 0, 8, 30),
-      end_at: iso(mon, 0, 16),
-      all_day: false,
-      location: "Clinic",
-      notes: null,
-      event_type: "work",
-      recurrence_rule: "FREQ=WEEKLY;BYDAY=MO,WE,TH,FR",
-      member_ids: ["m"],
-    }),
-    base({
-      id: "ev-teacher-day",
-      title: "Teacher In-Service — No School",
-      start_at: iso(mon, 4, 0),
-      end_at: iso(mon, 4, 23, 59),
-      all_day: true,
-      location: null,
-      notes: "Plan childcare",
-      event_type: "school",
-      recurrence_rule: null,
-      member_ids: ["b", "e", "j"],
-    }),
-    /* Babysitter coverage lives on its own calendar source and renders as a
-       background time-range layer, never as a normal event card. */
-    base({
-      id: "cov-1",
-      title: "Babysitter",
-      start_at: iso(mon, 1, 8),
-      end_at: iso(mon, 1, 17),
-      all_day: false,
-      location: "Home",
-      notes: "Maya",
-      event_type: "childcare",
-      recurrence_rule: "FREQ=WEEKLY;BYDAY=TU,TH",
-      source_calendar: "babysitter",
-      member_ids: [],
-    }),
-    base({
-      id: "cov-2",
-      title: "Babysitter",
-      start_at: iso(mon, 4, 12),
-      end_at: iso(mon, 4, 18),
-      all_day: false,
-      location: "Home",
-      notes: "Maya — in-service day",
-      event_type: "childcare",
-      recurrence_rule: null,
-      source_calendar: "babysitter",
-      member_ids: [],
-    }),
-    base({
-      id: "cov-3",
-      title: "Babysitter",
-      start_at: iso(mon, 5, 17),
-      end_at: iso(mon, 5, 22),
-      all_day: false,
-      location: "Home",
-      notes: "Date night",
-      event_type: "childcare",
-      recurrence_rule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
-      source_calendar: "babysitter",
-      member_ids: [],
-    }),
-  ].map(backdate);
-}
-
-export const SAMPLE_ACTIVITIES: FamilyActivity[] = [
-  {
-    id: "act-soccer",
-    name: "Jack Soccer",
-    member_ids: ["j"],
-    schedule_label: "Tuesdays · 4:30–5:30 PM",
-    location: "Riverside Fields",
-    recurrence_rule: "FREQ=WEEKLY;BYDAY=TU",
-    active: true,
-  },
-  {
-    id: "act-dance",
-    name: "Ellison Dance",
-    member_ids: ["e"],
-    schedule_label: "Wednesdays · 4:00–5:00 PM",
-    location: "Studio 12",
-    recurrence_rule: "FREQ=WEEKLY;BYDAY=WE",
-    active: true,
-  },
-  {
-    id: "act-school",
-    name: "School",
-    member_ids: ["b", "e", "j"],
-    schedule_label: "Mon–Fri · 8:00 AM–3:00 PM",
-    location: "Maplewood Elementary",
-    recurrence_rule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
-    active: true,
-  },
-];
 
 /* ------------------------------------------------------- recurrence expansion */
 
@@ -479,8 +289,9 @@ export function occurrencesForDay(events: CalendarEvent[], day: Date): Occurrenc
   return expandOccurrences(events, startOfDay(day), addDays(startOfDay(day), 1));
 }
 
+/** Coverage rendering is decided by the calendar source's display mode, never by its name. */
 export function isCoverage(event: CalendarEvent): boolean {
-  return event.source_calendar === "babysitter";
+  return event.display_mode === "coverage_background";
 }
 
 export function matchesFilter(event: CalendarEvent, selected: MemberId[]): boolean {

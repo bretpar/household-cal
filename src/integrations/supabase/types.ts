@@ -1,0 +1,596 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.15"
+  }
+  public: {
+    Tables: {
+      activities: {
+        Row: {
+          active: boolean
+          created_at: string
+          event_type: Database["public"]["Enums"]["event_type"]
+          family_id: string
+          id: string
+          location: string | null
+          name: string
+          recurrence_rule: string | null
+          schedule_label: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["event_type"]
+          family_id: string
+          id?: string
+          location?: string | null
+          name: string
+          recurrence_rule?: string | null
+          schedule_label?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["event_type"]
+          family_id?: string
+          id?: string
+          location?: string | null
+          name?: string
+          recurrence_rule?: string | null
+          schedule_label?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activity_members: {
+        Row: {
+          activity_id: string
+          created_at: string
+          family_member_id: string
+        }
+        Insert: {
+          activity_id: string
+          created_at?: string
+          family_member_id: string
+        }
+        Update: {
+          activity_id?: string
+          created_at?: string
+          family_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_members_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_members_family_member_id_fkey"
+            columns: ["family_member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_sources: {
+        Row: {
+          active: boolean
+          created_at: string
+          display_mode: Database["public"]["Enums"]["calendar_display_mode"]
+          external_calendar_id: string | null
+          family_id: string
+          id: string
+          name: string
+          provider: Database["public"]["Enums"]["calendar_provider"]
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          display_mode?: Database["public"]["Enums"]["calendar_display_mode"]
+          external_calendar_id?: string | null
+          family_id: string
+          id?: string
+          name: string
+          provider?: Database["public"]["Enums"]["calendar_provider"]
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          display_mode?: Database["public"]["Enums"]["calendar_display_mode"]
+          external_calendar_id?: string | null
+          family_id?: string
+          id?: string
+          name?: string
+          provider?: Database["public"]["Enums"]["calendar_provider"]
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_sources_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_members: {
+        Row: {
+          created_at: string
+          event_id: string
+          family_member_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          family_member_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          family_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_members_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_members_family_member_id_fkey"
+            columns: ["family_member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          all_day: boolean
+          calendar_source_id: string | null
+          created_at: string
+          created_by: string | null
+          end_at: string
+          event_type: Database["public"]["Enums"]["event_type"]
+          excluded_dates: string[]
+          external_event_id: string | null
+          external_recurring_event_id: string | null
+          family_id: string
+          id: string
+          location: string | null
+          notes: string | null
+          recurrence_rule: string | null
+          recurrence_until: string | null
+          start_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          all_day?: boolean
+          calendar_source_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_at: string
+          event_type?: Database["public"]["Enums"]["event_type"]
+          excluded_dates?: string[]
+          external_event_id?: string | null
+          external_recurring_event_id?: string | null
+          family_id: string
+          id?: string
+          location?: string | null
+          notes?: string | null
+          recurrence_rule?: string | null
+          recurrence_until?: string | null
+          start_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          all_day?: boolean
+          calendar_source_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_at?: string
+          event_type?: Database["public"]["Enums"]["event_type"]
+          excluded_dates?: string[]
+          external_event_id?: string | null
+          external_recurring_event_id?: string | null
+          family_id?: string
+          id?: string
+          location?: string | null
+          notes?: string | null
+          recurrence_rule?: string | null
+          recurrence_until?: string | null
+          start_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_calendar_source_id_fkey"
+            columns: ["calendar_source_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      families: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      family_members: {
+        Row: {
+          access: Database["public"]["Enums"]["member_access"]
+          active: boolean
+          color: string
+          created_at: string
+          family_id: string
+          id: string
+          initial: string
+          name: string
+          role: Database["public"]["Enums"]["member_role"]
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          access?: Database["public"]["Enums"]["member_access"]
+          active?: boolean
+          color?: string
+          created_at?: string
+          family_id: string
+          id?: string
+          initial: string
+          name: string
+          role?: Database["public"]["Enums"]["member_role"]
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          access?: Database["public"]["Enums"]["member_access"]
+          active?: boolean
+          color?: string
+          created_at?: string
+          family_id?: string
+          id?: string
+          initial?: string
+          name?: string
+          role?: Database["public"]["Enums"]["member_role"]
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_members_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      family_users: {
+        Row: {
+          created_at: string
+          family_id: string
+          id: string
+          role: Database["public"]["Enums"]["family_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          family_id: string
+          id?: string
+          role?: Database["public"]["Enums"]["family_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          family_id?: string
+          id?: string
+          role?: Database["public"]["Enums"]["family_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_users_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      google_connections: {
+        Row: {
+          account_email: string
+          connected_by: string | null
+          created_at: string
+          family_id: string
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_email: string
+          connected_by?: string | null
+          created_at?: string
+          family_id: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_email?: string
+          connected_by?: string | null
+          created_at?: string
+          family_id?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_connections_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      can_edit_family: { Args: { _family_id: string }; Returns: boolean }
+      family_role_of: {
+        Args: { _family_id: string }
+        Returns: Database["public"]["Enums"]["family_role"]
+      }
+      has_family_access: { Args: { _family_id: string }; Returns: boolean }
+      is_family_owner: { Args: { _family_id: string }; Returns: boolean }
+    }
+    Enums: {
+      calendar_display_mode: "events" | "coverage_background"
+      calendar_provider: "local" | "google"
+      event_type:
+        | "school"
+        | "activity"
+        | "work"
+        | "childcare"
+        | "appointment"
+        | "family"
+        | "other"
+      family_role: "owner" | "editor" | "viewer"
+      member_access: "full" | "view_only"
+      member_role: "parent" | "child" | "caregiver" | "other"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      calendar_display_mode: ["events", "coverage_background"],
+      calendar_provider: ["local", "google"],
+      event_type: [
+        "school",
+        "activity",
+        "work",
+        "childcare",
+        "appointment",
+        "family",
+        "other",
+      ],
+      family_role: ["owner", "editor", "viewer"],
+      member_access: ["full", "view_only"],
+      member_role: ["parent", "child", "caregiver", "other"],
+    },
+  },
+} as const

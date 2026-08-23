@@ -46,18 +46,25 @@
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
 
-  /* Family member pastels */
-  --color-member-d: var(--member-d);
-  --color-member-d-soft: var(--member-d-soft);
-  --color-member-m: var(--member-m);
-  --color-member-m-soft: var(--member-m-soft);
-  --color-member-b: var(--member-b);
-  --color-member-b-soft: var(--member-b-soft);
-  --color-member-e: var(--member-e);
-  --color-member-e-soft: var(--member-e-soft);
-  --color-member-j: var(--member-j);
-  --color-member-j-soft: var(--member-j-soft);
+  /* Family member pastel palette — households pick a palette key per member */
+  --color-member-sky: var(--member-sky);
+  --color-member-sky-soft: var(--member-sky-soft);
+  --color-member-rose: var(--member-rose);
+  --color-member-rose-soft: var(--member-rose-soft);
+  --color-member-amber: var(--member-amber);
+  --color-member-amber-soft: var(--member-amber-soft);
+  --color-member-sage: var(--member-sage);
+  --color-member-sage-soft: var(--member-sage-soft);
+  --color-member-teal: var(--member-teal);
+  --color-member-teal-soft: var(--member-teal-soft);
+  --color-member-lilac: var(--member-lilac);
+  --color-member-lilac-soft: var(--member-lilac-soft);
+  --color-member-coral: var(--member-coral);
+  --color-member-coral-soft: var(--member-coral-soft);
+  --color-member-sand: var(--member-sand);
+  --color-member-sand-soft: var(--member-sand-soft);
   --color-member-foreground: var(--member-foreground);
+
 
   /* Babysitter coverage layer (deliberately a warm neutral, never a child color) */
   --color-coverage: var(--coverage);
@@ -97,17 +104,24 @@
   --input: oklch(0.91 0.015 80);
   --ring: oklch(0.75 0.05 45);
 
-  --member-d: oklch(0.78 0.062 238);
-  --member-d-soft: oklch(0.935 0.028 238);
-  --member-m: oklch(0.8 0.068 15);
-  --member-m-soft: oklch(0.945 0.028 15);
-  --member-b: oklch(0.85 0.085 65);
-  --member-b-soft: oklch(0.955 0.035 70);
-  --member-e: oklch(0.83 0.07 155);
-  --member-e-soft: oklch(0.95 0.03 155);
-  --member-j: oklch(0.81 0.065 198);
-  --member-j-soft: oklch(0.945 0.028 198);
+  --member-sky: oklch(0.78 0.062 238);
+  --member-sky-soft: oklch(0.935 0.028 238);
+  --member-rose: oklch(0.8 0.068 15);
+  --member-rose-soft: oklch(0.945 0.028 15);
+  --member-amber: oklch(0.85 0.085 65);
+  --member-amber-soft: oklch(0.955 0.035 70);
+  --member-sage: oklch(0.83 0.07 155);
+  --member-sage-soft: oklch(0.95 0.03 155);
+  --member-teal: oklch(0.81 0.065 198);
+  --member-teal-soft: oklch(0.945 0.028 198);
+  --member-lilac: oklch(0.8 0.06 300);
+  --member-lilac-soft: oklch(0.94 0.028 300);
+  --member-coral: oklch(0.81 0.075 35);
+  --member-coral-soft: oklch(0.945 0.032 35);
+  --member-sand: oklch(0.86 0.05 95);
+  --member-sand-soft: oklch(0.955 0.025 95);
   --member-foreground: oklch(0.3 0.035 55);
+
 
   --coverage: oklch(0.925 0.017 78);
   --coverage-strong: oklch(0.885 0.021 76);

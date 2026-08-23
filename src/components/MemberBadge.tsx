@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
-import { getMember, memberStyles, type MemberId } from "@/lib/family-data";
+import { useCalendar } from "@/lib/calendar-store";
+import type { MemberId } from "@/lib/family-data";
 
 const sizes = {
   xs: "h-4 w-4 text-[9px]",
@@ -17,18 +18,19 @@ export function MemberBadge({
   size?: keyof typeof sizes;
   className?: string;
 }) {
-  const member = getMember(id);
+  const { memberById, styleFor } = useCalendar();
+  const member = memberById[id];
   return (
     <span
-      title={member.name}
+      title={member?.name ?? ""}
       className={cn(
         "inline-flex shrink-0 items-center justify-center rounded-full font-bold",
-        memberStyles[id].badge,
+        styleFor(id).badge,
         sizes[size],
         className,
       )}
     >
-      {member.initial}
+      {member?.initial ?? "?"}
     </span>
   );
 }

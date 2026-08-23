@@ -1,38 +1,63 @@
-import { addDays, startOfDay } from "date-fns";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
 import {
-  buildSampleEvents,
+  createEvent,
+  deleteEventFn,
+  getFamilyBundle,
+  updateEventFn,
+} from "@/lib/calendar.functions";
+import type { EventInput, RecurrenceScope } from "@/lib/calendar-ops";
+import {
+  buildMemberStyles,
   dayKey,
-  getMember,
-  type AccessLevel,
+  FALLBACK_MEMBER_STYLE,
   type CalendarEvent,
+  type CalendarSource,
+  type Family,
+  type FamilyActivity,
+  type FamilyMember,
   type MemberId,
+  type MemberStyle,
   type Occurrence,
 } from "./family-data";
 
-/** Which slice of a recurring series an edit or delete applies to. Mirrors Google Calendar. */
-export type RecurrenceScope = "this" | "future" | "series";
+export type { RecurrenceScope };
 
-export type EventDraft = Omit<
-  CalendarEvent,
-  "id" | "google_calendar_id" | "google_event_id" | "recurrence_until" | "excluded_dates"
->;
+/** What the add/edit forms produce. The household and default calendar are resolved server-side. */
+export type EventDraft = Omit<EventInput, "calendar_source_id"> & {
+  calendar_source_id?: string | null;
+};
 
 interface CalendarStore {
+  loading: boolean;
+  family: Family | null;
+  /** the signed-in user's role in the current household */
+  role: Family["role"] | null;
+  canEdit: boolean;
+  isOwner: boolean;
+
+  members: FamilyMember[];
+  memberById: Record<MemberId, FamilyMember | undefined>;
+  memberStyles: Record<MemberId, MemberStyle>;
+  styleFor: (id: MemberId) => MemberStyle;
+  sources: CalendarSource[];
+  activities: FamilyActivity[];
   events: CalendarEvent[];
-  addEvent: (event: EventDraft) => void;
-  updateEvent: (occurrence: Occurrence, draft: EventDraft, scope: RecurrenceScope) => void;
-  deleteEvent: (occurrence: Occurrence, scope: RecurrenceScope) => void;
+
+  addEvent: (draft: EventDraft) => Promise<void>;
+  updateEvent: (
+    occurrence: Occurrence,
+    draft: EventDraft,
+    scope: RecurrenceScope,
+  ) => Promise<void>;
+  deleteEvent: (occurrence: Occurrence, scope: RecurrenceScope) => Promise<void>;
+
   selectedMembers: MemberId[];
   toggleMember: (id: MemberId) => void;
   clearMembers: () => void;
-  /** Signed-in family member — parents have full access, children are view-only. */
-  currentMemberId: MemberId;
-  access: AccessLevel;
-  canEdit: boolean;
-  setCurrentMemberId: (id: MemberId) => void;
-  /** Event details sheet state, shared by every view. */
+
   activeOccurrence: Occurrence | null;
   openOccurrence: (occurrence: Occurrence) => void;
   closeOccurrence: () => void;
@@ -40,95 +65,88 @@ interface CalendarStore {
 
 const CalendarContext = createContext<CalendarStore | null>(null);
 
-const newId = () => `ev-${Math.random().toString(36).slice(2, 9)}`;
-
-/** Move a draft's start/end onto the given day, preserving the draft's clock times. */
-function shiftDraftToDay(draft: EventDraft, day: Date): EventDraft {
-  const start = new Date(draft.start_at);
-  const end = new Date(draft.end_at);
-  const duration = end.getTime() - start.getTime();
-  const nextStart = new Date(startOfDay(day));
-  nextStart.setHours(start.getHours(), start.getMinutes(), 0, 0);
-  return {
-    ...draft,
-    start_at: nextStart.toISOString(),
-    end_at: new Date(nextStart.getTime() + duration).toISOString(),
-  };
-}
+export const FAMILY_BUNDLE_KEY = ["family-bundle"] as const;
 
 export function CalendarProvider({ children }: { children: ReactNode }) {
-  const [events, setEvents] = useState<CalendarEvent[]>(() => buildSampleEvents());
+  const queryClient = useQueryClient();
+  const fetchBundle = useServerFn(getFamilyBundle);
+  const create = useServerFn(createEvent);
+  const update = useServerFn(updateEventFn);
+  const remove = useServerFn(deleteEventFn);
+
   const [selectedMembers, setSelectedMembers] = useState<MemberId[]>([]);
-  const [currentMemberId, setCurrentMemberId] = useState<MemberId>("d");
   const [activeOccurrence, setActiveOccurrence] = useState<Occurrence | null>(null);
 
+  const bundle = useQuery({
+    queryKey: FAMILY_BUNDLE_KEY,
+    queryFn: () => fetchBundle(),
+  });
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+
+  const createMutation = useMutation({
+    mutationFn: (draft: EventDraft) =>
+      create({ data: { calendar_source_id: null, ...draft } as EventInput }),
+    onSuccess: invalidate,
+  });
+  const updateMutation = useMutation({
+    mutationFn: (vars: {
+      event_id: string;
+      occurrence_day: string;
+      scope: RecurrenceScope;
+      input: EventInput;
+    }) => update({ data: vars }),
+    onSuccess: invalidate,
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (vars: { event_id: string; occurrence_day: string; scope: RecurrenceScope }) =>
+      remove({ data: vars }),
+    onSuccess: invalidate,
+  });
+
   const value = useMemo<CalendarStore>(() => {
-    const access = getMember(currentMemberId).access;
+    const data = bundle.data;
+    const members = data?.members ?? [];
+    const memberStyles = buildMemberStyles(members);
+    const memberById = Object.fromEntries(members.map((m) => [m.id, m]));
+    const role = data?.family?.role ?? null;
 
     return {
-      events,
-      addEvent: (event) =>
-        setEvents((prev) => [
-          ...prev,
-          { ...event, id: newId(), google_calendar_id: null, google_event_id: null },
-        ]),
+      loading: bundle.isLoading,
+      family: data?.family ?? null,
+      role,
+      canEdit: role === "owner" || role === "editor",
+      isOwner: role === "owner",
 
-      updateEvent: (occurrence, draft, scope) =>
-        setEvents((prev) => {
-          const target = occurrence.event;
-          const key = dayKey(occurrence.start);
+      members,
+      memberById,
+      memberStyles,
+      styleFor: (id) => memberStyles[id] ?? FALLBACK_MEMBER_STYLE,
+      sources: data?.sources ?? [],
+      activities: data?.activities ?? [],
+      events: data?.events ?? [],
 
-          if (!target.recurrence_rule || scope === "series") {
-            return prev.map((e) => (e.id === target.id ? { ...e, ...draft } : e));
-          }
-
-          if (scope === "this") {
-            // detach a single occurrence: exclude it from the series, add a one-off event
-            return [
-              ...prev.map((e) =>
-                e.id === target.id
-                  ? { ...e, excluded_dates: [...(e.excluded_dates ?? []), key] }
-                  : e,
-              ),
-              {
-                ...draft,
-                recurrence_rule: null,
-                id: newId(),
-                google_calendar_id: null,
-                google_event_id: null,
-              },
-            ];
-          }
-
-          // "future": end the old series the day before, start a new one from here
-          const until = dayKey(addDays(occurrence.start, -1));
-          return [
-            ...prev.map((e) => (e.id === target.id ? { ...e, recurrence_until: until } : e)),
-            {
-              ...shiftDraftToDay(draft, occurrence.start),
-              id: newId(),
-              google_calendar_id: null,
-              google_event_id: null,
-            },
-          ];
-        }),
-
-      deleteEvent: (occurrence, scope) =>
-        setEvents((prev) => {
-          const target = occurrence.event;
-          if (!target.recurrence_rule || scope === "series") {
-            return prev.filter((e) => e.id !== target.id);
-          }
-          if (scope === "this") {
-            return prev.map((e) =>
-              e.id === target.id
-                ? { ...e, excluded_dates: [...(e.excluded_dates ?? []), dayKey(occurrence.start)] }
-                : e,
-            );
-          }
-          const until = dayKey(addDays(occurrence.start, -1));
-          return prev.map((e) => (e.id === target.id ? { ...e, recurrence_until: until } : e));
-        }),
+      addEvent: async (draft) => {
+        await createMutation.mutateAsync(draft);
+      },
+      updateEvent: async (occurrence, draft, scope) => {
+        await updateMutation.mutateAsync({
+          event_id: occurrence.event.id,
+          occurrence_day: dayKey(occurrence.start),
+          scope,
+          input: {
+            calendar_source_id: occurrence.event.calendar_source_id,
+            ...draft,
+          } as EventInput,
+        });
+      },
+      deleteEvent: async (occurrence, scope) => {
+        await deleteMutation.mutateAsync({
+          event_id: occurrence.event.id,
+          occurrence_day: dayKey(occurrence.start),
+          scope,
+        });
+      },
 
       selectedMembers,
       toggleMember: (id) =>
@@ -137,16 +155,12 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
         ),
       clearMembers: () => setSelectedMembers([]),
 
-      currentMemberId,
-      access,
-      canEdit: access === "full",
-      setCurrentMemberId,
-
       activeOccurrence,
       openOccurrence: setActiveOccurrence,
       closeOccurrence: () => setActiveOccurrence(null),
     };
-  }, [events, selectedMembers, currentMemberId, activeOccurrence]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bundle.data, bundle.isLoading, selectedMembers, activeOccurrence]);
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;
 }

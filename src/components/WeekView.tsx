@@ -9,7 +9,6 @@ import {
   formatTimeRange,
   isCoverage,
   matchesFilter,
-  memberStyles,
   type CalendarEvent,
   type MemberId,
   type Occurrence,
@@ -96,7 +95,9 @@ export function WeekView({
   selectedMembers: MemberId[];
   days?: number;
 }) {
-  const { openOccurrence } = useCalendar();
+  const { openOccurrence, styleFor, sources } = useCalendar();
+  const sourceName = (id: string | null) =>
+    sources.find((s) => s.id === id)?.name ?? "Coverage";
   const start = days === 1 ? anchor : startOfWeek(anchor, { weekStartsOn: 1 });
   const columns: Date[] = Array.from({ length: days }, (_, i) => addDays(start, i));
   const occurrences = expandOccurrences(events, columns[0]!, addDays(columns[days - 1]!, 1));
@@ -156,7 +157,7 @@ export function WeekView({
                   className={cn(
                     "flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left text-[10px] font-semibold opacity-80 transition-opacity hover:opacity-100",
                     o.event.member_ids[0]
-                      ? memberStyles[o.event.member_ids[0]].soft
+                      ? styleFor(o.event.member_ids[0]!).soft
                       : "bg-surface-muted",
                   )}
                 >
@@ -215,12 +216,12 @@ export function WeekView({
                 {coverage.map((o) => (
                   <div
                     key={o.key}
-                    aria-label={`Babysitter ${formatTimeRange(o.start, o.end, false)}`}
+                    aria-label={`${sourceName(o.event.calendar_source_id)} ${formatTimeRange(o.start, o.end, false)}`}
                     className="pointer-events-none absolute inset-x-0 bg-coverage/60"
                     style={{ top: topFor(o.start), height: heightFor(o) }}
                   >
                     <span className="block truncate px-1.5 pt-0.5 text-[9px] leading-tight font-semibold text-coverage-foreground">
-                      Babysitter · {compactRange(o.start, o.end)}
+                      {sourceName(o.event.calendar_source_id)} · {compactRange(o.start, o.end)}
                     </span>
                   </div>
                 ))}
@@ -239,7 +240,7 @@ export function WeekView({
                         onClick={() => openOccurrence(o)}
                         className={cn(
                           "absolute overflow-hidden rounded-xl border border-border-soft px-1.5 py-1 text-left shadow-soft transition-transform hover:-translate-y-px",
-                          first ? memberStyles[first].soft : "bg-surface-muted",
+                          first ? styleFor(first).soft : "bg-surface-muted",
                         )}
                         style={{
                           top: topFor(o.start),
