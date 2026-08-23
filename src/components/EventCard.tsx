@@ -89,7 +89,7 @@ export function EventCard({
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5">
             <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            <h3 className="truncate text-sm font-bold">{event.title}</h3>
+            <span className="truncate text-sm font-bold">{event.title}</span>
           </div>
           <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
             {showDate ? `${showDate} · ` : ""}
