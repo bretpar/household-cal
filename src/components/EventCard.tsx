@@ -11,6 +11,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useCalendar } from "@/lib/calendar-store";
 import { MemberBadgeRow } from "@/components/MemberBadge";
 import {
   formatTimeRange,
@@ -41,17 +42,23 @@ function accentFor(occurrence: Occurrence) {
 }
 
 export function EventPill({ occurrence }: { occurrence: Occurrence }) {
+  const { openOccurrence } = useCalendar();
   const { event } = occurrence;
   return (
-    <div
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        openOccurrence(occurrence);
+      }}
       className={cn(
-        "flex items-center gap-1 rounded-lg px-1.5 py-1 text-left text-[11px] leading-tight",
+        "flex w-full items-center gap-1 rounded-lg px-1.5 py-1 text-left text-[11px] leading-tight",
         tintFor(occurrence),
       )}
     >
       <span className="min-w-0 flex-1 truncate font-semibold">{event.title}</span>
       <MemberBadgeRow ids={event.member_ids} size="xs" />
-    </div>
+    </button>
   );
 }
 
@@ -64,13 +71,16 @@ export function EventCard({
   showDate?: string;
   className?: string;
 }) {
+  const { openOccurrence } = useCalendar();
   const { event, start, end } = occurrence;
   const Icon = eventTypeIcons[event.event_type];
 
   return (
-    <article
+    <button
+      type="button"
+      onClick={() => openOccurrence(occurrence)}
       className={cn(
-        "relative overflow-hidden rounded-2xl border border-border-soft bg-card p-3 shadow-soft",
+        "relative block w-full overflow-hidden rounded-2xl border border-border-soft bg-card p-3 text-left shadow-soft transition-colors hover:bg-secondary/40",
         className,
       )}
     >
@@ -79,7 +89,7 @@ export function EventCard({
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5">
             <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            <h3 className="truncate text-sm font-bold">{event.title}</h3>
+            <span className="truncate text-sm font-bold">{event.title}</span>
           </div>
           <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
             {showDate ? `${showDate} · ` : ""}
@@ -94,6 +104,6 @@ export function EventCard({
         </div>
         <MemberBadgeRow ids={event.member_ids} size="sm" className="pt-0.5" />
       </div>
-    </article>
+    </button>
   );
 }

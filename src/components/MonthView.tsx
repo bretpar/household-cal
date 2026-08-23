@@ -63,12 +63,20 @@ export function MonthView({
           const today = isSameDay(day, new Date());
 
           return (
-            <button
+            <div
               key={day.toISOString()}
-              type="button"
+              role="button"
+              tabIndex={0}
+              aria-label={format(day, "EEEE, MMMM d")}
               onClick={() => onSelectDay(day)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectDay(day);
+                }
+              }}
               className={cn(
-                "relative min-h-[92px] border-t border-l border-border-soft p-1.5 text-left align-top transition-colors first:border-l-0 hover:bg-secondary/60 sm:min-h-[124px] sm:p-2",
+                "relative min-h-[92px] cursor-pointer border-t border-l border-border-soft p-1.5 text-left align-top transition-colors first:border-l-0 hover:bg-secondary/60 sm:min-h-[124px] sm:p-2",
                 !inMonth && "opacity-45",
                 coverage.length > 0 && "bg-coverage/70",
               )}
@@ -99,7 +107,7 @@ export function MonthView({
                   </p>
                 ) : null}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>

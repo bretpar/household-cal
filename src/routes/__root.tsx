@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { CalendarProvider } from "@/lib/calendar-store";
+import { EventDetailsDialog } from "@/components/EventDetailsDialog";
 import { Toaster } from "@/components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
@@ -136,6 +137,7 @@ function RootComponent() {
       <CalendarProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
+        <EventDetailsDialog />
         <Toaster />
       </CalendarProvider>
     </QueryClientProvider>

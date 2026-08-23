@@ -62,6 +62,10 @@ export interface CalendarEvent {
   event_type: EventType;
   /** simplified RRULE placeholder, null = single event */
   recurrence_rule: string | null;
+  /** ISO date (yyyy-MM-dd) of the last day the series may occur — mirrors RRULE UNTIL */
+  recurrence_until?: string | null;
+  /** ISO dates (yyyy-MM-dd) removed from the series — mirrors Google EXDATE */
+  excluded_dates?: string[];
   source_calendar: SourceCalendarId;
   google_calendar_id: string | null;
   google_event_id: string | null;
@@ -423,9 +427,16 @@ function parseRule(rule: string | null) {
   };
 }
 
+/** yyyy-MM-dd key used for EXDATE / UNTIL comparisons. */
+export function dayKey(day: Date): string {
+  return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+}
+
 function occursOn(event: CalendarEvent, day: Date): boolean {
   const start = new Date(event.start_at);
   const rule = parseRule(event.recurrence_rule);
+  if (event.excluded_dates?.includes(dayKey(day))) return false;
+  if (event.recurrence_until && dayKey(day) > event.recurrence_until) return false;
   if (!rule) return isSameDay(start, day);
   if (differenceInCalendarDays(day, startOfDay(start)) < 0) return false;
 
