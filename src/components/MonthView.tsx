@@ -107,7 +107,7 @@ export function MonthView({
                   </p>
                 ) : null}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
