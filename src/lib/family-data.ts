@@ -427,9 +427,16 @@ function parseRule(rule: string | null) {
   };
 }
 
+/** yyyy-MM-dd key used for EXDATE / UNTIL comparisons. */
+export function dayKey(day: Date): string {
+  return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+}
+
 function occursOn(event: CalendarEvent, day: Date): boolean {
   const start = new Date(event.start_at);
   const rule = parseRule(event.recurrence_rule);
+  if (event.excluded_dates?.includes(dayKey(day))) return false;
+  if (event.recurrence_until && dayKey(day) > event.recurrence_until) return false;
   if (!rule) return isSameDay(start, day);
   if (differenceInCalendarDays(day, startOfDay(start)) < 0) return false;
 
