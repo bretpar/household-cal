@@ -1,0 +1,198 @@
+import { addDays, format, isSameDay, startOfWeek } from "date-fns";
+
+import { cn } from "@/lib/utils";
+import { MemberBadgeRow } from "@/components/MemberBadge";
+import { eventTypeIcons } from "@/components/EventCard";
+import {
+  expandOccurrences,
+  formatTimeRange,
+  isCoverage,
+  matchesFilter,
+  memberStyles,
+  type CalendarEvent,
+  type MemberId,
+  type Occurrence,
+} from "@/lib/family-data";
+
+const DAY_START = 7;
+const DAY_END = 22;
+const HOUR_PX = 60;
+
+function topFor(date: Date) {
+  return (date.getHours() + date.getMinutes() / 60 - DAY_START) * HOUR_PX;
+}
+
+function heightFor(o: Occurrence) {
+  const minutes = (o.end.getTime() - o.start.getTime()) / 60000;
+  return Math.max(28, (minutes / 60) * HOUR_PX);
+}
+
+function hourLabel(hour: number) {
+  const h = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h} ${hour < 12 ? "AM" : "PM"}`;
+}
+
+export function WeekView({
+  anchor,
+  events,
+  selectedMembers,
+  days = 7,
+}: {
+  anchor: Date;
+  events: CalendarEvent[];
+  selectedMembers: MemberId[];
+  days?: number;
+}) {
+  const start = days === 1 ? anchor : startOfWeek(anchor, { weekStartsOn: 1 });
+  const columns: Date[] = Array.from({ length: days }, (_, i) => addDays(start, i));
+  const occurrences = expandOccurrences(events, columns[0]!, addDays(columns[days - 1]!, 1));
+  const hours = Array.from({ length: DAY_END - DAY_START }, (_, i) => DAY_START + i);
+
+  return (
+    <div className="overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft">
+      <div
+        className="grid border-b border-border-soft bg-surface-muted"
+        style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
+      >
+        <div />
+        {columns.map((day) => (
+          <div key={day.toISOString()} className="py-2 text-center">
+            <p className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+              {format(day, "EEE")}
+            </p>
+            <p
+              className={cn(
+                "mx-auto mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold",
+                isSameDay(day, new Date()) && "bg-primary text-primary-foreground",
+              )}
+            >
+              {format(day, "d")}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* all-day row */}
+      <div
+        className="grid border-b border-border-soft"
+        style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
+      >
+        <div className="py-1.5 pr-1 text-right text-[10px] font-semibold text-muted-foreground">
+          All day
+        </div>
+        {columns.map((day) => {
+          const allDay = occurrences.filter(
+            (o) =>
+              o.event.all_day &&
+              !isCoverage(o.event) &&
+              isSameDay(o.start, day) &&
+              matchesFilter(o.event, selectedMembers),
+          );
+          return (
+            <div key={day.toISOString()} className="min-h-8 space-y-1 border-l border-border-soft p-1">
+              {allDay.map((o) => (
+                <div
+                  key={o.key}
+                  className={cn(
+                    "flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] font-semibold",
+                    o.event.member_ids[0]
+                      ? memberStyles[o.event.member_ids[0]].soft
+                      : "bg-surface-muted",
+                  )}
+                >
+                  <span className="min-w-0 flex-1 truncate">{o.event.title}</span>
+                  <MemberBadgeRow ids={o.event.member_ids} size="xs" />
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="max-h-[70vh] overflow-y-auto">
+        <div
+          className="relative grid"
+          style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
+        >
+          <div className="relative">
+            {hours.map((hour) => (
+              <div
+                key={hour}
+                style={{ height: HOUR_PX }}
+                className="pr-1.5 text-right text-[10px] font-semibold text-muted-foreground"
+              >
+                <span className="relative -top-1.5">{hourLabel(hour)}</span>
+              </div>
+            ))}
+          </div>
+
+          {columns.map((day) => {
+            const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
+            const coverage = dayOccurrences.filter((o) => isCoverage(o.event));
+            const visible = dayOccurrences.filter(
+              (o) =>
+                !isCoverage(o.event) &&
+                !o.event.all_day &&
+                matchesFilter(o.event, selectedMembers),
+            );
+
+            return (
+              <div
+                key={day.toISOString()}
+                className="relative border-l border-border-soft"
+                style={{ height: hours.length * HOUR_PX }}
+              >
+                {hours.map((hour) => (
+                  <div
+                    key={hour}
+                    style={{ height: HOUR_PX }}
+                    className="border-b border-border-soft/60"
+                  />
+                ))}
+
+                {/* Babysitter coverage: background time-range layer, behind events */}
+                {coverage.map((o) => (
+                  <div
+                    key={o.key}
+                    className="absolute inset-x-0.5 rounded-xl bg-coverage-strong/70"
+                    style={{ top: topFor(o.start), height: heightFor(o) }}
+                  >
+                    <span className="block px-1.5 pt-1 text-[9px] leading-tight font-bold text-coverage-foreground">
+                      Babysitter {formatTimeRange(o.start, o.end, false)}
+                    </span>
+                  </div>
+                ))}
+
+                {visible.map((o) => {
+                  const Icon = eventTypeIcons[o.event.event_type];
+                  const first = o.event.member_ids[0];
+                  return (
+                    <div
+                      key={o.key}
+                      className={cn(
+                        "absolute inset-x-1 overflow-hidden rounded-xl border border-border-soft/70 px-1.5 py-1 shadow-soft",
+                        first ? memberStyles[first].soft : "bg-surface-muted",
+                      )}
+                      style={{ top: topFor(o.start), height: heightFor(o) }}
+                    >
+                      <div className="flex items-center gap-1">
+                        <Icon className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
+                        <span className="min-w-0 flex-1 truncate text-[11px] font-bold">
+                          {o.event.title}
+                        </span>
+                      </div>
+                      <MemberBadgeRow ids={o.event.member_ids} size="xs" className="mt-0.5" />
+                      <p className="mt-0.5 truncate text-[9px] font-semibold text-muted-foreground">
+                        {formatTimeRange(o.start, o.end, false)}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
