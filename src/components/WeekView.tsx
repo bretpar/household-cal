@@ -1,6 +1,7 @@
 import { addDays, format, isSameDay, startOfWeek } from "date-fns";
 
 import { cn } from "@/lib/utils";
+import { useCalendar } from "@/lib/calendar-store";
 import { MemberBadgeRow } from "@/components/MemberBadge";
 import { eventTypeIcons } from "@/components/EventCard";
 import {
