@@ -1,0 +1,27 @@
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+
+import { EventDetailsDialog } from "@/components/EventDetailsDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { ensureFamilyMembership } from "@/lib/calendar.functions";
+import { CalendarProvider } from "@/lib/calendar-store";
+
+export const Route = createFileRoute("/_authenticated")({
+  ssr: false,
+  beforeLoad: async () => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) throw redirect({ to: "/auth" });
+    // every signed-in user must belong to a household before the calendar loads
+    await ensureFamilyMembership().catch(() => undefined);
+    return { user: data.user };
+  },
+  component: AuthenticatedLayout,
+});
+
+function AuthenticatedLayout() {
+  return (
+    <CalendarProvider>
+      <Outlet />
+      <EventDetailsDialog />
+    </CalendarProvider>
+  );
+}
