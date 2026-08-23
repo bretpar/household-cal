@@ -157,7 +157,7 @@ export function WeekView({
                   className={cn(
                     "flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left text-[10px] font-semibold opacity-80 transition-opacity hover:opacity-100",
                     o.event.member_ids[0]
-                      ? styleFor(o.event.member_ids[0]).soft
+                      ? styleFor(o.event.member_ids[0]!).soft
                       : "bg-surface-muted",
                   )}
                 >

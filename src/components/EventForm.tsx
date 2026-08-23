@@ -13,11 +13,10 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { EventDraft } from "@/lib/calendar-store";
+import { useCalendar } from "@/lib/calendar-store";
 import {
   EVENT_TYPES,
-  FAMILY_MEMBERS,
   RECURRENCE_OPTIONS,
-  memberStyles,
   type EventType,
   type MemberId,
   type Occurrence,
@@ -74,7 +73,7 @@ function combine(date: string, time: string) {
 
 export function draftFromFormState(
   state: EventFormState,
-  source: EventDraft["source_calendar"] = "parker_family",
+  calendarSourceId: string | null = null,
 ): EventDraft {
   const rule = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence)?.rule ?? null;
   return {
@@ -86,7 +85,7 @@ export function draftFromFormState(
     notes: state.notes.trim() || null,
     event_type: state.eventType,
     recurrence_rule: rule,
-    source_calendar: source,
+    calendar_source_id: calendarSourceId,
     member_ids: state.members,
   };
 }
@@ -107,6 +106,9 @@ export function EventFormFields({
   onChange: (next: EventFormState) => void;
   idPrefix?: string;
 }) {
+  const { members, styleFor } = useCalendar();
+  const activeMembers = members.filter((m) => m.active);
+
   const set = <K extends keyof EventFormState>(key: K, value: EventFormState[K]) =>
     onChange({ ...state, [key]: value });
 
@@ -173,7 +175,7 @@ export function EventFormFields({
       <div className="space-y-2">
         <Label>Who?</Label>
         <div className="flex flex-wrap gap-2">
-          {FAMILY_MEMBERS.map((member) => {
+          {activeMembers.map((member) => {
             const on = state.members.includes(member.id);
             return (
               <button
@@ -191,14 +193,14 @@ export function EventFormFields({
                 className={cn(
                   "flex h-11 items-center gap-2 rounded-full pr-4 pl-1.5 text-sm font-semibold transition-all",
                   on
-                    ? cn(memberStyles[member.id].soft, "ring-2", memberStyles[member.id].ring)
+                    ? cn(styleFor(member.id).soft, "ring-2", styleFor(member.id).ring)
                     : "bg-surface-muted text-muted-foreground",
                 )}
               >
                 <span
                   className={cn(
                     "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
-                    memberStyles[member.id].badge,
+                    styleFor(member.id).badge,
                     !on && "opacity-60",
                   )}
                 >
