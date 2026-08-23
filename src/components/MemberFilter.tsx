@@ -1,10 +1,12 @@
 import { cn } from "@/lib/utils";
-import { FAMILY_MEMBERS, memberStyles } from "@/lib/family-data";
 import { useCalendar } from "@/lib/calendar-store";
 
 export function MemberFilter({ className }: { className?: string }) {
-  const { selectedMembers, toggleMember, clearMembers } = useCalendar();
+  const { selectedMembers, toggleMember, clearMembers, members, styleFor } = useCalendar();
   const all = selectedMembers.length === 0;
+  const visible = members.filter((m) => m.active);
+
+  if (visible.length === 0) return null;
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
@@ -21,8 +23,9 @@ export function MemberFilter({ className }: { className?: string }) {
       >
         All
       </button>
-      {FAMILY_MEMBERS.map((member) => {
+      {visible.map((member) => {
         const on = selectedMembers.includes(member.id);
+        const style = styleFor(member.id);
         return (
           <button
             key={member.id}
@@ -32,9 +35,9 @@ export function MemberFilter({ className }: { className?: string }) {
             aria-label={`Filter by ${member.name}`}
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold transition-all",
-              memberStyles[member.id].badge,
+              style.badge,
               on
-                ? cn("ring-2 ring-offset-2 ring-offset-background", memberStyles[member.id].ring)
+                ? cn("ring-2 ring-offset-2 ring-offset-background", style.ring)
                 : "opacity-55 hover:opacity-90",
             )}
           >
