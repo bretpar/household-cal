@@ -210,30 +210,35 @@ export function WeekView({
                   />
                 ))}
 
-                {/* Babysitter coverage: background time-range layer, behind events */}
+                {/* Babysitter coverage: warm neutral shading across the whole scheduled range,
+                    never a family colour and never an event card. Sits behind everything. */}
                 {coverage.map((o) => (
                   <div
                     key={o.key}
-                    className="absolute inset-x-0.5 rounded-xl bg-coverage-strong/70"
+                    aria-label={`Babysitter ${formatTimeRange(o.start, o.end, false)}`}
+                    className="pointer-events-none absolute inset-x-0 bg-coverage/60"
                     style={{ top: topFor(o.start), height: heightFor(o) }}
                   >
-                    <span className="block px-1.5 pt-1 text-[9px] leading-tight font-bold text-coverage-foreground">
-                      Babysitter {formatTimeRange(o.start, o.end, false)}
+                    <span className="block truncate px-1.5 pt-0.5 text-[9px] leading-tight font-semibold text-coverage-foreground">
+                      Babysitter · {compactRange(o.start, o.end)}
                     </span>
                   </div>
                 ))}
 
-                {/* Events sit above the coverage layer, in side-by-side lanes when they overlap.
-                    The left gutter keeps coverage shading visible behind them. */}
-                <div className="absolute inset-y-0 right-1 left-4">
+                {/* Timed events carry the strongest emphasis and sit above the coverage layer,
+                    in side-by-side lanes when they overlap. The left gutter keeps shading visible. */}
+                <div className="absolute inset-y-0 right-1 left-3 sm:left-4">
                   {withLanes(visible).map(({ occurrence: o, lane, laneCount }) => {
                     const Icon = eventTypeIcons[o.event.event_type];
                     const first = o.event.member_ids[0];
+                    const compact = heightFor(o) < 44;
                     return (
-                      <div
+                      <button
                         key={o.key}
+                        type="button"
+                        onClick={() => openOccurrence(o)}
                         className={cn(
-                          "absolute overflow-hidden rounded-xl border border-border-soft/70 px-1.5 py-1 shadow-soft",
+                          "absolute overflow-hidden rounded-xl border border-border-soft px-1.5 py-1 text-left shadow-soft transition-transform hover:-translate-y-px",
                           first ? memberStyles[first].soft : "bg-surface-muted",
                         )}
                         style={{
@@ -249,11 +254,17 @@ export function WeekView({
                             {o.event.title}
                           </span>
                         </div>
-                        <MemberBadgeRow ids={o.event.member_ids} size="xs" className="mt-0.5" />
-                        <p className="mt-0.5 truncate text-[9px] font-semibold text-muted-foreground">
-                          {formatTimeRange(o.start, o.end, false)}
-                        </p>
-                      </div>
+                        {compact ? (
+                          <MemberBadgeRow ids={o.event.member_ids} size="xs" className="mt-0.5" />
+                        ) : (
+                          <>
+                            <MemberBadgeRow ids={o.event.member_ids} size="xs" className="mt-0.5" />
+                            <p className="mt-0.5 truncate text-[9px] font-semibold text-muted-foreground">
+                              {formatTimeRange(o.start, o.end, false)}
+                            </p>
+                          </>
+                        )}
+                      </button>
                     );
                   })}
                 </div>
