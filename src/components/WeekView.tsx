@@ -141,12 +141,18 @@ export function WeekView({
               matchesFilter(o.event, selectedMembers),
           );
           return (
-            <div key={day.toISOString()} className="min-h-8 space-y-1 border-l border-border-soft p-1">
+            <div
+              key={day.toISOString()}
+              className="min-h-7 space-y-0.5 border-l border-border-soft p-1"
+            >
+              {/* Background commitments (school, work): deliberately lighter than timed events */}
               {allDay.map((o) => (
-                <div
+                <button
                   key={o.key}
+                  type="button"
+                  onClick={() => openOccurrence(o)}
                   className={cn(
-                    "flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] font-semibold",
+                    "flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left text-[10px] font-semibold opacity-80 transition-opacity hover:opacity-100",
                     o.event.member_ids[0]
                       ? memberStyles[o.event.member_ids[0]].soft
                       : "bg-surface-muted",
@@ -154,10 +160,7 @@ export function WeekView({
                 >
                   <span className="min-w-0 flex-1 truncate">{o.event.title}</span>
                   <MemberBadgeRow ids={o.event.member_ids} size="xs" />
-                  <span className="hidden shrink-0 text-[9px] font-semibold text-muted-foreground xl:inline">
-                    {formatTimeRange(o.start, o.end, o.event.all_day)}
-                  </span>
-                </div>
+                </button>
               ))}
             </div>
           );
