@@ -145,7 +145,7 @@ export function WeekView({
                 >
                   <span className="min-w-0 flex-1 truncate">{o.event.title}</span>
                   <MemberBadgeRow ids={o.event.member_ids} size="xs" />
-                  <span className="hidden shrink-0 text-[9px] font-semibold text-muted-foreground lg:inline">
+                  <span className="hidden shrink-0 text-[9px] font-semibold text-muted-foreground xl:inline">
                     {formatTimeRange(o.start, o.end, o.event.all_day)}
                   </span>
                 </div>
