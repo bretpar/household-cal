@@ -32,6 +32,44 @@ function hourLabel(hour: number) {
   return `${h} ${hour < 12 ? "AM" : "PM"}`;
 }
 
+interface Placed {
+  occurrence: Occurrence;
+  lane: number;
+  laneCount: number;
+}
+
+/** Greedy lane packing so overlapping events render side by side instead of stacked. */
+function withLanes(list: Occurrence[]): Placed[] {
+  const sorted = [...list].sort((a, b) => a.start.getTime() - b.start.getTime());
+  const placed: Placed[] = [];
+  let cluster: Placed[] = [];
+  let clusterEnd = 0;
+  let laneEnds: number[] = [];
+
+  const flush = () => {
+    const count = Math.max(1, laneEnds.length);
+    cluster.forEach((item) => (item.laneCount = count));
+    placed.push(...cluster);
+    cluster = [];
+    laneEnds = [];
+    clusterEnd = 0;
+  };
+
+  for (const occurrence of sorted) {
+    if (cluster.length > 0 && occurrence.start.getTime() >= clusterEnd) flush();
+    let lane = laneEnds.findIndex((end) => occurrence.start.getTime() >= end);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(0);
+    }
+    laneEnds[lane] = occurrence.end.getTime();
+    clusterEnd = Math.max(clusterEnd, occurrence.end.getTime());
+    cluster.push({ occurrence, lane, laneCount: 1 });
+  }
+  flush();
+  return placed;
+}
+
 export function WeekView({
   anchor,
   events,
