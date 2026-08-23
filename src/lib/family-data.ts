@@ -188,7 +188,7 @@ export const memberStyles: Record<
 };
 
 export function getMember(id: MemberId): FamilyMember {
-  return FAMILY_MEMBERS.find((m) => m.id === id) ?? FAMILY_MEMBERS[0];
+  return FAMILY_MEMBERS.find((m) => m.id === id) ?? FAMILY_MEMBERS[0]!;
 }
 
 /* ---------------------------------------------------------------- mock data */
@@ -426,8 +426,8 @@ function occursOn(event: CalendarEvent, day: Date): boolean {
     return day.getDate() === start.getDate();
   }
   // WEEKLY
-  const days = rule.byDay ?? [DAY_CODES[start.getDay()]];
-  if (!days.includes(DAY_CODES[day.getDay()])) return false;
+  const days = rule.byDay ?? [DAY_CODES[start.getDay()]!];
+  if (!days.includes(DAY_CODES[day.getDay()]!)) return false;
   const weeks = Math.abs(differenceInCalendarWeeks(day, start, { weekStartsOn: 1 }));
   return weeks % rule.interval === 0;
 }
