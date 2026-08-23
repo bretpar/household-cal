@@ -163,31 +163,40 @@ export function WeekView({
                   </div>
                 ))}
 
-                {visible.map((o) => {
-                  const Icon = eventTypeIcons[o.event.event_type];
-                  const first = o.event.member_ids[0];
-                  return (
-                    <div
-                      key={o.key}
-                      className={cn(
-                        "absolute inset-x-1 overflow-hidden rounded-xl border border-border-soft/70 px-1.5 py-1 shadow-soft",
-                        first ? memberStyles[first].soft : "bg-surface-muted",
-                      )}
-                      style={{ top: topFor(o.start), height: heightFor(o) }}
-                    >
-                      <div className="flex items-center gap-1">
-                        <Icon className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
-                        <span className="min-w-0 flex-1 truncate text-[11px] font-bold">
-                          {o.event.title}
-                        </span>
+                {/* Events sit above the coverage layer, in side-by-side lanes when they overlap.
+                    The left gutter keeps coverage shading visible behind them. */}
+                <div className="absolute inset-y-0 right-1 left-4">
+                  {withLanes(visible).map(({ occurrence: o, lane, laneCount }) => {
+                    const Icon = eventTypeIcons[o.event.event_type];
+                    const first = o.event.member_ids[0];
+                    return (
+                      <div
+                        key={o.key}
+                        className={cn(
+                          "absolute overflow-hidden rounded-xl border border-border-soft/70 px-1.5 py-1 shadow-soft",
+                          first ? memberStyles[first].soft : "bg-surface-muted",
+                        )}
+                        style={{
+                          top: topFor(o.start),
+                          height: heightFor(o),
+                          left: `calc(${(lane / laneCount) * 100}% + 1px)`,
+                          width: `calc(${100 / laneCount}% - 2px)`,
+                        }}
+                      >
+                        <div className="flex items-center gap-1">
+                          <Icon className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
+                          <span className="min-w-0 flex-1 truncate text-[11px] font-bold">
+                            {o.event.title}
+                          </span>
+                        </div>
+                        <MemberBadgeRow ids={o.event.member_ids} size="xs" className="mt-0.5" />
+                        <p className="mt-0.5 truncate text-[9px] font-semibold text-muted-foreground">
+                          {formatTimeRange(o.start, o.end, false)}
+                        </p>
                       </div>
-                      <MemberBadgeRow ids={o.event.member_ids} size="xs" className="mt-0.5" />
-                      <p className="mt-0.5 truncate text-[9px] font-semibold text-muted-foreground">
-                        {formatTimeRange(o.start, o.end, false)}
-                      </p>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
