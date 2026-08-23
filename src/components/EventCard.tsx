@@ -43,7 +43,7 @@ function accentFor(occurrence: Occurrence, styleFor: (id: string) => MemberStyle
 
 
 export function EventPill({ occurrence }: { occurrence: Occurrence }) {
-  const { openOccurrence } = useCalendar();
+  const { openOccurrence, styleFor } = useCalendar();
   const { event } = occurrence;
   return (
     <button
@@ -54,7 +54,7 @@ export function EventPill({ occurrence }: { occurrence: Occurrence }) {
       }}
       className={cn(
         "flex w-full items-center gap-1 rounded-lg px-1.5 py-1 text-left text-[11px] leading-tight",
-        tintFor(occurrence),
+        tintFor(occurrence, styleFor),
       )}
     >
       <span className="min-w-0 flex-1 truncate font-semibold">{event.title}</span>
@@ -72,7 +72,7 @@ export function EventCard({
   showDate?: string;
   className?: string;
 }) {
-  const { openOccurrence } = useCalendar();
+  const { openOccurrence, styleFor } = useCalendar();
   const { event, start, end } = occurrence;
   const Icon = eventTypeIcons[event.event_type];
 
@@ -85,7 +85,7 @@ export function EventCard({
         className,
       )}
     >
-      <span className={cn("absolute inset-y-0 left-0 w-1.5", accentFor(occurrence))} />
+      <span className={cn("absolute inset-y-0 left-0 w-1.5", accentFor(occurrence, styleFor))} />
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 pl-2">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5">
