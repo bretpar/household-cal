@@ -6,7 +6,7 @@ import { MemberBadge } from "@/components/MemberBadge";
 import { Switch } from "@/components/ui/switch";
 import { CALENDAR_SOURCES, CAREGIVERS, FAMILY_MEMBERS } from "@/lib/family-data";
 
-export const Route = createFileRoute("/family")({
+export const Route = createFileRoute("/_authenticated/family")({
   head: () => ({
     meta: [
       { title: "Family & Settings — Parker Family Calendar" },

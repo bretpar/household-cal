@@ -5,7 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { MemberBadgeRow } from "@/components/MemberBadge";
 import { SAMPLE_ACTIVITIES, getMember } from "@/lib/family-data";
 
-export const Route = createFileRoute("/activities")({
+export const Route = createFileRoute("/_authenticated/activities")({
   head: () => ({
     meta: [
       { title: "Activities — Parker Family Calendar" },

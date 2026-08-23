@@ -8,7 +8,7 @@ import { MemberFilter } from "@/components/MemberFilter";
 import { useCalendar } from "@/lib/calendar-store";
 import { isCoverage, occurrencesForDay } from "@/lib/family-data";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/today")({
   head: () => ({
     meta: [
       { title: "Today — Parker Family Calendar" },
