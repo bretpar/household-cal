@@ -104,6 +104,6 @@ export function EventCard({
         </div>
         <MemberBadgeRow ids={event.member_ids} size="sm" className="pt-0.5" />
       </div>
-    </article>
+    </button>
   );
 }
