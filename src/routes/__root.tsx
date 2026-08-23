@@ -80,17 +80,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Parker Family Calendar" },
+      { title: "Family Calendar" },
       {
         name: "description",
         content:
-          "A warm shared calendar for the Parker family: school, activities, work and babysitter coverage.",
+          "A warm shared household calendar: school, activities, work and caregiver coverage.",
       },
-      { property: "og:title", content: "Parker Family Calendar" },
+      { property: "og:title", content: "Family Calendar" },
       {
         property: "og:description",
-        content: "One friendly place to see what everyone in the family is doing.",
+        content: "One friendly place to see what everyone in the household is doing.",
       },
+
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
