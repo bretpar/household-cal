@@ -62,6 +62,10 @@ export interface CalendarEvent {
   event_type: EventType;
   /** simplified RRULE placeholder, null = single event */
   recurrence_rule: string | null;
+  /** ISO date (yyyy-MM-dd) of the last day the series may occur — mirrors RRULE UNTIL */
+  recurrence_until?: string | null;
+  /** ISO dates (yyyy-MM-dd) removed from the series — mirrors Google EXDATE */
+  excluded_dates?: string[];
   source_calendar: SourceCalendarId;
   google_calendar_id: string | null;
   google_event_id: string | null;
