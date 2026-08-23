@@ -3,17 +3,17 @@ import { CalendarClock, MapPin, Repeat } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { MemberBadgeRow } from "@/components/MemberBadge";
-import { SAMPLE_ACTIVITIES, getMember } from "@/lib/family-data";
+import { useCalendar } from "@/lib/calendar-store";
 
 export const Route = createFileRoute("/_authenticated/activities")({
   head: () => ({
     meta: [
-      { title: "Activities — Parker Family Calendar" },
+      { title: "Activities — Family Calendar" },
       {
         name: "description",
-        content: "Recurring Parker family activities like soccer, dance and school schedules.",
+        content: "Recurring household activities like sports, lessons and school schedules.",
       },
-      { property: "og:title", content: "Activities — Parker Family Calendar" },
+      { property: "og:title", content: "Activities — Family Calendar" },
       {
         property: "og:description",
         content: "Every recurring activity, who it belongs to, and when it happens.",
@@ -24,6 +24,8 @@ export const Route = createFileRoute("/_authenticated/activities")({
 });
 
 function ActivitiesPage() {
+  const { activities, memberById, loading } = useCalendar();
+
   return (
     <AppShell>
       <div className="space-y-5">
@@ -34,8 +36,14 @@ function ActivitiesPage() {
           </p>
         </header>
 
+        {!loading && activities.length === 0 ? (
+          <p className="rounded-3xl border border-dashed border-border bg-surface p-6 text-sm text-muted-foreground">
+            No recurring activities yet.
+          </p>
+        ) : null}
+
         <div className="grid gap-3 sm:grid-cols-2">
-          {SAMPLE_ACTIVITIES.map((activity) => (
+          {activities.map((activity) => (
             <article
               key={activity.id}
               className="rounded-3xl border border-border-soft bg-card p-4 shadow-soft"
@@ -45,17 +53,24 @@ function ActivitiesPage() {
                 <MemberBadgeRow ids={activity.member_ids} size="sm" />
               </div>
               <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                {activity.member_ids.map((id) => getMember(id).name).join(", ")}
+                {activity.member_ids
+                  .map((id) => memberById[id]?.name)
+                  .filter(Boolean)
+                  .join(", ")}
               </p>
               <dl className="mt-3 space-y-1.5 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <CalendarClock className="h-4 w-4 shrink-0" aria-hidden />
-                  <dd>{activity.schedule_label}</dd>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 shrink-0" aria-hidden />
-                  <dd className="truncate">{activity.location}</dd>
-                </div>
+                {activity.schedule_label ? (
+                  <div className="flex items-center gap-2">
+                    <CalendarClock className="h-4 w-4 shrink-0" aria-hidden />
+                    <dd>{activity.schedule_label}</dd>
+                  </div>
+                ) : null}
+                {activity.location ? (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+                    <dd className="truncate">{activity.location}</dd>
+                  </div>
+                ) : null}
                 <div className="flex items-center gap-2">
                   <Repeat className="h-4 w-4 shrink-0" aria-hidden />
                   <dd>{activity.active ? "Active recurring schedule" : "Paused"}</dd>
