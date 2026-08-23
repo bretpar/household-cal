@@ -216,6 +216,16 @@ export function buildSampleEvents(today = new Date()): CalendarEvent[] {
     ...e,
   });
 
+  /** Recurring series start 6 weeks back so earlier weeks/months look populated. */
+  const backdate = (e: CalendarEvent): CalendarEvent =>
+    e.recurrence_rule && e.recurrence_rule !== "CUSTOM"
+      ? {
+          ...e,
+          start_at: addDays(new Date(e.start_at), -42).toISOString(),
+          end_at: addDays(new Date(e.end_at), -42).toISOString(),
+        }
+      : e;
+
   return [
     base({
       id: "ev-school",
@@ -354,7 +364,7 @@ export function buildSampleEvents(today = new Date()): CalendarEvent[] {
       source_calendar: "babysitter",
       member_ids: [],
     }),
-  ];
+  ].map(backdate);
 }
 
 export const SAMPLE_ACTIVITIES: FamilyActivity[] = [
