@@ -15,8 +15,8 @@ import { useCalendar } from "@/lib/calendar-store";
 import { MemberBadgeRow } from "@/components/MemberBadge";
 import {
   formatTimeRange,
-  memberStyles,
   type EventType,
+  type MemberStyle,
   type Occurrence,
 } from "@/lib/family-data";
 
@@ -31,15 +31,16 @@ export const eventTypeIcons: Record<EventType, LucideIcon> = {
 };
 
 /** The soft tint comes from the first assigned family member — members are the primary identity. */
-function tintFor(occurrence: Occurrence) {
+function tintFor(occurrence: Occurrence, styleFor: (id: string) => MemberStyle) {
   const first = occurrence.event.member_ids[0];
-  return first ? memberStyles[first].soft : "bg-surface-muted";
+  return first ? styleFor(first).soft : "bg-surface-muted";
 }
 
-function accentFor(occurrence: Occurrence) {
+function accentFor(occurrence: Occurrence, styleFor: (id: string) => MemberStyle) {
   const first = occurrence.event.member_ids[0];
-  return first ? memberStyles[first].dot : "bg-border";
+  return first ? styleFor(first).dot : "bg-border";
 }
+
 
 export function EventPill({ occurrence }: { occurrence: Occurrence }) {
   const { openOccurrence } = useCalendar();
