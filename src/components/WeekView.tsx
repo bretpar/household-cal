@@ -27,6 +27,11 @@ function heightFor(o: Occurrence) {
   return Math.max(28, (minutes / 60) * HOUR_PX);
 }
 
+/** Long, day-spanning blocks (school, work) render as banner chips instead of tall columns. */
+function isDayBlock(o: Occurrence): boolean {
+  return o.event.all_day || (o.end.getTime() - o.start.getTime()) / 3600000 >= 5;
+}
+
 function hourLabel(hour: number) {
   const h = hour % 12 === 0 ? 12 : hour % 12;
   return `${h} ${hour < 12 ? "AM" : "PM"}`;
@@ -116,12 +121,12 @@ export function WeekView({
         style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
       >
         <div className="py-1.5 pr-1 text-right text-[10px] font-semibold text-muted-foreground">
-          All day
+          Day
         </div>
         {columns.map((day) => {
           const allDay = occurrences.filter(
             (o) =>
-              o.event.all_day &&
+              isDayBlock(o) &&
               !isCoverage(o.event) &&
               isSameDay(o.start, day) &&
               matchesFilter(o.event, selectedMembers),
@@ -140,6 +145,9 @@ export function WeekView({
                 >
                   <span className="min-w-0 flex-1 truncate">{o.event.title}</span>
                   <MemberBadgeRow ids={o.event.member_ids} size="xs" />
+                  <span className="hidden shrink-0 text-[9px] font-semibold text-muted-foreground lg:inline">
+                    {formatTimeRange(o.start, o.end, o.event.all_day)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -170,7 +178,7 @@ export function WeekView({
             const visible = dayOccurrences.filter(
               (o) =>
                 !isCoverage(o.event) &&
-                !o.event.all_day &&
+                !isDayBlock(o) &&
                 matchesFilter(o.event, selectedMembers),
             );
 
