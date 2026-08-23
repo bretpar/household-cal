@@ -41,17 +41,23 @@ function accentFor(occurrence: Occurrence) {
 }
 
 export function EventPill({ occurrence }: { occurrence: Occurrence }) {
+  const { openOccurrence } = useCalendar();
   const { event } = occurrence;
   return (
-    <div
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        openOccurrence(occurrence);
+      }}
       className={cn(
-        "flex items-center gap-1 rounded-lg px-1.5 py-1 text-left text-[11px] leading-tight",
+        "flex w-full items-center gap-1 rounded-lg px-1.5 py-1 text-left text-[11px] leading-tight",
         tintFor(occurrence),
       )}
     >
       <span className="min-w-0 flex-1 truncate font-semibold">{event.title}</span>
       <MemberBadgeRow ids={event.member_ids} size="xs" />
-    </div>
+    </button>
   );
 }
 
