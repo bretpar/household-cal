@@ -136,6 +136,7 @@ function RootComponent() {
       <CalendarProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
+        <EventDetailsDialog />
         <Toaster />
       </CalendarProvider>
     </QueryClientProvider>
