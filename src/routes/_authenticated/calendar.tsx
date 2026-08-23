@@ -17,13 +17,13 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated/calendar")({
   head: () => ({
     meta: [
-      { title: "Calendar — Parker Family Calendar" },
+      { title: "Calendar — Family Calendar" },
       {
         name: "description",
         content:
-          "Month, week and agenda views of the Parker family schedule with per-person filters and babysitter coverage.",
+          "Month, week and agenda views of your household schedule with per-person filters and caregiver coverage.",
       },
-      { property: "og:title", content: "Calendar — Parker Family Calendar" },
+      { property: "og:title", content: "Calendar — Family Calendar" },
       {
         property: "og:description",
         content: "One shared calendar for school, activities, work and childcare.",

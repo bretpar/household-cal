@@ -93,7 +93,7 @@ export function MonthView({
                 {coverage.length > 0 ? (
                   <Baby
                     className="h-3.5 w-3.5 text-coverage-foreground"
-                    aria-label="Babysitter coverage"
+                    aria-label="Caregiver coverage"
                   />
                 ) : null}
               </div>
