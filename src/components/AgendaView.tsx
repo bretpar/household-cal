@@ -50,7 +50,7 @@ export function AgendaView({
                 className="flex items-center gap-2 rounded-2xl bg-coverage-strong/70 px-3 py-2 text-xs font-bold text-coverage-foreground"
               >
                 <Baby className="h-4 w-4" aria-hidden />
-                Babysitter coverage {formatTimeRange(o.start, o.end, false)}
+                {o.event.title} {formatTimeRange(o.start, o.end, false)}
               </div>
             ))}
 

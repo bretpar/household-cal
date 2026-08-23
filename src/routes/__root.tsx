@@ -10,10 +10,10 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { CalendarProvider } from "@/lib/calendar-store";
-import { EventDetailsDialog } from "@/components/EventDetailsDialog";
+import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+
 
 function NotFoundComponent() {
   return (
@@ -80,17 +80,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Parker Family Calendar" },
+      { title: "Family Calendar" },
       {
         name: "description",
         content:
-          "A warm shared calendar for the Parker family: school, activities, work and babysitter coverage.",
+          "A warm shared household calendar: school, activities, work and caregiver coverage.",
       },
-      { property: "og:title", content: "Parker Family Calendar" },
+      { property: "og:title", content: "Family Calendar" },
       {
         property: "og:description",
-        content: "One friendly place to see what everyone in the family is doing.",
+        content: "One friendly place to see what everyone in the household is doing.",
       },
+
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
@@ -131,15 +132,23 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      router.invalidate();
+      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [router, queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <CalendarProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-        <EventDetailsDialog />
-        <Toaster />
-      </CalendarProvider>
+      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+      <Outlet />
+      <Toaster />
     </QueryClientProvider>
   );
 }
+

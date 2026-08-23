@@ -11,16 +11,16 @@ import { isCoverage, occurrencesForDay } from "@/lib/family-data";
 export const Route = createFileRoute("/_authenticated/today")({
   head: () => ({
     meta: [
-      { title: "Today — Parker Family Calendar" },
+      { title: "Today — Family Calendar" },
       {
         name: "description",
         content:
-          "See what everyone in the Parker family is doing today, including babysitter coverage.",
+          "See what everyone in your household is doing today, including caregiver coverage.",
       },
-      { property: "og:title", content: "Today — Parker Family Calendar" },
+      { property: "og:title", content: "Today — Family Calendar" },
       {
         property: "og:description",
-        content: "A warm, shared family calendar for school, activities and childcare.",
+        content: "A warm, shared household calendar for school, activities and childcare.",
       },
     ],
   }),
@@ -28,9 +28,11 @@ export const Route = createFileRoute("/_authenticated/today")({
 });
 
 function TodayPage() {
-  const { events, selectedMembers } = useCalendar();
+  const { events, selectedMembers, sources } = useCalendar();
   const today = new Date();
   const coverage = occurrencesForDay(events, today).filter((o) => isCoverage(o.event));
+  const coverageName =
+    sources.find((s) => s.display_mode === "coverage_background")?.name ?? "Coverage";
 
   return (
     <AppShell>
@@ -49,12 +51,13 @@ function TodayPage() {
 
         {coverage.length > 0 ? (
           <p className="rounded-2xl bg-coverage-strong/70 px-4 py-3 text-sm font-semibold text-coverage-foreground">
-            Babysitter coverage today ·{" "}
+            {coverageName} today ·{" "}
             {coverage
               .map((o) => `${format(o.start, "h:mm a")}–${format(o.end, "h:mm a")}`)
               .join(", ")}
           </p>
         ) : null}
+
 
         <MemberFilter />
         <AgendaView anchor={today} events={events} selectedMembers={selectedMembers} days={3} />
