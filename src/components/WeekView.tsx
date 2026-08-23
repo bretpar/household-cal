@@ -95,6 +95,7 @@ export function WeekView({
   selectedMembers: MemberId[];
   days?: number;
 }) {
+  const { openOccurrence } = useCalendar();
   const start = days === 1 ? anchor : startOfWeek(anchor, { weekStartsOn: 1 });
   const columns: Date[] = Array.from({ length: days }, (_, i) => addDays(start, i));
   const occurrences = expandOccurrences(events, columns[0]!, addDays(columns[days - 1]!, 1));
