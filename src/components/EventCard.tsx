@@ -71,13 +71,16 @@ export function EventCard({
   showDate?: string;
   className?: string;
 }) {
+  const { openOccurrence } = useCalendar();
   const { event, start, end } = occurrence;
   const Icon = eventTypeIcons[event.event_type];
 
   return (
-    <article
+    <button
+      type="button"
+      onClick={() => openOccurrence(occurrence)}
       className={cn(
-        "relative overflow-hidden rounded-2xl border border-border-soft bg-card p-3 shadow-soft",
+        "relative block w-full overflow-hidden rounded-2xl border border-border-soft bg-card p-3 text-left shadow-soft transition-colors hover:bg-secondary/40",
         className,
       )}
     >
