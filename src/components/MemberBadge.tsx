@@ -1,0 +1,53 @@
+import { cn } from "@/lib/utils";
+import { getMember, memberStyles, type MemberId } from "@/lib/family-data";
+
+const sizes = {
+  xs: "h-4 w-4 text-[9px]",
+  sm: "h-5 w-5 text-[10px]",
+  md: "h-7 w-7 text-xs",
+  lg: "h-11 w-11 text-base",
+};
+
+export function MemberBadge({
+  id,
+  size = "sm",
+  className,
+}: {
+  id: MemberId;
+  size?: keyof typeof sizes;
+  className?: string;
+}) {
+  const member = getMember(id);
+  return (
+    <span
+      title={member.name}
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center rounded-full font-bold",
+        memberStyles[id].badge,
+        sizes[size],
+        className,
+      )}
+    >
+      {member.initial}
+    </span>
+  );
+}
+
+export function MemberBadgeRow({
+  ids,
+  size = "xs",
+  className,
+}: {
+  ids: MemberId[];
+  size?: keyof typeof sizes;
+  className?: string;
+}) {
+  if (ids.length === 0) return null;
+  return (
+    <span className={cn("flex shrink-0 items-center gap-0.5", className)}>
+      {ids.map((id) => (
+        <MemberBadge key={id} id={id} size={size} />
+      ))}
+    </span>
+  );
+}
