@@ -46,18 +46,25 @@
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
 
-  /* Family member pastels */
-  --color-member-d: var(--member-d);
-  --color-member-d-soft: var(--member-d-soft);
-  --color-member-m: var(--member-m);
-  --color-member-m-soft: var(--member-m-soft);
-  --color-member-b: var(--member-b);
-  --color-member-b-soft: var(--member-b-soft);
-  --color-member-e: var(--member-e);
-  --color-member-e-soft: var(--member-e-soft);
-  --color-member-j: var(--member-j);
-  --color-member-j-soft: var(--member-j-soft);
+  /* Family member pastel palette — households pick a palette key per member */
+  --color-member-sky: var(--member-sky);
+  --color-member-sky-soft: var(--member-sky-soft);
+  --color-member-rose: var(--member-rose);
+  --color-member-rose-soft: var(--member-rose-soft);
+  --color-member-amber: var(--member-amber);
+  --color-member-amber-soft: var(--member-amber-soft);
+  --color-member-sage: var(--member-sage);
+  --color-member-sage-soft: var(--member-sage-soft);
+  --color-member-teal: var(--member-teal);
+  --color-member-teal-soft: var(--member-teal-soft);
+  --color-member-lilac: var(--member-lilac);
+  --color-member-lilac-soft: var(--member-lilac-soft);
+  --color-member-coral: var(--member-coral);
+  --color-member-coral-soft: var(--member-coral-soft);
+  --color-member-sand: var(--member-sand);
+  --color-member-sand-soft: var(--member-sand-soft);
   --color-member-foreground: var(--member-foreground);
+
 
   /* Babysitter coverage layer (deliberately a warm neutral, never a child color) */
   --color-coverage: var(--coverage);
