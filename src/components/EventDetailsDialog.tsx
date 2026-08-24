@@ -148,7 +148,7 @@ export function EventDetailsDialog() {
 
   return (
     <Dialog open onOpenChange={(next) => (next ? null : closeOccurrence())}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto rounded-3xl sm:max-w-lg">
+      <DialogContent className="rounded-3xl sm:max-w-lg">
         {mode === "details" ? (
           <>
             <DialogHeader>
@@ -159,7 +159,7 @@ export function EventDetailsDialog() {
               <DialogDescription>{typeLabel}</DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-3 text-sm">
+            <div className="-mx-4 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 text-sm sm:-mx-6 sm:px-6">
               <p className="flex items-center gap-2 font-semibold">
                 <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 {format(start, "EEEE, MMM d")} · {formatTimeRange(start, end, event.all_day)}
@@ -248,7 +248,7 @@ export function EventDetailsDialog() {
             </DialogHeader>
 
             {state ? (
-              <div className="space-y-5">
+              <div className="-mx-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 sm:-mx-6 sm:px-6">
                 <EventFormFields state={state} onChange={setState} idPrefix="edit" />
                 {scopePicker}
               </div>
@@ -284,7 +284,7 @@ export function EventDetailsDialog() {
             </DialogHeader>
 
             {needsScope ? (
-              <div className="flex flex-col gap-2">
+              <div className="-mx-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-4 sm:-mx-6 sm:px-6">
                 {DELETE_OPTIONS.map((option) => (
                   <button
                     key={option.id}
