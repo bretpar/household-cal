@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
 import { MemberBadgeRow } from "@/components/MemberBadge";
 import { eventTypeIcons } from "@/components/EventCard";
+import { useReschedule } from "@/components/useReschedule";
 import {
   expandOccurrences,
   formatTimeRange,
@@ -17,6 +18,9 @@ import {
 const DAY_START = 7;
 const DAY_END = 22;
 const HOUR_PX = 60;
+/** Drops snap to a friendly grid rather than to the exact pixel. */
+const SNAP_MINUTES = 15;
+
 
 function topFor(date: Date) {
   return (date.getHours() + date.getMinutes() / 60 - DAY_START) * HOUR_PX;
