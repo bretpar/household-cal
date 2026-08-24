@@ -37,10 +37,21 @@ function ActivitiesPage() {
         </header>
 
         {!loading && activities.length === 0 ? (
-          <p className="rounded-3xl border border-dashed border-border bg-surface p-6 text-sm text-muted-foreground">
-            No recurring activities yet.
-          </p>
+          <div className="rounded-3xl border border-dashed border-border bg-surface p-6 text-center">
+            <p className="text-base font-bold">No activities yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {canEdit
+                ? "Add a repeating event on the calendar and it will show up here."
+                : "Recurring commitments will appear here once they are added."}
+            </p>
+            {canEdit ? (
+              <div className="mt-4 flex justify-center">
+                <AddEventDialog />
+              </div>
+            ) : null}
+          </div>
         ) : null}
+
 
         <div className="grid gap-3 sm:grid-cols-2">
           {activities.map((activity) => (
