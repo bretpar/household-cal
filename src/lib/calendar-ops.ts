@@ -34,7 +34,14 @@ export interface EventInput {
   /** yyyy-MM-dd last day the series may produce an occurrence, or null for open-ended. */
   recurrence_until?: string | null;
   member_ids: string[];
+  /**
+   * Optional per-person weekday rules inside one series, e.g. Bailey MO–TH and
+   * Ellison TU–TH on the same School event. Members left out participate on
+   * every occurrence.
+   */
+  member_weekdays?: Record<string, string[] | null> | undefined;
 }
+
 
 export type RecurrenceScope = "this" | "future" | "series";
 
