@@ -34,7 +34,7 @@ export function MonthView({
   selectedMembers: MemberId[];
   onSelectDay: (day: Date) => void;
   /** provided only when an event is copied and the user may create events */
-  onPaste?: (day: Date) => void;
+  onPaste?: ((day: Date) => void) | undefined;
 }) {
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
   const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });

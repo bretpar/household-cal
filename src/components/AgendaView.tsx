@@ -23,7 +23,7 @@ export function AgendaView({
   selectedMembers: MemberId[];
   days?: number;
   /** provided only when an event is copied and the user may create events */
-  onPaste?: (day: Date) => void;
+  onPaste?: ((day: Date) => void) | undefined;
 }) {
   const start = startOfDay(anchor);
   const occurrences = expandOccurrences(events, start, addDays(start, days));
