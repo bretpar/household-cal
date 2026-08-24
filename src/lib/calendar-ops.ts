@@ -213,6 +213,7 @@ export async function insertEvent(
       notes: input.notes,
       event_type: input.event_type,
       recurrence_rule: input.recurrence_rule,
+      recurrence_until: input.recurrence_rule ? (input.recurrence_until ?? null) : null,
       ...overrides,
     })
     .select("id")
@@ -255,6 +256,7 @@ export async function applyEventUpdate(
         notes: input.notes,
         event_type: input.event_type,
         recurrence_rule: input.recurrence_rule,
+        recurrence_until: input.recurrence_rule ? (input.recurrence_until ?? null) : null,
         calendar_source_id: sourceId,
       })
       .eq("id", eventId);
