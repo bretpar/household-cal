@@ -22,6 +22,7 @@ import {
   fromGoogleTimes,
 
   googleTitle,
+  seriesPatchFromGoogle,
   shouldApplyGoogleChange,
   stripGeneratedSuffix,
   syncWindow,
@@ -532,28 +533,17 @@ async function applyGoogleEvent(
     return;
   }
 
-
-  const times = fromGoogleTimes(g);
-  const rec = fromGoogleRecurrence(g.recurrence);
   const branch = branchForLink(event, link, initials);
-  const summary = stripGeneratedSuffix(g.summary ?? event.title, branchInitials(branch, initials));
-
-  const patch: Record<string, unknown> = {
-    title: summary || event.title,
-    start_at: times.start_at,
-    end_at: times.end_at,
-    all_day: times.all_day,
-    location: g.location ?? null,
-    notes: g.description ?? null,
-    last_change_source: "google",
-  };
-  // a branch only owns its own weekdays, so it must not rewrite the shared rule
-  // for the other branches of the same logical event
-  if (link.branch_key === "") {
-    patch["recurrence_rule"] = rec.rule;
-    patch["recurrence_until"] = rec.until;
-    if (rec.excludedDates.length > 0) patch["excluded_dates"] = rec.excludedDates;
-  }
+  // Google-owned fields only: event_members, weekdays and event type stay untouched
+  const patch = seriesPatchFromGoogle({
+    local: {
+      title: event.title,
+      memberCount: (event.event_members ?? []).length,
+      branchKey: link.branch_key ?? "",
+    },
+    branchInitials: branchInitials(branch, initials),
+    google: g,
+  });
   await admin.from("events").update(patch).eq("id", link.event_id);
 
   // moved between the two connected calendars directly in Google
