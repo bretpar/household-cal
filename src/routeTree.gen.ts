@@ -19,6 +19,8 @@ import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authentic
 import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/today'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as OauthGoogleCalendarReturnRouteImport } from './routes/oauth/google-calendar/return'
+import { Route as ApiPublicGoogleCalendarNotifyRouteImport } from './routes/api/public/google-calendar/notify'
+import { Route as ApiPublicGoogleCalendarReconcileRouteImport } from './routes/api/public/google-calendar/reconcile'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -70,6 +72,18 @@ const OauthGoogleCalendarReturnRoute =
     path: '/oauth/google-calendar/return',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicGoogleCalendarNotifyRoute =
+  ApiPublicGoogleCalendarNotifyRouteImport.update({
+    id: '/api/public/google-calendar/notify',
+    path: '/api/public/google-calendar/notify',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGoogleCalendarReconcileRoute =
+  ApiPublicGoogleCalendarReconcileRouteImport.update({
+    id: '/api/public/google-calendar/reconcile',
+    path: '/api/public/google-calendar/reconcile',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -81,6 +95,8 @@ export interface FileRoutesByFullPath {
   '/today': typeof AuthenticatedTodayRoute
   '/invite/$token': typeof InviteTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
+  '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -92,6 +108,8 @@ export interface FileRoutesByTo {
   '/today': typeof AuthenticatedTodayRoute
   '/invite/$token': typeof InviteTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
+  '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -105,6 +123,8 @@ export interface FileRoutesById {
   '/_authenticated/today': typeof AuthenticatedTodayRoute
   '/invite/$token': typeof InviteTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
+  '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -118,6 +138,8 @@ export interface FileRouteTypes {
     | '/today'
     | '/invite/$token'
     | '/oauth/google-calendar/return'
+    | '/api/public/google-calendar/notify'
+    | '/api/public/google-calendar/reconcile'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -129,6 +151,8 @@ export interface FileRouteTypes {
     | '/today'
     | '/invite/$token'
     | '/oauth/google-calendar/return'
+    | '/api/public/google-calendar/notify'
+    | '/api/public/google-calendar/reconcile'
   id:
     | '__root__'
     | '/'
@@ -141,6 +165,8 @@ export interface FileRouteTypes {
     | '/_authenticated/today'
     | '/invite/$token'
     | '/oauth/google-calendar/return'
+    | '/api/public/google-calendar/notify'
+    | '/api/public/google-calendar/reconcile'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -149,6 +175,8 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   InviteTokenRoute: typeof InviteTokenRoute
   OauthGoogleCalendarReturnRoute: typeof OauthGoogleCalendarReturnRoute
+  ApiPublicGoogleCalendarNotifyRoute: typeof ApiPublicGoogleCalendarNotifyRoute
+  ApiPublicGoogleCalendarReconcileRoute: typeof ApiPublicGoogleCalendarReconcileRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -223,6 +251,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OauthGoogleCalendarReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/google-calendar/notify': {
+      id: '/api/public/google-calendar/notify'
+      path: '/api/public/google-calendar/notify'
+      fullPath: '/api/public/google-calendar/notify'
+      preLoaderRoute: typeof ApiPublicGoogleCalendarNotifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/google-calendar/reconcile': {
+      id: '/api/public/google-calendar/reconcile'
+      path: '/api/public/google-calendar/reconcile'
+      fullPath: '/api/public/google-calendar/reconcile'
+      preLoaderRoute: typeof ApiPublicGoogleCalendarReconcileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -251,6 +293,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   InviteTokenRoute: InviteTokenRoute,
   OauthGoogleCalendarReturnRoute: OauthGoogleCalendarReturnRoute,
+  ApiPublicGoogleCalendarNotifyRoute: ApiPublicGoogleCalendarNotifyRoute,
+  ApiPublicGoogleCalendarReconcileRoute: ApiPublicGoogleCalendarReconcileRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
