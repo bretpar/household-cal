@@ -193,8 +193,15 @@ export function validateFormState(state: EventFormState): string | null {
   if (repeats && state.recurrenceEnd === "count" && state.recurrenceCount < 1) {
     return "A repeating event needs at least 1 occurrence";
   }
+  if (repeats && state.customizeDays) {
+    const missing = state.members.filter((id) => (state.memberWeekdays[id] ?? []).length === 0);
+    if (missing.length === state.members.length) {
+      return "Choose at least one day for each person, or turn off Customize days by person";
+    }
+  }
   return null;
 }
+
 
 const END_MODES: { id: RecurrenceEndMode; label: string }[] = [
   { id: "on", label: "On date" },
