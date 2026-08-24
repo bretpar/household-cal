@@ -39,6 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="truncate font-display text-lg font-bold">{householdName}</span>
           </Link>
           <div className="flex items-center gap-1">
+            <SyncStatusIndicator />
             <nav className="hidden items-center gap-1 md:flex">
               {NAV.map(({ to, label, icon: Icon }) => (
                 <Link
