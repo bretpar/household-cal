@@ -22,6 +22,7 @@ import {
   fromGoogleTimes,
 
   googleTitle,
+  seriesPatchFromGoogle,
   shouldApplyGoogleChange,
   stripGeneratedSuffix,
   syncWindow,
