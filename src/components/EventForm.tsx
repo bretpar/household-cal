@@ -18,11 +18,13 @@ import { useCalendar } from "@/lib/calendar-store";
 import {
   EVENT_TYPES,
   RECURRENCE_OPTIONS,
+  WEEKDAY_CODES,
   parseRecurrenceRule,
   withRecurrenceCount,
   type EventType,
   type MemberId,
   type Occurrence,
+  type WeekdayCode,
 } from "@/lib/family-data";
 
 export type RecurrenceEndMode = "on" | "count" | "never";
@@ -42,6 +44,10 @@ export interface EventFormState {
   recurrenceUntil: string;
   /** Occurrence count, used when recurrenceEnd is "count". */
   recurrenceCount: number;
+  /** when on, each selected member gets their own weekdays inside the series */
+  customizeDays: boolean;
+  /** member id -> weekdays they take part in. Missing/empty = every occurrence. */
+  memberWeekdays: Record<MemberId, WeekdayCode[]>;
   location: string;
   notes: string;
 }
@@ -68,6 +74,8 @@ export function emptyFormState(defaultDate?: Date): EventFormState {
     recurrenceEnd: "on",
     recurrenceUntil: defaultUntil(date),
     recurrenceCount: 10,
+    customizeDays: false,
+    memberWeekdays: {},
     location: "",
     notes: "",
   };
@@ -79,6 +87,11 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
   const match = RECURRENCE_OPTIONS.find((r) => r.rule === baseRule);
   const parsed = parseRecurrenceRule(event.recurrence_rule);
   const date = format(start, "yyyy-MM-dd");
+  const memberWeekdays: Record<MemberId, WeekdayCode[]> = {};
+  for (const p of event.participants) {
+    if (p.weekdays && p.weekdays.length > 0) memberWeekdays[p.member_id] = [...p.weekdays];
+  }
+  const perPerson = Object.keys(memberWeekdays).length > 0;
   const end_mode: RecurrenceEndMode = event.recurrence_until
     ? "on"
     : parsed?.count
@@ -96,6 +109,8 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
     recurrenceEnd: end_mode,
     recurrenceUntil: event.recurrence_until ?? defaultUntil(date),
     recurrenceCount: parsed?.count ?? 10,
+    customizeDays: perPerson,
+    memberWeekdays,
     location: event.location ?? "",
     notes: event.notes ?? "",
   };
@@ -116,6 +131,8 @@ export function formStateFromClipboard(clip: EventClipboard, date: Date): EventF
     recurrenceEnd: "on",
     recurrenceUntil: defaultUntil(day),
     recurrenceCount: 10,
+    customizeDays: false,
+    memberWeekdays: {},
     location: clip.location,
     notes: clip.notes,
   };
@@ -150,6 +167,12 @@ export function draftFromFormState(
       repeats && state.recurrenceEnd === "on" ? state.recurrenceUntil || null : null,
     calendar_source_id: calendarSourceId,
     member_ids: state.members,
+    member_weekdays:
+      repeats && state.customizeDays
+        ? Object.fromEntries(
+            state.members.map((id) => [id, allWeekdays(state.memberWeekdays[id])]),
+          )
+        : {},
   };
 }
 
