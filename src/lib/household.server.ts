@@ -144,10 +144,13 @@ export async function loadHouseholdAccess(
 
   let invitations: HouseholdInvitation[] = [];
   if (current.role === "owner") {
+    // Active invitations only: accepted / revoked ones stay in the table as history
+    // but must not be presented as if they were still outstanding.
     const { data: invites, error: invErr } = await db
       .from("family_invitations")
       .select("id, email, role, status, expires_at, created_at, token")
       .eq("family_id", current.familyId)
+      .eq("status", "pending")
       .order("created_at", { ascending: false });
     if (invErr) throw invErr;
     invitations = (invites ?? []).map((i: any) => ({
