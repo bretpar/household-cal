@@ -31,6 +31,8 @@ export interface EventInput {
   notes: string | null;
   event_type: EventType;
   recurrence_rule: string | null;
+  /** yyyy-MM-dd last day the series may produce an occurrence, or null for open-ended. */
+  recurrence_until?: string | null;
   member_ids: string[];
 }
 
@@ -211,6 +213,7 @@ export async function insertEvent(
       notes: input.notes,
       event_type: input.event_type,
       recurrence_rule: input.recurrence_rule,
+      recurrence_until: input.recurrence_rule ? (input.recurrence_until ?? null) : null,
       ...overrides,
     })
     .select("id")
@@ -253,6 +256,7 @@ export async function applyEventUpdate(
         notes: input.notes,
         event_type: input.event_type,
         recurrence_rule: input.recurrence_rule,
+        recurrence_until: input.recurrence_rule ? (input.recurrence_until ?? null) : null,
         calendar_source_id: sourceId,
       })
       .eq("id", eventId);

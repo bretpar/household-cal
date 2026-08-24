@@ -24,7 +24,7 @@ import {
 import { useCalendar, type RecurrenceScope } from "@/lib/calendar-store";
 import {
   EVENT_TYPES,
-  RECURRENCE_OPTIONS,
+  describeRecurrence,
   formatTimeRange,
   type Occurrence,
 } from "@/lib/family-data";
@@ -57,9 +57,7 @@ const DELETE_OPTIONS: { id: RecurrenceScope; label: string; hint: string }[] = [
 type Mode = "details" | "edit" | "delete";
 
 function recurrenceLabel(occurrence: Occurrence) {
-  const rule = occurrence.event.recurrence_rule;
-  if (!rule) return null;
-  return RECURRENCE_OPTIONS.find((r) => r.rule === rule)?.label ?? "Repeats";
+  return describeRecurrence(occurrence.event);
 }
 
 /** Single shared event-details surface, opened from every calendar view. */
@@ -159,10 +157,15 @@ export function EventDetailsDialog() {
                 </div>
               ) : null}
               {needsScope ? (
-                <p className="flex items-center gap-2 rounded-xl bg-surface-muted px-3 py-2 text-xs font-bold">
-                  <Repeat className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  Part of a repeating series{repeats ? ` · ${repeats}` : ""}
-                </p>
+                <div className="flex items-start gap-2 rounded-xl bg-surface-muted px-3 py-2 text-xs">
+                  <Repeat className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span>
+                    <span className="block font-bold">Part of a repeating series</span>
+                    {repeats ? (
+                      <span className="mt-0.5 block text-muted-foreground">{repeats}</span>
+                    ) : null}
+                  </span>
+                </div>
               ) : null}
               {event.location ? (
                 <p className="flex items-center gap-2 text-muted-foreground">

@@ -18,10 +18,14 @@ import { useCalendar } from "@/lib/calendar-store";
 import {
   EVENT_TYPES,
   RECURRENCE_OPTIONS,
+  parseRecurrenceRule,
+  withRecurrenceCount,
   type EventType,
   type MemberId,
   type Occurrence,
 } from "@/lib/family-data";
+
+export type RecurrenceEndMode = "on" | "count" | "never";
 
 export interface EventFormState {
   title: string;
@@ -32,20 +36,38 @@ export interface EventFormState {
   members: MemberId[];
   eventType: EventType;
   recurrence: string;
+  /** How the series stops. Defaults to an explicit end date. */
+  recurrenceEnd: RecurrenceEndMode;
+  /** yyyy-MM-dd, used when recurrenceEnd is "on". */
+  recurrenceUntil: string;
+  /** Occurrence count, used when recurrenceEnd is "count". */
+  recurrenceCount: number;
   location: string;
   notes: string;
 }
 
+/** Sensible default end date: three months of repeats from the event day. */
+export function defaultUntil(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const base = new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+  base.setMonth(base.getMonth() + 3);
+  return format(base, "yyyy-MM-dd");
+}
+
 export function emptyFormState(defaultDate?: Date): EventFormState {
+  const date = format(defaultDate ?? new Date(), "yyyy-MM-dd");
   return {
     title: "",
-    date: format(defaultDate ?? new Date(), "yyyy-MM-dd"),
+    date,
     startTime: "16:00",
     endTime: "17:00",
     allDay: false,
     members: [],
     eventType: "activity",
     recurrence: "none",
+    recurrenceEnd: "on",
+    recurrenceUntil: defaultUntil(date),
+    recurrenceCount: 10,
     location: "",
     notes: "",
   };
@@ -53,16 +75,27 @@ export function emptyFormState(defaultDate?: Date): EventFormState {
 
 export function formStateFromOccurrence(occurrence: Occurrence): EventFormState {
   const { event, start, end } = occurrence;
-  const match = RECURRENCE_OPTIONS.find((r) => r.rule === event.recurrence_rule);
+  const baseRule = withRecurrenceCount(event.recurrence_rule, null);
+  const match = RECURRENCE_OPTIONS.find((r) => r.rule === baseRule);
+  const parsed = parseRecurrenceRule(event.recurrence_rule);
+  const date = format(start, "yyyy-MM-dd");
+  const end_mode: RecurrenceEndMode = event.recurrence_until
+    ? "on"
+    : parsed?.count
+      ? "count"
+      : "never";
   return {
     title: event.title,
-    date: format(start, "yyyy-MM-dd"),
+    date,
     startTime: format(start, "HH:mm"),
     endTime: format(end, "HH:mm"),
     allDay: event.all_day,
     members: [...event.member_ids],
     eventType: event.event_type,
     recurrence: match?.id ?? (event.recurrence_rule ? "custom" : "none"),
+    recurrenceEnd: end_mode,
+    recurrenceUntil: event.recurrence_until ?? defaultUntil(date),
+    recurrenceCount: parsed?.count ?? 10,
     location: event.location ?? "",
     notes: event.notes ?? "",
   };
@@ -70,15 +103,19 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
 
 /** Copied details + the newly chosen day. Never a recurring series by default. */
 export function formStateFromClipboard(clip: EventClipboard, date: Date): EventFormState {
+  const day = format(date, "yyyy-MM-dd");
   return {
     title: clip.title,
-    date: format(date, "yyyy-MM-dd"),
+    date: day,
     startTime: clip.startTime,
     endTime: clip.endTime,
     allDay: clip.allDay,
     members: [...clip.members],
     eventType: clip.eventType,
     recurrence: "none",
+    recurrenceEnd: "on",
+    recurrenceUntil: defaultUntil(day),
+    recurrenceCount: 10,
     location: clip.location,
     notes: clip.notes,
   };
@@ -92,7 +129,14 @@ export function draftFromFormState(
   state: EventFormState,
   calendarSourceId: string | null = null,
 ): EventDraft {
-  const rule = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence)?.rule ?? null;
+  const baseRule = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence)?.rule ?? null;
+  const repeats = Boolean(baseRule);
+  const rule = repeats
+    ? withRecurrenceCount(
+        baseRule,
+        state.recurrenceEnd === "count" ? Math.max(1, Math.floor(state.recurrenceCount)) : null,
+      )
+    : null;
   return {
     title: state.title.trim(),
     start_at: state.allDay ? combine(state.date, "00:00") : combine(state.date, state.startTime),
@@ -102,6 +146,8 @@ export function draftFromFormState(
     notes: state.notes.trim() || null,
     event_type: state.eventType,
     recurrence_rule: rule,
+    recurrence_until:
+      repeats && state.recurrenceEnd === "on" ? state.recurrenceUntil || null : null,
     calendar_source_id: calendarSourceId,
     member_ids: state.members,
   };
@@ -110,8 +156,22 @@ export function draftFromFormState(
 export function validateFormState(state: EventFormState): string | null {
   if (!state.title.trim()) return "Please add an event name";
   if (state.members.length === 0) return "Choose at least one family member";
+  const repeats = (RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence)?.rule ?? null) !== null;
+  if (repeats && state.recurrenceEnd === "on") {
+    if (!state.recurrenceUntil) return "Choose the date the repeat should end";
+    if (state.recurrenceUntil < state.date) return "The repeat end date can't be before the event";
+  }
+  if (repeats && state.recurrenceEnd === "count" && state.recurrenceCount < 1) {
+    return "A repeating event needs at least 1 occurrence";
+  }
   return null;
 }
+
+const END_MODES: { id: RecurrenceEndMode; label: string }[] = [
+  { id: "on", label: "On date" },
+  { id: "count", label: "After occurrences" },
+  { id: "never", label: "Never" },
+];
 
 /** Shared fields for both the add and edit flows. Large touch targets for iPad/phone. */
 export function EventFormFields({
@@ -128,6 +188,14 @@ export function EventFormFields({
 
   const set = <K extends keyof EventFormState>(key: K, value: EventFormState[K]) =>
     onChange({ ...state, [key]: value });
+
+  const recurrenceOption = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence);
+  const repeats = Boolean(recurrenceOption?.rule);
+  const frequencyLabel = recurrenceOption?.label ?? "";
+  const startsLabel = state.date
+    ? format(new Date(`${state.date}T00:00`), "EEEE, MMM d, yyyy")
+    : "the event date";
+
 
   return (
     <div className="space-y-4">
@@ -148,7 +216,15 @@ export function EventFormFields({
           id={`${idPrefix}-date`}
           type="date"
           value={state.date}
-          onChange={(e) => set("date", e.target.value)}
+          onChange={(e) => {
+            const date = e.target.value;
+            onChange({
+              ...state,
+              date,
+              recurrenceUntil:
+                date && state.recurrenceUntil < date ? defaultUntil(date) : state.recurrenceUntil,
+            });
+          }}
           className="h-11 rounded-xl"
         />
       </div>
@@ -263,7 +339,78 @@ export function EventFormFields({
               ))}
             </SelectContent>
           </Select>
+      </div>
+
+      {repeats ? (
+        <div className="space-y-3 rounded-2xl bg-surface-muted p-3">
+          <p className="text-sm font-bold">Repeat settings</p>
+          <p className="text-xs text-muted-foreground">
+            Starts {startsLabel} · {state.recurrence === "custom" ? "custom schedule" : frequencyLabel}
+          </p>
+
+          <div className="space-y-2">
+            <Label>Ends</Label>
+            <div className="flex flex-wrap gap-2">
+              {END_MODES.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={state.recurrenceEnd === option.id}
+                  onClick={() => set("recurrenceEnd", option.id)}
+                  className={cn(
+                    "h-11 rounded-full px-4 text-sm font-semibold transition-all",
+                    state.recurrenceEnd === option.id
+                      ? "bg-secondary font-bold ring-2 ring-primary"
+                      : "bg-card text-muted-foreground",
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {state.recurrenceEnd === "on" ? (
+            <div className="space-y-1.5">
+              <Label htmlFor={`${idPrefix}-until`}>Repeat until</Label>
+              <Input
+                id={`${idPrefix}-until`}
+                type="date"
+                min={state.date}
+                value={state.recurrenceUntil}
+                onChange={(e) => set("recurrenceUntil", e.target.value)}
+                className="h-11 rounded-xl bg-card"
+              />
+              <p className="text-xs text-muted-foreground">
+                Includes the last repeat on or before this date.
+              </p>
+            </div>
+          ) : null}
+
+          {state.recurrenceEnd === "count" ? (
+            <div className="space-y-1.5">
+              <Label htmlFor={`${idPrefix}-count`}>Number of occurrences</Label>
+              <Input
+                id={`${idPrefix}-count`}
+                type="number"
+                min={1}
+                step={1}
+                value={state.recurrenceCount}
+                onChange={(e) => set("recurrenceCount", Math.max(1, Number(e.target.value) || 1))}
+                className="h-11 rounded-xl bg-card"
+              />
+            </div>
+          ) : null}
+
+          {state.recurrenceEnd === "never" ? (
+            <p className="text-xs text-muted-foreground">
+              This event will keep repeating until you change or delete it.
+            </p>
+          ) : null}
         </div>
+      ) : null}
+
+
       </div>
 
       <div className="space-y-1.5">
