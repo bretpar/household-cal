@@ -140,7 +140,7 @@ export async function loadHouseholdAccess(
       family_member_id: r.family_member_id ?? null,
       is_self: r.user_id === userId,
     }))
-    .sort((a, b) => roleRank[a.role] - roleRank[b.role]);
+    .sort((a: HouseholdMembership, b: HouseholdMembership) => roleRank[a.role] - roleRank[b.role]);
 
   let invitations: HouseholdInvitation[] = [];
   if (current.role === "owner") {
