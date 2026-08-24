@@ -19,7 +19,11 @@ export const ensureFamilyMembership = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const familyId = await ensureMembership(supabaseAdmin as unknown as Db, context.userId);
+    const { claimPendingInvitations } = await import("@/lib/household.server");
+    const email = (context.claims as { email?: string }).email ?? null;
+    const familyId = await ensureMembership(supabaseAdmin as unknown as Db, context.userId, () =>
+      claimPendingInvitations(supabaseAdmin as never, context.userId, email),
+    );
     return { family_id: familyId };
   });
 
