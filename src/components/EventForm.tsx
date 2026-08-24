@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { EventDraft } from "@/lib/calendar-store";
+import type { EventClipboard } from "@/lib/event-clipboard";
 import { useCalendar } from "@/lib/calendar-store";
 import {
   EVENT_TYPES,
@@ -64,6 +65,22 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
     recurrence: match?.id ?? (event.recurrence_rule ? "custom" : "none"),
     location: event.location ?? "",
     notes: event.notes ?? "",
+  };
+}
+
+/** Copied details + the newly chosen day. Never a recurring series by default. */
+export function formStateFromClipboard(clip: EventClipboard, date: Date): EventFormState {
+  return {
+    title: clip.title,
+    date: format(date, "yyyy-MM-dd"),
+    startTime: clip.startTime,
+    endTime: clip.endTime,
+    allDay: clip.allDay,
+    members: [...clip.members],
+    eventType: clip.eventType,
+    recurrence: "none",
+    location: clip.location,
+    notes: clip.notes,
   };
 }
 

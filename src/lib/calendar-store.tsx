@@ -9,6 +9,7 @@ import {
   updateEventFn,
 } from "@/lib/calendar.functions";
 import type { EventInput, RecurrenceScope } from "@/lib/calendar-ops";
+import { clipboardFromOccurrence, type EventClipboard } from "@/lib/event-clipboard";
 import {
   buildMemberStyles,
   dayKey,
@@ -58,6 +59,15 @@ interface CalendarStore {
   toggleMember: (id: MemberId) => void;
   clearMembers: () => void;
 
+  /** copied event held in memory only (cleared on refresh) */
+  copiedEvent: EventClipboard | null;
+  copyOccurrence: (occurrence: Occurrence) => void;
+  clearCopiedEvent: () => void;
+  /** day the user chose to paste onto; drives the prefilled add-event dialog */
+  pasteDate: Date | null;
+  startPaste: (day: Date) => void;
+  cancelPaste: () => void;
+
   activeOccurrence: Occurrence | null;
   openOccurrence: (occurrence: Occurrence) => void;
   closeOccurrence: () => void;
@@ -76,6 +86,8 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
 
   const [selectedMembers, setSelectedMembers] = useState<MemberId[]>([]);
   const [activeOccurrence, setActiveOccurrence] = useState<Occurrence | null>(null);
+  const [copiedEvent, setCopiedEvent] = useState<EventClipboard | null>(null);
+  const [pasteDate, setPasteDate] = useState<Date | null>(null);
 
   const bundle = useQuery({
     queryKey: FAMILY_BUNDLE_KEY,
@@ -155,12 +167,22 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
         ),
       clearMembers: () => setSelectedMembers([]),
 
+      copiedEvent,
+      copyOccurrence: (occurrence) => setCopiedEvent(clipboardFromOccurrence(occurrence)),
+      clearCopiedEvent: () => {
+        setCopiedEvent(null);
+        setPasteDate(null);
+      },
+      pasteDate,
+      startPaste: setPasteDate,
+      cancelPaste: () => setPasteDate(null),
+
       activeOccurrence,
       openOccurrence: setActiveOccurrence,
       closeOccurrence: () => setActiveOccurrence(null),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bundle.data, bundle.isLoading, selectedMembers, activeOccurrence]);
+  }, [bundle.data, bundle.isLoading, selectedMembers, activeOccurrence, copiedEvent, pasteDate]);
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;
 }

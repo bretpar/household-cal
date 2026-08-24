@@ -1,5 +1,5 @@
 import { addDays, format, isSameDay, startOfDay } from "date-fns";
-import { Baby } from "lucide-react";
+import { Baby, ClipboardPaste } from "lucide-react";
 
 import { EventCard } from "@/components/EventCard";
 import {
@@ -16,11 +16,14 @@ export function AgendaView({
   events,
   selectedMembers,
   days = 1,
+  onPaste,
 }: {
   anchor: Date;
   events: CalendarEvent[];
   selectedMembers: MemberId[];
   days?: number;
+  /** provided only when an event is copied and the user may create events */
+  onPaste?: ((day: Date) => void) | undefined;
 }) {
   const start = startOfDay(anchor);
   const occurrences = expandOccurrences(events, start, addDays(start, days));
@@ -42,6 +45,16 @@ export function AgendaView({
               <span className="text-sm font-semibold text-muted-foreground">
                 {format(day, "MMM d")}
               </span>
+              {onPaste ? (
+                <button
+                  type="button"
+                  onClick={() => onPaste(day)}
+                  className="ml-auto flex h-9 items-center gap-1.5 rounded-full bg-primary/15 px-3 text-xs font-bold text-primary"
+                >
+                  <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
+                  Paste copied event
+                </button>
+              ) : null}
             </div>
 
             {coverage.map((o) => (

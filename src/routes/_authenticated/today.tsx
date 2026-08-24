@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/today")({
 });
 
 function TodayPage() {
-  const { events, selectedMembers, sources } = useCalendar();
+  const { events, selectedMembers, sources, canEdit, copiedEvent, startPaste } = useCalendar();
   const today = new Date();
   const coverage = occurrencesForDay(events, today).filter((o) => isCoverage(o.event));
   const coverageName =
@@ -60,7 +60,13 @@ function TodayPage() {
 
 
         <MemberFilter />
-        <AgendaView anchor={today} events={events} selectedMembers={selectedMembers} days={3} />
+        <AgendaView
+          anchor={today}
+          events={events}
+          selectedMembers={selectedMembers}
+          days={3}
+          onPaste={canEdit && copiedEvent ? startPaste : undefined}
+        />
       </div>
     </AppShell>
   );
