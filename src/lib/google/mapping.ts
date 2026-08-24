@@ -336,3 +336,30 @@ export function syncWindow(now = new Date(), initial = false): { timeMin: string
   max.setMonth(max.getMonth() + 3);
   return { timeMin: min.toISOString(), timeMax: max.toISOString() };
 }
+
+/** What a pulled `status: "cancelled"` item may do to the linked local event. */
+export type CancellationAction = "ignore" | "remove";
+
+/**
+ * Decides whether a Google cancellation tombstone may remove local data.
+ *
+ * A tombstone is only honoured when it refers to the same Google event *in the
+ * same connected calendar* as the link, and only when Google confirms that event
+ * is really cancelled or gone. Tombstones left behind by a cross-calendar move,
+ * or stale entries replayed by a full/incremental list, are ignored so a valid
+ * local event can never be deleted by accident.
+ */
+export function cancellationAction(input: {
+  link: { calendar_source_id: string; google_event_id: string } | null;
+  sourceId: string;
+  googleEventId: string;
+  remoteState: "live" | "cancelled" | "missing" | "unknown";
+}): CancellationAction {
+  const { link, sourceId, googleEventId, remoteState } = input;
+  if (!link) return "ignore";
+  if (link.google_event_id !== googleEventId) return "ignore";
+  if (link.calendar_source_id !== sourceId) return "ignore";
+  if (remoteState === "live") return "ignore";
+  if (remoteState === "unknown") return "ignore";
+  return "remove";
+}
