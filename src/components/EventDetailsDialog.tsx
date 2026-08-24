@@ -57,9 +57,7 @@ const DELETE_OPTIONS: { id: RecurrenceScope; label: string; hint: string }[] = [
 type Mode = "details" | "edit" | "delete";
 
 function recurrenceLabel(occurrence: Occurrence) {
-  const rule = occurrence.event.recurrence_rule;
-  if (!rule) return null;
-  return RECURRENCE_OPTIONS.find((r) => r.rule === rule)?.label ?? "Repeats";
+  return describeRecurrence(occurrence.event);
 }
 
 /** Single shared event-details surface, opened from every calendar view. */
