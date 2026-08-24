@@ -332,35 +332,38 @@ function occursOn(event: CalendarEvent, day: Date): boolean {
   return true;
 }
 
-/** Plain-language summary such as "Repeats every Monday until December 14, 2026". */
-export function describeRecurrence(event: CalendarEvent): string | null {
-  const rule = parseRule(event.recurrence_rule);
-  if (!rule) return event.recurrence_rule === "CUSTOM" ? "Repeats on a custom schedule" : null;
-
-  const start = new Date(event.start_at);
-  const weekday = start.toLocaleDateString("en-US", { weekday: "long" });
-  let base: string;
-  if (rule.freq === "DAILY") {
-    base = rule.interval === 1 ? "Repeats daily" : `Repeats every ${rule.interval} days`;
-  } else if (rule.freq === "MONTHLY") {
-    base =
-      rule.interval === 1
-        ? `Repeats monthly on day ${start.getDate()}`
-        : `Repeats every ${rule.interval} months`;
-  } else {
-    base = rule.interval === 1 ? `Repeats every ${weekday}` : `Repeats every ${rule.interval} weeks`;
-  }
-
-  if (event.recurrence_until) {
-    const [y, m, d] = event.recurrence_until.split("-").map(Number);
-    const until = new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
-    return `${base} until ${until.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
-  }
-  if (rule.count !== null) {
-    return `${base} · ${rule.count} occurrence${rule.count === 1 ? "" : "s"}`;
-  }
-  return base;
+/**
+ * Who takes part on a given day. Members without a weekday rule always take
+ * part; members with one only appear on their own weekdays.
+ */
+export function participantsOn(event: CalendarEvent, day: Date): MemberId[] {
+  const code = DAY_CODES[day.getDay()] as WeekdayCode;
+  const source =
+    event.participants.length > 0
+      ? event.participants
+      : event.member_ids.map((member_id) => ({ member_id, weekdays: null }));
+  return source
+    .filter((p) => !p.weekdays || p.weekdays.length === 0 || p.weekdays.includes(code))
+    .map((p) => p.member_id);
 }
+
+/** True when at least one person is scheduled — no empty School days. */
+function hasParticipantsOn(event: CalendarEvent, day: Date): boolean {
+  const hasRules = event.participants.some((p) => p.weekdays && p.weekdays.length > 0);
+  if (!hasRules) return true;
+  return participantsOn(event, day).length > 0;
+}
+
+/** Plain-language summary of one person's weekdays, e.g. "Mon, Tue, Wed". */
+export function describeWeekdays(weekdays: WeekdayCode[] | null): string {
+  if (!weekdays || weekdays.length === 0) return "Every day of the series";
+  const order = WEEKDAY_CODES.map((d) => d.code);
+  return [...weekdays]
+    .sort((a, b) => order.indexOf(a) - order.indexOf(b))
+    .map((code) => WEEKDAY_CODES.find((d) => d.code === code)?.short ?? code)
+    .join(", ");
+}
+
 
 export function expandOccurrences(
   events: CalendarEvent[],
