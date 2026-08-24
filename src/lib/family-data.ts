@@ -72,6 +72,8 @@ export interface CalendarSource {
   external_calendar_id: string | null;
   display_mode: DisplayMode;
   active: boolean;
+  /** New events default to the main connected calendar. */
+  is_main: boolean;
 }
 
 /** Weekday code used by RRULE BYDAY and by per-person participation rules. */
@@ -122,6 +124,8 @@ export interface CalendarEvent {
   participants: EventParticipant[];
   /** every member on the series, ignoring weekday rules */
   member_ids: MemberId[];
+  /** true for events imported from Google that nobody has been assigned to yet */
+  needs_family_assignment: boolean;
 }
 
 

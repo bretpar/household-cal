@@ -101,7 +101,13 @@ export type Database = {
           display_mode: Database["public"]["Enums"]["calendar_display_mode"]
           external_calendar_id: string | null
           family_id: string
+          google_channel_expires_at: string | null
+          google_channel_id: string | null
+          google_channel_resource_id: string | null
+          google_sync_token: string | null
           id: string
+          is_main: boolean
+          last_synced_at: string | null
           name: string
           provider: Database["public"]["Enums"]["calendar_provider"]
           sort_order: number
@@ -113,7 +119,13 @@ export type Database = {
           display_mode?: Database["public"]["Enums"]["calendar_display_mode"]
           external_calendar_id?: string | null
           family_id: string
+          google_channel_expires_at?: string | null
+          google_channel_id?: string | null
+          google_channel_resource_id?: string | null
+          google_sync_token?: string | null
           id?: string
+          is_main?: boolean
+          last_synced_at?: string | null
           name: string
           provider?: Database["public"]["Enums"]["calendar_provider"]
           sort_order?: number
@@ -125,7 +137,13 @@ export type Database = {
           display_mode?: Database["public"]["Enums"]["calendar_display_mode"]
           external_calendar_id?: string | null
           family_id?: string
+          google_channel_expires_at?: string | null
+          google_channel_id?: string | null
+          google_channel_resource_id?: string | null
+          google_sync_token?: string | null
           id?: string
+          is_main?: boolean
+          last_synced_at?: string | null
           name?: string
           provider?: Database["public"]["Enums"]["calendar_provider"]
           sort_order?: number
@@ -177,6 +195,82 @@ export type Database = {
           },
         ]
       }
+      event_sync_links: {
+        Row: {
+          app_version: number
+          branch_key: string
+          calendar_source_id: string
+          created_at: string
+          event_id: string
+          family_id: string
+          google_etag: string | null
+          google_event_id: string
+          google_recurring_event_id: string | null
+          google_updated_at: string | null
+          id: string
+          last_pushed_at: string | null
+          last_source: string
+          sync_error: string | null
+          updated_at: string
+        }
+        Insert: {
+          app_version?: number
+          branch_key?: string
+          calendar_source_id: string
+          created_at?: string
+          event_id: string
+          family_id: string
+          google_etag?: string | null
+          google_event_id: string
+          google_recurring_event_id?: string | null
+          google_updated_at?: string | null
+          id?: string
+          last_pushed_at?: string | null
+          last_source?: string
+          sync_error?: string | null
+          updated_at?: string
+        }
+        Update: {
+          app_version?: number
+          branch_key?: string
+          calendar_source_id?: string
+          created_at?: string
+          event_id?: string
+          family_id?: string
+          google_etag?: string | null
+          google_event_id?: string
+          google_recurring_event_id?: string | null
+          google_updated_at?: string | null
+          id?: string
+          last_pushed_at?: string | null
+          last_source?: string
+          sync_error?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_sync_links_calendar_source_id_fkey"
+            columns: ["calendar_source_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_sync_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_sync_links_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           all_day: boolean
@@ -190,7 +284,9 @@ export type Database = {
           external_recurring_event_id: string | null
           family_id: string
           id: string
+          last_change_source: string
           location: string | null
+          needs_family_assignment: boolean
           notes: string | null
           recurrence_rule: string | null
           recurrence_until: string | null
@@ -210,7 +306,9 @@ export type Database = {
           external_recurring_event_id?: string | null
           family_id: string
           id?: string
+          last_change_source?: string
           location?: string | null
+          needs_family_assignment?: boolean
           notes?: string | null
           recurrence_rule?: string | null
           recurrence_until?: string | null
@@ -230,7 +328,9 @@ export type Database = {
           external_recurring_event_id?: string | null
           family_id?: string
           id?: string
+          last_change_source?: string
           location?: string | null
+          needs_family_assignment?: boolean
           notes?: string | null
           recurrence_rule?: string | null
           recurrence_until?: string | null
@@ -427,13 +527,45 @@ export type Database = {
           },
         ]
       }
+      google_connection_secrets: {
+        Row: {
+          connection_id: string
+          connection_key_ciphertext: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          connection_id: string
+          connection_key_ciphertext: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          connection_id?: string
+          connection_key_ciphertext?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_connection_secrets_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: true
+            referencedRelation: "google_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_connections: {
         Row: {
           account_email: string
           connected_by: string | null
           created_at: string
           family_id: string
+          google_account_id: string | null
           id: string
+          last_error: string | null
+          last_synced_at: string | null
           status: string
           updated_at: string
         }
@@ -442,7 +574,10 @@ export type Database = {
           connected_by?: string | null
           created_at?: string
           family_id: string
+          google_account_id?: string | null
           id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
           status?: string
           updated_at?: string
         }
@@ -451,7 +586,10 @@ export type Database = {
           connected_by?: string | null
           created_at?: string
           family_id?: string
+          google_account_id?: string | null
           id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
           status?: string
           updated_at?: string
         }

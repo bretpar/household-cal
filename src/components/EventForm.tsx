@@ -50,6 +50,8 @@ export interface EventFormState {
   memberWeekdays: Record<MemberId, WeekdayCode[]>;
   location: string;
   notes: string;
+  /** Which connected calendar the event lives on. null = the main calendar. */
+  calendarSourceId: string | null;
 }
 
 /** Sensible default end date: three months of repeats from the event day. */
@@ -78,6 +80,7 @@ export function emptyFormState(defaultDate?: Date): EventFormState {
     memberWeekdays: {},
     location: "",
     notes: "",
+    calendarSourceId: null,
   };
 }
 
@@ -113,6 +116,7 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
     memberWeekdays,
     location: event.location ?? "",
     notes: event.notes ?? "",
+    calendarSourceId: event.calendar_source_id ?? null,
   };
 }
 
@@ -135,6 +139,7 @@ export function formStateFromClipboard(clip: EventClipboard, date: Date): EventF
     memberWeekdays: {},
     location: clip.location,
     notes: clip.notes,
+    calendarSourceId: clip.calendar_source_id ?? null,
   };
 }
 
@@ -171,7 +176,7 @@ export function draftFromFormState(
     recurrence_rule: rule,
     recurrence_until:
       repeats && state.recurrenceEnd === "on" ? state.recurrenceUntil || null : null,
-    calendar_source_id: calendarSourceId,
+    calendar_source_id: state.calendarSourceId ?? calendarSourceId,
     member_ids: state.members,
     member_weekdays:
       repeats && state.customizeDays
@@ -220,8 +225,10 @@ export function EventFormFields({
   onChange: (next: EventFormState) => void;
   idPrefix?: string;
 }) {
-  const { members, styleFor } = useCalendar();
+  const { members, styleFor, sources } = useCalendar();
   const activeMembers = members.filter((m) => m.active);
+  // Only worth showing when there is an actual routing choice to make.
+  const syncedCalendars = sources.filter((s) => s.provider === "google" && s.active);
 
   const set = <K extends keyof EventFormState>(key: K, value: EventFormState[K]) =>
     onChange({ ...state, [key]: value });
@@ -520,6 +527,28 @@ export function EventFormFields({
               This event will keep repeating until you change or delete it.
             </p>
           ) : null}
+        </div>
+      ) : null}
+
+      {syncedCalendars.length > 1 ? (
+        <div className="space-y-1.5">
+          <Label>Google calendar</Label>
+          <Select
+            value={state.calendarSourceId ?? syncedCalendars.find((s) => s.is_main)?.id ?? ""}
+            onValueChange={(v) => set("calendarSourceId", v)}
+          >
+            <SelectTrigger className="h-11 rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {syncedCalendars.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
+                  {s.is_main ? " · Main" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       ) : null}
 

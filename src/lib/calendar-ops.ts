@@ -127,6 +127,7 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     external_calendar_id: s.external_calendar_id,
     display_mode: s.display_mode as DisplayMode,
     active: s.active,
+    is_main: s.is_main ?? false,
   }));
   const displayModeOf = new Map(sources.map((s) => [s.id, s.display_mode]));
 
@@ -158,6 +159,7 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     recurrence_rule: e.recurrence_rule,
     recurrence_until: e.recurrence_until,
     excluded_dates: e.excluded_dates ?? [],
+    needs_family_assignment: e.needs_family_assignment ?? false,
     external_event_id: e.external_event_id,
     external_recurring_event_id: e.external_recurring_event_id,
     participants: (e.event_members ?? []).map(
@@ -263,13 +265,14 @@ export async function linkMembers(
   if (error) throw error;
 }
 
+/** Returns the id of a newly created event when the scope split the series. */
 export async function applyEventUpdate(
   db: Db,
   eventId: string,
   occurrenceDay: string,
   scope: RecurrenceScope,
   input: EventInput,
-): Promise<void> {
+): Promise<string | null> {
   const { data: existing, error } = await db.from("events").select("*").eq("id", eventId).single();
   if (error) throw error;
 
@@ -296,7 +299,7 @@ export async function applyEventUpdate(
     const { error: clearError } = await db.from("event_members").delete().eq("event_id", eventId);
     if (clearError) throw clearError;
     await linkMembers(db, eventId, input.member_ids, input.member_weekdays ?? {});
-    return;
+    return null;
   }
 
   if (scope === "this") {
@@ -307,12 +310,11 @@ export async function applyEventUpdate(
       .update({ excluded_dates: excluded })
       .eq("id", eventId);
     if (exError) throw exError;
-    await insertEvent(db, familyId, {
+    return insertEvent(db, familyId, {
       ...input,
       recurrence_rule: null,
       calendar_source_id: sourceId,
     });
-    return;
   }
 
   // "future": end the old series the day before, start a new series here
@@ -321,7 +323,7 @@ export async function applyEventUpdate(
     .update({ recurrence_until: shiftDayKey(occurrenceDay, -1) })
     .eq("id", eventId);
   if (untilError) throw untilError;
-  await insertEvent(db, familyId, { ...input, calendar_source_id: sourceId });
+  return insertEvent(db, familyId, { ...input, calendar_source_id: sourceId });
 }
 
 export async function applyEventDelete(

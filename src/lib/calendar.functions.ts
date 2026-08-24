@@ -47,6 +47,8 @@ export const createEvent = createServerFn({ method: "POST" })
     const familyId = await resolveWritableFamily(db, context.userId);
     const sourceId = data.calendar_source_id ?? (await defaultEventSource(db, familyId));
     const id = await insertEvent(db, familyId, { ...data, calendar_source_id: sourceId });
+    const { pushToGoogle } = await import("@/lib/google/push.server");
+    await pushToGoogle(familyId, id);
     return { id };
   });
 
@@ -61,13 +63,22 @@ export const updateEventFn = createServerFn({ method: "POST" })
     }) => ({ ...data, input: asEventInput(data.input) }),
   )
   .handler(async ({ data, context }) => {
-    await applyEventUpdate(
-      context.supabase as unknown as Db,
+    const db = context.supabase as unknown as Db;
+    const familyId = await resolveWritableFamily(db, context.userId);
+    const created = await applyEventUpdate(
+      db,
       data.event_id,
       data.occurrence_day,
       data.scope,
       data.input,
     );
+    // assigning family members clears the "needs family assignment" badge
+    if (data.input.member_ids.length > 0) {
+      await db.from("events").update({ needs_family_assignment: false }).eq("id", data.event_id);
+    }
+    const { pushToGoogle } = await import("@/lib/google/push.server");
+    await pushToGoogle(familyId, data.event_id);
+    if (created && created !== data.event_id) await pushToGoogle(familyId, created);
     return { ok: true };
   });
 
@@ -77,11 +88,18 @@ export const deleteEventFn = createServerFn({ method: "POST" })
     (data: { event_id: string; occurrence_day: string; scope: RecurrenceScope }) => data,
   )
   .handler(async ({ data, context }) => {
-    await applyEventDelete(
-      context.supabase as unknown as Db,
-      data.event_id,
-      data.occurrence_day,
-      data.scope,
-    );
+    const db = context.supabase as unknown as Db;
+    const familyId = await resolveWritableFamily(db, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const sync = await import("@/lib/google/sync.server");
+
+    const wholeEventGone = data.scope === "series";
+    const links = wholeEventGone ? await sync.linksForEvent(supabaseAdmin, data.event_id) : [];
+
+    await applyEventDelete(db, data.event_id, data.occurrence_day, data.scope);
+
+    if (wholeEventGone) await sync.pushEventDeletion(supabaseAdmin, familyId, links);
+    else await sync.pushEvent(supabaseAdmin, familyId, data.event_id);
     return { ok: true };
   });
+
