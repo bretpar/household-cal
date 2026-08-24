@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { CalendarDays, MapPin, NotebookPen, Pencil, Repeat, Trash2 } from "lucide-react";
+import { CalendarDays, Copy, MapPin, NotebookPen, Pencil, Repeat, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,25 @@ const SCOPE_OPTIONS: { id: RecurrenceScope; label: string }[] = [
   { id: "series", label: "Entire series" },
 ];
 
+/** Explicit delete choices for a recurring series. */
+const DELETE_OPTIONS: { id: RecurrenceScope; label: string; hint: string }[] = [
+  {
+    id: "this",
+    label: "Delete this event only",
+    hint: "Removes only this occurrence. The rest of the series stays.",
+  },
+  {
+    id: "future",
+    label: "Delete this and future events",
+    hint: "Removes this occurrence and every later one. Past occurrences stay.",
+  },
+  {
+    id: "series",
+    label: "Delete entire series",
+    hint: "Removes every occurrence of this repeating event.",
+  },
+];
+
 type Mode = "details" | "edit" | "delete";
 
 function recurrenceLabel(occurrence: Occurrence) {
@@ -45,7 +64,14 @@ function recurrenceLabel(occurrence: Occurrence) {
 
 /** Single shared event-details surface, opened from every calendar view. */
 export function EventDetailsDialog() {
-  const { activeOccurrence, closeOccurrence, canEdit, updateEvent, deleteEvent } = useCalendar();
+  const {
+    activeOccurrence,
+    closeOccurrence,
+    canEdit,
+    updateEvent,
+    deleteEvent,
+    copyOccurrence,
+  } = useCalendar();
   const [mode, setMode] = useState<Mode>("details");
   const [scope, setScope] = useState<RecurrenceScope>("this");
   const [state, setState] = useState<EventFormState | null>(null);
@@ -80,8 +106,8 @@ export function EventDetailsDialog() {
     closeOccurrence();
   };
 
-  const confirmDelete = () => {
-    void deleteEvent(occurrence, needsScope ? scope : "series");
+  const confirmDelete = (deleteScope: RecurrenceScope) => {
+    void deleteEvent(occurrence, needsScope ? deleteScope : "series");
     toast.success(`${event.title} deleted`);
     closeOccurrence();
   };
@@ -132,10 +158,10 @@ export function EventDetailsDialog() {
                   <MemberBadgeRow ids={event.member_ids} size="md" />
                 </div>
               ) : null}
-              {repeats ? (
-                <p className="flex items-center gap-2 text-muted-foreground">
-                  <Repeat className="h-4 w-4 shrink-0" aria-hidden />
-                  {repeats}
+              {needsScope ? (
+                <p className="flex items-center gap-2 rounded-xl bg-surface-muted px-3 py-2 text-xs font-bold">
+                  <Repeat className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  Part of a repeating series{repeats ? ` · ${repeats}` : ""}
                 </p>
               ) : null}
               {event.location ? (
@@ -162,6 +188,19 @@ export function EventDetailsDialog() {
                 >
                   <Trash2 className="h-4 w-4" />
                   Delete
+                </Button>
+                <Button
+                  variant="secondary"
+                  type="button"
+                  className="h-11 rounded-full font-semibold"
+                  onClick={() => {
+                    copyOccurrence(occurrence);
+                    toast.success(`Copied ${event.title} — pick a day to paste it`);
+                    closeOccurrence();
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                  Copy
                 </Button>
                 <Button
                   type="button"
@@ -212,12 +251,28 @@ export function EventDetailsDialog() {
               <DialogTitle>Delete {event.title}?</DialogTitle>
               <DialogDescription>
                 {needsScope
-                  ? "Choose how much of this repeating event to remove."
+                  ? "This event repeats. Choose how much of the series to remove."
                   : "This event will be removed from the family calendar."}
               </DialogDescription>
             </DialogHeader>
 
-            {scopePicker}
+            {needsScope ? (
+              <div className="flex flex-col gap-2">
+                {DELETE_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => confirmDelete(option.id)}
+                    className="rounded-2xl bg-surface-muted px-4 py-3 text-left transition-colors hover:bg-secondary"
+                  >
+                    <span className="block text-sm font-bold text-destructive">{option.label}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      {option.hint}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
             <DialogFooter>
               <Button
@@ -226,16 +281,18 @@ export function EventDetailsDialog() {
                 className="h-11 rounded-full"
                 onClick={() => setMode("details")}
               >
-                Keep event
+                Cancel
               </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                className="h-11 rounded-full px-6 font-bold"
-                onClick={confirmDelete}
-              >
-                Delete
-              </Button>
+              {needsScope ? null : (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="h-11 rounded-full px-6 font-bold"
+                  onClick={() => confirmDelete("series")}
+                >
+                  Delete
+                </Button>
+              )}
             </DialogFooter>
           </>
         )}
