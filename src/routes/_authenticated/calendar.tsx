@@ -36,11 +36,13 @@ export const Route = createFileRoute("/_authenticated/calendar")({
 type ViewMode = "month" | "week" | "agenda";
 
 function CalendarPage() {
-  const { events, selectedMembers } = useCalendar();
+  const { events, selectedMembers, canEdit, loading } = useCalendar();
   const isMobile = useIsMobile();
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("month");
   const mode: ViewMode = isMobile && view === "month" ? view : view;
+  const isEmpty = !loading && events.length === 0;
+
 
   const step = (direction: number) =>
     setAnchor((prev) =>
