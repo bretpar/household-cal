@@ -335,6 +335,81 @@ export function EventFormFields({
         </div>
       </div>
 
+      {repeats && state.members.length > 0 ? (
+        <div className="space-y-3 rounded-xl bg-surface-muted p-3">
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor={`${idPrefix}-custom-days`} className="font-semibold">
+              Customize days by person
+            </Label>
+            <Switch
+              id={`${idPrefix}-custom-days`}
+              checked={state.customizeDays}
+              onCheckedChange={(v) => set("customizeDays", v)}
+            />
+          </div>
+          {state.customizeDays ? (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Pick each person's days. The event only appears on days someone is scheduled.
+              </p>
+              {state.members.map((memberId) => {
+                const member = activeMembers.find((m) => m.id === memberId);
+                if (!member) return null;
+                const selectedDays = state.memberWeekdays[memberId] ?? [];
+                return (
+                  <div key={memberId} className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <span
+                        className={cn(
+                          "flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold",
+                          styleFor(memberId).badge,
+                        )}
+                      >
+                        {member.initial}
+                      </span>
+                      {member.name}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {WEEKDAY_CODES.map((day) => {
+                        const on = selectedDays.includes(day.code);
+                        return (
+                          <button
+                            key={day.code}
+                            type="button"
+                            aria-pressed={on}
+                            aria-label={`${member.name} ${day.label}`}
+                            onClick={() =>
+                              onChange({
+                                ...state,
+                                memberWeekdays: {
+                                  ...state.memberWeekdays,
+                                  [memberId]: on
+                                    ? selectedDays.filter((d) => d !== day.code)
+                                    : [...selectedDays, day.code],
+                                },
+                              })
+                            }
+                            className={cn(
+                              "h-9 min-w-11 rounded-lg px-2 text-xs font-semibold transition-colors",
+                              on
+                                ? cn(styleFor(memberId).soft, "ring-2", styleFor(memberId).ring)
+                                : "bg-background text-muted-foreground",
+                            )}
+                          >
+                            {day.short}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Event type</Label>
