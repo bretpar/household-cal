@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Home, LogOut, Sparkles, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { supabase } from "@/integrations/supabase/client";
 import { useCalendar } from "@/lib/calendar-store";
 
@@ -39,6 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="truncate font-display text-lg font-bold">{householdName}</span>
           </Link>
           <div className="flex items-center gap-1">
+            <SyncStatusIndicator />
             <nav className="hidden items-center gap-1 md:flex">
               {NAV.map(({ to, label, icon: Icon }) => (
                 <Link
