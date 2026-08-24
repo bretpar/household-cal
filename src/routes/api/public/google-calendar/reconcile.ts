@@ -13,8 +13,21 @@ export const Route = createFileRoute("/api/public/google-calendar/reconcile")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const denied = await authenticateCronRequest(request);
-        if (denied) return denied;
+        // The database scheduler authenticates with its own token; Lovable's
+        // cron secret keeps working for platform-triggered runs.
+        const schedulerToken = process.env["GOOGLE_SYNC_SCHEDULER_TOKEN"];
+        const bearer = /^Bearer ([^\s,]+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
+        let authorized = false;
+        if (schedulerToken && bearer) {
+          const { createHash, timingSafeEqual } = await import("node:crypto");
+          const digest = (value: string) => createHash("sha256").update(value, "utf8").digest();
+          authorized = timingSafeEqual(digest(bearer), digest(schedulerToken));
+        }
+        if (!authorized) {
+          const denied = await authenticateCronRequest(request);
+          if (denied) return denied;
+        }
+
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { reconcileHousehold } = await import("@/lib/google/sync.server");
