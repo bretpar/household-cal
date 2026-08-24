@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Eye, Settings, ShieldCheck } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { CalendarSyncSettings } from "@/components/CalendarSyncSettings";
 import { DeveloperTools } from "@/components/DeveloperTools";
 import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { MemberBadge } from "@/components/MemberBadge";
@@ -106,6 +107,8 @@ function FamilyPage() {
         ) : null}
 
         <HouseholdAccess />
+
+        <CalendarSyncSettings />
 
         <section className="space-y-3">
           <h2 className="flex items-center gap-2 text-sm font-bold tracking-wide text-muted-foreground uppercase">

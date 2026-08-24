@@ -102,28 +102,30 @@ export function CalendarSyncSettings() {
     enabled: Boolean(slotDialog) && Boolean(data?.connection),
   });
 
-  const mutate = <T,>(fn: (input: T) => Promise<unknown>, success: string) =>
-    useMutation({
-      mutationFn: (input: T) => fn(input),
-      onSuccess: () => {
-        toast.success(success);
-        refresh();
-      },
-      onError: (error: Error) => toast.error(error.message),
-    });
-
-  const renameMutation = mutate<{ data: { source_id: string; name: string } }>(
-    (input) => rename(input),
-    "Calendar renamed",
-  );
-  const mainMutation = mutate<{ data: { source_id: string } }>(
-    (input) => makeMain(input),
-    "Main calendar updated",
-  );
-  const detachMutation = mutate<{ data: { source_id: string } }>(
-    (input) => detach(input),
-    "Calendar disconnected — your events are still here",
-  );
+  const renameMutation = useMutation({
+    mutationFn: (input: { data: { source_id: string; name: string } }) => rename(input),
+    onSuccess: () => {
+      toast.success("Calendar renamed");
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const mainMutation = useMutation({
+    mutationFn: (input: { data: { source_id: string } }) => makeMain(input),
+    onSuccess: () => {
+      toast.success("Main calendar updated");
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const detachMutation = useMutation({
+    mutationFn: (input: { data: { source_id: string } }) => detach(input),
+    onSuccess: () => {
+      toast.success("Calendar disconnected — your events are still here");
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
   const attachMutation = useMutation({
     mutationFn: (input: Parameters<typeof attach>[0]) => attach(input),
     onSuccess: () => {
@@ -405,7 +407,7 @@ export function CalendarSyncSettings() {
                       : {
                           mode: "existing",
                           external_calendar_id: chosen,
-                          name: summary?.summary,
+                          name: summary?.summary ?? chosen,
                           replace_source_id: slotDialog?.replaceId ?? null,
                         },
                 });
