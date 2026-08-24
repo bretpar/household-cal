@@ -100,12 +100,35 @@ export function WeekView({
   days?: number;
 }) {
   const { openOccurrence, styleFor, sources } = useCalendar();
+  const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
   const sourceName = (id: string | null) =>
     sources.find((s) => s.id === id)?.name ?? "Coverage";
   const start = days === 1 ? anchor : startOfWeek(anchor, { weekStartsOn: 1 });
   const columns: Date[] = Array.from({ length: days }, (_, i) => addDays(start, i));
   const occurrences = expandOccurrences(events, columns[0]!, addDays(columns[days - 1]!, 1));
   const hours = Array.from({ length: DAY_END - DAY_START }, (_, i) => DAY_START + i);
+
+  /** Pointer position inside a day column -> snapped start time on that day. */
+  const startFromDrop = (day: Date, e: React.DragEvent<HTMLElement>): Date => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const minutesFromTop = ((e.clientY - rect.top) / HOUR_PX) * 60;
+    const total = Math.max(
+      DAY_START * 60,
+      Math.min(DAY_END * 60 - SNAP_MINUTES, DAY_START * 60 + minutesFromTop),
+    );
+    const snapped = Math.round(total / SNAP_MINUTES) * SNAP_MINUTES;
+    const next = new Date(day);
+    next.setHours(Math.floor(snapped / 60), snapped % 60, 0, 0);
+    return next;
+  };
+
+  /** Day-block / all-day chips keep their time of day and only change day. */
+  const sameTimeOn = (day: Date, occurrence: Occurrence): Date => {
+    const next = new Date(day);
+    next.setHours(occurrence.start.getHours(), occurrence.start.getMinutes(), 0, 0);
+    return next;
+  };
+
 
   return (
     <div className="overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft">
