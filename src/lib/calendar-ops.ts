@@ -31,6 +31,8 @@ export interface EventInput {
   notes: string | null;
   event_type: EventType;
   recurrence_rule: string | null;
+  /** yyyy-MM-dd last day the series may produce an occurrence, or null for open-ended. */
+  recurrence_until?: string | null;
   member_ids: string[];
 }
 
