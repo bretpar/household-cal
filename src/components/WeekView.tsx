@@ -4,6 +4,7 @@ import { addDays, format, isSameDay, startOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
 import { MemberBadgeRow } from "@/components/MemberBadge";
+import { eventTintClass } from "@/lib/event-colors";
 import { eventTypeIcons } from "@/components/EventCard";
 import { useReschedule } from "@/components/useReschedule";
 import {
@@ -189,9 +190,7 @@ export function WeekView({
                   className={cn(
                     "flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left text-[10px] font-semibold opacity-80 transition-opacity hover:opacity-100",
                     draggingKey === o.key && "opacity-40",
-                    o.member_ids[0]
-                      ? styleFor(o.member_ids[0]!).soft
-                      : "bg-surface-muted",
+                    eventTintClass(o.member_ids, styleFor),
                   )}
                 >
                   <span className="min-w-0 flex-1 truncate">{o.event.title}</span>
@@ -265,7 +264,6 @@ export function WeekView({
                 <div className="absolute inset-y-0 right-1 left-3 sm:left-4">
                   {withLanes(visible).map(({ occurrence: o, lane, laneCount }) => {
                     const Icon = eventTypeIcons[o.event.event_type];
-                    const first = o.member_ids[0];
                     const compact = heightFor(o) < 44;
                     return (
                       <button
@@ -275,7 +273,7 @@ export function WeekView({
                         onClick={() => openOccurrence(o)}
                         className={cn(
                           "absolute overflow-hidden rounded-xl border border-border-soft px-1.5 py-1 text-left shadow-soft transition-transform hover:-translate-y-px",
-                          first ? styleFor(first).soft : "bg-surface-muted",
+                          eventTintClass(o.member_ids, styleFor),
                           draggingKey === o.key && "opacity-40",
                         )}
                         style={{
