@@ -127,3 +127,66 @@ describe("sync window", () => {
     expect(ongoing.timeMax.slice(0, 7)).toBe("2026-09");
   });
 });
+
+describe("inbound Google edit of an already-pushed app event", () => {
+  const link = {
+    google_etag: '"pushed"',
+    google_updated_at: "2026-08-24T18:00:00.000Z",
+    last_source: "app" as const,
+    last_pushed_at: "2026-08-24T18:00:00.000Z",
+  };
+
+  it("applies a newer external edit even though the app pushed last", () => {
+    expect(
+      shouldApplyGoogleChange(
+        link,
+        { etag: '"external"', updated: "2026-08-24T19:30:00.000Z" },
+        { updated_at: "2026-08-24T17:59:00.000Z", last_change_source: "app" },
+      ),
+    ).toBe(true);
+  });
+
+  it("still ignores the echo of our own push", () => {
+    expect(
+      shouldApplyGoogleChange(
+        link,
+        { etag: '"pushed"', updated: "2026-08-24T19:30:00.000Z" },
+        { updated_at: "2026-08-24T17:59:00.000Z", last_change_source: "app" },
+      ),
+    ).toBe(false);
+  });
+
+  it("still ignores a Google update older than the one already processed", () => {
+    expect(
+      shouldApplyGoogleChange(
+        link,
+        { etag: '"old"', updated: "2026-08-24T17:00:00.000Z" },
+        { updated_at: "2026-08-24T17:59:00.000Z", last_change_source: "app" },
+      ),
+    ).toBe(false);
+  });
+
+  it("lets a genuinely unsynced local app edit win", () => {
+    expect(
+      shouldApplyGoogleChange(
+        link,
+        { etag: '"external"', updated: "2026-08-24T18:30:00.000Z" },
+        { updated_at: "2026-08-24T19:00:00.000Z", last_change_source: "app" },
+      ),
+    ).toBe(false);
+  });
+
+  it("does not let a google-sourced local change block an inbound edit", () => {
+    expect(
+      shouldApplyGoogleChange(
+        link,
+        { etag: '"external"', updated: "2026-08-24T18:30:00.000Z" },
+        { updated_at: "2026-08-24T19:00:00.000Z", last_change_source: "google" },
+      ),
+    ).toBe(true);
+  });
+
+  it("maps an externally edited title back to the local title", () => {
+    expect(stripGeneratedSuffix("New Test - E & B", ["E", "B"])).toBe("New Test");
+  });
+});

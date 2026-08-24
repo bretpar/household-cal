@@ -483,9 +483,16 @@ async function applyGoogleEvent(
     .maybeSingle();
   if (!event) return;
 
-  if (!shouldApplyGoogleChange(link, { etag: g.etag, updated: g.updated }, event.updated_at)) {
+  if (
+    !shouldApplyGoogleChange(
+      link,
+      { etag: g.etag, updated: g.updated },
+      { updated_at: event.updated_at, last_change_source: event.last_change_source },
+    )
+  ) {
     return;
   }
+
 
   const times = fromGoogleTimes(g);
   const rec = fromGoogleRecurrence(g.recurrence);
