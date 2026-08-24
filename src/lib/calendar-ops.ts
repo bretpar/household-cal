@@ -102,7 +102,11 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
       .select("*")
       .eq("family_id", familyId)
       .order("sort_order", { ascending: true }),
-    db.from("events").select("*, event_members(family_member_id)").eq("family_id", familyId),
+    db
+      .from("events")
+      .select("*, event_members(family_member_id, weekdays)")
+      .eq("family_id", familyId),
+
     db
       .from("activities")
       .select("*, activity_members(family_member_id)")
