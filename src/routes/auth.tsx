@@ -9,6 +9,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: typeof search["redirect"] === "string" && search["redirect"].startsWith("/")
+      ? (search["redirect"] as string)
+      : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Sign in — Family Calendar" },
@@ -25,6 +30,11 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
+  const goHome = () => {
+    if (redirect) window.location.assign(redirect);
+    else navigate({ to: "/today", replace: true });
+  };
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,15 +42,16 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/today", replace: true });
+      if (data.session) goHome();
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) {
-        navigate({ to: "/today", replace: true });
+        goHome();
       }
     });
     return () => sub.subscription.unsubscribe();
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate, redirect]);
 
   const submit = async () => {
     if (!email.trim() || !password) {
@@ -76,14 +87,16 @@ function AuthPage() {
 
   const googleSignIn = async () => {
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+      redirect_uri: redirect
+        ? `${window.location.origin}/auth?redirect=${encodeURIComponent(redirect)}`
+        : window.location.origin,
     });
     if (result.error) {
       toast.error("Google sign-in failed");
       return;
     }
     if (result.redirected) return;
-    navigate({ to: "/today", replace: true });
+    goHome();
   };
 
   return (
