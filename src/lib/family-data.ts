@@ -157,7 +157,7 @@ export const RECURRENCE_OPTIONS = [
   { id: "weekly", label: "Weekly", rule: "FREQ=WEEKLY" },
   { id: "biweekly", label: "Every 2 weeks", rule: "FREQ=WEEKLY;INTERVAL=2" },
   { id: "monthly", label: "Monthly", rule: "FREQ=MONTHLY" },
-  { id: "custom", label: "Custom (coming soon)", rule: "CUSTOM" },
+  { id: "custom", label: "Custom days by person", rule: "CUSTOM" },
 ] as const;
 
 export interface MemberStyle {

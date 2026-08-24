@@ -152,12 +152,44 @@ function allWeekdays(days: WeekdayCode[] | undefined): WeekdayCode[] | null {
   return days && days.length > 0 ? days : null;
 }
 
+const ORDERED_WEEKDAYS = WEEKDAY_CODES.map((w) => w.code);
+
+/** Per-person days are always in play for the Custom schedule. */
+export function usesPerPersonDays(state: EventFormState): boolean {
+  return state.customizeDays || state.recurrence === "custom";
+}
+
+/**
+ * The stored RRULE for a form state.
+ *
+ * "Custom" is a real weekly rule whose BYDAY is the union of the days people
+ * were given, so School (B Mon–Thu, E Tue–Thu) stores
+ * FREQ=WEEKLY;BYDAY=MO,TU,WE,TH and never the old "CUSTOM" placeholder — that
+ * placeholder produced no local occurrences and an invalid Google RRULE.
+ */
+export function ruleForFormState(state: EventFormState): string | null {
+  if (state.recurrence === "custom") {
+    const union = new Set<WeekdayCode>();
+    for (const id of state.members) {
+      for (const day of state.memberWeekdays[id] ?? []) union.add(day);
+    }
+    const days = ORDERED_WEEKDAYS.filter((d) => union.has(d));
+    if (days.length === 0 && state.date) {
+      const code = ORDERED_WEEKDAYS[(new Date(`${state.date}T00:00`).getDay() + 6) % 7];
+      if (code) days.push(code);
+    }
+    if (days.length === 0) return null;
+    return `FREQ=WEEKLY;BYDAY=${days.join(",")}`;
+  }
+  const rule = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence)?.rule ?? null;
+  return rule;
+}
 
 export function draftFromFormState(
   state: EventFormState,
   calendarSourceId: string | null = null,
 ): EventDraft {
-  const baseRule = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence)?.rule ?? null;
+  const baseRule = ruleForFormState(state);
   const repeats = Boolean(baseRule);
   const rule = repeats
     ? withRecurrenceCount(
@@ -179,7 +211,7 @@ export function draftFromFormState(
     calendar_source_id: state.calendarSourceId ?? calendarSourceId,
     member_ids: state.members,
     member_weekdays:
-      repeats && state.customizeDays
+      repeats && usesPerPersonDays(state)
         ? Object.fromEntries(
             state.members.map((id) => [id, allWeekdays(state.memberWeekdays[id])]),
           )
@@ -187,10 +219,13 @@ export function draftFromFormState(
   };
 }
 
+
 export function validateFormState(state: EventFormState): string | null {
   if (!state.title.trim()) return "Please add an event name";
   if (state.members.length === 0) return "Choose at least one family member";
-  const repeats = (RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence)?.rule ?? null) !== null;
+  const repeats =
+    state.recurrence === "custom" ||
+    (RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence)?.rule ?? null) !== null;
   if (repeats && state.recurrenceEnd === "on") {
     if (!state.recurrenceUntil) return "Choose the date the repeat should end";
     if (state.recurrenceUntil < state.date) return "The repeat end date can't be before the event";
@@ -198,12 +233,13 @@ export function validateFormState(state: EventFormState): string | null {
   if (repeats && state.recurrenceEnd === "count" && state.recurrenceCount < 1) {
     return "A repeating event needs at least 1 occurrence";
   }
-  if (repeats && state.customizeDays) {
+  if (repeats && usesPerPersonDays(state)) {
     const missing = state.members.filter((id) => (state.memberWeekdays[id] ?? []).length === 0);
     if (missing.length > 0) {
       return "Choose at least one day for each person, or turn off Customize days by person";
     }
   }
+
 
   return null;
 }
@@ -234,8 +270,10 @@ export function EventFormFields({
     onChange({ ...state, [key]: value });
 
   const recurrenceOption = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence);
-  const repeats = Boolean(recurrenceOption?.rule);
+  const repeats = state.recurrence === "custom" || Boolean(recurrenceOption?.rule);
+  const perPersonDays = usesPerPersonDays(state);
   const frequencyLabel = recurrenceOption?.label ?? "";
+
   const startsLabel = state.date
     ? format(new Date(`${state.date}T00:00`), "EEEE, MMM d, yyyy")
     : "the event date";
@@ -358,11 +396,13 @@ export function EventFormFields({
             </Label>
             <Switch
               id={`${idPrefix}-custom-days`}
-              checked={state.customizeDays}
+              checked={perPersonDays}
+              disabled={state.recurrence === "custom"}
               onCheckedChange={(v) => set("customizeDays", v)}
             />
           </div>
-          {state.customizeDays ? (
+          {perPersonDays ? (
+
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
                 Pick each person's days. The event only appears on days someone is scheduled.

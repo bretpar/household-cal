@@ -17,8 +17,10 @@
 import {
   cancellationAction,
   computeBranches,
+  exceptionEventFields,
   fromGoogleRecurrence,
   fromGoogleTimes,
+
   googleTitle,
   shouldApplyGoogleChange,
   stripGeneratedSuffix,
@@ -465,14 +467,23 @@ async function applyGoogleEvent(
       .select("event_id, branch_key")
       .eq("google_event_id", g.recurringEventId)
       .eq("family_id", familyId)
+      .eq("calendar_source_id", source.id)
       .maybeSingle();
     if (seriesLink) {
       const day = dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime);
       if (day) await addExcludedDate(admin, seriesLink.event_id, day);
-      const detachedId = await createLocalEvent(admin, source, g, initials, seriesLink.event_id);
+      const detached = await createExceptionEvent(
+        admin,
+        source,
+        g,
+        initials,
+        seriesLink.event_id,
+        seriesLink.branch_key ?? "",
+      );
+      if (!detached) return;
       await admin.from("event_sync_links").insert({
         family_id: familyId,
-        event_id: detachedId,
+        event_id: detached,
         calendar_source_id: source.id,
         google_event_id: g.id,
         google_recurring_event_id: g.recurringEventId,
@@ -484,6 +495,7 @@ async function applyGoogleEvent(
       return;
     }
   }
+
 
   /* ---------- brand new Google event ---------- */
   if (!link) {
@@ -615,6 +627,81 @@ async function removeBranchParticipation(admin: Admin, link: LinkRow): Promise<v
     }
   }
 }
+
+/**
+ * Creates the detached local event for a Google-edited single occurrence of an
+ * app-created series.
+ *
+ * Unlike `createLocalEvent`, this inherits everything the app owns from the
+ * parent branch (event type and family assignments) and strips the generated
+ * member suffix from the Google title, so an external instance edit never
+ * degrades into an unassigned import.
+ */
+async function createExceptionEvent(
+  admin: Admin,
+  source: SourceRow,
+  g: GoogleEvent,
+  initials: Map<string, string>,
+  parentEventId: string,
+  branchKey: string,
+): Promise<string | null> {
+  const { data: parent } = await admin
+    .from("events")
+    .select("*, event_members(family_member_id, weekdays)")
+    .eq("id", parentEventId)
+    .maybeSingle();
+  if (!parent) return null;
+
+  const parentRow = parent as EventRow;
+  const branch = branchForLink(
+    parentRow,
+    { branch_key: branchKey } as LinkRow,
+    initials,
+  );
+  const fields = exceptionEventFields({
+    parent: { title: parentRow.title, event_type: parentRow.event_type },
+    branch,
+    branchInitials: branchInitials(branch, initials),
+    google: g,
+  });
+
+  const { data, error } = await admin
+    .from("events")
+    .insert({
+      family_id: source.family_id,
+      calendar_source_id: source.id,
+      title: fields.title,
+      start_at: fields.start_at,
+      end_at: fields.end_at,
+      all_day: fields.all_day,
+      location: g.location ?? parentRow.location ?? null,
+      notes: g.description ?? parentRow.notes ?? null,
+      event_type: fields.event_type,
+      recurrence_rule: null,
+      recurrence_until: null,
+      excluded_dates: [],
+      external_event_id: g.id,
+      external_recurring_event_id: g.recurringEventId ?? null,
+      needs_family_assignment: fields.needs_family_assignment,
+      last_change_source: "google",
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+
+  const eventId = data.id as string;
+  if (fields.member_ids.length > 0) {
+    await admin.from("event_members").insert(
+      fields.member_ids.map((id: string) => ({
+        event_id: eventId,
+        family_member_id: id,
+        weekdays: null,
+      })),
+    );
+  }
+  return eventId;
+}
+
 
 /**
  * Creates the local event for something that was made in Google.
