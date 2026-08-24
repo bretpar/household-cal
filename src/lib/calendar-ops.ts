@@ -10,6 +10,7 @@ import type {
   CalendarEvent,
   CalendarSource,
   DisplayMode,
+  EventParticipant,
   EventType,
   Family,
   FamilyActivity,
@@ -237,15 +238,28 @@ export async function insertEvent(
     .select("id")
     .single();
   if (error) throw error;
-  await linkMembers(db, data.id, input.member_ids);
+  await linkMembers(db, data.id, input.member_ids, input.member_weekdays ?? {});
   return data.id as string;
 }
 
-export async function linkMembers(db: Db, eventId: string, memberIds: string[]): Promise<void> {
+export async function linkMembers(
+  db: Db,
+  eventId: string,
+  memberIds: string[],
+  memberWeekdays: Record<string, string[] | null> = {},
+): Promise<void> {
   if (memberIds.length === 0) return;
-  const { error } = await db
-    .from("event_members")
-    .insert(memberIds.map((id) => ({ event_id: eventId, family_member_id: id })));
+  const { error } = await db.from("event_members").insert(
+    memberIds.map((id) => {
+      const days = memberWeekdays[id];
+      return {
+        event_id: eventId,
+        family_member_id: id,
+        // null = takes part in every occurrence of the series
+        weekdays: days && days.length > 0 ? days : null,
+      };
+    }),
+  );
   if (error) throw error;
 }
 
@@ -281,7 +295,7 @@ export async function applyEventUpdate(
     if (updateError) throw updateError;
     const { error: clearError } = await db.from("event_members").delete().eq("event_id", eventId);
     if (clearError) throw clearError;
-    await linkMembers(db, eventId, input.member_ids);
+    await linkMembers(db, eventId, input.member_ids, input.member_weekdays ?? {});
     return;
   }
 
