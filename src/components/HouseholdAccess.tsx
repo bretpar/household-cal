@@ -82,22 +82,26 @@ export function HouseholdAccess() {
       toast.error(error instanceof Error ? error.message : "Could not send the invitation"),
   });
 
-  const act = <T,>(fn: (v: T) => Promise<unknown>, message: string) =>
-    useMutationLike(fn, message, refresh);
-
-  const revokeMutation = act((id: string) => revoke({ data: { invitation_id: id } }), "Invitation revoked");
-  const resendMutation = act(
+  const revokeMutation = useMutationLike(
+    (id: string) => revoke({ data: { invitation_id: id } }),
+    "Invitation revoked",
+    refresh,
+  );
+  const resendMutation = useMutationLike(
     (id: string) => resend({ data: { invitation_id: id } }),
     "Invitation renewed",
+    refresh,
   );
-  const roleMutation = act(
+  const roleMutation = useMutationLike(
     (vars: { id: string; role: string }) =>
       changeRole({ data: { membership_id: vars.id, role: vars.role } }),
     "Role updated",
+    refresh,
   );
-  const removeMutation = act(
+  const removeMutation = useMutationLike(
     (id: string) => removeUser({ data: { membership_id: id } }),
     "Access removed",
+    refresh,
   );
 
   return (
