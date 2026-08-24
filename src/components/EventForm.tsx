@@ -18,6 +18,8 @@ import { useCalendar } from "@/lib/calendar-store";
 import {
   EVENT_TYPES,
   RECURRENCE_OPTIONS,
+  parseRecurrenceRule,
+  withRecurrenceCount,
   type EventType,
   type MemberId,
   type Occurrence,
