@@ -58,18 +58,28 @@ function AuthPage() {
       toast.error("Enter your email and password");
       return;
     }
+    if (mode === "signup") {
+      const problem = validatePassword(password);
+      if (problem) {
+        toast.error(problem);
+        return;
+      }
+    }
     setBusy(true);
     try {
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: window.location.origin },
         });
         if (error) throw error;
         if (!data.session) {
-          toast.success("Check your email to confirm your account");
-          return;
+          // No email confirmation step: sign straight in so onboarding continues.
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+          if (signInError) throw signInError;
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
