@@ -8,7 +8,7 @@ import {
   stripGeneratedSuffix,
   syncWindow,
   toGoogleRecurrence,
-} from "@/lib/google/mapping";
+} from "../src/lib/google/mapping";
 
 describe("recurrence branches", () => {
   it("keeps a simple event as one Google series", () => {
