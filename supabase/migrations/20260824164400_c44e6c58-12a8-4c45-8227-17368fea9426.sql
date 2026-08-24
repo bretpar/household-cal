@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.assert_max_two_google_calendars() FROM PUBLIC, anon, authenticated;
