@@ -30,15 +30,13 @@ export const eventTypeIcons: Record<EventType, LucideIcon> = {
   other: Sparkles,
 };
 
-/** The soft tint comes from the first assigned family member — members are the primary identity. */
+/** Colour rules live in one place — see eventTintClass. */
 function tintFor(occurrence: Occurrence, styleFor: (id: string) => MemberStyle) {
-  const first = occurrence.member_ids[0];
-  return first ? styleFor(first).soft : "bg-surface-muted";
+  return eventTintClass(occurrence.member_ids, styleFor);
 }
 
 function accentFor(occurrence: Occurrence, styleFor: (id: string) => MemberStyle) {
-  const first = occurrence.member_ids[0];
-  return first ? styleFor(first).dot : "bg-border";
+  return eventAccentClass(occurrence.member_ids, styleFor);
 }
 
 
