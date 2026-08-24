@@ -28,5 +28,11 @@ export const runQaReset = createServerFn({ method: "POST" })
   })
   .handler(async ({ context }): Promise<QaResetSummary> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    return resetQaHousehold(supabaseAdmin as unknown as AdminDb, context.userId);
+    const summary = await resetQaHousehold(supabaseAdmin as unknown as AdminDb, context.userId);
+    if (summary.google_calendars_preserved > 0) {
+      // the reset cleared local test data, so re-import whatever Google still holds
+      const { pullHousehold } = await import("@/lib/google/sync.server");
+      await pullHousehold(supabaseAdmin, summary.family_id, true);
+    }
+    return summary;
   });
