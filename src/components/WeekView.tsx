@@ -8,7 +8,7 @@ import {
   expandOccurrences,
   formatTimeRange,
   isCoverage,
-  matchesFilter,
+  occurrenceMatchesFilter,
   type CalendarEvent,
   type MemberId,
   type Occurrence,
@@ -141,7 +141,7 @@ export function WeekView({
               isDayBlock(o) &&
               !isCoverage(o.event) &&
               isSameDay(o.start, day) &&
-              matchesFilter(o.event, selectedMembers),
+              occurrenceMatchesFilter(o, selectedMembers),
           );
           return (
             <div
@@ -156,13 +156,13 @@ export function WeekView({
                   onClick={() => openOccurrence(o)}
                   className={cn(
                     "flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left text-[10px] font-semibold opacity-80 transition-opacity hover:opacity-100",
-                    o.event.member_ids[0]
-                      ? styleFor(o.event.member_ids[0]!).soft
+                    o.member_ids[0]
+                      ? styleFor(o.member_ids[0]!).soft
                       : "bg-surface-muted",
                   )}
                 >
                   <span className="min-w-0 flex-1 truncate">{o.event.title}</span>
-                  <MemberBadgeRow ids={o.event.member_ids} size="xs" />
+                  <MemberBadgeRow ids={o.member_ids} size="xs" />
                 </button>
               ))}
             </div>
@@ -194,7 +194,7 @@ export function WeekView({
               (o) =>
                 !isCoverage(o.event) &&
                 !isDayBlock(o) &&
-                matchesFilter(o.event, selectedMembers),
+                occurrenceMatchesFilter(o, selectedMembers),
             );
 
             return (
@@ -231,7 +231,7 @@ export function WeekView({
                 <div className="absolute inset-y-0 right-1 left-3 sm:left-4">
                   {withLanes(visible).map(({ occurrence: o, lane, laneCount }) => {
                     const Icon = eventTypeIcons[o.event.event_type];
-                    const first = o.event.member_ids[0];
+                    const first = o.member_ids[0];
                     const compact = heightFor(o) < 44;
                     return (
                       <button
@@ -256,10 +256,10 @@ export function WeekView({
                           </span>
                         </div>
                         {compact ? (
-                          <MemberBadgeRow ids={o.event.member_ids} size="xs" className="mt-0.5" />
+                          <MemberBadgeRow ids={o.member_ids} size="xs" className="mt-0.5" />
                         ) : (
                           <>
-                            <MemberBadgeRow ids={o.event.member_ids} size="xs" className="mt-0.5" />
+                            <MemberBadgeRow ids={o.member_ids} size="xs" className="mt-0.5" />
                             <p className="mt-0.5 truncate text-[9px] font-semibold text-muted-foreground">
                               {formatTimeRange(o.start, o.end, false)}
                             </p>

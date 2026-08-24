@@ -15,7 +15,7 @@ import { EventPill } from "@/components/EventCard";
 import {
   expandOccurrences,
   isCoverage,
-  matchesFilter,
+  occurrenceMatchesFilter,
   type CalendarEvent,
   type MemberId,
 } from "@/lib/family-data";
@@ -60,7 +60,7 @@ export function MonthView({
           const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
           const coverage = dayOccurrences.filter((o) => isCoverage(o.event));
           const visible = dayOccurrences.filter(
-            (o) => !isCoverage(o.event) && matchesFilter(o.event, selectedMembers),
+            (o) => !isCoverage(o.event) && occurrenceMatchesFilter(o, selectedMembers),
           );
           const inMonth = isSameMonth(day, month);
           const today = isSameDay(day, new Date());

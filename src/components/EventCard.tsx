@@ -32,12 +32,12 @@ export const eventTypeIcons: Record<EventType, LucideIcon> = {
 
 /** The soft tint comes from the first assigned family member — members are the primary identity. */
 function tintFor(occurrence: Occurrence, styleFor: (id: string) => MemberStyle) {
-  const first = occurrence.event.member_ids[0];
+  const first = occurrence.member_ids[0];
   return first ? styleFor(first).soft : "bg-surface-muted";
 }
 
 function accentFor(occurrence: Occurrence, styleFor: (id: string) => MemberStyle) {
-  const first = occurrence.event.member_ids[0];
+  const first = occurrence.member_ids[0];
   return first ? styleFor(first).dot : "bg-border";
 }
 
@@ -58,7 +58,7 @@ export function EventPill({ occurrence }: { occurrence: Occurrence }) {
       )}
     >
       <span className="min-w-0 flex-1 truncate font-semibold">{event.title}</span>
-      <MemberBadgeRow ids={event.member_ids} size="xs" />
+      <MemberBadgeRow ids={occurrence.member_ids} size="xs" />
     </button>
   );
 }
@@ -103,7 +103,7 @@ export function EventCard({
             </p>
           ) : null}
         </div>
-        <MemberBadgeRow ids={event.member_ids} size="sm" className="pt-0.5" />
+        <MemberBadgeRow ids={occurrence.member_ids} size="sm" className="pt-0.5" />
       </div>
     </button>
   );

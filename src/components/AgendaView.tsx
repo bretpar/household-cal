@@ -6,7 +6,7 @@ import {
   expandOccurrences,
   formatTimeRange,
   isCoverage,
-  matchesFilter,
+  occurrenceMatchesFilter,
   type CalendarEvent,
   type MemberId,
 } from "@/lib/family-data";
@@ -35,7 +35,7 @@ export function AgendaView({
         const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
         const coverage = dayOccurrences.filter((o) => isCoverage(o.event));
         const visible = dayOccurrences.filter(
-          (o) => !isCoverage(o.event) && matchesFilter(o.event, selectedMembers),
+          (o) => !isCoverage(o.event) && occurrenceMatchesFilter(o, selectedMembers),
         );
 
         return (
