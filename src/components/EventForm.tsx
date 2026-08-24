@@ -235,7 +235,7 @@ export function EventFormFields({
 
 
   return (
-    <div className="space-y-4">
+    <div className="w-full min-w-0 space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-name`}>Event name</Label>
         <Input
@@ -278,7 +278,7 @@ export function EventFormFields({
       </div>
 
       {!state.allDay ? (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="space-y-1.5">
             <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
             <Input
@@ -321,7 +321,7 @@ export function EventFormFields({
                   )
                 }
                 className={cn(
-                  "flex h-11 items-center gap-2 rounded-full pr-4 pl-1.5 text-sm font-semibold transition-all",
+                  "flex h-11 max-w-full min-w-0 items-center gap-2 rounded-full pr-4 pl-1.5 text-sm font-semibold transition-all",
                   on
                     ? cn(styleFor(member.id).soft, "ring-2", styleFor(member.id).ring)
                     : "bg-surface-muted text-muted-foreground",
@@ -336,7 +336,7 @@ export function EventFormFields({
                 >
                   {member.initial}
                 </span>
-                {member.name}
+                <span className="min-w-0 truncate">{member.name}</span>
               </button>
             );
           })}
@@ -418,7 +418,7 @@ export function EventFormFields({
       ) : null}
 
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-1.5">
           <Label>Event type</Label>
           <Select
@@ -451,6 +451,7 @@ export function EventFormFields({
               ))}
             </SelectContent>
           </Select>
+        </div>
       </div>
 
       {repeats ? (
@@ -470,7 +471,7 @@ export function EventFormFields({
                   aria-pressed={state.recurrenceEnd === option.id}
                   onClick={() => set("recurrenceEnd", option.id)}
                   className={cn(
-                    "h-11 rounded-full px-4 text-sm font-semibold transition-all",
+                    "h-11 min-w-0 shrink rounded-full px-4 text-sm font-semibold transition-all",
                     state.recurrenceEnd === option.id
                       ? "bg-secondary font-bold ring-2 ring-primary"
                       : "bg-card text-muted-foreground",
@@ -521,9 +522,6 @@ export function EventFormFields({
           ) : null}
         </div>
       ) : null}
-
-
-      </div>
 
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-location`}>Location</Label>
