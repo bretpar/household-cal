@@ -245,7 +245,10 @@ export interface Occurrence {
   event: CalendarEvent;
   start: Date;
   end: Date;
+  /** members taking part on this specific day (per-person weekday rules applied) */
+  member_ids: MemberId[];
 }
+
 
 const DAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
