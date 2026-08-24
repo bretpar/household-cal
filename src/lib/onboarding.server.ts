@@ -148,6 +148,16 @@ export async function createHousehold(
     );
   if (memberError) throw memberError;
 
+  // Race guard: the existence check above is read-then-write, so two rapid
+  // submissions can both create a household. If an earlier membership now
+  // exists, discard the one we just made and resume the earlier household.
+  const earliest = await firstMembership(admin, userId);
+  if (earliest && earliest.family_id !== familyId) {
+    await admin.from("family_users").delete().eq("family_id", familyId).eq("user_id", userId);
+    await admin.from("families").delete().eq("id", familyId);
+    return { family_id: earliest.family_id, created: false };
+  }
+
   await admin.from("calendar_sources").insert([
     { family_id: familyId, name: "Family", display_mode: "events", sort_order: 0 },
     {
