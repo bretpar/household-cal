@@ -61,6 +61,7 @@ export interface QaResetSummary {
     calendar_sources: number;
     memberships_removed: number;
   };
+  google_calendars_preserved: number;
   memberships: Array<{ email: string; role: string; linked_initial: string | null }>;
   members: string[];
 }
