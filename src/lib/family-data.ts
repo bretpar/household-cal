@@ -74,6 +74,29 @@ export interface CalendarSource {
   active: boolean;
 }
 
+/** Weekday code used by RRULE BYDAY and by per-person participation rules. */
+export type WeekdayCode = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";
+
+export const WEEKDAY_CODES: { code: WeekdayCode; short: string; label: string }[] = [
+  { code: "MO", short: "Mon", label: "Monday" },
+  { code: "TU", short: "Tue", label: "Tuesday" },
+  { code: "WE", short: "Wed", label: "Wednesday" },
+  { code: "TH", short: "Thu", label: "Thursday" },
+  { code: "FR", short: "Fri", label: "Friday" },
+  { code: "SA", short: "Sat", label: "Saturday" },
+  { code: "SU", short: "Sun", label: "Sunday" },
+];
+
+/**
+ * One participant inside a series. `weekdays === null` means "every occurrence";
+ * a list restricts that person to those weekdays only, so a single School series
+ * can hold Bailey Mon–Thu and Ellison Tue–Thu.
+ */
+export interface EventParticipant {
+  member_id: MemberId;
+  weekdays: WeekdayCode[] | null;
+}
+
 export interface CalendarEvent {
   id: string;
   family_id: FamilyId;
@@ -95,8 +118,12 @@ export interface CalendarEvent {
   excluded_dates: string[];
   external_event_id: string | null;
   external_recurring_event_id: string | null;
+  /** every member on the series, with their own weekday rule */
+  participants: EventParticipant[];
+  /** every member on the series, ignoring weekday rules */
   member_ids: MemberId[];
 }
+
 
 export interface FamilyActivity {
   id: string;
