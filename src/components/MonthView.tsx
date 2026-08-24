@@ -12,6 +12,7 @@ import { Baby, ClipboardPaste } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { EventPill } from "@/components/EventCard";
+import { useReschedule } from "@/components/useReschedule";
 import {
   expandOccurrences,
   isCoverage,
@@ -36,13 +37,23 @@ export function MonthView({
   /** provided only when an event is copied and the user may create events */
   onPaste?: ((day: Date) => void) | undefined;
 }) {
+  const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
   const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
   const occurrences = expandOccurrences(events, gridStart, gridEnd);
   const days: Date[] = [];
   for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) days.push(d);
 
+  /** Month cells only change the day; the event keeps its time of day. */
+  const sameTimeOn = (day: Date, occurrence: { start: Date }) => {
+    const next = new Date(day);
+    next.setHours(occurrence.start.getHours(), occurrence.start.getMinutes(), 0, 0);
+    return next;
+  };
+
   return (
+    <>
+      {dialog}
     <div className="overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft">
       <div className="grid grid-cols-7 border-b border-border-soft bg-surface-muted">
         {WEEKDAYS.map((day) => (
@@ -72,6 +83,7 @@ export function MonthView({
               tabIndex={0}
               aria-label={format(day, "EEEE, MMMM d")}
               onClick={() => onSelectDay(day)}
+              {...dropProps((_e, o) => sameTimeOn(day, o))}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
@@ -114,7 +126,13 @@ export function MonthView({
               </div>
               <div className="space-y-1">
                 {visible.slice(0, 3).map((occurrence) => (
-                  <EventPill key={occurrence.key} occurrence={occurrence} />
+                  <div
+                    key={occurrence.key}
+                    {...dragProps(occurrence)}
+                    className={cn(draggingKey === occurrence.key && "opacity-40")}
+                  >
+                    <EventPill occurrence={occurrence} />
+                  </div>
                 ))}
                 {visible.length > 3 ? (
                   <p className="px-1 text-[10px] font-semibold text-muted-foreground">
@@ -127,5 +145,6 @@ export function MonthView({
         })}
       </div>
     </div>
+    </>
   );
 }
