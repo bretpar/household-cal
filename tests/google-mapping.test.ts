@@ -5,6 +5,7 @@ import {
   exceptionEventFields,
   fromGoogleRecurrence,
   googleTitle,
+  seriesPatchFromGoogle,
   shouldApplyGoogleChange,
   stripGeneratedSuffix,
   syncWindow,
@@ -335,5 +336,94 @@ describe("School per-person branches end to end", () => {
       });
     expect(compute()).toEqual(compute());
     expect(compute()).toHaveLength(2);
+  });
+});
+
+describe("Google whole-series edit preserves app-owned data", () => {
+  const google = {
+    id: "series1",
+    summary: "Baseball Practice - E & J",
+    start: { dateTime: "2026-08-26T19:00:00.000Z" },
+    end: { dateTime: "2026-08-26T20:00:00.000Z" },
+    recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=WE"],
+    etag: '"e1"',
+    updated: "2026-08-24T21:45:59.703Z",
+  };
+
+  it("updates the time and strips the generated suffix", () => {
+    const patch = seriesPatchFromGoogle({
+      local: { title: "Baseball Practice", memberCount: 2, branchKey: "" },
+      branchInitials: ["E", "J"],
+      google,
+    });
+    expect(patch["title"]).toBe("Baseball Practice");
+    expect(patch["start_at"]).toBe("2026-08-26T19:00:00.000Z");
+    expect(patch["last_change_source"]).toBe("google");
+  });
+
+  it("never touches members, weekdays or event type", () => {
+    const patch = seriesPatchFromGoogle({
+      local: { title: "Baseball Practice", memberCount: 2, branchKey: "" },
+      branchInitials: ["E", "J"],
+      google,
+    });
+    for (const key of ["member_ids", "event_members", "member_weekdays", "event_type", "family_id"]) {
+      expect(patch).not.toHaveProperty(key);
+    }
+    expect(patch["needs_family_assignment"]).toBe(false);
+  });
+
+  it("keeps a B-only branch and a B+E branch intact", () => {
+    const b = seriesPatchFromGoogle({
+      local: { title: "School", memberCount: 1, branchKey: "MO" },
+      branchInitials: ["B"],
+      google: { ...google, summary: "School - B" },
+    });
+    expect(b["title"]).toBe("School");
+    expect(b).not.toHaveProperty("member_ids");
+    // a branch must not rewrite the shared recurrence rule
+    expect(b).not.toHaveProperty("recurrence_rule");
+
+    const be = seriesPatchFromGoogle({
+      local: { title: "School", memberCount: 2, branchKey: "TU,WE,TH" },
+      branchInitials: ["B", "E"],
+      google: { ...google, summary: "School - B & E" },
+    });
+    expect(be["title"]).toBe("School");
+    expect(be).not.toHaveProperty("member_ids");
+  });
+
+  it("applies a genuine external rename without altering assignments", () => {
+    const patch = seriesPatchFromGoogle({
+      local: { title: "Baseball Practice", memberCount: 2, branchKey: "" },
+      branchInitials: ["E", "J"],
+      google: { ...google, summary: "Baseball Practice (new field)" },
+    });
+    expect(patch["title"]).toBe("Baseball Practice (new field)");
+    expect(patch).not.toHaveProperty("member_ids");
+    expect(patch["needs_family_assignment"]).toBe(false);
+  });
+
+  it("is idempotent across repeated reconciliation", () => {
+    const once = seriesPatchFromGoogle({
+      local: { title: "Baseball Practice", memberCount: 2, branchKey: "" },
+      branchInitials: ["E", "J"],
+      google,
+    });
+    const twice = seriesPatchFromGoogle({
+      local: { title: once["title"] as string, memberCount: 2, branchKey: "" },
+      branchInitials: ["E", "J"],
+      google,
+    });
+    expect(twice).toEqual(once);
+  });
+
+  it("still flags a truly memberless linked series", () => {
+    const patch = seriesPatchFromGoogle({
+      local: { title: "Trash day", memberCount: 0, branchKey: "" },
+      branchInitials: [],
+      google: { ...google, summary: "Trash day" },
+    });
+    expect(patch).not.toHaveProperty("needs_family_assignment");
   });
 });
