@@ -25,6 +25,7 @@ import { useCalendar, type RecurrenceScope } from "@/lib/calendar-store";
 import {
   EVENT_TYPES,
   describeRecurrence,
+  describeWeekdays,
   formatTimeRange,
   type Occurrence,
 } from "@/lib/family-data";
@@ -151,9 +152,20 @@ export function EventDetailsDialog() {
                 <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 {format(start, "EEEE, MMM d")} · {formatTimeRange(start, end, event.all_day)}
               </p>
-              {event.member_ids.length > 0 ? (
+              {occurrence.member_ids.length > 0 ? (
                 <div className="flex items-center gap-2">
-                  <MemberBadgeRow ids={event.member_ids} size="md" />
+                  <MemberBadgeRow ids={occurrence.member_ids} size="md" />
+                </div>
+              ) : null}
+              {perPersonDays.length > 0 ? (
+                <div className="space-y-1 rounded-xl bg-surface-muted px-3 py-2 text-xs">
+                  <span className="font-bold">Days by person</span>
+                  {perPersonDays.map((row) => (
+                    <div key={row.id} className="flex justify-between gap-3 text-muted-foreground">
+                      <span className="font-semibold text-foreground">{row.name}</span>
+                      <span>{row.days}</span>
+                    </div>
+                  ))}
                 </div>
               ) : null}
               {needsScope ? (
