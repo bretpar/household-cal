@@ -438,6 +438,13 @@ export function matchesFilter(event: CalendarEvent, selected: MemberId[]): boole
   return event.member_ids.some((id) => selected.includes(id));
 }
 
+/** Filtering respects who is actually scheduled on that day. */
+export function occurrenceMatchesFilter(occurrence: Occurrence, selected: MemberId[]): boolean {
+  if (selected.length === 0) return true;
+  return occurrence.member_ids.some((id) => selected.includes(id));
+}
+
+
 export function formatTimeRange(start: Date, end: Date, allDay: boolean): string {
   if (allDay) return "All day";
   const fmt = (d: Date) =>
