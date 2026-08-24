@@ -132,6 +132,8 @@ export function WeekView({
 
 
   return (
+    <>
+      {dialog}
     <div className="overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft">
       <div
         className="grid border-b border-border-soft bg-surface-muted"
@@ -175,15 +177,18 @@ export function WeekView({
             <div
               key={day.toISOString()}
               className="min-h-7 space-y-0.5 border-l border-border-soft p-1"
+              {...dropProps((e) => sameTimeOn(day, draggedOccurrence(e)))}
             >
               {/* Background commitments (school, work): deliberately lighter than timed events */}
               {allDay.map((o) => (
                 <button
                   key={o.key}
                   type="button"
+                  {...dragProps(o)}
                   onClick={() => openOccurrence(o)}
                   className={cn(
                     "flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left text-[10px] font-semibold opacity-80 transition-opacity hover:opacity-100",
+                    draggingKey === o.key && "opacity-40",
                     o.member_ids[0]
                       ? styleFor(o.member_ids[0]!).soft
                       : "bg-surface-muted",
