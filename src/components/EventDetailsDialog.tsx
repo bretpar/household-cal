@@ -70,7 +70,9 @@ export function EventDetailsDialog() {
     updateEvent,
     deleteEvent,
     copyOccurrence,
+    members,
   } = useCalendar();
+
   const [mode, setMode] = useState<Mode>("details");
   const [scope, setScope] = useState<RecurrenceScope>("this");
   const [state, setState] = useState<EventFormState | null>(null);
