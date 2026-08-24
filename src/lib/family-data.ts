@@ -122,6 +122,8 @@ export interface CalendarEvent {
   participants: EventParticipant[];
   /** every member on the series, ignoring weekday rules */
   member_ids: MemberId[];
+  /** true for events imported from Google that nobody has been assigned to yet */
+  needs_family_assignment: boolean;
 }
 
 

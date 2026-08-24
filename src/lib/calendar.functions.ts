@@ -47,6 +47,7 @@ export const createEvent = createServerFn({ method: "POST" })
     const familyId = await resolveWritableFamily(db, context.userId);
     const sourceId = data.calendar_source_id ?? (await defaultEventSource(db, familyId));
     const id = await insertEvent(db, familyId, { ...data, calendar_source_id: sourceId });
+    const { pushToGoogle } = await import("@/lib/google/push.server");
     await pushToGoogle(familyId, id);
     return { id };
   });
@@ -75,6 +76,7 @@ export const updateEventFn = createServerFn({ method: "POST" })
     if (data.input.member_ids.length > 0) {
       await db.from("events").update({ needs_family_assignment: false }).eq("id", data.event_id);
     }
+    const { pushToGoogle } = await import("@/lib/google/push.server");
     await pushToGoogle(familyId, data.event_id);
     if (created && created !== data.event_id) await pushToGoogle(familyId, created);
     return { ok: true };
@@ -101,13 +103,3 @@ export const deleteEventFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Mirrors an app change onto Google without ever failing the user's save. */
-async function pushToGoogle(familyId: string, eventId: string): Promise<void> {
-  try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { pushEvent } = await import("@/lib/google/sync.server");
-    await pushEvent(supabaseAdmin, familyId, eventId);
-  } catch (error) {
-    console.error("[google-sync] push failed", error);
-  }
-}
