@@ -324,8 +324,16 @@ export async function applyEventDelete(
   if (untilError) throw untilError;
 }
 
-/** Ensures the signed-in user belongs to a household; claims an unclaimed one if present. */
-export async function ensureMembership(admin: Db, userId: string): Promise<string> {
+/**
+ * Ensures the signed-in user belongs to a household.
+ * Order: existing membership → pending invitation for their email → unclaimed demo
+ * household → a brand new household of their own.
+ */
+export async function ensureMembership(
+  admin: Db,
+  userId: string,
+  claimInvitations?: () => Promise<string | null>,
+): Promise<string> {
   await admin.from("profiles").upsert({ id: userId }, { onConflict: "id" });
 
   const { data: existing } = await admin
@@ -334,6 +342,11 @@ export async function ensureMembership(admin: Db, userId: string): Promise<strin
     .eq("user_id", userId)
     .limit(1);
   if (existing && existing.length > 0) return existing[0].family_id as string;
+
+  if (claimInvitations) {
+    const invited = await claimInvitations();
+    if (invited) return invited;
+  }
 
   const { data: unclaimed } = await admin
     .from("families")
