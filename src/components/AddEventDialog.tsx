@@ -95,13 +95,15 @@ export function EventComposerContent({
   };
 
   return (
-    <DialogContent className="max-h-[92vh] overflow-y-auto rounded-3xl sm:max-w-lg">
+    <DialogContent className="rounded-3xl sm:max-w-lg">
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
 
-      <EventFormFields state={state} onChange={onChange} idPrefix={idPrefix} />
+      <div className="-mx-4 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:-mx-6 sm:px-6">
+        <EventFormFields state={state} onChange={onChange} idPrefix={idPrefix} />
+      </div>
 
       <DialogFooter>
         <Button variant="ghost" type="button" className="h-11 rounded-full" onClick={onClose}>
