@@ -222,7 +222,14 @@ export interface Occurrence {
 
 const DAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
-function parseRule(rule: string | null) {
+export interface ParsedRule {
+  freq: string;
+  interval: number;
+  byDay: string[] | null;
+  count: number | null;
+}
+
+export function parseRecurrenceRule(rule: string | null): ParsedRule | null {
   if (!rule || rule === "CUSTOM") return null;
   const parts = Object.fromEntries(
     rule.split(";").map((p) => {
@@ -230,16 +237,55 @@ function parseRule(rule: string | null) {
       return [k, v ?? ""];
     }),
   );
+  const count = Number(parts["COUNT"] ?? 0);
   return {
     freq: parts["FREQ"] ?? "WEEKLY",
     interval: Number(parts["INTERVAL"] ?? 1) || 1,
     byDay: parts["BYDAY"] ? parts["BYDAY"].split(",") : null,
+    count: count > 0 ? count : null,
   };
+}
+
+const parseRule = parseRecurrenceRule;
+
+/** Builds a rule string, folding an occurrence count into it when present. */
+export function withRecurrenceCount(rule: string | null, count: number | null): string | null {
+  if (!rule || rule === "CUSTOM") return rule;
+  const base = rule
+    .split(";")
+    .filter((p) => !p.startsWith("COUNT="))
+    .join(";");
+  return count && count > 0 ? `${base};COUNT=${Math.floor(count)}` : base;
 }
 
 /** yyyy-MM-dd key used for EXDATE / UNTIL comparisons. */
 export function dayKey(day: Date): string {
   return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+}
+
+/** Zero-based index of a day inside the series, or null when it isn't a hit. */
+function occurrenceIndex(start: Date, day: Date, rule: ParsedRule): number | null {
+  if (rule.freq === "DAILY") {
+    const diff = differenceInCalendarDays(day, startOfDay(start));
+    return diff % rule.interval === 0 ? diff / rule.interval : null;
+  }
+  if (rule.freq === "MONTHLY") {
+    if (day.getDate() !== start.getDate()) return null;
+    const months =
+      (day.getFullYear() - start.getFullYear()) * 12 + (day.getMonth() - start.getMonth());
+    return months % rule.interval === 0 ? months / rule.interval : null;
+  }
+  // WEEKLY
+  const days = rule.byDay ?? [DAY_CODES[start.getDay()]!];
+  if (!days.includes(DAY_CODES[day.getDay()]!)) return null;
+  const weeks = Math.abs(differenceInCalendarWeeks(day, start, { weekStartsOn: 1 }));
+  if (weeks % rule.interval !== 0) return null;
+  const cycles = weeks / rule.interval;
+  const perCycle = days.length;
+  const orderInWeek = [...days]
+    .sort((a, b) => DAY_CODES.indexOf(a) - DAY_CODES.indexOf(b))
+    .indexOf(DAY_CODES[day.getDay()]!);
+  return cycles * perCycle + orderInWeek;
 }
 
 function occursOn(event: CalendarEvent, day: Date): boolean {
@@ -250,17 +296,40 @@ function occursOn(event: CalendarEvent, day: Date): boolean {
   if (!rule) return isSameDay(start, day);
   if (differenceInCalendarDays(day, startOfDay(start)) < 0) return false;
 
+  const index = occurrenceIndex(start, day, rule);
+  if (index === null) return false;
+  if (rule.count !== null && index >= rule.count) return false;
+  return true;
+}
+
+/** Plain-language summary such as "Repeats every Monday until December 14, 2026". */
+export function describeRecurrence(event: CalendarEvent): string | null {
+  const rule = parseRule(event.recurrence_rule);
+  if (!rule) return event.recurrence_rule === "CUSTOM" ? "Repeats on a custom schedule" : null;
+
+  const start = new Date(event.start_at);
+  const weekday = start.toLocaleDateString("en-US", { weekday: "long" });
+  let base: string;
   if (rule.freq === "DAILY") {
-    return differenceInCalendarDays(day, startOfDay(start)) % rule.interval === 0;
+    base = rule.interval === 1 ? "Repeats daily" : `Repeats every ${rule.interval} days`;
+  } else if (rule.freq === "MONTHLY") {
+    base =
+      rule.interval === 1
+        ? `Repeats monthly on day ${start.getDate()}`
+        : `Repeats every ${rule.interval} months`;
+  } else {
+    base = rule.interval === 1 ? `Repeats every ${weekday}` : `Repeats every ${rule.interval} weeks`;
   }
-  if (rule.freq === "MONTHLY") {
-    return day.getDate() === start.getDate();
+
+  if (event.recurrence_until) {
+    const [y, m, d] = event.recurrence_until.split("-").map(Number);
+    const until = new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+    return `${base} until ${until.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
   }
-  // WEEKLY
-  const days = rule.byDay ?? [DAY_CODES[start.getDay()]!];
-  if (!days.includes(DAY_CODES[day.getDay()]!)) return false;
-  const weeks = Math.abs(differenceInCalendarWeeks(day, start, { weekStartsOn: 1 }));
-  return weeks % rule.interval === 0;
+  if (rule.count !== null) {
+    return `${base} · ${rule.count} occurrence${rule.count === 1 ? "" : "s"}`;
+  }
+  return base;
 }
 
 export function expandOccurrences(
