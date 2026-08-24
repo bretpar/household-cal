@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
+import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, validatePassword } from "@/lib/password";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -58,18 +59,28 @@ function AuthPage() {
       toast.error("Enter your email and password");
       return;
     }
+    if (mode === "signup") {
+      const problem = validatePassword(password);
+      if (problem) {
+        toast.error(problem);
+        return;
+      }
+    }
     setBusy(true);
     try {
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: window.location.origin },
         });
         if (error) throw error;
         if (!data.session) {
-          toast.success("Check your email to confirm your account");
-          return;
+          // No email confirmation step: sign straight in so onboarding continues.
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+          if (signInError) throw signInError;
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -128,11 +139,15 @@ function AuthPage() {
             <Input
               id="auth-password"
               type="password"
+              minLength={PASSWORD_MIN_LENGTH}
               autoComplete={mode === "signin" ? "current-password" : "new-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="h-11 rounded-xl"
             />
+            {mode === "signup" ? (
+              <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>
+            ) : null}
           </div>
           <Button
             className="h-11 w-full rounded-full font-bold"
