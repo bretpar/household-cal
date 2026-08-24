@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { rescheduleDraft, shiftRuleWeekdays } from "@/lib/reschedule";
-import { expandOccurrences, type CalendarEvent } from "@/lib/family-data";
+import { rescheduleDraft, shiftRuleWeekdays } from "../src/lib/reschedule";
+import { expandOccurrences, type CalendarEvent } from "../src/lib/family-data";
 
 function seriesEvent(): CalendarEvent {
   return {
