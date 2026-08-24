@@ -216,7 +216,15 @@ export function EventFormFields({
           id={`${idPrefix}-date`}
           type="date"
           value={state.date}
-          onChange={(e) => set("date", e.target.value)}
+          onChange={(e) => {
+            const date = e.target.value;
+            onChange({
+              ...state,
+              date,
+              recurrenceUntil:
+                date && state.recurrenceUntil < date ? defaultUntil(date) : state.recurrenceUntil,
+            });
+          }}
           className="h-11 rounded-xl"
         />
       </div>

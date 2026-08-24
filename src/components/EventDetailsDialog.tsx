@@ -24,7 +24,7 @@ import {
 import { useCalendar, type RecurrenceScope } from "@/lib/calendar-store";
 import {
   EVENT_TYPES,
-  RECURRENCE_OPTIONS,
+  describeRecurrence,
   formatTimeRange,
   type Occurrence,
 } from "@/lib/family-data";
