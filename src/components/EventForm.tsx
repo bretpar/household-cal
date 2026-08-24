@@ -142,6 +142,12 @@ function combine(date: string, time: string) {
   return new Date(`${date}T${time || "00:00"}`).toISOString();
 }
 
+/** null = every occurrence of the series, so an untouched person keeps the simple behavior. */
+function allWeekdays(days: WeekdayCode[] | undefined): WeekdayCode[] | null {
+  return days && days.length > 0 ? days : null;
+}
+
+
 export function draftFromFormState(
   state: EventFormState,
   calendarSourceId: string | null = null,
