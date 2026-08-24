@@ -26,7 +26,7 @@ export const Route = createFileRoute("/_authenticated/activities")({
 });
 
 function ActivitiesPage() {
-  const { activities, memberById, loading } = useCalendar();
+  const { activities, memberById, loading, canEdit } = useCalendar();
 
   return (
     <AppShell>
