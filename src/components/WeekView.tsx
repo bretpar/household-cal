@@ -177,7 +177,7 @@ export function WeekView({
             <div
               key={day.toISOString()}
               className="min-h-7 space-y-0.5 border-l border-border-soft p-1"
-              {...dropProps((e) => sameTimeOn(day, draggedOccurrence(e)))}
+              {...dropProps((_e, o) => sameTimeOn(day, o))}
             >
               {/* Background commitments (school, work): deliberately lighter than timed events */}
               {allDay.map((o) => (
@@ -235,6 +235,7 @@ export function WeekView({
                 key={day.toISOString()}
                 className="relative border-l border-border-soft"
                 style={{ height: hours.length * HOUR_PX }}
+                {...dropProps((e) => startFromDrop(day, e))}
               >
                 {hours.map((hour) => (
                   <div
@@ -270,10 +271,12 @@ export function WeekView({
                       <button
                         key={o.key}
                         type="button"
+                        {...dragProps(o)}
                         onClick={() => openOccurrence(o)}
                         className={cn(
                           "absolute overflow-hidden rounded-xl border border-border-soft px-1.5 py-1 text-left shadow-soft transition-transform hover:-translate-y-px",
                           first ? styleFor(first).soft : "bg-surface-muted",
+                          draggingKey === o.key && "opacity-40",
                         )}
                         style={{
                           top: topFor(o.start),
@@ -308,5 +311,6 @@ export function WeekView({
         </div>
       </div>
     </div>
+    </>
   );
 }

@@ -73,7 +73,9 @@ export function useReschedule() {
       : {};
 
   /** `resolveStart` maps the drop position to the new start moment. */
-  const dropProps = (resolveStart: (e: DragEvent<HTMLElement>) => Date | null) =>
+  const dropProps = (
+    resolveStart: (e: DragEvent<HTMLElement>, occurrence: Occurrence) => Date | null,
+  ) =>
     canEdit
       ? {
           onDragOver: (e: DragEvent<HTMLElement>) => {
@@ -88,7 +90,7 @@ export function useReschedule() {
             e.stopPropagation();
             dragged.current = null;
             setDraggingKey(null);
-            const start = resolveStart(e);
+            const start = resolveStart(e, occurrence);
             if (!start || start.getTime() === occurrence.start.getTime()) return;
             if (isRecurring(occurrence)) setPending({ occurrence, start });
             else apply(occurrence, start, "series");
