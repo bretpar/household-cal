@@ -195,10 +195,11 @@ export function validateFormState(state: EventFormState): string | null {
   }
   if (repeats && state.customizeDays) {
     const missing = state.members.filter((id) => (state.memberWeekdays[id] ?? []).length === 0);
-    if (missing.length === state.members.length) {
+    if (missing.length > 0) {
       return "Choose at least one day for each person, or turn off Customize days by person";
     }
   }
+
   return null;
 }
 
