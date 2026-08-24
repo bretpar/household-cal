@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
+import { isEveryoneAssigned } from "@/lib/event-colors";
 import type { MemberId } from "@/lib/family-data";
 
 const sizes = {
@@ -44,7 +45,23 @@ export function MemberBadgeRow({
   size?: keyof typeof sizes;
   className?: string;
 }) {
+  const { members } = useCalendar();
   if (ids.length === 0) return null;
+  if (isEveryoneAssigned(ids, members.length)) {
+    return (
+      <span
+        title="Everyone"
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center rounded-full bg-shared-strong px-1.5 font-bold text-member-foreground",
+          sizes[size],
+          "w-auto",
+          className,
+        )}
+      >
+        All
+      </span>
+    );
+  }
   return (
     <span className={cn("flex shrink-0 items-center gap-0.5", className)}>
       {ids.map((id) => (
