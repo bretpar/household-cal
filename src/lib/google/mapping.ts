@@ -282,19 +282,29 @@ export interface LinkVersionState {
   last_pushed_at: string | null;
 }
 
+/** Local app-side state used to decide whether a local edit is still unsynced. */
+export interface LocalEventState {
+  updated_at: string | null;
+  last_change_source?: string | null;
+}
+
 /**
  * Newest valid change wins, with loop protection.
  *
  * - Same etag as the one we stored after our own push => Google is echoing our
  *   change back, so ignore it.
- * - Google's `updated` older than or equal to what we already processed, or
- *   older than our own last push, means a delayed Google notification: ignore
- *   it so it cannot overwrite the newer app change.
+ * - Google's `updated` older than or equal to what we already processed means a
+ *   stale/duplicate notification: ignore it.
+ * - A local change only beats an inbound Google change when it is genuinely
+ *   *unsynced*: the app made the last local change AND that change happened
+ *   after our last successful push. A push timestamp alone (or a local
+ *   `updated_at` bumped by our own push bookkeeping) is never treated as proof
+ *   that the app version is newer.
  */
 export function shouldApplyGoogleChange(
   link: LinkVersionState | null,
   incoming: { etag?: string | undefined; updated?: string | undefined },
-  appUpdatedAt: string | null,
+  local: LocalEventState | string | null,
 ): boolean {
   if (!link) return true;
   if (incoming.etag && link.google_etag && incoming.etag === link.google_etag) return false;
@@ -304,13 +314,19 @@ export function shouldApplyGoogleChange(
   const processed = link.google_updated_at ? Date.parse(link.google_updated_at) : 0;
   if (incomingTime <= processed) return false;
 
-  const localTime = Math.max(
-    link.last_pushed_at ? Date.parse(link.last_pushed_at) : 0,
-    appUpdatedAt ? Date.parse(appUpdatedAt) : 0,
-  );
-  if (link.last_source === "app" && localTime > incomingTime) return false;
-  return true;
+  const localState: LocalEventState | null =
+    typeof local === "string" ? { updated_at: local } : local;
+  if (!localState?.updated_at) return true;
+  if (localState.last_change_source !== "app") return true;
+
+  const localTime = Date.parse(localState.updated_at);
+  const pushedAt = link.last_pushed_at ? Date.parse(link.last_pushed_at) : NaN;
+  // already pushed => the app edit is synced, so a newer Google edit wins
+  if (!Number.isNaN(pushedAt) && localTime <= pushedAt) return true;
+
+  return !(localTime > incomingTime);
 }
+
 
 /** ±3 months on first import, +3 months for ongoing work. */
 export function syncWindow(now = new Date(), initial = false): { timeMin: string; timeMax: string } {
