@@ -109,6 +109,38 @@ suite("developer QA reset", () => {
     expect(counts).toEqual([0, 0, 0]);
   }, 120_000);
 
+  it("preserves connected Google calendar slots while clearing test data", async () => {
+    const seed = await resetQaHousehold(db, qaIds.dad);
+    const familyId = seed.family_id;
+    const { data: google } = await db
+      .from("calendar_sources")
+      .insert({
+        family_id: familyId,
+        name: "QA Google",
+        provider: "google",
+        external_calendar_id: "qa-google-calendar@group.calendar.google.com",
+        google_sync_token: "stale-token",
+        sort_order: 5,
+      })
+      .select("id")
+      .single();
+
+    const summary = await resetQaHousehold(db, qaIds.dad);
+    expect(summary.google_calendars_preserved).toBe(1);
+
+    const { data: after } = await db
+      .from("calendar_sources")
+      .select("id, provider, external_calendar_id, google_sync_token")
+      .eq("family_id", familyId);
+    const kept = (after ?? []).find((s: any) => s.id === google.id);
+    expect(kept?.provider).toBe("google");
+    expect(kept?.external_calendar_id).toBe("qa-google-calendar@group.calendar.google.com");
+    expect(kept?.google_sync_token).toBeNull();
+    expect((after ?? []).filter((s: any) => s.provider === "local").length).toBe(2);
+
+    await db.from("calendar_sources").delete().eq("id", google.id);
+  }, 120_000);
+
   it("leaves exactly one Parker Family with the D/M/B/E/J baseline and correct roles", async () => {
     const summary = await resetQaHousehold(db, qaIds.mom);
 

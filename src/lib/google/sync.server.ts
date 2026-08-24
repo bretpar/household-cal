@@ -15,6 +15,7 @@
  */
 
 import {
+  cancellationAction,
   computeBranches,
   fromGoogleRecurrence,
   fromGoogleTimes,
@@ -404,6 +405,30 @@ async function applyGoogleEvent(
   /* ---------- cancellations ---------- */
   if (g.status === "cancelled") {
     if (link) {
+      // A tombstone can be stale, or the leftover of a cross-calendar move, so
+      // never delete before Google confirms this exact event is really gone.
+      let remoteState: "live" | "cancelled" | "missing" | "unknown" = "unknown";
+      if (link.calendar_source_id === source.id && source.external_calendar_id) {
+        try {
+          remoteState = await google.getEventState(
+            conn.connectionKey,
+            source.external_calendar_id,
+            g.id,
+          );
+        } catch (error) {
+          if (error instanceof GoogleAuthError) throw error;
+          console.error("[google-sync] cancellation verification failed", error);
+          remoteState = "unknown";
+        }
+      }
+      const action = cancellationAction({
+        link,
+        sourceId: source.id,
+        googleEventId: g.id,
+        remoteState,
+      });
+      if (action === "ignore") return;
+
       const { data: siblings } = await admin
         .from("event_sync_links")
         .select("id")
@@ -421,12 +446,14 @@ async function applyGoogleEvent(
     if (g.recurringEventId) {
       const { data: seriesLink } = await admin
         .from("event_sync_links")
-        .select("event_id")
+        .select("event_id, calendar_source_id")
         .eq("google_event_id", g.recurringEventId)
         .eq("family_id", familyId)
         .maybeSingle();
       const day = dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime);
-      if (seriesLink && day) await addExcludedDate(admin, seriesLink.event_id, day);
+      if (seriesLink && seriesLink.calendar_source_id === source.id && day) {
+        await addExcludedDate(admin, seriesLink.event_id, day);
+      }
     }
     return;
   }

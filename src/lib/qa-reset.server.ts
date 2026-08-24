@@ -61,6 +61,7 @@ export interface QaResetSummary {
     calendar_sources: number;
     memberships_removed: number;
   };
+  google_calendars_preserved: number;
   memberships: Array<{ email: string; role: string; linked_initial: string | null }>;
   members: string[];
 }
@@ -212,10 +213,36 @@ export async function resetQaHousehold(admin: AdminDb, userId: string): Promise<
   };
 
   // user-created test data: events (cascades event_members), activities
-  // (cascades activity_members), every invitation and every calendar source
-  for (const table of ["events", "activities", "family_invitations", "calendar_sources"]) {
+  // (cascades activity_members) and every invitation
+  for (const table of ["events", "activities", "family_invitations"]) {
     const { error } = await admin.from(table).delete().eq("family_id", familyId);
     if (error) throw error;
+  }
+
+  // Google sync configuration is NOT test data: wiping the connected calendar
+  // slots silently unlinks the household from Google. Only the local baseline
+  // sources are rebuilt; Google slots stay and simply forget their sync cursor
+  // so the next pull re-imports the calendar from scratch.
+  const { data: googleSources } = await admin
+    .from("calendar_sources")
+    .select("id")
+    .eq("family_id", familyId)
+    .eq("provider", "google");
+  const preservedGoogle = (googleSources ?? []).map((s: any) => s.id as string);
+
+  await admin.from("event_sync_links").delete().eq("family_id", familyId);
+  const { error: localSourceErr } = await admin
+    .from("calendar_sources")
+    .delete()
+    .eq("family_id", familyId)
+    .eq("provider", "local");
+  if (localSourceErr) throw localSourceErr;
+
+  if (preservedGoogle.length > 0) {
+    await admin
+      .from("calendar_sources")
+      .update({ google_sync_token: null })
+      .in("id", preservedGoogle);
   }
 
   // baseline calendar sources
@@ -301,6 +328,7 @@ export async function resetQaHousehold(admin: AdminDb, userId: string): Promise<
     family_id: familyId,
     family_name: QA_HOUSEHOLD_NAME,
     households_removed: removed,
+    google_calendars_preserved: preservedGoogle.length,
     deleted: {
       events: before.events,
       activities: before.activities,

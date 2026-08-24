@@ -126,6 +126,36 @@ export async function getEvent(
   );
 }
 
+/**
+ * Current state of one Google event, used before acting on a cancellation.
+ *
+ * A tombstone in an incremental feed can be stale or belong to a copy that was
+ * moved away, so deletions are only mirrored once Google confirms the event we
+ * are linked to is really gone.
+ */
+export async function getEventState(
+  connectionAPIKey: string,
+  calendarId: string,
+  eventId: string,
+): Promise<"live" | "cancelled" | "missing"> {
+  const res = await callAsAppUser({
+    gatewayBaseUrl: GATEWAY_BASE_URL,
+    connectionAPIKey,
+    connectorId: CONNECTOR_ID,
+    path: `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+  });
+  const text = await res.text();
+  if (res.status === 404 || res.status === 410) return "missing";
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new GoogleAuthError(`Google rejected the connection (${res.status}): ${text}`);
+    }
+    throw new Error(`Google Calendar request failed [${res.status}]: ${text}`);
+  }
+  const parsed = (text ? JSON.parse(text) : {}) as { status?: string };
+  return parsed.status === "cancelled" ? "cancelled" : "live";
+}
+
 export async function deleteEvent(
   connectionAPIKey: string,
   calendarId: string,
