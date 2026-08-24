@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Eye, Settings, ShieldCheck } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { DeveloperTools } from "@/components/DeveloperTools";
 import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { MemberBadge } from "@/components/MemberBadge";
 import { Switch } from "@/components/ui/switch";
@@ -138,6 +139,8 @@ function FamilyPage() {
             </div>
           </div>
         </section>
+
+        <DeveloperTools />
       </div>
     </AppShell>
   );

@@ -1,0 +1,78 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { FlaskConical } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { getQaAccess, runQaReset } from "@/lib/qa.functions";
+
+/**
+ * Developer / test-only panel. It renders nothing at all unless the signed-in
+ * user is one of the dedicated QA owner accounts (checked server-side).
+ */
+export function DeveloperTools() {
+  const queryClient = useQueryClient();
+  const fetchAccess = useServerFn(getQaAccess);
+  const reset = useServerFn(runQaReset);
+  const [confirm, setConfirm] = useState("");
+
+  const access = useQuery({ queryKey: ["qa-access"], queryFn: () => fetchAccess() });
+
+  const resetMutation = useMutation({
+    mutationFn: () => reset({ data: { confirm } }),
+    onSuccess: async (summary) => {
+      setConfirm("");
+      await queryClient.invalidateQueries();
+      toast.success(
+        `QA baseline restored · ${summary.deleted.events} events and ${summary.deleted.activities} activities cleared`,
+      );
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "QA reset failed"),
+  });
+
+  if (!access.data?.authorized) return null;
+
+  return (
+    <section className="space-y-3">
+      <h2 className="flex items-center gap-2 text-sm font-bold tracking-wide text-muted-foreground uppercase">
+        <FlaskConical className="h-4 w-4" aria-hidden />
+        Developer / test tools
+      </h2>
+      <div className="space-y-4 rounded-3xl border border-dashed border-border bg-card p-4">
+        <div>
+          <h3 className="text-base font-bold">Reset QA Household</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Deletes test calendar data and restores the Parker Family QA baseline. Test accounts are
+            preserved.
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+          <div className="space-y-1.5">
+            <Label htmlFor="qa-confirm">Type RESET to confirm</Label>
+            <Input
+              id="qa-confirm"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="RESET"
+              autoComplete="off"
+              className="h-11 rounded-xl"
+            />
+          </div>
+          <Button
+            type="button"
+            variant="destructive"
+            className="h-11 rounded-full font-bold"
+            disabled={confirm.trim().toUpperCase() !== "RESET" || resetMutation.isPending}
+            onClick={() => resetMutation.mutate()}
+          >
+            {resetMutation.isPending ? "Resetting…" : "Reset QA Household"}
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
