@@ -93,6 +93,16 @@ export function EventDetailsDialog() {
 
   const needsScope = Boolean(event.recurrence_rule);
 
+  // only shown when someone in the series has their own weekdays
+  const perPersonDays = event.participants
+    .filter((p) => p.weekdays && p.weekdays.length > 0)
+    .map((p) => ({
+      id: p.member_id,
+      name: members.find((m) => m.id === p.member_id)?.name ?? "Member",
+      days: describeWeekdays(p.weekdays),
+    }));
+
+
   const saveEdit = () => {
     if (!state) return;
     const error = validateFormState(state);
