@@ -96,6 +96,11 @@ export function EventCard({
             {showDate ? `${showDate} · ` : ""}
             {formatTimeRange(start, end, event.all_day)}
           </p>
+          {event.needs_family_assignment ? (
+            <p className="mt-1 inline-flex items-center rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+              Needs family assignment
+            </p>
+          ) : null}
           {event.location ? (
             <p className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground">
               <MapPin className="h-3 w-3 shrink-0" aria-hidden />
