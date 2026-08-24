@@ -63,7 +63,7 @@ describe("google titles", () => {
 
 describe("recurrence rule conversion", () => {
   it("round-trips a weekly rule with an end date", () => {
-    const lines = toGoogleRecurrence("FREQ=WEEKLY;BYDAY=TU,TH", "2026-12-14", []);
+    const lines = toGoogleRecurrence("FREQ=WEEKLY", ["TU", "TH"], "2026-12-14", []);
     expect(lines?.[0]).toContain("RRULE:FREQ=WEEKLY;BYDAY=TU,TH");
     const parsed = fromGoogleRecurrence(lines);
     expect(parsed.rule).toContain("FREQ=WEEKLY");
