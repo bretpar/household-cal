@@ -139,11 +139,15 @@ function AuthPage() {
             <Input
               id="auth-password"
               type="password"
+              minLength={PASSWORD_MIN_LENGTH}
               autoComplete={mode === "signin" ? "current-password" : "new-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="h-11 rounded-xl"
             />
+            {mode === "signup" ? (
+              <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>
+            ) : null}
           </div>
           <Button
             className="h-11 w-full rounded-full font-bold"
