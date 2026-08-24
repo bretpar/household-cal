@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 
 export const Route = createFileRoute("/auth")({
+  ssr: false,
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => {
     const value = search["redirect"];
     return typeof value === "string" && value.startsWith("/") ? { redirect: value } : {};
