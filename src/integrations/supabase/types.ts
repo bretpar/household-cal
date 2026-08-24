@@ -276,6 +276,59 @@ export type Database = {
         }
         Relationships: []
       }
+      family_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          family_id: string
+          id: string
+          invited_by: string | null
+          role: Database["public"]["Enums"]["family_role"]
+          status: Database["public"]["Enums"]["invitation_status"]
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          family_id: string
+          id?: string
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["family_role"]
+          status?: Database["public"]["Enums"]["invitation_status"]
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          family_id?: string
+          id?: string
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["family_role"]
+          status?: Database["public"]["Enums"]["invitation_status"]
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_invitations_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       family_members: {
         Row: {
           access: Database["public"]["Enums"]["member_access"]
@@ -330,6 +383,7 @@ export type Database = {
         Row: {
           created_at: string
           family_id: string
+          family_member_id: string | null
           id: string
           role: Database["public"]["Enums"]["family_role"]
           updated_at: string
@@ -338,6 +392,7 @@ export type Database = {
         Insert: {
           created_at?: string
           family_id: string
+          family_member_id?: string | null
           id?: string
           role?: Database["public"]["Enums"]["family_role"]
           updated_at?: string
@@ -346,6 +401,7 @@ export type Database = {
         Update: {
           created_at?: string
           family_id?: string
+          family_member_id?: string | null
           id?: string
           role?: Database["public"]["Enums"]["family_role"]
           updated_at?: string
@@ -357,6 +413,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "family_users_family_member_id_fkey"
+            columns: ["family_member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
             referencedColumns: ["id"]
           },
         ]
@@ -448,6 +511,7 @@ export type Database = {
         | "family"
         | "other"
       family_role: "owner" | "editor" | "viewer"
+      invitation_status: "pending" | "accepted" | "expired" | "revoked"
       member_access: "full" | "view_only"
       member_role: "parent" | "child" | "caregiver" | "other"
     }
@@ -589,6 +653,7 @@ export const Constants = {
         "other",
       ],
       family_role: ["owner", "editor", "viewer"],
+      invitation_status: ["pending", "accepted", "expired", "revoked"],
       member_access: ["full", "view_only"],
       member_role: ["parent", "child", "caregiver", "other"],
     },
