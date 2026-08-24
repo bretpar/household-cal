@@ -328,6 +328,7 @@ export async function resetQaHousehold(admin: AdminDb, userId: string): Promise<
     family_id: familyId,
     family_name: QA_HOUSEHOLD_NAME,
     households_removed: removed,
+    google_calendars_preserved: preservedGoogle.length,
     deleted: {
       events: before.events,
       activities: before.activities,
