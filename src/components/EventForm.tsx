@@ -167,6 +167,12 @@ export function validateFormState(state: EventFormState): string | null {
   return null;
 }
 
+const END_MODES: { id: RecurrenceEndMode; label: string }[] = [
+  { id: "on", label: "On date" },
+  { id: "count", label: "After occurrences" },
+  { id: "never", label: "Never" },
+];
+
 /** Shared fields for both the add and edit flows. Large touch targets for iPad/phone. */
 export function EventFormFields({
   state,
@@ -182,6 +188,14 @@ export function EventFormFields({
 
   const set = <K extends keyof EventFormState>(key: K, value: EventFormState[K]) =>
     onChange({ ...state, [key]: value });
+
+  const recurrenceOption = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence);
+  const repeats = Boolean(recurrenceOption?.rule);
+  const frequencyLabel = recurrenceOption?.label ?? "";
+  const startsLabel = state.date
+    ? format(new Date(`${state.date}T00:00`), "EEEE, MMM d, yyyy")
+    : "the event date";
+
 
   return (
     <div className="space-y-4">
