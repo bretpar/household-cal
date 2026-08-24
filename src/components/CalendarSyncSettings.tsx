@@ -405,7 +405,7 @@ export function CalendarSyncSettings() {
                       : {
                           mode: "existing",
                           external_calendar_id: chosen,
-                          name: summary?.summary,
+                          name: summary?.summary ?? chosen,
                           replace_source_id: slotDialog?.replaceId ?? null,
                         },
                 });
