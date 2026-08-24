@@ -139,7 +139,7 @@ export function formStateFromClipboard(clip: EventClipboard, date: Date): EventF
     memberWeekdays: {},
     location: clip.location,
     notes: clip.notes,
-    calendarSourceId: clip.calendarSourceId ?? null,
+    calendarSourceId: clip.calendar_source_id ?? null,
   };
 }
 

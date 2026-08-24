@@ -127,6 +127,7 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     external_calendar_id: s.external_calendar_id,
     display_mode: s.display_mode as DisplayMode,
     active: s.active,
+    is_main: s.is_main ?? false,
   }));
   const displayModeOf = new Map(sources.map((s) => [s.id, s.display_mode]));
 
