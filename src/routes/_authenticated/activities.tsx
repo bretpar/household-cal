@@ -2,8 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CalendarClock, MapPin, Repeat } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { AddEventDialog } from "@/components/AddEventDialog";
 import { MemberBadgeRow } from "@/components/MemberBadge";
 import { useCalendar } from "@/lib/calendar-store";
+
 
 export const Route = createFileRoute("/_authenticated/activities")({
   head: () => ({
