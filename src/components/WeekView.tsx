@@ -1,3 +1,4 @@
+import type { DragEvent } from "react";
 import { addDays, format, isSameDay, startOfWeek } from "date-fns";
 
 import { cn } from "@/lib/utils";
@@ -109,7 +110,7 @@ export function WeekView({
   const hours = Array.from({ length: DAY_END - DAY_START }, (_, i) => DAY_START + i);
 
   /** Pointer position inside a day column -> snapped start time on that day. */
-  const startFromDrop = (day: Date, e: React.DragEvent<HTMLElement>): Date => {
+  const startFromDrop = (day: Date, e: DragEvent<HTMLElement>): Date => {
     const rect = e.currentTarget.getBoundingClientRect();
     const minutesFromTop = ((e.clientY - rect.top) / HOUR_PX) * 60;
     const total = Math.max(
