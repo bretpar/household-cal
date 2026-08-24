@@ -9,11 +9,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    redirect: typeof search["redirect"] === "string" && search["redirect"].startsWith("/")
-      ? (search["redirect"] as string)
-      : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => {
+    const value = search["redirect"];
+    return typeof value === "string" && value.startsWith("/") ? { redirect: value } : {};
+  },
   head: () => ({
     meta: [
       { title: "Sign in — Family Calendar" },
