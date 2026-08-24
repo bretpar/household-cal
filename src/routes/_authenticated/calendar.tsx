@@ -36,11 +36,13 @@ export const Route = createFileRoute("/_authenticated/calendar")({
 type ViewMode = "month" | "week" | "agenda";
 
 function CalendarPage() {
-  const { events, selectedMembers } = useCalendar();
+  const { events, selectedMembers, canEdit, loading } = useCalendar();
   const isMobile = useIsMobile();
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("month");
   const mode: ViewMode = isMobile && view === "month" ? view : view;
+  const isEmpty = !loading && events.length === 0;
+
 
   const step = (direction: number) =>
     setAnchor((prev) =>
@@ -108,6 +110,22 @@ function CalendarPage() {
             ))}
           </div>
         </div>
+        {isEmpty ? (
+          <div className="rounded-3xl border border-dashed border-border bg-surface p-6 text-center">
+            <p className="text-base font-bold">No events yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {canEdit
+                ? "Add your first event and it will appear across every view."
+                : "Events shared with your household will show up here."}
+            </p>
+            {canEdit ? (
+              <div className="mt-4 flex justify-center">
+                <AddEventDialog defaultDate={anchor} />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
 
         <MemberFilter />
 

@@ -7,11 +7,16 @@ import { CalendarProvider } from "@/lib/calendar-store";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
-    // every signed-in user must belong to a household before the calendar loads
-    await ensureFamilyMembership().catch(() => undefined);
+
+    // resolves an existing membership or claims a pending invitation; brand-new
+    // users get no household and are sent to onboarding to create their own
+    const onOnboarding = location.pathname.startsWith("/onboarding");
+    const resolved = await ensureFamilyMembership().catch(() => ({ family_id: null }));
+    if (!resolved?.family_id && !onOnboarding) throw redirect({ to: "/onboarding" });
+
     return { user: data.user };
   },
   component: AuthenticatedLayout,

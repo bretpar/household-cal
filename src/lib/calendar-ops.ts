@@ -325,21 +325,24 @@ export async function applyEventDelete(
 }
 
 /**
- * Ensures the signed-in user belongs to a household.
- * Order: existing membership → pending invitation for their email → unclaimed demo
- * household → a brand new household of their own.
+ * Resolves the household the signed-in user belongs to, without ever creating one.
+ *
+ * Order: existing membership → pending invitation for their email. Users with
+ * neither get `null` and are sent through onboarding to create their own
+ * household. Nothing here claims demo/sample households.
  */
-export async function ensureMembership(
+export async function resolveMembership(
   admin: Db,
   userId: string,
   claimInvitations?: () => Promise<string | null>,
-): Promise<string> {
+): Promise<string | null> {
   await admin.from("profiles").upsert({ id: userId }, { onConflict: "id" });
 
   const { data: existing } = await admin
     .from("family_users")
     .select("family_id")
     .eq("user_id", userId)
+    .order("created_at", { ascending: true })
     .limit(1);
   if (existing && existing.length > 0) return existing[0].family_id as string;
 
@@ -348,41 +351,6 @@ export async function ensureMembership(
     if (invited) return invited;
   }
 
-  const { data: unclaimed } = await admin
-    .from("families")
-    .select("id")
-    .is("created_by", null)
-    .order("created_at", { ascending: true })
-    .limit(1);
-
-  let familyId: string | null = unclaimed?.[0]?.id ?? null;
-  if (familyId) {
-    await admin.from("families").update({ created_by: userId }).eq("id", familyId);
-  } else {
-    const { data: created, error } = await admin
-      .from("families")
-      .insert({ name: "My Family", created_by: userId })
-      .select("id")
-      .single();
-    if (error) throw error;
-    familyId = created.id as string;
-    await admin.from("calendar_sources").insert([
-      { family_id: familyId, name: "Family", display_mode: "events", sort_order: 0 },
-      {
-        family_id: familyId,
-        name: "Caregiver coverage",
-        display_mode: "coverage_background",
-        sort_order: 1,
-      },
-    ]);
-  }
-
-  await admin
-    .from("family_users")
-    .upsert(
-      { family_id: familyId, user_id: userId, role: "owner" },
-      { onConflict: "family_id,user_id" },
-    );
-
-  return familyId!;
+  return null;
 }
+

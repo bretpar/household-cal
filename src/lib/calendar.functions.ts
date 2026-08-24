@@ -6,26 +6,31 @@ import {
   applyEventUpdate,
   asEventInput,
   defaultEventSource,
-  ensureMembership,
   insertEvent,
   loadFamilyBundle,
+  resolveMembership,
   resolveWritableFamily,
   type Db,
   type FamilyBundle,
   type RecurrenceScope,
 } from "@/lib/calendar-ops";
 
+/**
+ * Resolves the caller's household (claiming any pending invitation for their email).
+ * Returns `family_id: null` for brand-new users, who are sent through onboarding.
+ */
 export const ensureFamilyMembership = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { claimPendingInvitations } = await import("@/lib/household.server");
     const email = (context.claims as { email?: string }).email ?? null;
-    const familyId = await ensureMembership(supabaseAdmin as unknown as Db, context.userId, () =>
+    const familyId = await resolveMembership(supabaseAdmin as unknown as Db, context.userId, () =>
       claimPendingInvitations(supabaseAdmin as never, context.userId, email),
     );
     return { family_id: familyId };
   });
+
 
 export const getFamilyBundle = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
