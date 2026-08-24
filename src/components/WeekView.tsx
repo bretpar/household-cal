@@ -1,9 +1,11 @@
+import type { DragEvent } from "react";
 import { addDays, format, isSameDay, startOfWeek } from "date-fns";
 
 import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
 import { MemberBadgeRow } from "@/components/MemberBadge";
 import { eventTypeIcons } from "@/components/EventCard";
+import { useReschedule } from "@/components/useReschedule";
 import {
   expandOccurrences,
   formatTimeRange,
@@ -17,6 +19,9 @@ import {
 const DAY_START = 7;
 const DAY_END = 22;
 const HOUR_PX = 60;
+/** Drops snap to a friendly grid rather than to the exact pixel. */
+const SNAP_MINUTES = 15;
+
 
 function topFor(date: Date) {
   return (date.getHours() + date.getMinutes() / 60 - DAY_START) * HOUR_PX;
@@ -96,6 +101,7 @@ export function WeekView({
   days?: number;
 }) {
   const { openOccurrence, styleFor, sources } = useCalendar();
+  const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
   const sourceName = (id: string | null) =>
     sources.find((s) => s.id === id)?.name ?? "Coverage";
   const start = days === 1 ? anchor : startOfWeek(anchor, { weekStartsOn: 1 });
@@ -103,7 +109,31 @@ export function WeekView({
   const occurrences = expandOccurrences(events, columns[0]!, addDays(columns[days - 1]!, 1));
   const hours = Array.from({ length: DAY_END - DAY_START }, (_, i) => DAY_START + i);
 
+  /** Pointer position inside a day column -> snapped start time on that day. */
+  const startFromDrop = (day: Date, e: DragEvent<HTMLElement>): Date => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const minutesFromTop = ((e.clientY - rect.top) / HOUR_PX) * 60;
+    const total = Math.max(
+      DAY_START * 60,
+      Math.min(DAY_END * 60 - SNAP_MINUTES, DAY_START * 60 + minutesFromTop),
+    );
+    const snapped = Math.round(total / SNAP_MINUTES) * SNAP_MINUTES;
+    const next = new Date(day);
+    next.setHours(Math.floor(snapped / 60), snapped % 60, 0, 0);
+    return next;
+  };
+
+  /** Day-block / all-day chips keep their time of day and only change day. */
+  const sameTimeOn = (day: Date, occurrence: Occurrence): Date => {
+    const next = new Date(day);
+    next.setHours(occurrence.start.getHours(), occurrence.start.getMinutes(), 0, 0);
+    return next;
+  };
+
+
   return (
+    <>
+      {dialog}
     <div className="overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft">
       <div
         className="grid border-b border-border-soft bg-surface-muted"
@@ -147,15 +177,18 @@ export function WeekView({
             <div
               key={day.toISOString()}
               className="min-h-7 space-y-0.5 border-l border-border-soft p-1"
+              {...dropProps((_e, o) => sameTimeOn(day, o))}
             >
               {/* Background commitments (school, work): deliberately lighter than timed events */}
               {allDay.map((o) => (
                 <button
                   key={o.key}
                   type="button"
+                  {...dragProps(o)}
                   onClick={() => openOccurrence(o)}
                   className={cn(
                     "flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left text-[10px] font-semibold opacity-80 transition-opacity hover:opacity-100",
+                    draggingKey === o.key && "opacity-40",
                     o.member_ids[0]
                       ? styleFor(o.member_ids[0]!).soft
                       : "bg-surface-muted",
@@ -202,6 +235,7 @@ export function WeekView({
                 key={day.toISOString()}
                 className="relative border-l border-border-soft"
                 style={{ height: hours.length * HOUR_PX }}
+                {...dropProps((e) => startFromDrop(day, e))}
               >
                 {hours.map((hour) => (
                   <div
@@ -237,10 +271,12 @@ export function WeekView({
                       <button
                         key={o.key}
                         type="button"
+                        {...dragProps(o)}
                         onClick={() => openOccurrence(o)}
                         className={cn(
                           "absolute overflow-hidden rounded-xl border border-border-soft px-1.5 py-1 text-left shadow-soft transition-transform hover:-translate-y-px",
                           first ? styleFor(first).soft : "bg-surface-muted",
+                          draggingKey === o.key && "opacity-40",
                         )}
                         style={{
                           top: topFor(o.start),
@@ -275,5 +311,6 @@ export function WeekView({
         </div>
       </div>
     </div>
+    </>
   );
 }
