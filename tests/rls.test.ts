@@ -68,7 +68,8 @@ async function expectInsertDenied(
 ) {
   const { error } = await client.from(table).insert(row).select();
   expect(error, `${table} insert should have been rejected`).not.toBeNull();
-  expect(error!.code).toBe("42501");
+  // 42501 = RLS policy violation, P0001 = same-family guard trigger
+  expect(["42501", "P0001"]).toContain(error!.code);
 }
 
 beforeAll(async () => {
