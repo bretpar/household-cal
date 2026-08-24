@@ -112,34 +112,50 @@ suite("developer QA reset", () => {
   it("preserves connected Google calendar slots while clearing test data", async () => {
     const seed = await resetQaHousehold(db, qaIds.dad);
     const familyId = seed.family_id;
-    const { data: google } = await db
+
+    // Households are capped at two Google slots, so reuse a real one when it
+    // exists and only create a throwaway slot for a household with none.
+    const { data: existing } = await db
       .from("calendar_sources")
-      .insert({
-        family_id: familyId,
-        name: "QA Google",
-        provider: "google",
-        external_calendar_id: "qa-google-calendar@group.calendar.google.com",
-        google_sync_token: "stale-token",
-        sort_order: 5,
-      })
       .select("id")
-      .single();
+      .eq("family_id", familyId)
+      .eq("provider", "google");
+    let slotId = (existing ?? [])[0]?.id as string | undefined;
+    let temporary = false;
+    if (!slotId) {
+      const { data: created } = await db
+        .from("calendar_sources")
+        .insert({
+          family_id: familyId,
+          name: "QA Google",
+          provider: "google",
+          external_calendar_id: "qa-google-calendar@group.calendar.google.com",
+          sort_order: 5,
+        })
+        .select("id")
+        .single();
+      slotId = created.id as string;
+      temporary = true;
+    }
+    await db.from("calendar_sources").update({ google_sync_token: "stale-token" }).eq("id", slotId);
 
     const summary = await resetQaHousehold(db, qaIds.dad);
-    expect(summary.google_calendars_preserved).toBe(1);
+    expect(summary.google_calendars_preserved).toBe((existing ?? []).length || 1);
 
     const { data: after } = await db
       .from("calendar_sources")
       .select("id, provider, external_calendar_id, google_sync_token")
       .eq("family_id", familyId);
-    const kept = (after ?? []).find((s: any) => s.id === google.id);
+    const kept = (after ?? []).find((s: any) => s.id === slotId);
     expect(kept?.provider).toBe("google");
-    expect(kept?.external_calendar_id).toBe("qa-google-calendar@group.calendar.google.com");
+    expect(kept?.external_calendar_id).toBeTruthy();
     expect(kept?.google_sync_token).toBeNull();
     expect((after ?? []).filter((s: any) => s.provider === "local").length).toBe(2);
 
-    await db.from("calendar_sources").delete().eq("id", google.id);
+    if (temporary) await db.from("calendar_sources").delete().eq("id", slotId);
   }, 120_000);
+
+
 
   it("leaves exactly one Parker Family with the D/M/B/E/J baseline and correct roles", async () => {
     const summary = await resetQaHousehold(db, qaIds.mom);

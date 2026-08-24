@@ -337,8 +337,44 @@ export function syncWindow(now = new Date(), initial = false): { timeMin: string
   return { timeMin: min.toISOString(), timeMax: max.toISOString() };
 }
 
+/**
+ * Fields for the detached local event that represents a Google-edited single
+ * occurrence of an app-created series.
+ *
+ * The Google-generated " - B & E" suffix is stripped and the branch's family
+ * assignments are inherited, so an externally edited occurrence never comes back
+ * as an unassigned "needs family assignment" import.
+ */
+export function exceptionEventFields(input: {
+  parent: { title: string; event_type: string };
+  branch: SyncBranch;
+  branchInitials: string[];
+  google: GoogleEvent;
+}): {
+  title: string;
+  event_type: string;
+  member_ids: string[];
+  needs_family_assignment: boolean;
+  start_at: string;
+  end_at: string;
+  all_day: boolean;
+} {
+  const { parent, branch, branchInitials, google } = input;
+  const times = fromGoogleTimes(google);
+  const raw = google.summary ?? parent.title;
+  const title = stripGeneratedSuffix(raw, branchInitials) || parent.title;
+  return {
+    title,
+    event_type: parent.event_type,
+    member_ids: [...branch.memberIds],
+    needs_family_assignment: branch.memberIds.length === 0,
+    ...times,
+  };
+}
+
 /** What a pulled `status: "cancelled"` item may do to the linked local event. */
 export type CancellationAction = "ignore" | "remove";
+
 
 /**
  * Decides whether a Google cancellation tombstone may remove local data.
