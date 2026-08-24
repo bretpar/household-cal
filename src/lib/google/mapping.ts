@@ -372,6 +372,50 @@ export function exceptionEventFields(input: {
   };
 }
 
+/**
+ * The patch applied to an already-linked local series when Google reports a
+ * whole-series edit.
+ *
+ * Google carries no structured family data, so this only ever returns the
+ * Google-owned fields. `event_members`, per-person weekdays, event type and the
+ * review flag are app-owned and are deliberately absent from the patch, which
+ * means an external time or title change can never clear the assignments.
+ */
+export function seriesPatchFromGoogle(input: {
+  local: {
+    title: string;
+    memberCount: number;
+    branchKey: string;
+  };
+  branchInitials: string[];
+  google: GoogleEvent;
+}): Record<string, unknown> {
+  const { local, branchInitials, google } = input;
+  const times = fromGoogleTimes(google);
+  const raw = google.summary ?? local.title;
+  const title = stripGeneratedSuffix(raw, branchInitials) || local.title;
+  const patch: Record<string, unknown> = {
+    title,
+    start_at: times.start_at,
+    end_at: times.end_at,
+    all_day: times.all_day,
+    location: google.location ?? null,
+    notes: google.description ?? null,
+    last_change_source: "google",
+  };
+  // a branch only owns its own weekdays, so it must not rewrite the shared rule
+  // for the other branches of the same logical event
+  if (local.branchKey === "") {
+    const rec = fromGoogleRecurrence(google.recurrence);
+    patch["recurrence_rule"] = rec.rule;
+    patch["recurrence_until"] = rec.until;
+    if (rec.excludedDates.length > 0) patch["excluded_dates"] = rec.excludedDates;
+  }
+  // an assigned event stays assigned; only a genuinely memberless one is flagged
+  if (local.memberCount > 0) patch["needs_family_assignment"] = false;
+  return patch;
+}
+
 /** What a pulled `status: "cancelled"` item may do to the linked local event. */
 export type CancellationAction = "ignore" | "remove";
 
