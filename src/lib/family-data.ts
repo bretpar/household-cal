@@ -364,6 +364,35 @@ export function describeWeekdays(weekdays: WeekdayCode[] | null): string {
     .join(", ");
 }
 
+/** Plain-language summary such as "Repeats every Monday until December 14, 2026". */
+export function describeRecurrence(event: CalendarEvent): string | null {
+  const rule = parseRule(event.recurrence_rule);
+  if (!rule) return event.recurrence_rule === "CUSTOM" ? "Repeats on a custom schedule" : null;
+
+  const start = new Date(event.start_at);
+  const weekday = start.toLocaleDateString("en-US", { weekday: "long" });
+  let base: string;
+  if (rule.freq === "DAILY") {
+    base = rule.interval === 1 ? "Repeats daily" : `Repeats every ${rule.interval} days`;
+  } else if (rule.freq === "MONTHLY") {
+    base =
+      rule.interval === 1
+        ? `Repeats monthly on day ${start.getDate()}`
+        : `Repeats every ${rule.interval} months`;
+  } else {
+    base = rule.interval === 1 ? `Repeats every ${weekday}` : `Repeats every ${rule.interval} weeks`;
+  }
+
+  if (event.recurrence_until) {
+    const [y, m, d] = event.recurrence_until.split("-").map(Number);
+    const until = new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+    return `${base} until ${until.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
+  }
+  if (rule.count !== null) {
+    return `${base} · ${rule.count} occurrence${rule.count === 1 ? "" : "s"}`;
+  }
+  return base;
+}
 
 export function expandOccurrences(
   events: CalendarEvent[],
@@ -377,15 +406,23 @@ export function expandOccurrences(
   for (let day = startOfDay(rangeStart); day <= rangeEnd; day = addDays(day, 1)) {
     for (const event of events) {
       if (!occursOn(event, day)) continue;
+      if (!hasParticipantsOn(event, day)) continue;
       const baseStart = new Date(event.start_at);
       const start = new Date(day);
       start.setHours(baseStart.getHours(), baseStart.getMinutes(), 0, 0);
       const end = new Date(start.getTime() + durationOf(event));
-      result.push({ key: `${event.id}-${start.toISOString()}`, event, start, end });
+      result.push({
+        key: `${event.id}-${start.toISOString()}`,
+        event,
+        start,
+        end,
+        member_ids: participantsOn(event, day),
+      });
     }
   }
   return result.sort((a, b) => a.start.getTime() - b.start.getTime());
 }
+
 
 export function occurrencesForDay(events: CalendarEvent[], day: Date): Occurrence[] {
   return expandOccurrences(events, startOfDay(day), addDays(startOfDay(day), 1));
