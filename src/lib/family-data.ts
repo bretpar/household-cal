@@ -74,6 +74,29 @@ export interface CalendarSource {
   active: boolean;
 }
 
+/** Weekday code used by RRULE BYDAY and by per-person participation rules. */
+export type WeekdayCode = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";
+
+export const WEEKDAY_CODES: { code: WeekdayCode; short: string; label: string }[] = [
+  { code: "MO", short: "Mon", label: "Monday" },
+  { code: "TU", short: "Tue", label: "Tuesday" },
+  { code: "WE", short: "Wed", label: "Wednesday" },
+  { code: "TH", short: "Thu", label: "Thursday" },
+  { code: "FR", short: "Fri", label: "Friday" },
+  { code: "SA", short: "Sat", label: "Saturday" },
+  { code: "SU", short: "Sun", label: "Sunday" },
+];
+
+/**
+ * One participant inside a series. `weekdays === null` means "every occurrence";
+ * a list restricts that person to those weekdays only, so a single School series
+ * can hold Bailey Mon–Thu and Ellison Tue–Thu.
+ */
+export interface EventParticipant {
+  member_id: MemberId;
+  weekdays: WeekdayCode[] | null;
+}
+
 export interface CalendarEvent {
   id: string;
   family_id: FamilyId;
@@ -95,8 +118,12 @@ export interface CalendarEvent {
   excluded_dates: string[];
   external_event_id: string | null;
   external_recurring_event_id: string | null;
+  /** every member on the series, with their own weekday rule */
+  participants: EventParticipant[];
+  /** every member on the series, ignoring weekday rules */
   member_ids: MemberId[];
 }
+
 
 export interface FamilyActivity {
   id: string;
@@ -218,7 +245,10 @@ export interface Occurrence {
   event: CalendarEvent;
   start: Date;
   end: Date;
+  /** members taking part on this specific day (per-person weekday rules applied) */
+  member_ids: MemberId[];
 }
+
 
 const DAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
@@ -302,6 +332,38 @@ function occursOn(event: CalendarEvent, day: Date): boolean {
   return true;
 }
 
+/**
+ * Who takes part on a given day. Members without a weekday rule always take
+ * part; members with one only appear on their own weekdays.
+ */
+export function participantsOn(event: CalendarEvent, day: Date): MemberId[] {
+  const code = DAY_CODES[day.getDay()] as WeekdayCode;
+  const source =
+    event.participants.length > 0
+      ? event.participants
+      : event.member_ids.map((member_id) => ({ member_id, weekdays: null }));
+  return source
+    .filter((p) => !p.weekdays || p.weekdays.length === 0 || p.weekdays.includes(code))
+    .map((p) => p.member_id);
+}
+
+/** True when at least one person is scheduled — no empty School days. */
+function hasParticipantsOn(event: CalendarEvent, day: Date): boolean {
+  const hasRules = event.participants.some((p) => p.weekdays && p.weekdays.length > 0);
+  if (!hasRules) return true;
+  return participantsOn(event, day).length > 0;
+}
+
+/** Plain-language summary of one person's weekdays, e.g. "Mon, Tue, Wed". */
+export function describeWeekdays(weekdays: WeekdayCode[] | null): string {
+  if (!weekdays || weekdays.length === 0) return "Every day of the series";
+  const order = WEEKDAY_CODES.map((d) => d.code);
+  return [...weekdays]
+    .sort((a, b) => order.indexOf(a) - order.indexOf(b))
+    .map((code) => WEEKDAY_CODES.find((d) => d.code === code)?.short ?? code)
+    .join(", ");
+}
+
 /** Plain-language summary such as "Repeats every Monday until December 14, 2026". */
 export function describeRecurrence(event: CalendarEvent): string | null {
   const rule = parseRule(event.recurrence_rule);
@@ -344,15 +406,23 @@ export function expandOccurrences(
   for (let day = startOfDay(rangeStart); day <= rangeEnd; day = addDays(day, 1)) {
     for (const event of events) {
       if (!occursOn(event, day)) continue;
+      if (!hasParticipantsOn(event, day)) continue;
       const baseStart = new Date(event.start_at);
       const start = new Date(day);
       start.setHours(baseStart.getHours(), baseStart.getMinutes(), 0, 0);
       const end = new Date(start.getTime() + durationOf(event));
-      result.push({ key: `${event.id}-${start.toISOString()}`, event, start, end });
+      result.push({
+        key: `${event.id}-${start.toISOString()}`,
+        event,
+        start,
+        end,
+        member_ids: participantsOn(event, day),
+      });
     }
   }
   return result.sort((a, b) => a.start.getTime() - b.start.getTime());
 }
+
 
 export function occurrencesForDay(events: CalendarEvent[], day: Date): Occurrence[] {
   return expandOccurrences(events, startOfDay(day), addDays(startOfDay(day), 1));
@@ -367,6 +437,13 @@ export function matchesFilter(event: CalendarEvent, selected: MemberId[]): boole
   if (selected.length === 0) return true;
   return event.member_ids.some((id) => selected.includes(id));
 }
+
+/** Filtering respects who is actually scheduled on that day. */
+export function occurrenceMatchesFilter(occurrence: Occurrence, selected: MemberId[]): boolean {
+  if (selected.length === 0) return true;
+  return occurrence.member_ids.some((id) => selected.includes(id));
+}
+
 
 export function formatTimeRange(start: Date, end: Date, allDay: boolean): string {
   if (allDay) return "All day";

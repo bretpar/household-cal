@@ -146,16 +146,19 @@ export type Database = {
           created_at: string
           event_id: string
           family_member_id: string
+          weekdays: string[] | null
         }
         Insert: {
           created_at?: string
           event_id: string
           family_member_id: string
+          weekdays?: string[] | null
         }
         Update: {
           created_at?: string
           event_id?: string
           family_member_id?: string
+          weekdays?: string[] | null
         }
         Relationships: [
           {

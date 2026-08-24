@@ -27,7 +27,9 @@ export function clipboardFromOccurrence(occurrence: Occurrence): EventClipboard 
     startTime: format(start, "HH:mm"),
     endTime: format(end, "HH:mm"),
     allDay: event.all_day,
-    members: [...event.member_ids],
+    // a copied occurrence keeps only the people scheduled that day
+    members: [...occurrence.member_ids],
+
     eventType: event.event_type,
     location: event.location ?? "",
     notes: event.notes ?? "",

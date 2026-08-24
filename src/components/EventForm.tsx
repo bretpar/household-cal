@@ -18,11 +18,13 @@ import { useCalendar } from "@/lib/calendar-store";
 import {
   EVENT_TYPES,
   RECURRENCE_OPTIONS,
+  WEEKDAY_CODES,
   parseRecurrenceRule,
   withRecurrenceCount,
   type EventType,
   type MemberId,
   type Occurrence,
+  type WeekdayCode,
 } from "@/lib/family-data";
 
 export type RecurrenceEndMode = "on" | "count" | "never";
@@ -42,6 +44,10 @@ export interface EventFormState {
   recurrenceUntil: string;
   /** Occurrence count, used when recurrenceEnd is "count". */
   recurrenceCount: number;
+  /** when on, each selected member gets their own weekdays inside the series */
+  customizeDays: boolean;
+  /** member id -> weekdays they take part in. Missing/empty = every occurrence. */
+  memberWeekdays: Record<MemberId, WeekdayCode[]>;
   location: string;
   notes: string;
 }
@@ -68,6 +74,8 @@ export function emptyFormState(defaultDate?: Date): EventFormState {
     recurrenceEnd: "on",
     recurrenceUntil: defaultUntil(date),
     recurrenceCount: 10,
+    customizeDays: false,
+    memberWeekdays: {},
     location: "",
     notes: "",
   };
@@ -79,6 +87,11 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
   const match = RECURRENCE_OPTIONS.find((r) => r.rule === baseRule);
   const parsed = parseRecurrenceRule(event.recurrence_rule);
   const date = format(start, "yyyy-MM-dd");
+  const memberWeekdays: Record<MemberId, WeekdayCode[]> = {};
+  for (const p of event.participants) {
+    if (p.weekdays && p.weekdays.length > 0) memberWeekdays[p.member_id] = [...p.weekdays];
+  }
+  const perPerson = Object.keys(memberWeekdays).length > 0;
   const end_mode: RecurrenceEndMode = event.recurrence_until
     ? "on"
     : parsed?.count
@@ -96,6 +109,8 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
     recurrenceEnd: end_mode,
     recurrenceUntil: event.recurrence_until ?? defaultUntil(date),
     recurrenceCount: parsed?.count ?? 10,
+    customizeDays: perPerson,
+    memberWeekdays,
     location: event.location ?? "",
     notes: event.notes ?? "",
   };
@@ -116,6 +131,8 @@ export function formStateFromClipboard(clip: EventClipboard, date: Date): EventF
     recurrenceEnd: "on",
     recurrenceUntil: defaultUntil(day),
     recurrenceCount: 10,
+    customizeDays: false,
+    memberWeekdays: {},
     location: clip.location,
     notes: clip.notes,
   };
@@ -124,6 +141,12 @@ export function formStateFromClipboard(clip: EventClipboard, date: Date): EventF
 function combine(date: string, time: string) {
   return new Date(`${date}T${time || "00:00"}`).toISOString();
 }
+
+/** null = every occurrence of the series, so an untouched person keeps the simple behavior. */
+function allWeekdays(days: WeekdayCode[] | undefined): WeekdayCode[] | null {
+  return days && days.length > 0 ? days : null;
+}
+
 
 export function draftFromFormState(
   state: EventFormState,
@@ -150,6 +173,12 @@ export function draftFromFormState(
       repeats && state.recurrenceEnd === "on" ? state.recurrenceUntil || null : null,
     calendar_source_id: calendarSourceId,
     member_ids: state.members,
+    member_weekdays:
+      repeats && state.customizeDays
+        ? Object.fromEntries(
+            state.members.map((id) => [id, allWeekdays(state.memberWeekdays[id])]),
+          )
+        : {},
   };
 }
 
@@ -164,8 +193,16 @@ export function validateFormState(state: EventFormState): string | null {
   if (repeats && state.recurrenceEnd === "count" && state.recurrenceCount < 1) {
     return "A repeating event needs at least 1 occurrence";
   }
+  if (repeats && state.customizeDays) {
+    const missing = state.members.filter((id) => (state.memberWeekdays[id] ?? []).length === 0);
+    if (missing.length > 0) {
+      return "Choose at least one day for each person, or turn off Customize days by person";
+    }
+  }
+
   return null;
 }
+
 
 const END_MODES: { id: RecurrenceEndMode; label: string }[] = [
   { id: "on", label: "On date" },
@@ -305,6 +342,81 @@ export function EventFormFields({
           })}
         </div>
       </div>
+
+      {repeats && state.members.length > 0 ? (
+        <div className="space-y-3 rounded-xl bg-surface-muted p-3">
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor={`${idPrefix}-custom-days`} className="font-semibold">
+              Customize days by person
+            </Label>
+            <Switch
+              id={`${idPrefix}-custom-days`}
+              checked={state.customizeDays}
+              onCheckedChange={(v) => set("customizeDays", v)}
+            />
+          </div>
+          {state.customizeDays ? (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Pick each person's days. The event only appears on days someone is scheduled.
+              </p>
+              {state.members.map((memberId) => {
+                const member = activeMembers.find((m) => m.id === memberId);
+                if (!member) return null;
+                const selectedDays = state.memberWeekdays[memberId] ?? [];
+                return (
+                  <div key={memberId} className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <span
+                        className={cn(
+                          "flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold",
+                          styleFor(memberId).badge,
+                        )}
+                      >
+                        {member.initial}
+                      </span>
+                      {member.name}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {WEEKDAY_CODES.map((day) => {
+                        const on = selectedDays.includes(day.code);
+                        return (
+                          <button
+                            key={day.code}
+                            type="button"
+                            aria-pressed={on}
+                            aria-label={`${member.name} ${day.label}`}
+                            onClick={() =>
+                              onChange({
+                                ...state,
+                                memberWeekdays: {
+                                  ...state.memberWeekdays,
+                                  [memberId]: on
+                                    ? selectedDays.filter((d) => d !== day.code)
+                                    : [...selectedDays, day.code],
+                                },
+                              })
+                            }
+                            className={cn(
+                              "h-9 min-w-11 rounded-lg px-2 text-xs font-semibold transition-colors",
+                              on
+                                ? cn(styleFor(memberId).soft, "ring-2", styleFor(memberId).ring)
+                                : "bg-background text-muted-foreground",
+                            )}
+                          >
+                            {day.short}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">

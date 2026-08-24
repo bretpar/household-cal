@@ -10,6 +10,7 @@ import type {
   CalendarEvent,
   CalendarSource,
   DisplayMode,
+  EventParticipant,
   EventType,
   Family,
   FamilyActivity,
@@ -34,7 +35,14 @@ export interface EventInput {
   /** yyyy-MM-dd last day the series may produce an occurrence, or null for open-ended. */
   recurrence_until?: string | null;
   member_ids: string[];
+  /**
+   * Optional per-person weekday rules inside one series, e.g. Bailey MO–TH and
+   * Ellison TU–TH on the same School event. Members left out participate on
+   * every occurrence.
+   */
+  member_weekdays?: Record<string, string[] | null> | undefined;
 }
+
 
 export type RecurrenceScope = "this" | "future" | "series";
 
@@ -95,7 +103,11 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
       .select("*")
       .eq("family_id", familyId)
       .order("sort_order", { ascending: true }),
-    db.from("events").select("*, event_members(family_member_id)").eq("family_id", familyId),
+    db
+      .from("events")
+      .select("*, event_members(family_member_id, weekdays)")
+      .eq("family_id", familyId),
+
     db
       .from("activities")
       .select("*, activity_members(family_member_id)")
@@ -148,7 +160,14 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     excluded_dates: e.excluded_dates ?? [],
     external_event_id: e.external_event_id,
     external_recurring_event_id: e.external_recurring_event_id,
+    participants: (e.event_members ?? []).map(
+      (l: { family_member_id: string; weekdays: string[] | null }) => ({
+        member_id: l.family_member_id,
+        weekdays: (l.weekdays ?? null) as EventParticipant["weekdays"],
+      }),
+    ),
     member_ids: (e.event_members ?? []).map((l: { family_member_id: string }) => l.family_member_id),
+
   }));
 
   const activities: FamilyActivity[] = (activitiesRes.data ?? []).map((a: any) => ({
@@ -219,15 +238,28 @@ export async function insertEvent(
     .select("id")
     .single();
   if (error) throw error;
-  await linkMembers(db, data.id, input.member_ids);
+  await linkMembers(db, data.id, input.member_ids, input.member_weekdays ?? {});
   return data.id as string;
 }
 
-export async function linkMembers(db: Db, eventId: string, memberIds: string[]): Promise<void> {
+export async function linkMembers(
+  db: Db,
+  eventId: string,
+  memberIds: string[],
+  memberWeekdays: Record<string, string[] | null> = {},
+): Promise<void> {
   if (memberIds.length === 0) return;
-  const { error } = await db
-    .from("event_members")
-    .insert(memberIds.map((id) => ({ event_id: eventId, family_member_id: id })));
+  const { error } = await db.from("event_members").insert(
+    memberIds.map((id) => {
+      const days = memberWeekdays[id];
+      return {
+        event_id: eventId,
+        family_member_id: id,
+        // null = takes part in every occurrence of the series
+        weekdays: days && days.length > 0 ? days : null,
+      };
+    }),
+  );
   if (error) throw error;
 }
 
@@ -263,7 +295,7 @@ export async function applyEventUpdate(
     if (updateError) throw updateError;
     const { error: clearError } = await db.from("event_members").delete().eq("event_id", eventId);
     if (clearError) throw clearError;
-    await linkMembers(db, eventId, input.member_ids);
+    await linkMembers(db, eventId, input.member_ids, input.member_weekdays ?? {});
     return;
   }
 
