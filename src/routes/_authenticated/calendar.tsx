@@ -36,7 +36,8 @@ export const Route = createFileRoute("/_authenticated/calendar")({
 type ViewMode = "month" | "week" | "agenda";
 
 function CalendarPage() {
-  const { events, selectedMembers, canEdit, loading } = useCalendar();
+  const { events, selectedMembers, canEdit, loading, copiedEvent, startPaste } = useCalendar();
+  const onPaste = canEdit && copiedEvent ? startPaste : undefined;
   const isMobile = useIsMobile();
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("month");
@@ -134,6 +135,7 @@ function CalendarPage() {
             month={anchor}
             events={events}
             selectedMembers={selectedMembers}
+            onPaste={onPaste}
             onSelectDay={(day) => {
               setAnchor(day);
               setView("agenda");
@@ -149,7 +151,12 @@ function CalendarPage() {
         ) : (
           <div className="space-y-4">
             <WeekView anchor={anchor} events={events} selectedMembers={selectedMembers} days={1} />
-            <AgendaView anchor={anchor} events={events} selectedMembers={selectedMembers} />
+            <AgendaView
+              anchor={anchor}
+              events={events}
+              selectedMembers={selectedMembers}
+              onPaste={onPaste}
+            />
           </div>
         )}
       </div>
