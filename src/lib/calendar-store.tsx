@@ -11,6 +11,11 @@ import {
 import type { EventInput, RecurrenceScope } from "@/lib/calendar-ops";
 import { clipboardFromOccurrence, type EventClipboard } from "@/lib/event-clipboard";
 import {
+  appearanceForEvent,
+  type CategoryAppearance,
+  type EventCategory,
+} from "@/lib/event-categories";
+import {
   buildMemberStyles,
   dayKey,
   FALLBACK_MEMBER_STYLE,
@@ -46,6 +51,10 @@ interface CalendarStore {
   sources: CalendarSource[];
   activities: FamilyActivity[];
   events: CalendarEvent[];
+  /** household categories, sorted; Uncategorized is not a row */
+  categories: EventCategory[];
+  /** category label + colour classes for an event's category_id (null = Uncategorized) */
+  categoryAppearanceFor: (categoryId: string | null | undefined) => CategoryAppearance;
 
   addEvent: (draft: EventDraft) => Promise<void>;
   updateEvent: (
@@ -137,6 +146,9 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       sources: data?.sources ?? [],
       activities: data?.activities ?? [],
       events: data?.events ?? [],
+      categories: data?.categories ?? [],
+      categoryAppearanceFor: (categoryId) =>
+        appearanceForEvent(data?.categories ?? [], categoryId),
 
       addEvent: async (draft) => {
         await createMutation.mutateAsync(draft);

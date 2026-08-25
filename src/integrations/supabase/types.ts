@@ -171,6 +171,44 @@ export type Database = {
           },
         ]
       }
+      event_categories: {
+        Row: {
+          color: string
+          created_at: string
+          family_id: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          family_id: string
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          family_id?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_categories_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_members: {
         Row: {
           created_at: string
@@ -287,6 +325,7 @@ export type Database = {
         Row: {
           all_day: boolean
           calendar_source_id: string | null
+          category_id: string | null
           created_at: string
           created_by: string | null
           end_at: string
@@ -309,6 +348,7 @@ export type Database = {
         Insert: {
           all_day?: boolean
           calendar_source_id?: string | null
+          category_id?: string | null
           created_at?: string
           created_by?: string | null
           end_at: string
@@ -331,6 +371,7 @@ export type Database = {
         Update: {
           all_day?: boolean
           calendar_source_id?: string | null
+          category_id?: string | null
           created_at?: string
           created_by?: string | null
           end_at?: string
@@ -356,6 +397,13 @@ export type Database = {
             columns: ["calendar_source_id"]
             isOneToOne: false
             referencedRelation: "calendar_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "event_categories"
             referencedColumns: ["id"]
           },
           {

@@ -4,6 +4,8 @@ import { Eye, Settings, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { CalendarSyncSettings } from "@/components/CalendarSyncSettings";
 import { DeveloperTools } from "@/components/DeveloperTools";
+import { EventCategorySettings } from "@/components/EventCategorySettings";
+import { FamilyMemberSettings } from "@/components/FamilyMemberSettings";
 import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { MemberBadge } from "@/components/MemberBadge";
 import { Switch } from "@/components/ui/switch";
@@ -37,7 +39,6 @@ const ROLE_LABEL: Record<string, string> = {
 function FamilyPage() {
   const { members, sources, family, role } = useCalendar();
   const caregivers = members.filter((m) => m.role === "caregiver");
-  const household = members.filter((m) => m.role !== "caregiver");
 
   return (
     <AppShell>
@@ -50,35 +51,7 @@ function FamilyPage() {
           </p>
         </header>
 
-        <section className="space-y-3">
-          <h2 className="text-sm font-bold tracking-wide text-muted-foreground uppercase">
-            Members
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {household.map((member) => (
-              <article
-                key={member.id}
-                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-3xl border border-border-soft bg-card p-4 shadow-soft"
-              >
-                <MemberBadge id={member.id} size="lg" />
-                <div className="min-w-0">
-                  <h3 className="truncate text-base font-bold">{member.name}</h3>
-                  <p className="text-xs font-semibold text-muted-foreground capitalize">
-                    {member.role}
-                  </p>
-                </div>
-                <span className="flex items-center gap-1 rounded-full bg-surface-muted px-3 py-1.5 text-[11px] font-bold text-muted-foreground">
-                  {member.access === "full" ? (
-                    <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
-                  ) : (
-                    <Eye className="h-3.5 w-3.5" aria-hidden />
-                  )}
-                  {member.access === "full" ? "Full access" : "View only"}
-                </span>
-              </article>
-            ))}
-          </div>
-        </section>
+        <FamilyMemberSettings />
 
         {caregivers.length > 0 ? (
           <section className="space-y-3">
@@ -105,6 +78,8 @@ function FamilyPage() {
             ))}
           </section>
         ) : null}
+
+        <EventCategorySettings />
 
         <HouseholdAccess />
 

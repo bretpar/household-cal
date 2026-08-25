@@ -18,6 +18,7 @@ import type {
   FamilyRole,
   MemberColor,
 } from "@/lib/family-data";
+import type { EventCategory } from "@/lib/event-categories";
 
 /** Minimal shape of the Supabase client surface these helpers need. */
 export type Db = { from: (table: string) => any };
@@ -31,6 +32,8 @@ export interface EventInput {
   location: string | null;
   notes: string | null;
   event_type: EventType;
+  /** optional household category; null/undefined = Uncategorized */
+  category_id?: string | null;
   recurrence_rule: string | null;
   /** yyyy-MM-dd last day the series may produce an occurrence, or null for open-ended. */
   recurrence_until?: string | null;
@@ -52,7 +55,9 @@ export interface FamilyBundle {
   sources: CalendarSource[];
   events: CalendarEvent[];
   activities: FamilyActivity[];
+  categories: EventCategory[];
 }
+
 
 /** yyyy-MM-dd maths without timezone surprises. */
 export function shiftDayKey(dayKey: string, days: number): string {
@@ -82,7 +87,14 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
 
   const membership = memberships?.[0];
   if (!membership) {
-    return { family: null, members: [], sources: [], events: [], activities: [] };
+    return {
+      family: null,
+      members: [],
+      sources: [],
+      events: [],
+      activities: [],
+      categories: [],
+    };
   }
 
   const familyId = membership.family_id as string;
@@ -92,7 +104,7 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     role: membership.role as FamilyRole,
   };
 
-  const [membersRes, sourcesRes, eventsRes, activitiesRes] = await Promise.all([
+  const [membersRes, sourcesRes, eventsRes, activitiesRes, categoriesRes] = await Promise.all([
     db
       .from("family_members")
       .select("*")
@@ -113,9 +125,15 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
       .select("*, activity_members(family_member_id)")
       .eq("family_id", familyId)
       .order("created_at", { ascending: true }),
+
+    db
+      .from("event_categories")
+      .select("id, family_id, name, color, sort_order")
+      .eq("family_id", familyId)
+      .order("sort_order", { ascending: true }),
   ]);
 
-  for (const res of [membersRes, sourcesRes, eventsRes, activitiesRes]) {
+  for (const res of [membersRes, sourcesRes, eventsRes, activitiesRes, categoriesRes]) {
     if (res.error) throw res.error;
   }
 
@@ -156,6 +174,7 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     location: e.location,
     notes: e.notes,
     event_type: e.event_type,
+    category_id: e.category_id ?? null,
     recurrence_rule: e.recurrence_rule,
     recurrence_until: e.recurrence_until,
     excluded_dates: e.excluded_dates ?? [],
@@ -188,7 +207,15 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     ),
   }));
 
-  return { family, members, sources, events, activities };
+  const categories: EventCategory[] = (categoriesRes.data ?? []).map((c: any) => ({
+    id: c.id,
+    family_id: c.family_id,
+    name: c.name,
+    color: c.color as MemberColor,
+    sort_order: c.sort_order ?? 0,
+  }));
+
+  return { family, members, sources, events, activities, categories };
 }
 
 /** The household the user may write to (owner or editor), defaulting to their first. */
@@ -235,6 +262,7 @@ export async function insertEvent(
       location: input.location,
       notes: input.notes,
       event_type: input.event_type,
+      category_id: input.category_id ?? null,
       recurrence_rule: input.recurrence_rule,
       recurrence_until: input.recurrence_rule ? (input.recurrence_until ?? null) : null,
       ...overrides,
@@ -292,6 +320,7 @@ export async function applyEventUpdate(
         location: input.location,
         notes: input.notes,
         event_type: input.event_type,
+        category_id: input.category_id ?? null,
         recurrence_rule: input.recurrence_rule,
         recurrence_until: input.recurrence_rule ? (input.recurrence_until ?? null) : null,
         calendar_source_id: sourceId,
