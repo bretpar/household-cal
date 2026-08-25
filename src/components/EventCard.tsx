@@ -14,12 +14,7 @@ import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
 import { eventAccentClass, eventTintClass } from "@/lib/event-colors";
 import { MemberBadgeRow } from "@/components/MemberBadge";
-import {
-  formatTimeRange,
-  type EventType,
-  type MemberStyle,
-  type Occurrence,
-} from "@/lib/family-data";
+import { formatTimeRange, type EventType, type Occurrence } from "@/lib/family-data";
 
 export const eventTypeIcons: Record<EventType, LucideIcon> = {
   school: GraduationCap,
@@ -31,29 +26,21 @@ export const eventTypeIcons: Record<EventType, LucideIcon> = {
   other: Sparkles,
 };
 
-/** Colour rules live in one place — see eventTintClass. */
-function tintFor(occurrence: Occurrence, styleFor: (id: string) => MemberStyle) {
-  return eventTintClass(occurrence.member_ids, styleFor);
-}
-
-function accentFor(occurrence: Occurrence, styleFor: (id: string) => MemberStyle) {
-  return eventAccentClass(occurrence.member_ids, styleFor);
-}
-
-
 export function EventPill({ occurrence }: { occurrence: Occurrence }) {
-  const { openOccurrence, styleFor } = useCalendar();
+  const { openOccurrence, categoryAppearanceFor } = useCalendar();
   const { event } = occurrence;
+  const appearance = categoryAppearanceFor(event.category_id);
   return (
     <button
       type="button"
+      title={appearance.label}
       onClick={(e) => {
         e.stopPropagation();
         openOccurrence(occurrence);
       }}
       className={cn(
         "flex w-full items-center gap-1 rounded-lg px-1.5 py-1 text-left text-[11px] leading-tight",
-        tintFor(occurrence, styleFor),
+        eventTintClass(appearance),
       )}
     >
       <span className="min-w-0 flex-1 truncate font-semibold">{event.title}</span>
@@ -71,9 +58,10 @@ export function EventCard({
   showDate?: string;
   className?: string;
 }) {
-  const { openOccurrence, styleFor } = useCalendar();
+  const { openOccurrence, categoryAppearanceFor } = useCalendar();
   const { event, start, end } = occurrence;
   const Icon = eventTypeIcons[event.event_type];
+  const appearance = categoryAppearanceFor(event.category_id);
 
   return (
     <button
@@ -84,7 +72,7 @@ export function EventCard({
         className,
       )}
     >
-      <span className={cn("absolute inset-y-0 left-0 w-1.5", accentFor(occurrence, styleFor))} />
+      <span className={cn("absolute inset-y-0 left-0 w-1.5", eventAccentClass(appearance))} />
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 pl-2">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5">
@@ -94,6 +82,8 @@ export function EventCard({
           <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
             {showDate ? `${showDate} · ` : ""}
             {formatTimeRange(start, end, event.all_day)}
+            {" · "}
+            {appearance.label}
           </p>
           {event.needs_family_assignment ? (
             <p className="mt-1 inline-flex items-center rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">

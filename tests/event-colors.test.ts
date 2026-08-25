@@ -1,48 +1,43 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  SHARED_ACCENT,
-  SHARED_TINT,
-  UNASSIGNED_ACCENT,
-  UNASSIGNED_TINT,
+  UNCATEGORIZED_ACCENT,
+  UNCATEGORIZED_TINT,
   eventAccentClass,
   eventTintClass,
   isEveryoneAssigned,
 } from "../src/lib/event-colors";
+import { appearanceForEvent, type EventCategory } from "../src/lib/event-categories";
 
-const styleFor = (id: string) =>
-  ({
-    soft: `bg-${id}-soft`,
-    dot: `bg-${id}`,
-    badge: `bg-${id}`,
-    ring: `ring-${id}`,
-  }) as never;
+const categories: EventCategory[] = [
+  { id: "cat-school", family_id: "f", name: "School", color: "sky", sort_order: 0 },
+];
 
 describe("event display colours", () => {
-  it("uses the member's own tint for a solo event", () => {
-    expect(eventTintClass(["bailey"], styleFor)).toBe("bg-bailey-soft");
-    expect(eventAccentClass(["ellison"], styleFor)).toBe("bg-ellison");
+  it("uses the category appearance for a categorized event", () => {
+    const appearance = appearanceForEvent(categories, "cat-school");
+    expect(appearance.label).toBe("School");
+    expect(eventTintClass(appearance)).toBe(appearance.soft);
+    expect(eventAccentClass(appearance)).toBe(appearance.swatch);
+    expect(eventTintClass(appearance)).not.toBe(UNCATEGORIZED_TINT);
   });
 
-  it("uses one shared neutral for 2+ members regardless of order", () => {
-    expect(eventTintClass(["bailey", "ellison"], styleFor)).toBe(SHARED_TINT);
-    expect(eventTintClass(["ellison", "bailey"], styleFor)).toBe(SHARED_TINT);
-    expect(eventTintClass(["ellison", "jack"], styleFor)).toBe(SHARED_TINT);
-    expect(eventAccentClass(["ellison", "jack"], styleFor)).toBe(SHARED_ACCENT);
+  it("falls back to the neutral Uncategorized appearance when category_id is null", () => {
+    const appearance = appearanceForEvent(categories, null);
+    expect(appearance.label).toBe("Uncategorized");
+    expect(eventTintClass(appearance)).toBe(UNCATEGORIZED_TINT);
+    expect(eventAccentClass(appearance)).toBe(UNCATEGORIZED_ACCENT);
   });
 
-  it("treats duplicate ids as a single member", () => {
-    expect(eventTintClass(["bailey", "bailey"], styleFor)).toBe("bg-bailey-soft");
+  it("stays neutral for a Google import pointing at a removed category", () => {
+    expect(eventTintClass(appearanceForEvent(categories, "gone"))).toBe(UNCATEGORIZED_TINT);
+    expect(eventTintClass(undefined)).toBe(UNCATEGORIZED_TINT);
+    expect(eventAccentClass(null)).toBe(UNCATEGORIZED_ACCENT);
   });
 
-  it("keeps the unassigned neutral when nobody is assigned", () => {
-    expect(eventTintClass([], styleFor)).toBe(UNASSIGNED_TINT);
-    expect(eventAccentClass([], styleFor)).toBe(UNASSIGNED_ACCENT);
-  });
-
-  it("collapses to an All indicator only when the whole family is on it", () => {
-    expect(isEveryoneAssigned(["d", "m", "b", "e", "j"], 5)).toBe(true);
+  it("never blends member colours into the card — badges carry participation", () => {
     expect(isEveryoneAssigned(["b", "e"], 5)).toBe(false);
+    expect(isEveryoneAssigned(["d", "m", "b", "e", "j"], 5)).toBe(true);
     expect(isEveryoneAssigned(["d", "m"], 2)).toBe(false);
   });
 });

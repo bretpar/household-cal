@@ -1,42 +1,33 @@
-import type { MemberStyle } from "@/lib/family-data";
+import {
+  UNCATEGORIZED_APPEARANCE,
+  type CategoryAppearance,
+} from "@/lib/event-categories";
 
 /**
  * Single source of truth for how an event card is coloured.
  *
- * - exactly one member  → that member's soft pastel + their badge
- * - two or more members → one shared neutral, so no single member "owns" the card
- * - no members          → the existing unassigned neutral
+ * Two independent visual systems:
+ * - the *category* answers "what is this event" and owns the card tint/accent
+ * - the *family member* answers "who is involved" and owns the initial badges
  *
- * Ordering of member ids never affects the result.
+ * Member colours are therefore never blended into the card background: an event
+ * with two people shows two badges on the category-coloured card.
+ *
+ * `category_id = null` (including every Google import until somebody assigns a
+ * category) renders with the neutral Uncategorized appearance — a neutral card
+ * is a normal state, never an error.
  */
-export const SHARED_TINT = "bg-shared";
-export const SHARED_ACCENT = "bg-shared-strong";
-export const UNASSIGNED_TINT = "bg-surface-muted";
-export const UNASSIGNED_ACCENT = "bg-border";
+export const UNCATEGORIZED_TINT = UNCATEGORIZED_APPEARANCE.soft;
+export const UNCATEGORIZED_ACCENT = UNCATEGORIZED_APPEARANCE.swatch;
 
-function soleMember(memberIds: readonly string[]): string | null {
-  const unique = Array.from(new Set(memberIds));
-  return unique.length === 1 ? unique[0]! : null;
+/** Soft tint used as the card/pill background. */
+export function eventTintClass(appearance: CategoryAppearance | null | undefined): string {
+  return appearance?.soft ?? UNCATEGORIZED_TINT;
 }
 
-export function eventTintClass(
-  memberIds: readonly string[],
-  styleFor: (id: string) => MemberStyle,
-): string {
-  const unique = Array.from(new Set(memberIds));
-  if (unique.length === 0) return UNASSIGNED_TINT;
-  const only = soleMember(unique);
-  return only ? styleFor(only).soft : SHARED_TINT;
-}
-
-export function eventAccentClass(
-  memberIds: readonly string[],
-  styleFor: (id: string) => MemberStyle,
-): string {
-  const unique = Array.from(new Set(memberIds));
-  if (unique.length === 0) return UNASSIGNED_ACCENT;
-  const only = soleMember(unique);
-  return only ? styleFor(only).dot : SHARED_ACCENT;
+/** Solid accent used for the left edge stripe / colour indicator. */
+export function eventAccentClass(appearance: CategoryAppearance | null | undefined): string {
+  return appearance?.swatch ?? UNCATEGORIZED_ACCENT;
 }
 
 /**

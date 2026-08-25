@@ -73,6 +73,7 @@ export function EventDetailsDialog() {
     deleteEvent,
     copyOccurrence,
     members,
+    categoryAppearanceFor,
   } = useCalendar();
 
   const [mode, setMode] = useState<Mode>("details");
@@ -96,6 +97,7 @@ export function EventDetailsDialog() {
   const Icon = eventTypeIcons[event.event_type];
   const repeats = recurrenceLabel(occurrence);
   const typeLabel = EVENT_TYPES.find((t) => t.id === event.event_type)?.label ?? "Other";
+  const appearance = categoryAppearanceFor(event.category_id);
 
   const needsScope = Boolean(event.recurrence_rule);
 
@@ -179,7 +181,13 @@ export function EventDetailsDialog() {
                 <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
                 <span className="min-w-0 truncate">{event.title}</span>
               </DialogTitle>
-              <DialogDescription>{typeLabel}</DialogDescription>
+              <DialogDescription className="flex items-center gap-1.5">
+                <span
+                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${appearance.swatch}`}
+                  aria-hidden
+                />
+                {appearance.label} · {typeLabel}
+              </DialogDescription>
             </DialogHeader>
 
             <div className="-mx-4 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 text-sm sm:-mx-6 sm:px-6">

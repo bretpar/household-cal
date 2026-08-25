@@ -150,10 +150,11 @@ function Picker({
 }
 
 function SeriesCard({ series }: { series: EventSeries }) {
-  const { styleFor, memberById } = useCalendar();
+  const { categoryAppearanceFor, memberById } = useCalendar();
   const { event } = series;
   const Icon = eventTypeIcons[event.event_type];
   const typeLabel = EVENT_TYPES.find((t) => t.id === event.event_type)?.label ?? "Other";
+  const appearance = categoryAppearanceFor(event.category_id);
   const start = new Date(event.start_at);
   const end = new Date(event.end_at);
 
@@ -167,7 +168,7 @@ function SeriesCard({ series }: { series: EventSeries }) {
       <span
         className={cn(
           "absolute inset-y-0 left-0 w-1.5",
-          eventAccentClass(event.member_ids, styleFor),
+          eventAccentClass(appearance),
         )}
       />
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 pl-2">
@@ -176,7 +177,13 @@ function SeriesCard({ series }: { series: EventSeries }) {
             <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
             <h3 className="truncate text-base font-bold">{event.title}</h3>
           </div>
-          <p className="mt-0.5 text-xs font-semibold text-muted-foreground">{typeLabel}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <span
+              className={cn("h-2 w-2 shrink-0 rounded-full", appearance.swatch)}
+              aria-hidden
+            />
+            {appearance.label} · {typeLabel}
+          </p>
         </div>
         <MemberBadgeRow ids={event.member_ids} size="sm" />
       </div>
