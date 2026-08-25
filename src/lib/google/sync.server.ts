@@ -568,6 +568,7 @@ async function applyGoogleEvent(
     },
     google: g,
   });
+  if (review) console.warn("[google-sync] unsupported branch recurrence edit", link.id, review);
 
   await admin
     .from("event_sync_links")
