@@ -73,6 +73,7 @@ export function EventDetailsDialog() {
     deleteEvent,
     copyOccurrence,
     members,
+    categoryAppearanceFor,
   } = useCalendar();
 
   const [mode, setMode] = useState<Mode>("details");
@@ -96,6 +97,7 @@ export function EventDetailsDialog() {
   const Icon = eventTypeIcons[event.event_type];
   const repeats = recurrenceLabel(occurrence);
   const typeLabel = EVENT_TYPES.find((t) => t.id === event.event_type)?.label ?? "Other";
+  const appearance = categoryAppearanceFor(event.category_id);
 
   const needsScope = Boolean(event.recurrence_rule);
 
