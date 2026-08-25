@@ -12,21 +12,22 @@ type AnyDb = {
  */
 export async function sendHouseholdInvitationEmail(
   admin: AnyDb,
-  options: { invitationId: string; token: string; email: string; role: string; familyId: string },
+  invitationId: string,
 ): Promise<{ emailed: boolean }> {
   try {
-    const { data: family } = await admin
-      .from("families")
-      .select("name")
-      .eq("id", options.familyId)
+    const { data: invite } = await admin
+      .from("family_invitations")
+      .select("id, email, role, token, family_id, families(name)")
+      .eq("id", invitationId)
       .maybeSingle();
+    if (!invite?.token || !invite?.email) return { emailed: false };
 
-    const result = await sendTemplateEmail("household-invitation", options.email, {
-      idempotencyKey: `household-invitation-${options.invitationId}-${options.token}`,
+    const result = await sendTemplateEmail("household-invitation", invite.email as string, {
+      idempotencyKey: `household-invitation-${invite.id}-${invite.token}`,
       templateData: {
-        householdName: family?.name ?? "your family calendar",
-        role: options.role,
-        inviteUrl: `${SITE_URL}/invite/${options.token}`,
+        householdName: (invite.families as { name?: string } | null)?.name ?? "your family calendar",
+        role: invite.role,
+        inviteUrl: `${SITE_URL}/invite/${invite.token}`,
       },
     });
     return { emailed: result.sent };
