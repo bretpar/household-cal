@@ -107,3 +107,18 @@ export function assertCategoryName(
   if (clash) throw new Error("That category name is already used");
   return clean;
 }
+
+/** Sentinel used by the category filter to mean "events with no category". */
+export const UNCATEGORIZED_FILTER = "uncategorized";
+
+/** `null` selection means no filter. Coverage layers are always kept visible. */
+export type CategorySelection = string | null;
+
+export function eventMatchesCategory(
+  event: { category_id?: string | null },
+  selected: CategorySelection,
+): boolean {
+  if (!selected) return true;
+  if (selected === UNCATEGORIZED_FILTER) return !event.category_id;
+  return event.category_id === selected;
+}

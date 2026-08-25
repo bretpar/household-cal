@@ -12,7 +12,9 @@ import type { EventInput, RecurrenceScope } from "@/lib/calendar-ops";
 import { clipboardFromOccurrence, type EventClipboard } from "@/lib/event-clipboard";
 import {
   appearanceForEvent,
+  eventMatchesCategory,
   type CategoryAppearance,
+  type CategorySelection,
   type EventCategory,
 } from "@/lib/event-categories";
 import {
@@ -27,6 +29,7 @@ import {
   type MemberId,
   type MemberStyle,
   type Occurrence,
+  isCoverage,
 } from "./family-data";
 
 export type { RecurrenceScope };
@@ -51,6 +54,8 @@ interface CalendarStore {
   sources: CalendarSource[];
   activities: FamilyActivity[];
   events: CalendarEvent[];
+  /** events narrowed by the active category filter (coverage layers always kept) */
+  visibleEvents: CalendarEvent[];
   /** household categories, sorted; Uncategorized is not a row */
   categories: EventCategory[];
   /** category label + colour classes for an event's category_id (null = Uncategorized) */
@@ -67,6 +72,10 @@ interface CalendarStore {
   selectedMembers: MemberId[];
   toggleMember: (id: MemberId) => void;
   clearMembers: () => void;
+
+  /** null = all categories; UNCATEGORIZED_FILTER = events without a category */
+  selectedCategory: CategorySelection;
+  setSelectedCategory: (value: CategorySelection) => void;
 
   /** copied event held in memory only (cleared on refresh) */
   copiedEvent: EventClipboard | null;
@@ -94,6 +103,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const remove = useServerFn(deleteEventFn);
 
   const [selectedMembers, setSelectedMembers] = useState<MemberId[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<CategorySelection>(null);
   const [activeOccurrence, setActiveOccurrence] = useState<Occurrence | null>(null);
   const [copiedEvent, setCopiedEvent] = useState<EventClipboard | null>(null);
   const [pasteDate, setPasteDate] = useState<Date | null>(null);
@@ -146,6 +156,9 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       sources: data?.sources ?? [],
       activities: data?.activities ?? [],
       events: data?.events ?? [],
+      visibleEvents: (data?.events ?? []).filter(
+        (event) => isCoverage(event) || eventMatchesCategory(event, selectedCategory),
+      ),
       categories: data?.categories ?? [],
       categoryAppearanceFor: (categoryId) =>
         appearanceForEvent(data?.categories ?? [], categoryId),
@@ -179,6 +192,9 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
         ),
       clearMembers: () => setSelectedMembers([]),
 
+      selectedCategory,
+      setSelectedCategory,
+
       copiedEvent,
       copyOccurrence: (occurrence) => setCopiedEvent(clipboardFromOccurrence(occurrence)),
       clearCopiedEvent: () => {
@@ -194,7 +210,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       closeOccurrence: () => setActiveOccurrence(null),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bundle.data, bundle.isLoading, selectedMembers, activeOccurrence, copiedEvent, pasteDate]);
+  }, [bundle.data, bundle.isLoading, selectedMembers, selectedCategory, activeOccurrence, copiedEvent, pasteDate]);
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;
 }

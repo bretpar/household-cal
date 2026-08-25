@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { AddEventDialog } from "@/components/AddEventDialog";
 import { AgendaView } from "@/components/AgendaView";
+import { CategoryFilter } from "@/components/CategoryFilter";
 import { MemberFilter } from "@/components/MemberFilter";
 import { MonthView } from "@/components/MonthView";
 import { WeekView } from "@/components/WeekView";
@@ -36,7 +37,7 @@ export const Route = createFileRoute("/_authenticated/calendar")({
 type ViewMode = "month" | "week" | "agenda";
 
 function CalendarPage() {
-  const { events, selectedMembers, canEdit, loading, copiedEvent, startPaste } = useCalendar();
+  const { events, visibleEvents, selectedMembers, canEdit, loading, copiedEvent, startPaste } = useCalendar();
   const onPaste = canEdit && copiedEvent ? startPaste : undefined;
   const isMobile = useIsMobile();
   const [anchor, setAnchor] = useState(() => new Date());
@@ -129,11 +130,12 @@ function CalendarPage() {
 
 
         <MemberFilter />
+        <CategoryFilter />
 
         {mode === "month" ? (
           <MonthView
             month={anchor}
-            events={events}
+            events={visibleEvents}
             selectedMembers={selectedMembers}
             onPaste={onPaste}
             onSelectDay={(day) => {
@@ -144,16 +146,16 @@ function CalendarPage() {
         ) : mode === "week" ? (
           <WeekView
             anchor={anchor}
-            events={events}
+            events={visibleEvents}
             selectedMembers={selectedMembers}
             days={isMobile ? 3 : 7}
           />
         ) : (
           <div className="space-y-4">
-            <WeekView anchor={anchor} events={events} selectedMembers={selectedMembers} days={1} />
+            <WeekView anchor={anchor} events={visibleEvents} selectedMembers={selectedMembers} days={1} />
             <AgendaView
               anchor={anchor}
-              events={events}
+              events={visibleEvents}
               selectedMembers={selectedMembers}
               onPaste={onPaste}
             />
