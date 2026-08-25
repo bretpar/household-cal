@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MemberBadgeRow } from "@/components/MemberBadge";
+import { MemberBadge, MemberBadgeRow } from "@/components/MemberBadge";
 import { eventTypeIcons } from "@/components/EventCard";
 import {
   EventFormFields,
@@ -210,7 +210,10 @@ export function EventDetailsDialog() {
                   <span className="font-bold">Days by person</span>
                   {perPersonDays.map((row) => (
                     <div key={row.id} className="flex justify-between gap-3 text-muted-foreground">
-                      <span className="font-semibold text-foreground">{row.name}</span>
+                      <span className="flex min-w-0 items-center gap-1.5 font-semibold text-foreground">
+                        <MemberBadge id={row.id} size="xs" />
+                        <span className="truncate">{row.name}</span>
+                      </span>
                       <span>{row.days}</span>
                     </div>
                   ))}
