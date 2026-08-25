@@ -15,6 +15,7 @@
  */
 
 import {
+  branchAnchoredTimes,
   branchRecurrenceReview,
   calendarNameChange,
   cancellationAction,
@@ -196,7 +197,10 @@ function branchBody(
   branch: SyncBranch,
   initials: Map<string, string>,
 ): Record<string, unknown> {
-  const times = toGoogleTimes(event.start_at, event.end_at, event.all_day, TIME_ZONE);
+  // each branch is anchored to its own first matching weekday so Google does
+  // not also emit it on the shared series' start weekday
+  const anchored = branchAnchoredTimes(event.start_at, event.end_at, branch.weekdays);
+  const times = toGoogleTimes(anchored.startAt, anchored.endAt, event.all_day, TIME_ZONE);
   const recurrence = toGoogleRecurrence(
     event.recurrence_rule,
     branch.weekdays,
