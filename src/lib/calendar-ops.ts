@@ -315,6 +315,10 @@ export async function applyEventUpdate(
     return insertEvent(db, familyId, {
       ...input,
       recurrence_rule: null,
+      recurrence_until: null,
+      // A detached one-off has no repeat pattern, so per-person weekday rules
+      // must not carry over — otherwise the occurrence renders on no day at all.
+      member_weekdays: {},
       calendar_source_id: sourceId,
     });
   }
