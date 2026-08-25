@@ -126,7 +126,10 @@ export interface CalendarEvent {
   member_ids: MemberId[];
   /** true for events imported from Google that nobody has been assigned to yet */
   needs_family_assignment: boolean;
+  /** ISO timestamp the row was created — powers "recently added" ordering */
+  created_at?: string | null;
 }
+
 
 
 export interface FamilyActivity {
