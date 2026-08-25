@@ -64,7 +64,7 @@ export function SyncStatusIndicator() {
       aria-label={`Google Calendar sync: ${label}. ${detail}`}
       className={`flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition-colors hover:bg-secondary ${tone}`}
     >
-      {error || (connection && !connected) ? (
+      {error || paused.length > 0 || (connection && !connected) ? (
         <AlertTriangle className="h-4 w-4" aria-hidden />
       ) : (
         <>
