@@ -6,7 +6,7 @@
  * browser; callers get plain data back.
  */
 import { callAsAppUser } from "@/integrations/lovable/appUserConnector";
-import type { GoogleEvent } from "@/lib/google/mapping";
+import { classifyGoogleFailure, type GoogleEvent } from "@/lib/google/mapping";
 
 export const GATEWAY_BASE_URL = "https://connector-gateway.lovable.dev";
 export const CONNECTOR_ID = "google_calendar";
@@ -23,6 +23,27 @@ export class GoogleAuthError extends Error {
   }
 }
 
+/**
+ * Raised when the configured calendar itself can no longer be reached (deleted,
+ * unshared, or access downgraded). Callers pause that calendar's sync; local
+ * events and their Google linkage are always left alone.
+ */
+export class GoogleCalendarUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GoogleCalendarUnavailableError";
+  }
+}
+
+/** Turns a failed Google response into the right typed error. */
+export function googleFailure(status: number, body: string, context: string): Error {
+  const kind = classifyGoogleFailure(status, body);
+  const message = `${context} [${status}]: ${body}`;
+  if (kind === "auth") return new GoogleAuthError(message);
+  if (kind === "calendar_unavailable") return new GoogleCalendarUnavailableError(message);
+  return new Error(message);
+}
+
 async function call<T>(
   connectionAPIKey: string,
   path: string,
@@ -36,12 +57,7 @@ async function call<T>(
     init,
   });
   const text = await res.text();
-  if (!res.ok) {
-    if (res.status === 401 || res.status === 403) {
-      throw new GoogleAuthError(`Google rejected the connection (${res.status}): ${text}`);
-    }
-    throw new Error(`Google Calendar request failed [${res.status}] ${path}: ${text}`);
-  }
+  if (!res.ok) throw googleFailure(res.status, text, `Google Calendar request failed ${path}`);
   return (text ? JSON.parse(text) : {}) as T;
 }
 
@@ -67,6 +83,17 @@ export async function listCalendars(connectionAPIKey: string): Promise<GoogleCal
     "/calendar/v3/users/me/calendarList?minAccessRole=writer&maxResults=250",
   );
   return res.items ?? [];
+}
+
+/** Reads one calendar's current metadata; the stable id is the identity. */
+export async function getCalendar(
+  connectionAPIKey: string,
+  calendarId: string,
+): Promise<GoogleCalendarSummary> {
+  return call<GoogleCalendarSummary>(
+    connectionAPIKey,
+    `/calendar/v3/calendars/${encodeURIComponent(calendarId)}`,
+  );
 }
 
 export async function createCalendar(
@@ -146,12 +173,7 @@ export async function getEventState(
   });
   const text = await res.text();
   if (res.status === 404 || res.status === 410) return "missing";
-  if (!res.ok) {
-    if (res.status === 401 || res.status === 403) {
-      throw new GoogleAuthError(`Google rejected the connection (${res.status}): ${text}`);
-    }
-    throw new Error(`Google Calendar request failed [${res.status}]: ${text}`);
-  }
+  if (!res.ok) throw googleFailure(res.status, text, "Google Calendar request failed");
   const parsed = (text ? JSON.parse(text) : {}) as { status?: string };
   return parsed.status === "cancelled" ? "cancelled" : "live";
 }
@@ -170,9 +192,7 @@ export async function deleteEvent(
   });
   // 404/410 means it is already gone on Google's side, which is the goal.
   if (!res.ok && res.status !== 404 && res.status !== 410) {
-    const text = await res.text();
-    if (res.status === 401 || res.status === 403) throw new GoogleAuthError(text);
-    throw new Error(`Google event delete failed [${res.status}]: ${text}`);
+    throw googleFailure(res.status, await res.text(), "Google event delete failed");
   }
 }
 
@@ -227,10 +247,7 @@ export async function listEvents(
     });
     const text = await res.text();
     if (res.status === 410) return { items: [], invalidSyncToken: true };
-    if (!res.ok) {
-      if (res.status === 401 || res.status === 403) throw new GoogleAuthError(text);
-      throw new Error(`Google event list failed [${res.status}]: ${text}`);
-    }
+    if (!res.ok) throw googleFailure(res.status, text, "Google event list failed");
     const body = JSON.parse(text || "{}") as {
       items?: GoogleEvent[];
       nextPageToken?: string;
