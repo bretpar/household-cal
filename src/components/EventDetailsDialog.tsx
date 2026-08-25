@@ -21,7 +21,9 @@ import {
   validateFormState,
   type EventFormState,
 } from "@/components/EventForm";
+import { runGuardedMutation } from "@/lib/async-submit";
 import { useCalendar, type RecurrenceScope } from "@/lib/calendar-store";
+
 import {
   EVENT_TYPES,
   describeRecurrence,
@@ -108,41 +110,40 @@ export function EventDetailsDialog() {
 
 
   const saveEdit = async () => {
-    if (!state || busy) return;
+    if (!state) return;
     const error = validateFormState(state);
     if (error) {
       toast.error(error);
       return;
     }
-    setBusy(true);
-    try {
-      await updateEvent(occurrence, draftFromFormState(state, event.calendar_source_id), scope);
-      toast.success(`${state.title.trim()} updated`);
-      closeOccurrence();
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Could not save your changes. Please try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
+    await runGuardedMutation({
+      busy,
+      setBusy,
+      perform: () =>
+        updateEvent(occurrence, draftFromFormState(state, event.calendar_source_id), scope),
+      onSuccess: () => {
+        toast.success(`${state.title.trim()} updated`);
+        closeOccurrence();
+      },
+      onError: toast.error,
+      errorFallback: "Could not save your changes. Please try again.",
+    });
   };
 
   const confirmDelete = async (deleteScope: RecurrenceScope) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await deleteEvent(occurrence, needsScope ? deleteScope : "series");
-      toast.success(`${event.title} deleted`);
-      closeOccurrence();
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Could not delete that event. Please try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
+    await runGuardedMutation({
+      busy,
+      setBusy,
+      perform: () => deleteEvent(occurrence, needsScope ? deleteScope : "series"),
+      onSuccess: () => {
+        toast.success(`${event.title} deleted`);
+        closeOccurrence();
+      },
+      onError: toast.error,
+      errorFallback: "Could not delete that event. Please try again.",
+    });
   };
+
 
 
   const scopePicker = needsScope ? (
