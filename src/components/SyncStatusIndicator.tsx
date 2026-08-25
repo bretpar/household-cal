@@ -30,11 +30,18 @@ export function SyncStatusIndicator() {
   let label = "Sync off";
   let detail = "Google Calendar is not connected";
 
+  const paused = (data.calendars ?? []).filter((c) => c.sync_status === "needs_attention");
+
   if (connection && !connected) {
     tone = "text-destructive";
     dot = "bg-destructive";
     label = "Sync issue";
-    detail = error ?? "Google Calendar needs to be reconnected";
+    detail = error ?? "Google Calendar access has expired — reconnect Google to resume syncing";
+  } else if (connected && paused.length > 0) {
+    tone = "text-destructive";
+    dot = "bg-destructive";
+    label = "Sync needs attention";
+    detail = `${paused[0]?.name ?? "A Google calendar"} can no longer be found. Your family events are safe; Google syncing is paused.`;
   } else if (connected) {
     tone = "text-foreground";
     dot = "bg-primary";
