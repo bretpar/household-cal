@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { AppShell } from "@/components/AppShell";
 import { AddEventDialog } from "@/components/AddEventDialog";
 import { AgendaView } from "@/components/AgendaView";
+import { CategoryFilter } from "@/components/CategoryFilter";
 import { MemberFilter } from "@/components/MemberFilter";
 import { useCalendar } from "@/lib/calendar-store";
 import { isCoverage, occurrencesForDay } from "@/lib/family-data";
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/today")({
 });
 
 function TodayPage() {
-  const { events, selectedMembers, sources, canEdit, copiedEvent, startPaste } = useCalendar();
+  const { events, visibleEvents, selectedMembers, sources, canEdit, copiedEvent, startPaste } = useCalendar();
   const today = new Date();
   const coverage = occurrencesForDay(events, today).filter((o) => isCoverage(o.event));
   const coverageName =
@@ -60,9 +61,10 @@ function TodayPage() {
 
 
         <MemberFilter />
+        <CategoryFilter />
         <AgendaView
           anchor={today}
-          events={events}
+          events={visibleEvents}
           selectedMembers={selectedMembers}
           days={3}
           onPaste={canEdit && copiedEvent ? startPaste : undefined}

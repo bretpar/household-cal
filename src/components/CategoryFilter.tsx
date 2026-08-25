@@ -16,7 +16,7 @@ export function CategoryFilter({ className }: { className?: string }) {
 
   const options = [
     ...categories.map((category) => ({
-      value: category.value ?? category.id,
+      value: category.id,
       label: category.name,
       swatch: styleForColor(category.color).badge,
     })),
