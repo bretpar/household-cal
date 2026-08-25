@@ -463,13 +463,15 @@ async function applyGoogleEvent(
 
   /* ---------- single-occurrence exception of a known series ---------- */
   if (!link && g.recurringEventId) {
-    const { data: seriesLink } = await admin
+    // family-scoped: the parent branch may live in the other connected calendar
+    const { data: seriesLinks } = await admin
       .from("event_sync_links")
-      .select("event_id, branch_key")
+      .select("event_id, branch_key, calendar_source_id")
       .eq("google_event_id", g.recurringEventId)
-      .eq("family_id", familyId)
-      .eq("calendar_source_id", source.id)
-      .maybeSingle();
+      .eq("family_id", familyId);
+    const candidates = seriesLinks ?? [];
+    const seriesLink =
+      candidates.find((l) => l.calendar_source_id === source.id) ?? candidates[0] ?? null;
     if (seriesLink) {
       const day = dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime);
       if (day) await addExcludedDate(admin, seriesLink.event_id, day);
@@ -496,6 +498,7 @@ async function applyGoogleEvent(
       return;
     }
   }
+
 
 
   /* ---------- brand new Google event ---------- */
