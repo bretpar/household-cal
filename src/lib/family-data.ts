@@ -118,7 +118,10 @@ export interface CalendarEvent {
   recurrence_until: string | null;
   /** yyyy-MM-dd dates removed from the series — mirrors Google EXDATE */
   excluded_dates: string[];
+  /** optional household category; null = the system Uncategorized state */
+  category_id: string | null;
   external_event_id: string | null;
+
   external_recurring_event_id: string | null;
   /** every member on the series, with their own weekday rule */
   participants: EventParticipant[];
