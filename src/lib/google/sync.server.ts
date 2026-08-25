@@ -469,9 +469,12 @@ async function applyGoogleEvent(
       .select("event_id, branch_key, calendar_source_id")
       .eq("google_event_id", g.recurringEventId)
       .eq("family_id", familyId);
-    const candidates = seriesLinks ?? [];
+    type SeriesLinkRow = { event_id: string; branch_key: string | null; calendar_source_id: string };
+    const candidates = (seriesLinks ?? []) as SeriesLinkRow[];
     const seriesLink =
-      candidates.find((l) => l.calendar_source_id === source.id) ?? candidates[0] ?? null;
+      candidates.find((l: SeriesLinkRow) => l.calendar_source_id === source.id) ??
+      candidates[0] ??
+      null;
     if (seriesLink) {
       const day = dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime);
       if (day) await addExcludedDate(admin, seriesLink.event_id, day);
