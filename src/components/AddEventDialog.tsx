@@ -20,7 +20,9 @@ import {
   type EventFormState,
 } from "@/components/EventForm";
 import { cn } from "@/lib/utils";
+import { runGuardedMutation } from "@/lib/async-submit";
 import { useCalendar } from "@/lib/calendar-store";
+
 
 export function AddEventDialog({
   defaultDate,
@@ -85,23 +87,24 @@ export function EventComposerContent({
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
-    if (saving) return;
     const error = validateFormState(state);
     if (error) {
       toast.error(error);
       return;
     }
-    setSaving(true);
-    try {
-      await addEvent(draftFromFormState(state, calendarSourceId));
-      toast.success(`${state.title.trim()} added to the family calendar`);
-      onClose();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save the event. Please try again.");
-    } finally {
-      setSaving(false);
-    }
+    await runGuardedMutation({
+      busy: saving,
+      setBusy: setSaving,
+      perform: () => addEvent(draftFromFormState(state, calendarSourceId)),
+      onSuccess: () => {
+        toast.success(`${state.title.trim()} added to the family calendar`);
+        onClose();
+      },
+      onError: toast.error,
+      errorFallback: "Could not save the event. Please try again.",
+    });
   };
+
 
   return (
     <DialogContent className="rounded-3xl sm:max-w-lg">
