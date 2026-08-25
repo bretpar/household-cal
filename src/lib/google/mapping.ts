@@ -483,3 +483,84 @@ export function cancellationAction(input: {
   if (remoteState === "unknown") return "ignore";
   return "remove";
 }
+
+/* ------------------------------------------------- sync-target availability */
+
+export type GoogleFailureKind = "auth" | "calendar_unavailable" | "transient";
+
+const AUTH_HINTS = [
+  "invalid_grant",
+  "invalid_token",
+  "authError",
+  "unauthorized",
+  "insufficientPermissions",
+  "insufficient_scope",
+  "connection_not_found",
+  "credentials",
+];
+
+/**
+ * Classifies a failed Google/gateway response.
+ *
+ * The distinction matters a lot: a revoked grant needs the owner to reconnect
+ * Google, a deleted/unshared calendar needs a new sync target, and anything
+ * else is transient and must be retried instead of pausing sync.
+ */
+export function classifyGoogleFailure(status: number, body = ""): GoogleFailureKind {
+  const hasAuthHint = AUTH_HINTS.some((hint) =>
+    body.toLowerCase().includes(hint.toLowerCase()),
+  );
+  if (status === 401) return "auth";
+  if (status === 404 || status === 410) return "calendar_unavailable";
+  if (status === 403) {
+    if (body.includes("notFound") || body.includes("requiredAccessLevel")) {
+      return "calendar_unavailable";
+    }
+    return hasAuthHint ? "auth" : "calendar_unavailable";
+  }
+  if (hasAuthHint && status >= 400 && status < 500) return "auth";
+  return "transient";
+}
+
+/** New local name when Google's calendar was renamed, otherwise null. */
+export function calendarNameChange(localName: string, remoteSummary?: string | null): string | null {
+  const remote = (remoteSummary ?? "").trim();
+  if (!remote) return null;
+  return remote === localName.trim() ? null : remote;
+}
+
+export interface SourceSyncPatch {
+  sync_status?: "active" | "needs_attention";
+  sync_error?: string | null;
+  sync_failure_count?: number;
+  sync_paused_at?: string | null;
+}
+
+/**
+ * The `calendar_sources` patch for a sync outcome.
+ *
+ * Deliberately never touches `external_calendar_id`, event links or any local
+ * event: losing the sync target pauses syncing, it never mutates family data.
+ */
+export function sourceSyncPatch(input: {
+  outcome: "ok" | "unavailable" | "transient";
+  reason?: string | null;
+  failureCount: number;
+  now: string;
+}): SourceSyncPatch {
+  if (input.outcome === "ok") {
+    return { sync_status: "active", sync_error: null, sync_failure_count: 0, sync_paused_at: null };
+  }
+  if (input.outcome === "unavailable") {
+    return {
+      sync_status: "needs_attention",
+      sync_error: (input.reason ?? "Calendar unavailable").slice(0, 500),
+      sync_failure_count: input.failureCount + 1,
+      sync_paused_at: input.now,
+    };
+  }
+  return {
+    sync_error: (input.reason ?? "Temporary sync failure").slice(0, 500),
+    sync_failure_count: input.failureCount + 1,
+  };
+}
