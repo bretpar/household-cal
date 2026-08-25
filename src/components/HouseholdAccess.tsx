@@ -95,9 +95,10 @@ export function HouseholdAccess() {
   );
   const resendMutation = useMutationLike(
     (id: string) => resend({ data: { invitation_id: id } }),
-    "Invitation renewed",
+    "Invitation email resent",
     refresh,
   );
+
   const roleMutation = useMutationLike(
     (vars: { id: string; role: string }) =>
       changeRole({ data: { membership_id: vars.id, role: vars.role } }),
