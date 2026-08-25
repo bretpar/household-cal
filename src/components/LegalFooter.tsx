@@ -19,7 +19,7 @@ export function LegalFooter() {
               to="/terms"
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              Terms
+              Terms of Service
             </Link>
           </nav>
         </div>
