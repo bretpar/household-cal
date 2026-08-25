@@ -293,10 +293,12 @@ export function EventDetailsDialog() {
               <Button
                 type="button"
                 className="h-11 rounded-full px-6 font-bold"
-                onClick={saveEdit}
+                onClick={() => void saveEdit()}
+                disabled={busy}
               >
-                Save changes
+                {busy ? "Saving…" : "Save changes"}
               </Button>
+
             </DialogFooter>
           </>
         ) : (
@@ -316,9 +318,11 @@ export function EventDetailsDialog() {
                   <button
                     key={option.id}
                     type="button"
-                    onClick={() => confirmDelete(option.id)}
-                    className="rounded-2xl bg-surface-muted px-4 py-3 text-left transition-colors hover:bg-secondary"
+                    disabled={busy}
+                    onClick={() => void confirmDelete(option.id)}
+                    className="rounded-2xl bg-surface-muted px-4 py-3 text-left transition-colors hover:bg-secondary disabled:opacity-60"
                   >
+
                     <span className="block text-sm font-bold text-destructive">{option.label}</span>
                     <span className="mt-0.5 block text-xs text-muted-foreground">
                       {option.hint}
@@ -342,10 +346,12 @@ export function EventDetailsDialog() {
                   type="button"
                   variant="destructive"
                   className="h-11 rounded-full px-6 font-bold"
-                  onClick={() => confirmDelete("series")}
+                  onClick={() => void confirmDelete("series")}
+                  disabled={busy}
                 >
-                  Delete
+                  {busy ? "Deleting…" : "Delete"}
                 </Button>
+
               )}
             </DialogFooter>
           </>
