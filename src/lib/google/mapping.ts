@@ -239,6 +239,39 @@ export function toGoogleTimes(
   };
 }
 
+const DTSTART_DAY_CODES: WeekdayCode[] = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+
+/**
+ * Anchors a per-person weekday branch to its own first occurrence.
+ *
+ * The shared local series keeps one start date, but each Google branch has its
+ * own BYDAY set: pushing the shared DTSTART would make Google emit the branch
+ * on the parent's weekday too. This shifts start and end forward by the same
+ * whole number of days, so time of day, duration and all-day behaviour are
+ * preserved and the shared local series is never modified.
+ */
+export function branchAnchoredTimes(
+  startAt: string,
+  endAt: string,
+  branchWeekdays: WeekdayCode[] | null,
+): { startAt: string; endAt: string } {
+  if (!branchWeekdays || branchWeekdays.length === 0) return { startAt, endAt };
+  const start = new Date(startAt);
+  if (Number.isNaN(start.getTime())) return { startAt, endAt };
+  const allowed = new Set(branchWeekdays);
+  let shift = 0;
+  while (shift < 7 && !allowed.has(DTSTART_DAY_CODES[(start.getUTCDay() + shift) % 7]!)) shift += 1;
+  if (shift === 0 || shift === 7) return { startAt, endAt };
+  const ms = shift * 86400000;
+  const end = new Date(endAt);
+  return {
+    startAt: new Date(start.getTime() + ms).toISOString(),
+    endAt: Number.isNaN(end.getTime()) ? endAt : new Date(end.getTime() + ms).toISOString(),
+  };
+}
+
+
+
 function addOneDay(day: string): string {
   const d = new Date(`${day}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + 1);
