@@ -100,7 +100,7 @@ export function useReschedule() {
             const start = resolveStart(e, occurrence);
             if (!start || start.getTime() === occurrence.start.getTime()) return;
             if (isRecurring(occurrence)) setPending({ occurrence, start });
-            else apply(occurrence, start, "series");
+            else void apply(occurrence, start, "series");
           },
         }
       : {};
@@ -130,7 +130,7 @@ export function useReschedule() {
               key={option.id}
               type="button"
               onClick={() => {
-                apply(pending.occurrence, pending.start, option.id);
+                void apply(pending.occurrence, pending.start, option.id);
                 setPending(null);
               }}
               className="rounded-2xl bg-surface-muted px-4 py-3 text-left transition-colors hover:bg-secondary"
