@@ -145,7 +145,7 @@ export function EventCategorySettings() {
       busy,
       setBusy,
       perform: async () => {
-        await seed({ data: {} });
+        await seed({});
         await refresh();
       },
       onSuccess: () => toast.success("Starter categories added"),
