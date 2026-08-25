@@ -185,6 +185,18 @@ export function ruleForFormState(state: EventFormState): string | null {
   return rule;
 }
 
+/**
+ * The calendar new events land on when the user never opens the picker.
+ * Mirrors exactly what the form shows: the main active Google calendar, else the
+ * first active Google calendar, else null (local Family source resolved server-side).
+ */
+export function defaultCalendarSourceId(
+  sources: Pick<CalendarSource, "id" | "provider" | "active" | "is_main">[],
+): string | null {
+  const google = sources.filter((s) => s.provider === "google" && s.active);
+  return google.find((s) => s.is_main)?.id ?? google[0]?.id ?? null;
+}
+
 export function draftFromFormState(
   state: EventFormState,
   calendarSourceId: string | null = null,
