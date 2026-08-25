@@ -557,6 +557,17 @@ async function applyGoogleEvent(
     await admin.from("events").update({ calendar_source_id: source.id }).eq("id", link.event_id);
   }
 
+  // per-person weekday branches share one local rule: a Google recurrence edit
+  // on a single branch is flagged for review instead of rewriting that rule
+  const review = branchRecurrenceReview({
+    local: {
+      branchKey: link.branch_key ?? "",
+      recurrence_rule: event.recurrence_rule,
+      recurrence_until: event.recurrence_until ?? null,
+    },
+    google: g,
+  });
+
   await admin
     .from("event_sync_links")
     .update({
@@ -565,6 +576,7 @@ async function applyGoogleEvent(
       google_updated_at: g.updated ?? null,
       google_recurring_event_id: g.recurringEventId ?? null,
       last_source: "google",
+      sync_error: review,
     })
     .eq("id", link.id);
 }
