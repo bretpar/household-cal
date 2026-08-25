@@ -71,16 +71,22 @@ export function HouseholdAccess() {
   const inviteMutation = useMutation({
     mutationFn: () => invite({ data: { email, role } }),
     onSuccess: async (result) => {
+      const sentTo = email;
       setOpen(false);
       setEmail("");
       setRole("viewer");
       await refresh();
-      toast.success("Invitation created");
-      if (result?.token) void copyLink(result.token);
+      if (result?.emailed) {
+        toast.success(`Invitation emailed to ${sentTo}`);
+      } else {
+        toast.info("Invitation created — email could not be sent, link copied instead");
+        if (result?.token) void copyLink(result.token);
+      }
     },
     onError: (error: unknown) =>
       toast.error(error instanceof Error ? error.message : "Could not send the invitation"),
   });
+
 
   const revokeMutation = useMutationLike(
     (id: string) => revoke({ data: { invitation_id: id } }),
