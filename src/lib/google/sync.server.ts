@@ -16,6 +16,7 @@
 
 import {
   branchRecurrenceReview,
+  calendarNameChange,
   cancellationAction,
   computeBranches,
   exceptionEventFields,
@@ -24,6 +25,7 @@ import {
 
   googleTitle,
   seriesPatchFromGoogle,
+  sourceSyncPatch,
   shouldApplyGoogleChange,
   stripGeneratedSuffix,
   syncWindow,
@@ -57,6 +59,8 @@ interface SourceRow {
   google_sync_token: string | null;
   google_channel_id: string | null;
   google_channel_resource_id: string | null;
+  sync_status?: string;
+  sync_failure_count?: number;
 }
 
 interface EventRow {
@@ -135,10 +139,11 @@ async function googleSources(admin: Admin, familyId: string): Promise<SourceRow[
   const { data } = await admin
     .from("calendar_sources")
     .select(
-      "id, family_id, name, external_calendar_id, is_main, google_sync_token, google_channel_id, google_channel_resource_id",
+      "id, family_id, name, external_calendar_id, is_main, google_sync_token, google_channel_id, google_channel_resource_id, sync_status, sync_failure_count",
     )
     .eq("family_id", familyId)
     .eq("provider", "google")
+    .eq("sync_status", "active")
     .not("external_calendar_id", "is", null)
     .order("sort_order", { ascending: true });
   return (data ?? []) as SourceRow[];
@@ -761,29 +766,66 @@ export async function pullSource(
   source: SourceRow,
   initial = false,
 ): Promise<{ applied: number }> {
-  const initials = await initialsFor(admin, source.family_id);
-  const window = syncWindow(new Date(), initial);
-  let res = await google.listEvents(conn.connectionKey, source.external_calendar_id!, {
-    syncToken: initial ? null : source.google_sync_token,
-    ...window,
-  });
-  if (res.invalidSyncToken) {
-    res = await google.listEvents(conn.connectionKey, source.external_calendar_id!, window);
+  const now = new Date().toISOString();
+  try {
+    // The stable calendarId is the identity: a rename in Google just refreshes
+    // the local label, it never creates a new connection.
+    const remote = await google.getCalendar(conn.connectionKey, source.external_calendar_id!);
+    const renamed = calendarNameChange(source.name, remote.summary);
+
+    const initials = await initialsFor(admin, source.family_id);
+    const window = syncWindow(new Date(), initial);
+    let res = await google.listEvents(conn.connectionKey, source.external_calendar_id!, {
+      syncToken: initial ? null : source.google_sync_token,
+      ...window,
+    });
+    if (res.invalidSyncToken) {
+      res = await google.listEvents(conn.connectionKey, source.external_calendar_id!, window);
+    }
+
+    for (const item of res.items) {
+      await applyGoogleEvent(admin, conn, source, item, initials);
+    }
+
+    await admin
+      .from("calendar_sources")
+      .update({
+        google_sync_token: res.nextSyncToken ?? source.google_sync_token,
+        last_synced_at: now,
+        ...(renamed ? { name: renamed } : {}),
+        ...sourceSyncPatch({ outcome: "ok", failureCount: 0, now }),
+      })
+      .eq("id", source.id);
+
+    return { applied: res.items.length };
+  } catch (error) {
+    if (error instanceof GoogleAuthError) throw error;
+    const unavailable = error instanceof google.GoogleCalendarUnavailableError;
+    const reason = unavailable
+      ? "The Google calendar connected to this family can no longer be found."
+      : error instanceof Error
+        ? error.message
+        : "Temporary sync failure";
+    // Pause, never mutate: local events keep their Google linkage so sync can
+    // resume unchanged if access comes back.
+    await admin
+      .from("calendar_sources")
+      .update(
+        sourceSyncPatch({
+          outcome: unavailable ? "unavailable" : "transient",
+          reason,
+          failureCount: source.sync_failure_count ?? 0,
+          now,
+        }),
+      )
+      .eq("id", source.id);
+    console.error(
+      unavailable ? "[google-sync] calendar unavailable, sync paused" : "[google-sync] transient failure",
+      source.id,
+      reason,
+    );
+    return { applied: 0 };
   }
-
-  for (const item of res.items) {
-    await applyGoogleEvent(admin, conn, source, item, initials);
-  }
-
-  await admin
-    .from("calendar_sources")
-    .update({
-      google_sync_token: res.nextSyncToken ?? source.google_sync_token,
-      last_synced_at: new Date().toISOString(),
-    })
-    .eq("id", source.id);
-
-  return { applied: res.items.length };
 }
 
 /** Pull every connected calendar for a household. */

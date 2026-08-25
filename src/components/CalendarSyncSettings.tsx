@@ -204,6 +204,9 @@ export function CalendarSyncSettings() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
+                <p className="text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
+                  Google account {disconnected ? "" : "· Connected ✓"}
+                </p>
                 <p className="truncate text-sm font-bold">{connection.account_email}</p>
                 <p className="text-xs text-muted-foreground">
                   {connection.last_synced_at
@@ -236,7 +239,8 @@ export function CalendarSyncSettings() {
             {disconnected ? (
               <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface-muted p-3 text-xs font-semibold">
                 <AlertTriangle className="h-4 w-4 text-destructive" aria-hidden />
-                Google Calendar disconnected — your events are safe.
+                Google Calendar access has expired or been disconnected. Reconnect Google to
+                resume syncing. Your family events are safe in Our Family Calendar.
                 <Button size="sm" className="rounded-xl" onClick={onConnect}>
                   Reconnect
                 </Button>
@@ -288,6 +292,51 @@ export function CalendarSyncSettings() {
                             </Button>
                           )}
                         </div>
+                        {slot.sync_status === "needs_attention" ? (
+                          <div className="space-y-2 rounded-2xl bg-surface-muted p-3">
+                            <p className="flex items-start gap-2 text-xs font-bold">
+                              <AlertTriangle
+                                className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
+                                aria-hidden
+                              />
+                              <span>
+                                Calendar unavailable — sync paused. The Google Calendar previously
+                                connected to this family can no longer be found. Your family events
+                                are safe in Our Family Calendar.
+                              </span>
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                size="sm"
+                                className="rounded-xl"
+                                onClick={() => {
+                                  setSlotDialog({ replaceId: slot.id });
+                                  setMode("existing");
+                                }}
+                              >
+                                Choose another Google Calendar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl"
+                                onClick={() => {
+                                  setSlotDialog({ replaceId: slot.id });
+                                  setMode("create");
+                                }}
+                              >
+                                Create a new Google Calendar
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            {slot.last_synced_at
+                              ? `Last successful sync ${formatDistanceToNow(new Date(slot.last_synced_at), { addSuffix: true })}`
+                              : "Not synced yet"}
+                            {slot.sync_error ? ` · retrying: ${slot.sync_error}` : ""}
+                          </p>
+                        )}
                         <div className="flex flex-wrap gap-2">
                           <Button
                             variant="outline"

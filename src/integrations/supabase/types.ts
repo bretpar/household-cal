@@ -111,6 +111,10 @@ export type Database = {
           name: string
           provider: Database["public"]["Enums"]["calendar_provider"]
           sort_order: number
+          sync_error: string | null
+          sync_failure_count: number
+          sync_paused_at: string | null
+          sync_status: string
           updated_at: string
         }
         Insert: {
@@ -129,6 +133,10 @@ export type Database = {
           name: string
           provider?: Database["public"]["Enums"]["calendar_provider"]
           sort_order?: number
+          sync_error?: string | null
+          sync_failure_count?: number
+          sync_paused_at?: string | null
+          sync_status?: string
           updated_at?: string
         }
         Update: {
@@ -147,6 +155,10 @@ export type Database = {
           name?: string
           provider?: Database["public"]["Enums"]["calendar_provider"]
           sort_order?: number
+          sync_error?: string | null
+          sync_failure_count?: number
+          sync_paused_at?: string | null
+          sync_status?: string
           updated_at?: string
         }
         Relationships: [
