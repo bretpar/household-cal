@@ -17,6 +17,8 @@ export interface CalendarSlot {
   external_calendar_id: string | null;
   is_main: boolean;
   last_synced_at: string | null;
+  sync_status: string;
+  sync_error: string | null;
 }
 
 export interface SyncSettings {
@@ -47,7 +49,7 @@ export const getSyncSettings = createServerFn({ method: "GET" })
       .maybeSingle();
     const { data: calendars } = await supabaseAdmin
       .from("calendar_sources")
-      .select("id, name, external_calendar_id, is_main, last_synced_at")
+      .select("id, name, external_calendar_id, is_main, last_synced_at, sync_status, sync_error")
       .eq("family_id", family)
       .eq("provider", "google")
       .order("sort_order", { ascending: true });
