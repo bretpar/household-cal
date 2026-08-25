@@ -50,10 +50,17 @@ export function useReschedule() {
   const [draggingKey, setDraggingKey] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
 
-  const apply = (occurrence: Occurrence, start: Date, scope: RecurrenceScope) => {
-    void updateEvent(occurrence, rescheduleDraft(occurrence, start, scope), scope);
-    toast.success(`${occurrence.event.title} moved to ${format(start, "EEE MMM d, h:mm a")}`);
+  const apply = async (occurrence: Occurrence, start: Date, scope: RecurrenceScope) => {
+    try {
+      await updateEvent(occurrence, rescheduleDraft(occurrence, start, scope), scope);
+      toast.success(`${occurrence.event.title} moved to ${format(start, "EEE MMM d, h:mm a")}`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not move that event. Please try again.",
+      );
+    }
   };
+
 
   const dragProps = (occurrence: Occurrence) =>
     canEdit

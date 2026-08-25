@@ -82,16 +82,25 @@ export function EventComposerContent({
   calendarSourceId?: string | null;
 }) {
   const { addEvent } = useCalendar();
+  const [saving, setSaving] = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
+    if (saving) return;
     const error = validateFormState(state);
     if (error) {
       toast.error(error);
       return;
     }
-    void addEvent(draftFromFormState(state, calendarSourceId));
-    toast.success(`${state.title.trim()} added to the family calendar`);
-    onClose();
+    setSaving(true);
+    try {
+      await addEvent(draftFromFormState(state, calendarSourceId));
+      toast.success(`${state.title.trim()} added to the family calendar`);
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save the event. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -106,13 +115,25 @@ export function EventComposerContent({
       </div>
 
       <DialogFooter>
-        <Button variant="ghost" type="button" className="h-11 rounded-full" onClick={onClose}>
+        <Button
+          variant="ghost"
+          type="button"
+          className="h-11 rounded-full"
+          onClick={onClose}
+          disabled={saving}
+        >
           Cancel
         </Button>
-        <Button type="button" className="h-11 rounded-full px-6 font-bold" onClick={submit}>
-          {submitLabel}
+        <Button
+          type="button"
+          className="h-11 rounded-full px-6 font-bold"
+          onClick={() => void submit()}
+          disabled={saving}
+        >
+          {saving ? "Saving…" : submitLabel}
         </Button>
       </DialogFooter>
     </DialogContent>
   );
+
 }
