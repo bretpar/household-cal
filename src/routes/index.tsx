@@ -3,6 +3,7 @@ import { CalendarDays, Palette, ShieldCheck, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { LegalFooter } from "@/components/LegalFooter";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
@@ -101,6 +102,8 @@ function LandingPage() {
           ))}
         </section>
       </main>
+
+      <LegalFooter />
     </div>
   );
 }
