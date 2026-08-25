@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Home, LogOut, Sparkles, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { LegalFooter } from "@/components/LegalFooter";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { supabase } from "@/integrations/supabase/client";
 import { useCalendar } from "@/lib/calendar-store";
@@ -67,7 +68,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 pt-5 pb-28 md:pb-12 lg:px-8">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 pt-5 pb-28 md:pb-12 lg:px-8">
+        {children}
+        <LegalFooter />
+      </main>
 
       {/* Phone bottom navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border-soft bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
