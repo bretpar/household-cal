@@ -14,6 +14,8 @@ export interface EventClipboard {
   allDay: boolean;
   members: MemberId[];
   eventType: EventType;
+  /** copied category, or null for Uncategorized */
+  categoryId: string | null;
   location: string;
   notes: string;
   calendar_source_id: string | null;
@@ -31,6 +33,7 @@ export function clipboardFromOccurrence(occurrence: Occurrence): EventClipboard 
     members: [...occurrence.member_ids],
 
     eventType: event.event_type,
+    categoryId: event.category_id ?? null,
     location: event.location ?? "",
     notes: event.notes ?? "",
     calendar_source_id: event.calendar_source_id ?? null,
