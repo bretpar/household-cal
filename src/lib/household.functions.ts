@@ -36,13 +36,16 @@ export const inviteHouseholdUser = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    return createInvitation(
+    const invitation = await createInvitation(
       context.supabase as unknown as Db,
       supabaseAdmin as unknown as AdminDb,
       context.userId,
       data.email,
       data.role,
     );
+    const { sendHouseholdInvitationEmail } = await import("@/lib/household-email.server");
+    const { emailed } = await sendHouseholdInvitationEmail(supabaseAdmin, invitation.id);
+    return { ...invitation, emailed };
   });
 
 export const revokeHouseholdInvitation = createServerFn({ method: "POST" })
@@ -61,9 +64,17 @@ export const revokeHouseholdInvitation = createServerFn({ method: "POST" })
 export const resendHouseholdInvitation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { invitation_id: string }) => data)
-  .handler(async ({ data, context }) =>
-    refreshInvitation(context.supabase as unknown as Db, context.userId, data.invitation_id),
-  );
+  .handler(async ({ data, context }) => {
+    const refreshed = await refreshInvitation(
+      context.supabase as unknown as Db,
+      context.userId,
+      data.invitation_id,
+    );
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { sendHouseholdInvitationEmail } = await import("@/lib/household-email.server");
+    const { emailed } = await sendHouseholdInvitationEmail(supabaseAdmin, data.invitation_id);
+    return { ...refreshed, emailed };
+  });
 
 export const setHouseholdRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
