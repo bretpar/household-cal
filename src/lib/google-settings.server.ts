@@ -113,12 +113,18 @@ export async function attachCalendar(
   if (!name) name = calendarId;
 
   if (input.replace_source_id) {
-    // replacing a slot keeps the slot but drops its Google mappings
+    // Only ever reached from an explicit owner choice — the app never switches
+    // sync targets on its own. Local events survive; only the Google mappings
+    // for the old calendar go away, so nothing is re-imported twice.
     await supabaseAdmin.from("event_sync_links").delete().eq("calendar_source_id", input.replace_source_id);
     const { error } = await supabaseAdmin
       .from("calendar_sources")
       .update({
         name,
+        sync_status: "active",
+        sync_error: null,
+        sync_failure_count: 0,
+        sync_paused_at: null,
         external_calendar_id: calendarId,
         provider: "google",
         google_sync_token: null,
