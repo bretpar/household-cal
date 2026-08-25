@@ -76,6 +76,8 @@ export function EventDetailsDialog() {
   const [mode, setMode] = useState<Mode>("details");
   const [scope, setScope] = useState<RecurrenceScope>("this");
   const [state, setState] = useState<EventFormState | null>(null);
+  const [busy, setBusy] = useState(false);
+
 
   useEffect(() => {
     if (activeOccurrence) {
@@ -105,23 +107,43 @@ export function EventDetailsDialog() {
     }));
 
 
-  const saveEdit = () => {
-    if (!state) return;
+  const saveEdit = async () => {
+    if (!state || busy) return;
     const error = validateFormState(state);
     if (error) {
       toast.error(error);
       return;
     }
-    void updateEvent(occurrence, draftFromFormState(state, event.calendar_source_id), scope);
-    toast.success(`${state.title.trim()} updated`);
-    closeOccurrence();
+    setBusy(true);
+    try {
+      await updateEvent(occurrence, draftFromFormState(state, event.calendar_source_id), scope);
+      toast.success(`${state.title.trim()} updated`);
+      closeOccurrence();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not save your changes. Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const confirmDelete = (deleteScope: RecurrenceScope) => {
-    void deleteEvent(occurrence, needsScope ? deleteScope : "series");
-    toast.success(`${event.title} deleted`);
-    closeOccurrence();
+  const confirmDelete = async (deleteScope: RecurrenceScope) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await deleteEvent(occurrence, needsScope ? deleteScope : "series");
+      toast.success(`${event.title} deleted`);
+      closeOccurrence();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not delete that event. Please try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
   };
+
 
   const scopePicker = needsScope ? (
     <div className="space-y-2">
