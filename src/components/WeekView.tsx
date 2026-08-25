@@ -101,7 +101,7 @@ export function WeekView({
   selectedMembers: MemberId[];
   days?: number;
 }) {
-  const { openOccurrence, styleFor, sources } = useCalendar();
+  const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
   const sourceName = (id: string | null) =>
     sources.find((s) => s.id === id)?.name ?? "Coverage";
@@ -190,7 +190,7 @@ export function WeekView({
                   className={cn(
                     "flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left text-[10px] font-semibold opacity-80 transition-opacity hover:opacity-100",
                     draggingKey === o.key && "opacity-40",
-                    eventTintClass(o.member_ids, styleFor),
+                    eventTintClass(categoryAppearanceFor(o.event.category_id)),
                   )}
                 >
                   <span className="min-w-0 flex-1 truncate">{o.event.title}</span>
@@ -273,7 +273,7 @@ export function WeekView({
                         onClick={() => openOccurrence(o)}
                         className={cn(
                           "absolute overflow-hidden rounded-xl border border-border-soft px-1.5 py-1 text-left shadow-soft transition-transform hover:-translate-y-px",
-                          eventTintClass(o.member_ids, styleFor),
+                          eventTintClass(categoryAppearanceFor(o.event.category_id)),
                           draggingKey === o.key && "opacity-40",
                         )}
                         style={{
