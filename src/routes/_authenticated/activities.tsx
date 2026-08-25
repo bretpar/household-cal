@@ -5,7 +5,7 @@ import { CalendarClock, Clock, MapPin, Repeat } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { AddEventDialog } from "@/components/AddEventDialog";
-import { MemberBadgeRow } from "@/components/MemberBadge";
+import { MemberBadge, MemberBadgeRow } from "@/components/MemberBadge";
 import { eventTypeIcons } from "@/components/EventCard";
 import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
@@ -238,8 +238,9 @@ function SeriesCard({ series }: { series: EventSeries }) {
           <span className="font-bold">Days by person</span>
           {series.perPersonDays.map((row) => (
             <div key={row.member_id} className="flex justify-between gap-3 text-muted-foreground">
-              <span className="font-semibold text-foreground">
-                {memberById[row.member_id]?.name ?? "Member"}
+              <span className="flex min-w-0 items-center gap-1.5 font-semibold text-foreground">
+                <MemberBadge id={row.member_id} size="xs" />
+                <span className="truncate">{memberById[row.member_id]?.name ?? "Member"}</span>
               </span>
               <span>{describeWeekdays(row.weekdays)}</span>
             </div>
