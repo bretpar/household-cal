@@ -14,6 +14,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { EventDraft } from "@/lib/calendar-store";
 import type { EventClipboard } from "@/lib/event-clipboard";
+import {
+  UNCATEGORIZED_APPEARANCE,
+  UNCATEGORIZED_LABEL,
+  categoryAppearance,
+} from "@/lib/event-categories";
+
+/** Select needs a non-empty value for the system Uncategorized state. */
+const UNCATEGORIZED_VALUE = "__uncategorized__";
 import { useCalendar } from "@/lib/calendar-store";
 import {
   EVENT_TYPES,
@@ -38,6 +46,8 @@ export interface EventFormState {
   allDay: boolean;
   members: MemberId[];
   eventType: EventType;
+  /** household category id, or null for the system Uncategorized state */
+  categoryId: string | null;
   recurrence: string;
   /** How the series stops. Defaults to an explicit end date. */
   recurrenceEnd: RecurrenceEndMode;
@@ -73,6 +83,7 @@ export function emptyFormState(defaultDate?: Date): EventFormState {
     allDay: false,
     members: [],
     eventType: "activity",
+    categoryId: null,
     recurrence: "none",
     recurrenceEnd: "on",
     recurrenceUntil: defaultUntil(date),
@@ -109,6 +120,7 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
     allDay: event.all_day,
     members: [...event.member_ids],
     eventType: event.event_type,
+    categoryId: event.category_id ?? null,
     recurrence: match?.id ?? (event.recurrence_rule ? "custom" : "none"),
     recurrenceEnd: end_mode,
     recurrenceUntil: event.recurrence_until ?? defaultUntil(date),
@@ -132,6 +144,7 @@ export function formStateFromClipboard(clip: EventClipboard, date: Date): EventF
     allDay: clip.allDay,
     members: [...clip.members],
     eventType: clip.eventType,
+    categoryId: clip.categoryId ?? null,
     recurrence: "none",
     recurrenceEnd: "on",
     recurrenceUntil: defaultUntil(day),
@@ -218,6 +231,7 @@ export function draftFromFormState(
     location: state.location.trim() || null,
     notes: state.notes.trim() || null,
     event_type: state.eventType,
+    category_id: state.categoryId,
     recurrence_rule: rule,
     recurrence_until:
       repeats && state.recurrenceEnd === "on" ? state.recurrenceUntil || null : null,
@@ -274,7 +288,7 @@ export function EventFormFields({
   onChange: (next: EventFormState) => void;
   idPrefix?: string;
 }) {
-  const { members, styleFor, sources } = useCalendar();
+  const { members, styleFor, sources, categories } = useCalendar();
   const activeMembers = members.filter((m) => m.active);
   // Only worth showing when there is an actual routing choice to make.
   const syncedCalendars = sources.filter((s) => s.provider === "google" && s.active);
@@ -605,6 +619,40 @@ export function EventFormFields({
           </Select>
         </div>
       ) : null}
+
+      <div className="space-y-1.5">
+        <Label>Category</Label>
+        <Select
+          value={state.categoryId ?? UNCATEGORIZED_VALUE}
+          onValueChange={(v) => set("categoryId", v === UNCATEGORIZED_VALUE ? null : v)}
+        >
+          <SelectTrigger className="h-11 rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={UNCATEGORIZED_VALUE}>
+              <span className="flex items-center gap-2">
+                <span
+                  className={cn("h-3 w-3 rounded-full", UNCATEGORIZED_APPEARANCE.swatch)}
+                  aria-hidden
+                />
+                {UNCATEGORIZED_LABEL}
+              </span>
+            </SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                <span className="flex items-center gap-2">
+                  <span
+                    className={cn("h-3 w-3 rounded-full", categoryAppearance(category).swatch)}
+                    aria-hidden
+                  />
+                  {category.name}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-location`}>Location</Label>
