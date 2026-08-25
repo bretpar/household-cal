@@ -39,7 +39,6 @@ const ROLE_LABEL: Record<string, string> = {
 function FamilyPage() {
   const { members, sources, family, role } = useCalendar();
   const caregivers = members.filter((m) => m.role === "caregiver");
-  const household = members.filter((m) => m.role !== "caregiver");
 
   return (
     <AppShell>
