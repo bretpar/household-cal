@@ -15,6 +15,7 @@
  */
 
 import {
+  branchRecurrenceReview,
   cancellationAction,
   computeBranches,
   exceptionEventFields,
@@ -463,13 +464,18 @@ async function applyGoogleEvent(
 
   /* ---------- single-occurrence exception of a known series ---------- */
   if (!link && g.recurringEventId) {
-    const { data: seriesLink } = await admin
+    // family-scoped: the parent branch may live in the other connected calendar
+    const { data: seriesLinks } = await admin
       .from("event_sync_links")
-      .select("event_id, branch_key")
+      .select("event_id, branch_key, calendar_source_id")
       .eq("google_event_id", g.recurringEventId)
-      .eq("family_id", familyId)
-      .eq("calendar_source_id", source.id)
-      .maybeSingle();
+      .eq("family_id", familyId);
+    type SeriesLinkRow = { event_id: string; branch_key: string | null; calendar_source_id: string };
+    const candidates = (seriesLinks ?? []) as SeriesLinkRow[];
+    const seriesLink =
+      candidates.find((l: SeriesLinkRow) => l.calendar_source_id === source.id) ??
+      candidates[0] ??
+      null;
     if (seriesLink) {
       const day = dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime);
       if (day) await addExcludedDate(admin, seriesLink.event_id, day);
@@ -496,6 +502,7 @@ async function applyGoogleEvent(
       return;
     }
   }
+
 
 
   /* ---------- brand new Google event ---------- */
@@ -551,6 +558,18 @@ async function applyGoogleEvent(
     await admin.from("events").update({ calendar_source_id: source.id }).eq("id", link.event_id);
   }
 
+  // per-person weekday branches share one local rule: a Google recurrence edit
+  // on a single branch is flagged for review instead of rewriting that rule
+  const review = branchRecurrenceReview({
+    local: {
+      branchKey: link.branch_key ?? "",
+      recurrence_rule: event.recurrence_rule,
+      recurrence_until: event.recurrence_until ?? null,
+    },
+    google: g,
+  });
+  if (review) console.warn("[google-sync] unsupported branch recurrence edit", link.id, review);
+
   await admin
     .from("event_sync_links")
     .update({
@@ -559,6 +578,7 @@ async function applyGoogleEvent(
       google_updated_at: g.updated ?? null,
       google_recurring_event_id: g.recurringEventId ?? null,
       last_source: "google",
+      sync_error: review,
     })
     .eq("id", link.id);
 }

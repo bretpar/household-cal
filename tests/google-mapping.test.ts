@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  branchRecurrenceReview,
   computeBranches,
   exceptionEventFields,
   fromGoogleRecurrence,
@@ -425,5 +426,88 @@ describe("Google whole-series edit preserves app-owned data", () => {
       google: { ...google, summary: "Trash day" },
     });
     expect(patch).not.toHaveProperty("needs_family_assignment");
+  });
+});
+
+describe("detached Google occurrence of a linked series (focused)", () => {
+  const google = {
+    id: "occ-2",
+    summary: "School - B & E",
+    recurringEventId: "series-school",
+    start: { dateTime: "2026-09-02T16:00:00.000Z" },
+    end: { dateTime: "2026-09-02T22:00:00.000Z" },
+    originalStartTime: { dateTime: "2026-09-02T15:00:00.000Z" },
+    location: "Gym",
+    etag: '"o"',
+    updated: "2026-08-25T04:00:00.000Z",
+  };
+  const parent = { title: "School", event_type: "school" };
+  const branch = {
+    key: "TU,WE,TH",
+    weekdays: ["TU", "WE", "TH"] as WeekdayCode[],
+    memberIds: ["b", "e"],
+  };
+
+  it("inherits the parent branch members and is not flagged", () => {
+    const fields = exceptionEventFields({
+      parent,
+      branch,
+      branchInitials: ["B", "E"],
+      google,
+    });
+    expect(fields.member_ids).toEqual(["b", "e"]);
+    expect(fields.needs_family_assignment).toBe(false);
+    expect(fields.title).toBe("School");
+    expect(fields.event_type).toBe("school");
+    expect(fields.start_at).toBe("2026-09-02T16:00:00.000Z");
+  });
+
+  it("carries no recurrence fields, so the parent series cannot be altered", () => {
+    const fields = exceptionEventFields({ parent, branch, branchInitials: ["B", "E"], google });
+    for (const key of ["recurrence_rule", "recurrence_until", "excluded_dates", "family_id"]) {
+      expect(fields).not.toHaveProperty(key);
+    }
+  });
+});
+
+describe("Google recurrence edit on a custom-weekday branch (focused)", () => {
+  const local = {
+    branchKey: "TU,WE,TH",
+    recurrence_rule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH",
+    recurrence_until: null,
+  };
+
+  it("flags an inbound end-date change for review instead of applying it", () => {
+    const reason = branchRecurrenceReview({
+      local,
+      google: { recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=TU,WE,TH;UNTIL=20261215T000000Z"] },
+    });
+    expect(reason).toContain("not supported");
+  });
+
+  it("stays quiet when only the branch weekdays differ (expected by design)", () => {
+    expect(
+      branchRecurrenceReview({
+        local,
+        google: { recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=TU,WE,TH"] },
+      }),
+    ).toBeNull();
+  });
+
+  it("never patches the shared recurrence for a non-empty branch", () => {
+    const patch = seriesPatchFromGoogle({
+      local: { title: "School", memberCount: 2, branchKey: "TU,WE,TH" },
+      branchInitials: ["B", "E"],
+      google: {
+        summary: "School - B & E",
+        start: { dateTime: "2026-09-02T16:00:00.000Z" },
+        end: { dateTime: "2026-09-02T22:00:00.000Z" },
+        recurrence: ["RRULE:FREQ=DAILY;UNTIL=20261215T000000Z"],
+      },
+    });
+    expect(patch).not.toHaveProperty("recurrence_rule");
+    expect(patch).not.toHaveProperty("recurrence_until");
+    expect(patch).not.toHaveProperty("excluded_dates");
+    expect(patch).not.toHaveProperty("member_ids");
   });
 });

@@ -416,6 +416,46 @@ export function seriesPatchFromGoogle(input: {
   return patch;
 }
 
+/** Frequency/interval part of a rule, ignoring the per-branch BYDAY selection. */
+function sharedRuleShape(rule: string | null | undefined): string {
+  if (!rule) return "";
+  return rule
+    .replace(/^RRULE:/i, "")
+    .split(";")
+    .map((p) => p.trim())
+    .filter((p) => p && !/^BYDAY=/i.test(p))
+    .map((p) => p.toUpperCase())
+    .sort()
+    .join(";");
+}
+
+/**
+ * A recurrence/end-date edit made in Google on one branch of a custom
+ * per-person weekday series cannot be mapped back safely: the branches share a
+ * single local rule, so applying one branch's change would silently rewrite the
+ * schedule of the other branches.
+ *
+ * Returns a human-readable reason when such an edit is detected (so the series
+ * can be flagged for review) or `null` when nothing conflicting arrived.
+ * Never mutates or returns a patch — the local recurrence is left untouched.
+ */
+export function branchRecurrenceReview(input: {
+  local: { branchKey: string; recurrence_rule: string | null; recurrence_until: string | null };
+  google: GoogleEvent;
+}): string | null {
+  const { local, google } = input;
+  if (!local.branchKey) return null;
+  if (!google.recurrence || google.recurrence.length === 0) return null;
+
+  const incoming = fromGoogleRecurrence(google.recurrence);
+  const ruleChanged = sharedRuleShape(incoming.rule) !== sharedRuleShape(local.recurrence_rule);
+  const untilChanged = (incoming.until ?? null) !== (local.recurrence_until ?? null);
+  if (!ruleChanged && !untilChanged) return null;
+
+  return "Recurrence/end-date edits made in Google are not supported for events with per-person day schedules. The local schedule was left unchanged — please review and edit it in the app.";
+}
+
+
 /** What a pulled `status: "cancelled"` item may do to the linked local event. */
 export type CancellationAction = "ignore" | "remove";
 
