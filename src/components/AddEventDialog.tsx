@@ -15,6 +15,7 @@ import {
 import {
   EventFormFields,
   draftFromFormState,
+  defaultCalendarSourceId,
   emptyFormState,
   validateFormState,
   type EventFormState,
@@ -83,7 +84,7 @@ export function EventComposerContent({
   submitLabel?: string;
   calendarSourceId?: string | null;
 }) {
-  const { addEvent } = useCalendar();
+  const { addEvent, sources } = useCalendar();
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
@@ -95,7 +96,10 @@ export function EventComposerContent({
     await runGuardedMutation({
       busy: saving,
       setBusy: setSaving,
-      perform: () => addEvent(draftFromFormState(state, calendarSourceId)),
+      perform: () =>
+        addEvent(
+          draftFromFormState(state, calendarSourceId ?? defaultCalendarSourceId(sources)),
+        ),
       onSuccess: () => {
         toast.success(`${state.title.trim()} added to the family calendar`);
         onClose();

@@ -21,6 +21,7 @@ import {
   WEEKDAY_CODES,
   parseRecurrenceRule,
   withRecurrenceCount,
+  type CalendarSource,
   type EventType,
   type MemberId,
   type Occurrence,
@@ -185,6 +186,18 @@ export function ruleForFormState(state: EventFormState): string | null {
   return rule;
 }
 
+/**
+ * The calendar new events land on when the user never opens the picker.
+ * Mirrors exactly what the form shows: the main active Google calendar, else the
+ * first active Google calendar, else null (local Family source resolved server-side).
+ */
+export function defaultCalendarSourceId(
+  sources: Pick<CalendarSource, "id" | "provider" | "active" | "is_main">[],
+): string | null {
+  const google = sources.filter((s) => s.provider === "google" && s.active);
+  return google.find((s) => s.is_main)?.id ?? google[0]?.id ?? null;
+}
+
 export function draftFromFormState(
   state: EventFormState,
   calendarSourceId: string | null = null,
@@ -265,6 +278,7 @@ export function EventFormFields({
   const activeMembers = members.filter((m) => m.active);
   // Only worth showing when there is an actual routing choice to make.
   const syncedCalendars = sources.filter((s) => s.provider === "google" && s.active);
+  const shownCalendarSourceId = state.calendarSourceId ?? defaultCalendarSourceId(sources);
 
   const set = <K extends keyof EventFormState>(key: K, value: EventFormState[K]) =>
     onChange({ ...state, [key]: value });
@@ -574,7 +588,7 @@ export function EventFormFields({
         <div className="space-y-1.5">
           <Label>Google calendar</Label>
           <Select
-            value={state.calendarSourceId ?? syncedCalendars.find((s) => s.is_main)?.id ?? ""}
+            value={shownCalendarSourceId ?? ""}
             onValueChange={(v) => set("calendarSourceId", v)}
           >
             <SelectTrigger className="h-11 rounded-xl">
