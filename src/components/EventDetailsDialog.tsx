@@ -21,7 +21,9 @@ import {
   validateFormState,
   type EventFormState,
 } from "@/components/EventForm";
+import { runGuardedMutation } from "@/lib/async-submit";
 import { useCalendar, type RecurrenceScope } from "@/lib/calendar-store";
+
 import {
   EVENT_TYPES,
   describeRecurrence,
@@ -76,6 +78,8 @@ export function EventDetailsDialog() {
   const [mode, setMode] = useState<Mode>("details");
   const [scope, setScope] = useState<RecurrenceScope>("this");
   const [state, setState] = useState<EventFormState | null>(null);
+  const [busy, setBusy] = useState(false);
+
 
   useEffect(() => {
     if (activeOccurrence) {
@@ -105,23 +109,42 @@ export function EventDetailsDialog() {
     }));
 
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!state) return;
     const error = validateFormState(state);
     if (error) {
       toast.error(error);
       return;
     }
-    void updateEvent(occurrence, draftFromFormState(state, event.calendar_source_id), scope);
-    toast.success(`${state.title.trim()} updated`);
-    closeOccurrence();
+    await runGuardedMutation({
+      busy,
+      setBusy,
+      perform: () =>
+        updateEvent(occurrence, draftFromFormState(state, event.calendar_source_id), scope),
+      onSuccess: () => {
+        toast.success(`${state.title.trim()} updated`);
+        closeOccurrence();
+      },
+      onError: toast.error,
+      errorFallback: "Could not save your changes. Please try again.",
+    });
   };
 
-  const confirmDelete = (deleteScope: RecurrenceScope) => {
-    void deleteEvent(occurrence, needsScope ? deleteScope : "series");
-    toast.success(`${event.title} deleted`);
-    closeOccurrence();
+  const confirmDelete = async (deleteScope: RecurrenceScope) => {
+    await runGuardedMutation({
+      busy,
+      setBusy,
+      perform: () => deleteEvent(occurrence, needsScope ? deleteScope : "series"),
+      onSuccess: () => {
+        toast.success(`${event.title} deleted`);
+        closeOccurrence();
+      },
+      onError: toast.error,
+      errorFallback: "Could not delete that event. Please try again.",
+    });
   };
+
+
 
   const scopePicker = needsScope ? (
     <div className="space-y-2">
@@ -271,10 +294,12 @@ export function EventDetailsDialog() {
               <Button
                 type="button"
                 className="h-11 rounded-full px-6 font-bold"
-                onClick={saveEdit}
+                onClick={() => void saveEdit()}
+                disabled={busy}
               >
-                Save changes
+                {busy ? "Saving…" : "Save changes"}
               </Button>
+
             </DialogFooter>
           </>
         ) : (
@@ -294,9 +319,11 @@ export function EventDetailsDialog() {
                   <button
                     key={option.id}
                     type="button"
-                    onClick={() => confirmDelete(option.id)}
-                    className="rounded-2xl bg-surface-muted px-4 py-3 text-left transition-colors hover:bg-secondary"
+                    disabled={busy}
+                    onClick={() => void confirmDelete(option.id)}
+                    className="rounded-2xl bg-surface-muted px-4 py-3 text-left transition-colors hover:bg-secondary disabled:opacity-60"
                   >
+
                     <span className="block text-sm font-bold text-destructive">{option.label}</span>
                     <span className="mt-0.5 block text-xs text-muted-foreground">
                       {option.hint}
@@ -320,10 +347,12 @@ export function EventDetailsDialog() {
                   type="button"
                   variant="destructive"
                   className="h-11 rounded-full px-6 font-bold"
-                  onClick={() => confirmDelete("series")}
+                  onClick={() => void confirmDelete("series")}
+                  disabled={busy}
                 >
-                  Delete
+                  {busy ? "Deleting…" : "Delete"}
                 </Button>
+
               )}
             </DialogFooter>
           </>

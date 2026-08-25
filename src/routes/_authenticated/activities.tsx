@@ -1,11 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CalendarClock, MapPin, Repeat } from "lucide-react";
+import { useMemo, useState } from "react";
+import { format } from "date-fns";
+import { CalendarClock, Clock, MapPin, Repeat } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { AddEventDialog } from "@/components/AddEventDialog";
 import { MemberBadgeRow } from "@/components/MemberBadge";
+import { eventTypeIcons } from "@/components/EventCard";
+import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
-
+import { eventAccentClass } from "@/lib/event-colors";
+import {
+  GROUP_MODES,
+  SORT_MODES,
+  buildSeriesList,
+  durationLabel,
+  frequencyLabel,
+  groupSeries,
+  type EventSeries,
+  type GroupMode,
+  type SortMode,
+} from "@/lib/activity-library";
+import { EVENT_TYPES, WEEKDAY_CODES, describeWeekdays, formatTimeRange } from "@/lib/family-data";
 
 export const Route = createFileRoute("/_authenticated/activities")({
   head: () => ({
@@ -13,20 +29,30 @@ export const Route = createFileRoute("/_authenticated/activities")({
       { title: "Activities — Family Calendar" },
       {
         name: "description",
-        content: "Recurring household activities like sports, lessons and school schedules.",
+        content: "Every repeating event in your household: sports, lessons, school and work.",
       },
       { property: "og:title", content: "Activities — Family Calendar" },
       {
         property: "og:description",
-        content: "Every recurring activity, who it belongs to, and when it happens.",
+        content: "Every recurring event, who it belongs to, and when it happens.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ActivitiesPage,
 });
 
 function ActivitiesPage() {
-  const { activities, memberById, loading, canEdit } = useCalendar();
+  const { events, members, loading, canEdit } = useCalendar();
+  const [group, setGroup] = useState<GroupMode>("category");
+  const [sort, setSort] = useState<SortMode>("next");
+
+  const series = useMemo(() => buildSeriesList(events), [events]);
+  const groups = useMemo(
+    () => groupSeries(series, group, sort, members),
+    [series, group, sort, members],
+  );
 
   return (
     <AppShell>
@@ -34,16 +60,31 @@ function ActivitiesPage() {
         <header>
           <h1 className="text-2xl font-bold sm:text-3xl">Activities</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Recurring commitments that shape the family week.
+            Every repeating event on the family calendar.
           </p>
         </header>
 
-        {!loading && activities.length === 0 ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <Picker
+            label="Group by"
+            value={group}
+            options={GROUP_MODES}
+            onChange={(v) => setGroup(v as GroupMode)}
+          />
+          <Picker
+            label="Sort by"
+            value={sort}
+            options={SORT_MODES}
+            onChange={(v) => setSort(v as SortMode)}
+          />
+        </div>
+
+        {!loading && series.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border bg-surface p-6 text-center">
-            <p className="text-base font-bold">No activities yet</p>
+            <p className="text-base font-bold">No repeating events yet</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {canEdit
-                ? "Add a repeating event on the calendar and it will show up here."
+                ? "Add an event with a repeat and it will show up here."
                 : "Recurring commitments will appear here once they are added."}
             </p>
             {canEdit ? (
@@ -54,45 +95,165 @@ function ActivitiesPage() {
           </div>
         ) : null}
 
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          {activities.map((activity) => (
-            <article
-              key={activity.id}
-              className="rounded-3xl border border-border-soft bg-card p-4 shadow-soft"
-            >
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-                <h2 className="truncate text-base font-bold">{activity.name}</h2>
-                <MemberBadgeRow ids={activity.member_ids} size="sm" />
-              </div>
-              <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                {activity.member_ids
-                  .map((id) => memberById[id]?.name)
-                  .filter(Boolean)
-                  .join(", ")}
-              </p>
-              <dl className="mt-3 space-y-1.5 text-sm text-muted-foreground">
-                {activity.schedule_label ? (
-                  <div className="flex items-center gap-2">
-                    <CalendarClock className="h-4 w-4 shrink-0" aria-hidden />
-                    <dd>{activity.schedule_label}</dd>
-                  </div>
-                ) : null}
-                {activity.location ? (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 shrink-0" aria-hidden />
-                    <dd className="truncate">{activity.location}</dd>
-                  </div>
-                ) : null}
-                <div className="flex items-center gap-2">
-                  <Repeat className="h-4 w-4 shrink-0" aria-hidden />
-                  <dd>{activity.active ? "Active recurring schedule" : "Paused"}</dd>
-                </div>
-              </dl>
-            </article>
-          ))}
-        </div>
+        {groups.map((section) => (
+          <section key={section.key} className="space-y-3">
+            <div className="flex items-baseline gap-2">
+              <h2 className="text-base font-bold">{section.label}</h2>
+              <span className="text-xs font-semibold text-muted-foreground">
+                {section.items.length}
+              </span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {section.items.map((item) => (
+                <SeriesCard key={`${section.key}-${item.event.id}`} series={item} />
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
     </AppShell>
+  );
+}
+
+function Picker({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: { id: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  const id = `activities-${label.replace(/\s+/g, "-").toLowerCase()}`;
+  return (
+    <div className="min-w-0 flex-1 space-y-1">
+      <label htmlFor={id} className="block text-xs font-bold text-muted-foreground">
+        {label}
+      </label>
+      <select
+        id={id}
+        aria-label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-11 w-full rounded-xl border border-border-soft bg-card px-3 text-sm font-semibold"
+      >
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function SeriesCard({ series }: { series: EventSeries }) {
+  const { styleFor, memberById } = useCalendar();
+  const { event } = series;
+  const Icon = eventTypeIcons[event.event_type];
+  const typeLabel = EVENT_TYPES.find((t) => t.id === event.event_type)?.label ?? "Other";
+  const start = new Date(event.start_at);
+  const end = new Date(event.end_at);
+
+  return (
+    <article
+      className={cn(
+        "relative overflow-hidden rounded-3xl border border-border-soft bg-card p-4 shadow-soft",
+        series.ended && "opacity-75",
+      )}
+    >
+      <span
+        className={cn(
+          "absolute inset-y-0 left-0 w-1.5",
+          eventAccentClass(event.member_ids, styleFor),
+        )}
+      />
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 pl-2">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            <h3 className="truncate text-base font-bold">{event.title}</h3>
+          </div>
+          <p className="mt-0.5 text-xs font-semibold text-muted-foreground">{typeLabel}</p>
+        </div>
+        <MemberBadgeRow ids={event.member_ids} size="sm" />
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-1.5 pl-2">
+        {series.ended ? (
+          <Chip tone="muted">Ended</Chip>
+        ) : (
+          <Chip tone="active">Active</Chip>
+        )}
+        {event.needs_family_assignment ? <Chip tone="muted">Needs family assignment</Chip> : null}
+        {event.external_event_id ? <Chip tone="muted">From Google</Chip> : null}
+      </div>
+
+      <dl className="mt-3 space-y-1.5 pl-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <Repeat className="h-4 w-4 shrink-0" aria-hidden />
+          <dd>
+            {frequencyLabel(event)}
+            {series.weekdays.length > 0
+              ? ` · ${series.weekdays
+                  .map((code) => WEEKDAY_CODES.find((d) => d.code === code)?.short ?? code)
+                  .join(", ")}`
+              : ""}
+          </dd>
+        </div>
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4 shrink-0" aria-hidden />
+          <dd>
+            {formatTimeRange(start, end, event.all_day)}
+            {event.all_day ? "" : ` · ${durationLabel(series.durationMinutes)}`}
+          </dd>
+        </div>
+        <div className="flex items-center gap-2">
+          <CalendarClock className="h-4 w-4 shrink-0" aria-hidden />
+          <dd>
+            {series.nextOccurrence
+              ? `Next: ${format(series.nextOccurrence, "EEE MMM d")}`
+              : `Ran from ${format(start, "MMM d, yyyy")}`}
+          </dd>
+        </div>
+        {event.location ? (
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+            <dd className="truncate">{event.location}</dd>
+          </div>
+        ) : null}
+      </dl>
+
+      {series.perPersonDays.length > 0 ? (
+        <div className="mt-3 ml-2 space-y-1 rounded-xl bg-surface-muted px-3 py-2 text-xs">
+          <span className="font-bold">Days by person</span>
+          {series.perPersonDays.map((row) => (
+            <div key={row.member_id} className="flex justify-between gap-3 text-muted-foreground">
+              <span className="font-semibold text-foreground">
+                {memberById[row.member_id]?.name ?? "Member"}
+              </span>
+              <span>{describeWeekdays(row.weekdays)}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function Chip({ children, tone }: { children: React.ReactNode; tone: "active" | "muted" }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold",
+        tone === "active"
+          ? "bg-shared-strong text-member-foreground"
+          : "bg-surface-muted text-muted-foreground",
+      )}
+    >
+      {children}
+    </span>
   );
 }

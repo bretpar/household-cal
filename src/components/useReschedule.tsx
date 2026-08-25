@@ -11,7 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { runGuardedMutation } from "@/lib/async-submit";
 import { useCalendar, type RecurrenceScope } from "@/lib/calendar-store";
+
 import { isRecurring, rescheduleDraft } from "@/lib/reschedule";
 import { formatTimeRange, type Occurrence } from "@/lib/family-data";
 
@@ -49,11 +51,20 @@ export function useReschedule() {
   const dragged = useRef<Occurrence | null>(null);
   const [draggingKey, setDraggingKey] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [moving, setMoving] = useState(false);
 
-  const apply = (occurrence: Occurrence, start: Date, scope: RecurrenceScope) => {
-    void updateEvent(occurrence, rescheduleDraft(occurrence, start, scope), scope);
-    toast.success(`${occurrence.event.title} moved to ${format(start, "EEE MMM d, h:mm a")}`);
-  };
+  const apply = (occurrence: Occurrence, start: Date, scope: RecurrenceScope) =>
+    runGuardedMutation({
+      busy: moving,
+      setBusy: setMoving,
+      perform: () => updateEvent(occurrence, rescheduleDraft(occurrence, start, scope), scope),
+      onSuccess: () =>
+        toast.success(`${occurrence.event.title} moved to ${format(start, "EEE MMM d, h:mm a")}`),
+      onError: toast.error,
+      errorFallback: "Could not move that event. Please try again.",
+    });
+
+
 
   const dragProps = (occurrence: Occurrence) =>
     canEdit
@@ -93,7 +104,7 @@ export function useReschedule() {
             const start = resolveStart(e, occurrence);
             if (!start || start.getTime() === occurrence.start.getTime()) return;
             if (isRecurring(occurrence)) setPending({ occurrence, start });
-            else apply(occurrence, start, "series");
+            else void apply(occurrence, start, "series");
           },
         }
       : {};
@@ -123,7 +134,7 @@ export function useReschedule() {
               key={option.id}
               type="button"
               onClick={() => {
-                apply(pending.occurrence, pending.start, option.id);
+                void apply(pending.occurrence, pending.start, option.id);
                 setPending(null);
               }}
               className="rounded-2xl bg-surface-muted px-4 py-3 text-left transition-colors hover:bg-secondary"

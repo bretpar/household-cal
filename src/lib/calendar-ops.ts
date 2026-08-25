@@ -160,8 +160,10 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     recurrence_until: e.recurrence_until,
     excluded_dates: e.excluded_dates ?? [],
     needs_family_assignment: e.needs_family_assignment ?? false,
+    created_at: e.created_at ?? null,
     external_event_id: e.external_event_id,
     external_recurring_event_id: e.external_recurring_event_id,
+
     participants: (e.event_members ?? []).map(
       (l: { family_member_id: string; weekdays: string[] | null }) => ({
         member_id: l.family_member_id,

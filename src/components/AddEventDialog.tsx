@@ -20,7 +20,9 @@ import {
   type EventFormState,
 } from "@/components/EventForm";
 import { cn } from "@/lib/utils";
+import { runGuardedMutation } from "@/lib/async-submit";
 import { useCalendar } from "@/lib/calendar-store";
+
 
 export function AddEventDialog({
   defaultDate,
@@ -82,17 +84,27 @@ export function EventComposerContent({
   calendarSourceId?: string | null;
 }) {
   const { addEvent } = useCalendar();
+  const [saving, setSaving] = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
     const error = validateFormState(state);
     if (error) {
       toast.error(error);
       return;
     }
-    void addEvent(draftFromFormState(state, calendarSourceId));
-    toast.success(`${state.title.trim()} added to the family calendar`);
-    onClose();
+    await runGuardedMutation({
+      busy: saving,
+      setBusy: setSaving,
+      perform: () => addEvent(draftFromFormState(state, calendarSourceId)),
+      onSuccess: () => {
+        toast.success(`${state.title.trim()} added to the family calendar`);
+        onClose();
+      },
+      onError: toast.error,
+      errorFallback: "Could not save the event. Please try again.",
+    });
   };
+
 
   return (
     <DialogContent className="rounded-3xl sm:max-w-lg">
@@ -106,13 +118,25 @@ export function EventComposerContent({
       </div>
 
       <DialogFooter>
-        <Button variant="ghost" type="button" className="h-11 rounded-full" onClick={onClose}>
+        <Button
+          variant="ghost"
+          type="button"
+          className="h-11 rounded-full"
+          onClick={onClose}
+          disabled={saving}
+        >
           Cancel
         </Button>
-        <Button type="button" className="h-11 rounded-full px-6 font-bold" onClick={submit}>
-          {submitLabel}
+        <Button
+          type="button"
+          className="h-11 rounded-full px-6 font-bold"
+          onClick={() => void submit()}
+          disabled={saving}
+        >
+          {saving ? "Saving…" : submitLabel}
         </Button>
       </DialogFooter>
     </DialogContent>
   );
+
 }
