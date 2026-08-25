@@ -13,7 +13,7 @@ export function LegalFooter() {
               to="/privacy"
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              Privacy
+              Privacy Policy
             </Link>
             <Link
               to="/terms"
