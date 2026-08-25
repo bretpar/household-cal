@@ -92,7 +92,7 @@ export const template = {
   component: HouseholdInvitationEmail,
   displayName: "Household invitation",
   subject: (data: Record<string, any>) =>
-    `You're invited to ${data?.householdName ?? "a family calendar"} on Our Family Calendar`,
+    `You're invited to ${data?.['householdName'] ?? "a family calendar"} on Our Family Calendar`,
   previewData: {
     householdName: "Parker Family",
     inviterName: "Dad",
