@@ -31,6 +31,8 @@ export interface EventInput {
   location: string | null;
   notes: string | null;
   event_type: EventType;
+  /** optional household category; null/undefined = Uncategorized */
+  category_id?: string | null;
   recurrence_rule: string | null;
   /** yyyy-MM-dd last day the series may produce an occurrence, or null for open-ended. */
   recurrence_until?: string | null;
@@ -52,7 +54,9 @@ export interface FamilyBundle {
   sources: CalendarSource[];
   events: CalendarEvent[];
   activities: FamilyActivity[];
+  categories: EventCategory[];
 }
+
 
 /** yyyy-MM-dd maths without timezone surprises. */
 export function shiftDayKey(dayKey: string, days: number): string {
