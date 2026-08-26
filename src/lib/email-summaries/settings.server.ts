@@ -19,6 +19,7 @@ export interface RecipientView {
   family_member_id: string | null;
   unsubscribed_at: string | null;
   calendar_source_ids: string[];
+  weekdays: string[];
 }
 
 export interface ScheduleView {
@@ -60,6 +61,15 @@ export function normalizeEmailAddress(value: unknown): string {
   return email;
 }
 
+export const WEEKDAY_CODES = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
+
+/** Empty means every day; codes are stored in canonical Mon-first order. */
+export function normalizeWeekdays(value: unknown): string[] {
+  const raw = Array.isArray(value) ? value.map((v) => String(v).toUpperCase()) : [];
+  const picked = WEEKDAY_CODES.filter((code) => raw.includes(code));
+  return picked.length === WEEKDAY_CODES.length ? [] : [...picked];
+}
+
 export async function loadEmailSummaries(db: Db, userId: string): Promise<EmailSummaryData> {
   const current = await resolveCurrentFamily(db, userId);
   if (!current) {
@@ -79,7 +89,7 @@ export async function loadEmailSummaries(db: Db, userId: string): Promise<EmailS
   const { data, error } = await db
     .from("email_schedules")
     .select(
-      "id, name, frequency, send_time, enabled, email_schedule_recipients(id, name, email, family_member_id, unsubscribed_at, email_schedule_recipient_calendars(calendar_source_id))",
+      "id, name, frequency, send_time, enabled, email_schedule_recipients(id, name, email, family_member_id, unsubscribed_at, weekdays, email_schedule_recipient_calendars(calendar_source_id))",
     )
     .eq("family_id", current.familyId)
     .order("created_at", { ascending: true });
@@ -111,6 +121,7 @@ export async function loadEmailSummaries(db: Db, userId: string): Promise<EmailS
       calendar_source_ids: (r.email_schedule_recipient_calendars ?? []).map(
         (c: any) => c.calendar_source_id,
       ),
+      weekdays: (r.weekdays ?? []) as string[],
     })),
   }));
 
@@ -221,6 +232,7 @@ export async function saveRecipient(
     email: unknown;
     family_member_id?: string | null;
     calendar_source_ids?: string[];
+    weekdays?: string[] | null;
     resubscribe?: boolean;
   },
 ): Promise<{ id: string }> {
@@ -234,6 +246,7 @@ export async function saveRecipient(
     name,
     email,
     family_member_id: input.family_member_id ?? null,
+    weekdays: normalizeWeekdays(input.weekdays),
     ...(input.resubscribe ? { unsubscribed_at: null } : {}),
   };
   if (recipientId) {

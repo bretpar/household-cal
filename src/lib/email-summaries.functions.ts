@@ -65,6 +65,7 @@ export const saveEmailRecipient = createServerFn({ method: "POST" })
       email: string;
       family_member_id?: string | null;
       calendar_source_ids?: string[];
+      weekdays?: string[] | null;
       resubscribe?: boolean;
     }) => data,
   )
