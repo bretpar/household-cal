@@ -189,7 +189,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       activities: data?.activities ?? [],
       events: data?.events ?? [],
       visibleEvents: (data?.events ?? []).filter(
-        (event) => isCoverage(event) || eventMatchesCategory(event, selectedCategory),
+        (event) => isCoverage(event) || eventMatchesCategory(event, effectiveCategory),
       ),
       categories: data?.categories ?? [],
       categoryAppearanceFor: (categoryId) =>
@@ -224,7 +224,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
         ),
       clearMembers: () => setSelectedMembers([]),
 
-      selectedCategory,
+      selectedCategory: effectiveCategory,
       setSelectedCategory,
 
       copiedEvent,
@@ -242,7 +242,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       closeOccurrence: () => setActiveOccurrence(null),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bundle.data, bundle.isLoading, selectedMembers, selectedCategory, activeOccurrence, copiedEvent, pasteDate]);
+  }, [bundle.data, bundle.isLoading, selectedMembers, effectiveCategory, activeOccurrence, copiedEvent, pasteDate]);
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;
 }
