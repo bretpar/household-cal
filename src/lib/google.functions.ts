@@ -205,3 +205,35 @@ export const syncNow = createServerFn({ method: "POST" })
       ? pullHousehold(supabaseAdmin, family, true)
       : reconcileHousehold(supabaseAdmin, family);
   });
+
+/**
+ * App-open freshness pull. Any authenticated household member may refresh the
+ * household's Google data (read-only refresh — no sync configuration rights).
+ * Skipped when the household synced within the freshness window.
+ */
+export const FRESHNESS_WINDOW_MS = 90_000;
+
+export const refreshHouseholdCalendar = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { resolveMembership } = await import("@/lib/calendar-ops");
+    const family = await resolveMembership(context.supabase as never, context.userId);
+    if (!family) return { skipped: "no_household" as const };
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: connection } = await supabaseAdmin
+      .from("google_connections")
+      .select("status, last_synced_at")
+      .eq("family_id", family)
+      .maybeSingle();
+    if (!connection || connection.status !== "connected") {
+      return { skipped: "not_connected" as const };
+    }
+    const last = connection.last_synced_at ? Date.parse(connection.last_synced_at) : 0;
+    if (last && Date.now() - last < FRESHNESS_WINDOW_MS) {
+      return { skipped: "fresh" as const };
+    }
+
+    const { pullHousehold } = await import("@/lib/google/sync.server");
+    return pullHousehold(supabaseAdmin, family, false);
+  });
