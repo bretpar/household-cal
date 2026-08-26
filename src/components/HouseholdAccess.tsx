@@ -93,11 +93,20 @@ export function HouseholdAccess() {
     "Invitation revoked",
     refresh,
   );
-  const resendMutation = useMutationLike(
-    (id: string) => resend({ data: { invitation_id: id } }),
-    "Invitation email resent",
-    refresh,
-  );
+  const resendMutation = useMutation({
+    mutationFn: (id: string) => resend({ data: { invitation_id: id } }),
+    onSuccess: async (result) => {
+      await refresh();
+      if (result?.emailed) {
+        toast.success("Invitation email resent");
+      } else {
+        toast.info("Email could not be sent — invitation link copied instead");
+        if (result?.token) void copyLink(result.token);
+      }
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "That change was not allowed"),
+  });
 
   const roleMutation = useMutationLike(
     (vars: { id: string; role: string }) =>
