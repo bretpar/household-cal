@@ -291,11 +291,46 @@ export async function runSchedule(
   };
 }
 
+/**
+ * Pre-send pass: refresh the calendars of every schedule whose send time falls
+ * inside the next `PRESEND_LEAD_MS` (5 minutes), so the send pass a few minutes
+ * later builds the email from just-synced data. Keyed by the same period key the
+ * send will use, so it runs at most once per email period.
+ */
+export async function prepareUpcomingSummaries(
+  admin: AnyDb,
+  now: Date = new Date(),
+  deps: PresendDeps = {},
+): Promise<PresendResult[]> {
+  const { data } = await admin
+    .from("email_schedules")
+    .select("id, family_id, name, frequency, send_time, enabled")
+    .eq("enabled", true);
+  const schedules = (data ?? []) as ScheduleRow[];
+  const results: PresendResult[] = [];
+  for (const schedule of schedules) {
+    try {
+      const timezone = await familyTimezone(admin, schedule.family_id);
+      const upcoming = upcomingRun(schedule, now, timezone, PRESEND_LEAD_MS);
+      if (!upcoming) continue;
+      results.push(await refreshForSchedule(admin, schedule, upcoming.window.periodKey, deps));
+    } catch (error) {
+      // A pre-send problem must never stop the send pass from running.
+      console.error("[summary-presync] pre-send pass failed", schedule.id, error);
+    }
+  }
+  return results;
+}
+
 /** Called by the scheduler: every enabled schedule across all households. */
 export async function dispatchDueSummaries(
   admin: AnyDb,
   now: Date = new Date(),
-): Promise<{ schedules: number; results: ScheduleRunResult[] }> {
+  deps: PresendDeps = {},
+): Promise<{ schedules: number; results: ScheduleRunResult[]; presyncs: PresendResult[] }> {
+  // Refresh first for sends that are about to happen, then send what is due.
+  const presyncs = await prepareUpcomingSummaries(admin, now, deps);
+
   const { data } = await admin
     .from("email_schedules")
     .select("id, family_id, name, frequency, send_time, enabled")
@@ -304,7 +339,7 @@ export async function dispatchDueSummaries(
   const results: ScheduleRunResult[] = [];
   for (const schedule of schedules) {
     try {
-      results.push(await runSchedule(admin, schedule, now));
+      results.push(await runSchedule(admin, schedule, now, deps));
     } catch (error) {
       console.error("summary schedule failed", schedule.id, error);
       results.push({
@@ -316,7 +351,7 @@ export async function dispatchDueSummaries(
       });
     }
   }
-  return { schedules: schedules.length, results };
+  return { schedules: schedules.length, results, presyncs };
 }
 
 /**
@@ -328,7 +363,12 @@ export async function sendSummaryPreview(
   schedule: ScheduleRow,
   recipientId: string | null,
   to: string,
-): Promise<{ sent: boolean; subject: string; dayCount: number }> {
+  deps: PresendDeps = {},
+): Promise<{ sent: boolean; subject: string; dayCount: number; refreshed: boolean }> {
+  // Best effort: give the owner the latest Google data, but never fail the
+  // preview because a calendar could not be reached.
+  const refresh = await refreshForPreview(admin, schedule, deps);
+
   const household = await loadHousehold(admin, schedule.family_id);
   const recipients = await loadRecipients(admin, schedule.id);
   const recipient =
@@ -344,7 +384,12 @@ export async function sendSummaryPreview(
     idempotencyKey: `summary-preview-${schedule.id}-${recipient?.id ?? "all"}-${Date.now()}`,
     templateData: { ...rendered.templateData, subject: `${rendered.subject} (preview)` },
   });
-  return { sent: result.sent, subject: rendered.subject, dayCount: rendered.dayCount };
+  return {
+    sent: result.sent,
+    subject: rendered.subject,
+    dayCount: rendered.dayCount,
+    refreshed: refresh.refreshed,
+  };
 }
 
 /** Unsubscribes exactly one recipient using their opaque token. */
