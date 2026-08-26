@@ -769,7 +769,7 @@ export async function pullSource(
   conn: ConnectionContext,
   source: SourceRow,
   initial = false,
-): Promise<{ applied: number }> {
+): Promise<{ applied: number; ok: boolean }> {
   const now = new Date().toISOString();
   try {
     // The stable calendarId is the identity: a rename in Google just refreshes
