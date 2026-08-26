@@ -10,6 +10,7 @@
 
 import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 
+import { emailSelectableCalendars } from "./eligibility";
 import {
   buildSummaryDays,
   eventsForSelection,
@@ -65,13 +66,18 @@ interface HouseholdData {
   members: SummaryMember[];
   events: SummaryEvent[];
   mainSourceId: string | null;
+  /** calendars this household may include in email summaries */
+  eligibleSourceIds: string[];
 }
 
 async function loadHousehold(admin: AnyDb, familyId: string): Promise<HouseholdData> {
   const [familyRes, membersRes, sourcesRes, eventsRes, categoriesRes] = await Promise.all([
     admin.from("families").select("id, timezone").eq("id", familyId).maybeSingle(),
     admin.from("family_members").select("id, initial, color, active").eq("family_id", familyId),
-    admin.from("calendar_sources").select("id, is_main, display_mode").eq("family_id", familyId),
+    admin
+      .from("calendar_sources")
+      .select("id, is_main, display_mode, active, selectable_in_email")
+      .eq("family_id", familyId),
     admin
       .from("events")
       .select("*, event_members(family_member_id, weekdays)")
@@ -87,6 +93,8 @@ async function loadHousehold(admin: AnyDb, familyId: string): Promise<HouseholdD
     id: string;
     is_main: boolean;
     display_mode: string;
+    active: boolean;
+    selectable_in_email: boolean;
   }[];
   const displayModeOf = new Map(sources.map((s) => [s.id, s.display_mode]));
 
@@ -121,6 +129,7 @@ async function loadHousehold(admin: AnyDb, familyId: string): Promise<HouseholdD
     })),
     events,
     mainSourceId: sources.find((s) => s.is_main)?.id ?? sources[0]?.id ?? null,
+    eligibleSourceIds: emailSelectableCalendars(sources).map((s) => s.id),
   };
 }
 
@@ -160,8 +169,12 @@ export function renderSummary(
   frequency: SummaryFrequency,
   window: SummaryWindow,
 ): RenderedSummary {
+  // A recipient can only ever receive calendars that pass the shared
+  // eligibility rule, whatever is stored on their row.
+  const eligible = new Set(household.eligibleSourceIds);
+  const sourceIds = recipient.calendar_source_ids.filter((id) => eligible.has(id));
   const events = eventsForSelection(household.events, {
-    sourceIds: recipient.calendar_source_ids,
+    sourceIds: sourceIds.length > 0 ? sourceIds : ["__no-eligible-calendar__"],
     mainSourceId: household.mainSourceId,
   });
   const days = buildSummaryDays(
