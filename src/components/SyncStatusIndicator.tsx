@@ -44,7 +44,7 @@ export function SyncStatusIndicator() {
     detail = `${paused[0]?.name ?? "A Google calendar"} can no longer be found. Your family events are safe; Google syncing is paused.`;
   } else if (connected) {
     tone = "text-foreground";
-    dot = "bg-primary";
+    dot = "bg-success";
     label = connection?.last_synced_at
       ? `Synced ${formatDistanceToNow(new Date(connection.last_synced_at), { addSuffix: true })}`
       : "Sync pending";
