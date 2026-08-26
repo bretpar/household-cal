@@ -268,6 +268,7 @@ export async function saveRecipient(
 
   // per-recipient calendar selection: replace the whole set
   const sourceIds = [...new Set(input.calendar_source_ids ?? [])];
+  await assertSelectableCalendars(db, familyId, sourceIds);
   await db
     .from("email_schedule_recipient_calendars")
     .delete()
