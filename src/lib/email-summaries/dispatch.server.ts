@@ -13,6 +13,7 @@ import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 import {
   buildSummaryDays,
   eventsForSelection,
+  selectedDaysInWindow,
   summaryCopy,
   type SummaryEvent,
   type SummaryMember,
@@ -42,6 +43,8 @@ export interface RecipientRow {
   unsubscribe_token: string;
   unsubscribed_at: string | null;
   calendar_source_ids: string[];
+  /** weekday codes this recipient receives; empty = every day */
+  weekdays: string[];
 }
 
 interface HouseholdData {
@@ -118,6 +121,7 @@ async function loadRecipients(admin: AnyDb, scheduleId: string): Promise<Recipie
     calendar_source_ids: (r.email_schedule_recipient_calendars ?? []).map(
       (c: any) => c.calendar_source_id,
     ),
+    weekdays: (r.weekdays ?? []) as string[],
   }));
 }
 
@@ -130,7 +134,9 @@ export interface RenderedSummary {
 /** Builds one recipient's email content. Exported so previews use the real path. */
 export function renderSummary(
   household: HouseholdData,
-  recipient: Pick<RecipientRow, "calendar_source_ids" | "unsubscribe_token">,
+  recipient: Pick<RecipientRow, "calendar_source_ids" | "unsubscribe_token"> & {
+    weekdays?: string[] | null;
+  },
   frequency: SummaryFrequency,
   window: SummaryWindow,
 ): RenderedSummary {
@@ -138,7 +144,13 @@ export function renderSummary(
     sourceIds: recipient.calendar_source_ids,
     mainSourceId: household.mainSourceId,
   });
-  const days = buildSummaryDays(events, window, household.timezone, household.members);
+  const days = buildSummaryDays(
+    events,
+    window,
+    household.timezone,
+    household.members,
+    recipient.weekdays,
+  );
   const copy = summaryCopy(frequency, window);
   return {
     subject: copy.subject,
@@ -189,6 +201,13 @@ export async function runSchedule(
   let failed = 0;
 
   for (const recipient of recipients) {
+    // A recipient restricted to certain weekdays gets nothing when the window
+    // holds none of them (a daily summary for an excluded day, for example).
+    if (selectedDaysInWindow(due.window, recipient.weekdays).length === 0) {
+      skipped += 1;
+      continue;
+    }
+
     // Claim the (recipient, period) slot first — the unique index makes a
     // retried job a no-op instead of a second email.
     const claim = await admin.from("email_summary_sends").insert({
@@ -281,7 +300,7 @@ export async function sendSummaryPreview(
   const window = previewWindow(schedule.frequency, new Date(), household.timezone);
   const rendered = renderSummary(
     household,
-    recipient ?? { calendar_source_ids: [], unsubscribe_token: "preview" },
+    recipient ?? { calendar_source_ids: [], unsubscribe_token: "preview", weekdays: [] },
     schedule.frequency,
     window,
   );
