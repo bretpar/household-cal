@@ -67,23 +67,35 @@
   --color-warning-soft: var(--warning-soft);
   --color-warning-foreground: var(--warning-foreground);
 
-  /* Family member pastel palette — households pick a palette key per member */
+  /*
+   * Family member + category pastel palette.
+   * `-soft` = light tint used for event card / pill backgrounds.
+   * `-ink`  = dark related shade used for badge initials and text.
+   */
   --color-member-sky: var(--member-sky);
   --color-member-sky-soft: var(--member-sky-soft);
+  --color-member-sky-ink: var(--member-sky-ink);
   --color-member-rose: var(--member-rose);
   --color-member-rose-soft: var(--member-rose-soft);
+  --color-member-rose-ink: var(--member-rose-ink);
   --color-member-amber: var(--member-amber);
   --color-member-amber-soft: var(--member-amber-soft);
+  --color-member-amber-ink: var(--member-amber-ink);
   --color-member-sage: var(--member-sage);
   --color-member-sage-soft: var(--member-sage-soft);
+  --color-member-sage-ink: var(--member-sage-ink);
   --color-member-teal: var(--member-teal);
   --color-member-teal-soft: var(--member-teal-soft);
+  --color-member-teal-ink: var(--member-teal-ink);
   --color-member-lilac: var(--member-lilac);
   --color-member-lilac-soft: var(--member-lilac-soft);
+  --color-member-lilac-ink: var(--member-lilac-ink);
   --color-member-coral: var(--member-coral);
   --color-member-coral-soft: var(--member-coral-soft);
+  --color-member-coral-ink: var(--member-coral-ink);
   --color-member-sand: var(--member-sand);
   --color-member-sand-soft: var(--member-sand-soft);
+  --color-member-sand-ink: var(--member-sand-ink);
   --color-member-foreground: var(--member-foreground);
 
 
