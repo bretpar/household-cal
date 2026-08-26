@@ -312,6 +312,60 @@ export type Database = {
           },
         ]
       }
+      email_summary_presyncs: {
+        Row: {
+          attempts: number
+          completed_at: string | null
+          created_at: string
+          detail: string | null
+          family_id: string
+          id: string
+          period_key: string
+          schedule_id: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          completed_at?: string | null
+          created_at?: string
+          detail?: string | null
+          family_id: string
+          id?: string
+          period_key: string
+          schedule_id: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          completed_at?: string | null
+          created_at?: string
+          detail?: string | null
+          family_id?: string
+          id?: string
+          period_key?: string
+          schedule_id?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_summary_presyncs_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_summary_presyncs_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "email_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_summary_sends: {
         Row: {
           created_at: string
