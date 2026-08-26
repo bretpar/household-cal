@@ -287,6 +287,7 @@ export async function runSchedule(
     sent,
     skipped,
     failed,
+    presync: presync.status,
   };
 }
 
