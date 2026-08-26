@@ -147,6 +147,10 @@ export interface FamilyActivity {
   member_ids: MemberId[];
 }
 
+/**
+ * The single canonical "Activity" concept for an event. Stored as `event_type`
+ * for data compatibility; always presented to users as "Activity".
+ */
 export const EVENT_TYPES: { id: EventType; label: string }[] = [
   { id: "school", label: "School" },
   { id: "activity", label: "Activity" },
