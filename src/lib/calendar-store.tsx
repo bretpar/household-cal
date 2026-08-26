@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   createEvent,
@@ -8,6 +8,7 @@ import {
   getFamilyBundle,
   updateEventFn,
 } from "@/lib/calendar.functions";
+import { refreshHouseholdCalendar } from "@/lib/google.functions";
 import type { EventInput, RecurrenceScope } from "@/lib/calendar-ops";
 import { clipboardFromOccurrence, type EventClipboard } from "@/lib/event-clipboard";
 import {
@@ -101,6 +102,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const create = useServerFn(createEvent);
   const update = useServerFn(updateEventFn);
   const remove = useServerFn(deleteEventFn);
+  const refreshGoogle = useServerFn(refreshHouseholdCalendar);
 
   const [selectedMembers, setSelectedMembers] = useState<MemberId[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CategorySelection>(null);
@@ -112,6 +114,23 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     queryKey: FAMILY_BUNDLE_KEY,
     queryFn: () => fetchBundle(),
   });
+
+  // App-open freshness: pull Google changes in the background (never blocking
+  // render) and refetch the bundle only when something was actually imported.
+  const openSyncRan = useRef(false);
+  useEffect(() => {
+    if (openSyncRan.current || !bundle.data?.family) return;
+    openSyncRan.current = true;
+    void refreshGoogle()
+      .then((result) => {
+        if (result && "applied" in result && (result.applied ?? 0) > 0) {
+          queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+        }
+      })
+      .catch(() => {
+        /* freshness sync is best-effort; the cached calendar stays usable */
+      });
+  }, [bundle.data?.family, refreshGoogle, queryClient]);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
 
