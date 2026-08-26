@@ -14,6 +14,7 @@ import { clipboardFromOccurrence, type EventClipboard } from "@/lib/event-clipbo
 import {
   appearanceForEvent,
   eventMatchesCategory,
+  UNCATEGORIZED_FILTER,
   type CategoryAppearance,
   type CategorySelection,
   type EventCategory,
@@ -132,6 +133,19 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       });
   }, [bundle.data?.family, refreshGoogle, queryClient]);
 
+  // A category filter can point at a category that was just deleted in Family
+  // settings. Drop the stale selection so the calendar never looks empty.
+  const categories = bundle.data?.categories ?? [];
+  const categoryMissing =
+    !!selectedCategory &&
+    selectedCategory !== UNCATEGORIZED_FILTER &&
+    categories.length > 0 &&
+    !categories.some((c) => c.id === selectedCategory);
+  useEffect(() => {
+    if (categoryMissing) setSelectedCategory(null);
+  }, [categoryMissing]);
+  const effectiveCategory: CategorySelection = categoryMissing ? null : selectedCategory;
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
 
   const createMutation = useMutation({
@@ -176,7 +190,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       activities: data?.activities ?? [],
       events: data?.events ?? [],
       visibleEvents: (data?.events ?? []).filter(
-        (event) => isCoverage(event) || eventMatchesCategory(event, selectedCategory),
+        (event) => isCoverage(event) || eventMatchesCategory(event, effectiveCategory),
       ),
       categories: data?.categories ?? [],
       categoryAppearanceFor: (categoryId) =>
@@ -211,7 +225,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
         ),
       clearMembers: () => setSelectedMembers([]),
 
-      selectedCategory,
+      selectedCategory: effectiveCategory,
       setSelectedCategory,
 
       copiedEvent,
@@ -229,7 +243,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       closeOccurrence: () => setActiveOccurrence(null),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bundle.data, bundle.isLoading, selectedMembers, selectedCategory, activeOccurrence, copiedEvent, pasteDate]);
+  }, [bundle.data, bundle.isLoading, selectedMembers, effectiveCategory, activeOccurrence, copiedEvent, pasteDate]);
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;
 }
