@@ -171,6 +171,199 @@ export type Database = {
           },
         ]
       }
+      email_schedule_recipient_calendars: {
+        Row: {
+          calendar_source_id: string
+          created_at: string
+          recipient_id: string
+        }
+        Insert: {
+          calendar_source_id: string
+          created_at?: string
+          recipient_id: string
+        }
+        Update: {
+          calendar_source_id?: string
+          created_at?: string
+          recipient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_schedule_recipient_calendars_calendar_source_id_fkey"
+            columns: ["calendar_source_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_schedule_recipient_calendars_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "email_schedule_recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_schedule_recipients: {
+        Row: {
+          created_at: string
+          email: string
+          family_id: string
+          family_member_id: string | null
+          id: string
+          name: string
+          schedule_id: string
+          unsubscribe_token: string
+          unsubscribed_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          family_id: string
+          family_member_id?: string | null
+          id?: string
+          name: string
+          schedule_id: string
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          family_id?: string
+          family_member_id?: string | null
+          id?: string
+          name?: string
+          schedule_id?: string
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_schedule_recipients_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_schedule_recipients_family_member_id_fkey"
+            columns: ["family_member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_schedule_recipients_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "email_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_schedules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          family_id: string
+          frequency: Database["public"]["Enums"]["email_summary_frequency"]
+          id: string
+          name: string
+          send_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          family_id: string
+          frequency?: Database["public"]["Enums"]["email_summary_frequency"]
+          id?: string
+          name: string
+          send_time?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          family_id?: string
+          frequency?: Database["public"]["Enums"]["email_summary_frequency"]
+          id?: string
+          name?: string
+          send_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_schedules_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_summary_sends: {
+        Row: {
+          created_at: string
+          detail: string | null
+          family_id: string
+          id: string
+          period_key: string
+          recipient_id: string
+          schedule_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          family_id: string
+          id?: string
+          period_key: string
+          recipient_id: string
+          schedule_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          family_id?: string
+          id?: string
+          period_key?: string
+          recipient_id?: string
+          schedule_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_summary_sends_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_summary_sends_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "email_schedule_recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_summary_sends_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "email_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_categories: {
         Row: {
           color: string
@@ -421,6 +614,7 @@ export type Database = {
           created_by: string | null
           id: string
           name: string
+          timezone: string
           updated_at: string
         }
         Insert: {
@@ -428,6 +622,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           name: string
+          timezone?: string
           updated_at?: string
         }
         Update: {
@@ -435,6 +630,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           name?: string
+          timezone?: string
           updated_at?: string
         }
         Relationships: []
@@ -703,6 +899,7 @@ export type Database = {
     Enums: {
       calendar_display_mode: "events" | "coverage_background"
       calendar_provider: "local" | "google"
+      email_summary_frequency: "daily" | "weekly" | "monthly"
       event_type:
         | "school"
         | "activity"
@@ -844,6 +1041,7 @@ export const Constants = {
     Enums: {
       calendar_display_mode: ["events", "coverage_background"],
       calendar_provider: ["local", "google"],
+      email_summary_frequency: ["daily", "weekly", "monthly"],
       event_type: [
         "school",
         "activity",

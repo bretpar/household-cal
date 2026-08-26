@@ -4,6 +4,7 @@ import { Eye, Settings, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { CalendarSyncSettings } from "@/components/CalendarSyncSettings";
 import { DeveloperTools } from "@/components/DeveloperTools";
+import { EmailSummarySettings } from "@/components/EmailSummarySettings";
 import { EventCategorySettings } from "@/components/EventCategorySettings";
 import { FamilyMemberSettings } from "@/components/FamilyMemberSettings";
 import { HouseholdAccess } from "@/components/HouseholdAccess";
@@ -82,6 +83,8 @@ function FamilyPage() {
         <EventCategorySettings />
 
         <HouseholdAccess />
+
+        <EmailSummarySettings />
 
         <CalendarSyncSettings />
 

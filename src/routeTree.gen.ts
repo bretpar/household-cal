@@ -20,7 +20,9 @@ import { Route as AuthenticatedFamilyRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/today'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as UnsubscribeTokenRouteImport } from './routes/unsubscribe.$token'
 import { Route as OauthGoogleCalendarReturnRouteImport } from './routes/oauth/google-calendar/return'
+import { Route as ApiPublicEmailSummariesDispatchRouteImport } from './routes/api/public/email-summaries/dispatch'
 import { Route as ApiPublicGoogleCalendarNotifyRouteImport } from './routes/api/public/google-calendar/notify'
 import { Route as ApiPublicGoogleCalendarReconcileRouteImport } from './routes/api/public/google-calendar/reconcile'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
@@ -79,10 +81,21 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UnsubscribeTokenRoute = UnsubscribeTokenRouteImport.update({
+  id: '/unsubscribe/$token',
+  path: '/unsubscribe/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OauthGoogleCalendarReturnRoute =
   OauthGoogleCalendarReturnRouteImport.update({
     id: '/oauth/google-calendar/return',
     path: '/oauth/google-calendar/return',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicEmailSummariesDispatchRoute =
+  ApiPublicEmailSummariesDispatchRouteImport.update({
+    id: '/api/public/email-summaries/dispatch',
+    path: '/api/public/email-summaries/dispatch',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicGoogleCalendarNotifyRoute =
@@ -115,7 +128,9 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/today': typeof AuthenticatedTodayRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
   '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -131,7 +146,9 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/today': typeof AuthenticatedTodayRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
   '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -149,7 +166,9 @@ export interface FileRoutesById {
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/today': typeof AuthenticatedTodayRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
   '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -167,7 +186,9 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/today'
     | '/invite/$token'
+    | '/unsubscribe/$token'
     | '/oauth/google-calendar/return'
+    | '/api/public/email-summaries/dispatch'
     | '/api/public/google-calendar/notify'
     | '/api/public/google-calendar/reconcile'
     | '/lovable/email/transactional/preview'
@@ -183,7 +204,9 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/today'
     | '/invite/$token'
+    | '/unsubscribe/$token'
     | '/oauth/google-calendar/return'
+    | '/api/public/email-summaries/dispatch'
     | '/api/public/google-calendar/notify'
     | '/api/public/google-calendar/reconcile'
     | '/lovable/email/transactional/preview'
@@ -200,7 +223,9 @@ export interface FileRouteTypes {
     | '/_authenticated/onboarding'
     | '/_authenticated/today'
     | '/invite/$token'
+    | '/unsubscribe/$token'
     | '/oauth/google-calendar/return'
+    | '/api/public/email-summaries/dispatch'
     | '/api/public/google-calendar/notify'
     | '/api/public/google-calendar/reconcile'
     | '/lovable/email/transactional/preview'
@@ -213,7 +238,9 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  UnsubscribeTokenRoute: typeof UnsubscribeTokenRoute
   OauthGoogleCalendarReturnRoute: typeof OauthGoogleCalendarReturnRoute
+  ApiPublicEmailSummariesDispatchRoute: typeof ApiPublicEmailSummariesDispatchRoute
   ApiPublicGoogleCalendarNotifyRoute: typeof ApiPublicGoogleCalendarNotifyRoute
   ApiPublicGoogleCalendarReconcileRoute: typeof ApiPublicGoogleCalendarReconcileRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
@@ -298,11 +325,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/unsubscribe/$token': {
+      id: '/unsubscribe/$token'
+      path: '/unsubscribe/$token'
+      fullPath: '/unsubscribe/$token'
+      preLoaderRoute: typeof UnsubscribeTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/oauth/google-calendar/return': {
       id: '/oauth/google-calendar/return'
       path: '/oauth/google-calendar/return'
       fullPath: '/oauth/google-calendar/return'
       preLoaderRoute: typeof OauthGoogleCalendarReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/email-summaries/dispatch': {
+      id: '/api/public/email-summaries/dispatch'
+      path: '/api/public/email-summaries/dispatch'
+      fullPath: '/api/public/email-summaries/dispatch'
+      preLoaderRoute: typeof ApiPublicEmailSummariesDispatchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/google-calendar/notify': {
@@ -355,7 +396,9 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   InviteTokenRoute: InviteTokenRoute,
+  UnsubscribeTokenRoute: UnsubscribeTokenRoute,
   OauthGoogleCalendarReturnRoute: OauthGoogleCalendarReturnRoute,
+  ApiPublicEmailSummariesDispatchRoute: ApiPublicEmailSummariesDispatchRoute,
   ApiPublicGoogleCalendarNotifyRoute: ApiPublicGoogleCalendarNotifyRoute,
   ApiPublicGoogleCalendarReconcileRoute: ApiPublicGoogleCalendarReconcileRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
