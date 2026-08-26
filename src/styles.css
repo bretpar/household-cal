@@ -47,6 +47,26 @@
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
 
+  /* Brand palette straight from the logo */
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-navy-soft: var(--brand-navy-soft);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-blue-soft: var(--brand-blue-soft);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-teal-soft: var(--brand-teal-soft);
+  --color-brand-coral: var(--brand-coral);
+  --color-brand-coral-soft: var(--brand-coral-soft);
+  --color-brand-rose: var(--brand-rose);
+  --color-brand-rose-soft: var(--brand-rose-soft);
+
+  /* Status colors — success/synced is teal, errors stay a conventional red */
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-foreground: var(--warning-foreground);
+
   /* Family member pastel palette — households pick a palette key per member */
   --color-member-sky: var(--member-sky);
   --color-member-sky-soft: var(--member-sky-soft);
