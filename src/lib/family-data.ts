@@ -74,6 +74,8 @@ export interface CalendarSource {
   active: boolean;
   /** New events default to the main connected calendar. */
   is_main: boolean;
+  /** Whether this source may be included as a recipient's summary calendar. */
+  selectable_in_email: boolean;
 }
 
 /** Weekday code used by RRULE BYDAY and by per-person participation rules. */

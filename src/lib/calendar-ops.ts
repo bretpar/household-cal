@@ -146,6 +146,7 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     display_mode: s.display_mode as DisplayMode,
     active: s.active,
     is_main: s.is_main ?? false,
+    selectable_in_email: s.selectable_in_email ?? false,
   }));
   const displayModeOf = new Map(sources.map((s) => [s.id, s.display_mode]));
 
