@@ -5,9 +5,12 @@ import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
 /**
  * Scheduled sender for email summaries.
  *
- * Runs every 15 minutes from the database scheduler. Each enabled schedule
- * decides for itself whether its household-local send time has passed, and
- * duplicate protection lives in `email_summary_sends`, so extra runs are safe.
+ * Runs every 5 minutes from the database scheduler and does two passes: it
+ * refreshes the connected Google calendars for schedules that send within the
+ * next 5 minutes, then sends whatever is due. Each enabled schedule decides for
+ * itself whether its household-local send time has passed; duplicate protection
+ * lives in `email_summary_sends` (emails) and `email_summary_presyncs`
+ * (refreshes), so extra runs are safe.
  */
 export const Route = createFileRoute("/api/public/email-summaries/dispatch")({
   server: {
