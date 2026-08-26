@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Eye, Settings, ShieldCheck } from "lucide-react";
+import { CalendarCog, Eye, Palette, RefreshCw, Users } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { CalendarSyncSettings } from "@/components/CalendarSyncSettings";
@@ -7,10 +7,13 @@ import { DeveloperTools } from "@/components/DeveloperTools";
 import { EmailSummarySettings } from "@/components/EmailSummarySettings";
 import { EventCategorySettings } from "@/components/EventCategorySettings";
 import { FamilyMemberSettings } from "@/components/FamilyMemberSettings";
+import { GoogleSyncSummary } from "@/components/GoogleSyncSummary";
 import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { MemberBadge } from "@/components/MemberBadge";
+import { SettingsSection } from "@/components/SettingsSection";
 import { Switch } from "@/components/ui/switch";
 import { useCalendar } from "@/lib/calendar-store";
+
 
 export const Route = createFileRoute("/_authenticated/family")({
   head: () => ({
