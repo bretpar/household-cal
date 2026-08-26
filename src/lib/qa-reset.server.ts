@@ -41,8 +41,13 @@ const BASELINE_MEMBERS = [
 ] as const;
 
 const BASELINE_SOURCES = [
-  { name: "Family", display_mode: "events", sort_order: 0 },
-  { name: "Caregiver coverage", display_mode: "coverage_background", sort_order: 1 },
+  { name: "Family", display_mode: "events", sort_order: 0, selectable_in_email: false },
+  {
+    name: "Caregiver coverage",
+    display_mode: "coverage_background",
+    sort_order: 1,
+    selectable_in_email: false,
+  },
 ] as const;
 
 export interface QaUserMap {

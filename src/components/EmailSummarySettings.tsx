@@ -25,6 +25,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { runGuardedMutation } from "@/lib/async-submit";
 import { useCalendar } from "@/lib/calendar-store";
+import { emailSelectableCalendars } from "@/lib/email-summaries/eligibility";
 import {
   deleteEmailRecipient,
   deleteEmailSchedule,
@@ -114,7 +115,7 @@ export function EmailSummarySettings() {
   });
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: SUMMARY_KEY });
-  const selectableSources = sources.filter((s) => s.active);
+  const selectableSources = emailSelectableCalendars(sources as never[]) as typeof sources;
 
   if (!isOwner) return null;
 
@@ -303,7 +304,7 @@ export function EmailSummarySettings() {
                     <p className="truncate text-xs text-muted-foreground">
                       {recipient.email} ·{" "}
                       {recipient.calendar_source_ids.length === 0
-                        ? "main calendar only"
+                        ? "no calendars selected"
                         : `${recipient.calendar_source_ids.length} calendar${
                             recipient.calendar_source_ids.length === 1 ? "" : "s"
                           }`}{" "}
@@ -501,7 +502,7 @@ export function EmailSummarySettings() {
                 <Label>Calendars in this email</Label>
                 {selectableSources.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    No calendars yet — the main household calendar is used.
+                    No calendars available yet — connect or add a calendar first.
                   </p>
                 )}
                 <div className="space-y-1.5">
@@ -532,9 +533,11 @@ export function EmailSummarySettings() {
                     );
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Leave all unchecked to send just the main household calendar.
-                </p>
+                {recipientDraft.calendar_source_ids.length === 0 && (
+                  <p className="text-xs text-destructive">
+                    Pick at least one calendar for this recipient.
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Days to include</Label>
@@ -594,7 +597,10 @@ export function EmailSummarySettings() {
             <Button variant="outline" onClick={() => setRecipientDraft(null)}>
               Cancel
             </Button>
-            <Button onClick={persistRecipient} disabled={busy}>
+            <Button
+              onClick={persistRecipient}
+              disabled={busy || (recipientDraft?.calendar_source_ids.length ?? 0) === 0}
+            >
               Save
             </Button>
           </DialogFooter>
