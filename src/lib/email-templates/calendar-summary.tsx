@@ -137,7 +137,7 @@ const styles = {
     textAlign: "center" as const,
     fontSize: "11px",
     fontWeight: "bold" as const,
-    color: "#26313f",
+    color: brandColors.ink,
     marginLeft: "5px",
   },
   categoryIcon: {
@@ -190,6 +190,7 @@ function Badges({ badges }: { badges: SummaryEmailBadge[] }) {
           style={{
             ...styles.badge,
             backgroundColor: EMAIL_MEMBER_COLORS[badge.color] ?? FALLBACK_BADGE,
+            color: EMAIL_MEMBER_INK[badge.color] ?? brandColors.ink,
           }}
         >
           {badge.initial}
@@ -202,7 +203,7 @@ function Badges({ badges }: { badges: SummaryEmailBadge[] }) {
 function ActivityCard({ item }: { item: SummaryEmailItem }) {
   const key = item.categoryColor ?? "";
   const accent = EMAIL_MEMBER_COLORS[key] ?? brand.neutralAccent;
-  const tint = EMAIL_CATEGORY_TINTS[key] ?? "#f4f6fa";
+  const tint = EMAIL_CATEGORY_TINTS[key] ?? EMAIL_FALLBACK_TINT;
   const icon = categoryIcon(item.categoryName);
   return (
     <table

@@ -13,6 +13,8 @@ import {
   Text,
 } from "@react-email/components";
 
+import { brandColors } from "./brand-colors";
+
 /**
  * Shared branded email shell for Our Family Calendar.
  * Reuse this for any future app email (weekly summaries, babysitter
@@ -23,13 +25,13 @@ export const BRAND_NAME = "Our Family Calendar";
 export const BRAND_URL = "https://ourfamilycalendar.com";
 
 export const colors = {
-  pageBg: "#faf7f2",
-  cardBg: "#ffffff",
-  border: "#ece5da",
-  heading: "#3d3229",
-  body: "#5b5045",
-  muted: "#8a7d70",
-  accent: "#e07a5f",
+  pageBg: brandColors.cream,
+  cardBg: brandColors.white,
+  border: brandColors.border,
+  heading: brandColors.navy,
+  body: brandColors.body,
+  muted: brandColors.muted,
+  accent: brandColors.blue,
 };
 
 const fontStack = "Arial, Helvetica, sans-serif";
@@ -42,7 +44,7 @@ const styles = {
     margin: 0,
     fontSize: "16px",
     fontWeight: "bold" as const,
-    color: colors.accent,
+    color: brandColors.navy,
     letterSpacing: "0.02em",
   },
   card: {
@@ -62,7 +64,7 @@ const styles = {
   button: {
     display: "inline-block",
     backgroundColor: colors.accent,
-    color: "#ffffff",
+    color: brandColors.white,
     fontWeight: "bold" as const,
     fontSize: "15px",
     padding: "14px 24px",
