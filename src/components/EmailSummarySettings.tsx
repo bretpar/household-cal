@@ -597,7 +597,10 @@ export function EmailSummarySettings() {
             <Button variant="outline" onClick={() => setRecipientDraft(null)}>
               Cancel
             </Button>
-            <Button onClick={persistRecipient} disabled={busy}>
+            <Button
+              onClick={persistRecipient}
+              disabled={busy || (recipientDraft?.calendar_source_ids.length ?? 0) === 0}
+            >
               Save
             </Button>
           </DialogFooter>
