@@ -12,45 +12,32 @@ import { BRAND_NAME, BRAND_URL } from "./shell";
  * phones render it identically (no flexbox, media queries or web fonts).
  */
 
-/** Email-safe hex equivalents of the app's member palette. */
-export const EMAIL_MEMBER_COLORS: Record<string, string> = {
-  sky: "#8fbfe0",
-  rose: "#eba7b6",
-  amber: "#e8bf7c",
-  sage: "#a7c4a0",
-  teal: "#8ac6c0",
-  lilac: "#b9aede",
-  coral: "#ef9f86",
-  sand: "#d8c3a5",
-};
+import {
+  brandColors,
+  EMAIL_CATEGORY_TINTS,
+  EMAIL_FALLBACK_BADGE,
+  EMAIL_FALLBACK_TINT,
+  EMAIL_MEMBER_COLORS,
+  EMAIL_MEMBER_INK,
+} from "./brand-colors";
 
-/** Very light tints of the same palette, for category accents. */
-const EMAIL_CATEGORY_TINTS: Record<string, string> = {
-  sky: "#eef5fb",
-  rose: "#fdf1f4",
-  amber: "#fdf5e8",
-  sage: "#f1f6ef",
-  teal: "#edf7f6",
-  lilac: "#f4f1fb",
-  coral: "#fdf1ec",
-  sand: "#f8f4ed",
-};
+export { EMAIL_MEMBER_COLORS };
 
 const brand = {
-  navy: "#1f3557",
-  navySoft: "#3a5478",
-  coral: "#e07a5f",
-  ink: "#22304a",
-  body: "#4d5b72",
-  muted: "#7d8a9e",
-  white: "#ffffff",
-  page: "#eef2f8",
-  heroTint: "#eff5fd",
-  border: "#e4eaf3",
-  neutralAccent: "#cdd6e3",
+  navy: brandColors.navy,
+  navySoft: brandColors.blue,
+  coral: brandColors.coral,
+  ink: brandColors.ink,
+  body: brandColors.body,
+  muted: brandColors.muted,
+  white: brandColors.white,
+  page: brandColors.cream,
+  heroTint: brandColors.blueSoft,
+  border: brandColors.border,
+  neutralAccent: brandColors.borderSoft,
 };
 
-const FALLBACK_BADGE = "#cfc5b8";
+const FALLBACK_BADGE = EMAIL_FALLBACK_BADGE;
 const fontStack = "Arial, Helvetica, sans-serif";
 
 export interface SummaryEmailBadge {
