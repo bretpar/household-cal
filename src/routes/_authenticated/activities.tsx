@@ -21,7 +21,7 @@ import {
   type GroupMode,
   type SortMode,
 } from "@/lib/activity-library";
-import { EVENT_TYPES, WEEKDAY_CODES, describeWeekdays, formatTimeRange } from "@/lib/family-data";
+import { activityLabel, WEEKDAY_CODES, describeWeekdays, formatTimeRange } from "@/lib/family-data";
 
 export const Route = createFileRoute("/_authenticated/activities")({
   head: () => ({

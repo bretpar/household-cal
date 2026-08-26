@@ -25,7 +25,7 @@ import { runGuardedMutation } from "@/lib/async-submit";
 import { useCalendar, type RecurrenceScope } from "@/lib/calendar-store";
 
 import {
-  EVENT_TYPES,
+  activityLabel,
   describeRecurrence,
   describeWeekdays,
   formatTimeRange,
