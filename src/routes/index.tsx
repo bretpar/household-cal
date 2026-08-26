@@ -63,7 +63,7 @@ function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-5 lg:px-8">
-        <span className="font-display text-lg font-bold">Family Calendar</span>
+        <span className="font-display text-lg font-bold">Our Family Calendar</span>
         <Link to="/auth">
           <Button variant="ghost" className="h-10 rounded-full px-4 font-bold">
             Sign in
@@ -74,11 +74,10 @@ function LandingPage() {
       <main className="mx-auto max-w-5xl px-4 pb-20 lg:px-8">
         <section className="rounded-4xl border border-border-soft bg-card p-6 shadow-soft sm:p-10">
           <h1 className="font-display text-3xl leading-tight font-bold sm:text-5xl">
-            One warm, shared calendar for your whole household
+            One shared calendar for your whole household
           </h1>
           <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-            School, activities, work and childcare in one friendly place. Invite a partner or a
-            caregiver and decide exactly what they can change.
+            School, activities, work and childcare in one friendly place. Invite a partner or a caregiver to start sharing your calendars today!
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link to="/auth">
