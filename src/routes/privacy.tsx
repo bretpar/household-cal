@@ -2,6 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { LegalPageLayout } from "@/components/LegalPageLayout";
 
+const LOGO_IMAGE_URL =
+  "https://ourfamilycalendar.com/__l5e/assets-v1/1cbc3ae6-235d-438e-9bff-3eace728929e/logo.png";
+
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
@@ -9,6 +12,8 @@ export const Route = createFileRoute("/privacy")({
       { name: "description", content: "Privacy Policy for Our Family Calendar." },
       { property: "og:title", content: "Privacy Policy — Our Family Calendar" },
       { property: "og:description", content: "Privacy Policy for Our Family Calendar." },
+      { property: "og:image", content: LOGO_IMAGE_URL },
+      { name: "twitter:image", content: LOGO_IMAGE_URL },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

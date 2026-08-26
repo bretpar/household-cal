@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { LegalFooter } from "@/components/LegalFooter";
 import { supabase } from "@/integrations/supabase/client";
 
+const LOGO_IMAGE_URL =
+  "https://ourfamilycalendar.com/__l5e/assets-v1/1cbc3ae6-235d-438e-9bff-3eace728929e/logo.png";
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -22,6 +25,8 @@ export const Route = createFileRoute("/")({
         content:
           "See what everyone in your household is doing, filter by person, and share access with a caregiver.",
       },
+      { property: "og:image", content: LOGO_IMAGE_URL },
+      { name: "twitter:image", content: LOGO_IMAGE_URL },
     ],
   }),
   component: LandingPage,
