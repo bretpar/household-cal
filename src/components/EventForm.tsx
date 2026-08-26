@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { format } from "date-fns";
+import { ChevronDown } from "lucide-react";
+
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -278,6 +281,46 @@ const END_MODES: { id: RecurrenceEndMode; label: string }[] = [
   { id: "never", label: "Never" },
 ];
 
+/**
+ * Short human-readable recurrence summary shown while the repeat panel is
+ * collapsed. Display only — the stored rule comes from ruleForFormState().
+ */
+export function recurrenceSummary(state: EventFormState): string {
+  const option = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence);
+  const day = state.date ? new Date(`${state.date}T00:00`) : null;
+  const weekday = day ? format(day, "EEEE") : "";
+  const shortDays = (codes: WeekdayCode[]) =>
+    ORDERED_WEEKDAYS.filter((d) => codes.includes(d))
+      .map((d) => WEEKDAY_CODES.find((w) => w.code === d)?.short ?? d)
+      .join("/");
+
+  let base: string;
+  if (state.recurrence === "custom") {
+    const union = new Set<WeekdayCode>();
+    for (const id of state.members) {
+      for (const d of state.memberWeekdays[id] ?? []) union.add(d);
+    }
+    const days = shortDays([...union]);
+    base = days ? `Weekly · ${days}` : "Custom days by person";
+  } else if (state.recurrence === "weekly") {
+    base = weekday ? `Every ${weekday}` : "Weekly";
+  } else if (state.recurrence === "biweekly") {
+    base = weekday ? `Every 2 weeks · ${format(day!, "EEE")}` : "Every 2 weeks";
+  } else if (state.recurrence === "monthly") {
+    base = day ? `Monthly on the ${format(day, "do")}` : "Monthly";
+  } else {
+    base = option?.label ?? "Repeats";
+  }
+
+  if (state.recurrenceEnd === "on" && state.recurrenceUntil) {
+    return `${base} · until ${format(new Date(`${state.recurrenceUntil}T00:00`), "MMM d, yyyy")}`;
+  }
+  if (state.recurrenceEnd === "count") {
+    return `${base} · ${Math.max(1, Math.floor(state.recurrenceCount))} times`;
+  }
+  return base;
+}
+
 /** Shared fields for both the add and edit flows. Large touch targets for iPad/phone. */
 export function EventFormFields({
   state,
@@ -289,6 +332,8 @@ export function EventFormFields({
   idPrefix?: string;
 }) {
   const { members, styleFor, sources, categories } = useCalendar();
+  // Advanced recurrence controls stay tucked away until the user asks for them.
+  const [repeatOpen, setRepeatOpen] = useState(false);
   const activeMembers = members.filter((m) => m.active);
   // Only worth showing when there is an actual routing choice to make.
   const syncedCalendars = sources.filter((s) => s.provider === "google" && s.active);
@@ -495,7 +540,7 @@ export function EventFormFields({
 
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-1.5">
-          <Label>Event type</Label>
+          <Label>Activity</Label>
           <Select
             value={state.eventType}
             onValueChange={(v) => set("eventType", v as EventType)}
@@ -530,8 +575,30 @@ export function EventFormFields({
       </div>
 
       {repeats ? (
-        <div className="space-y-3 rounded-2xl bg-surface-muted p-3">
-          <p className="text-sm font-bold">Repeat settings</p>
+        <div className="rounded-2xl bg-surface-muted p-3">
+          <button
+            type="button"
+            aria-expanded={repeatOpen}
+            onClick={() => setRepeatOpen((v) => !v)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <span className="min-w-0">
+              <span className="block text-sm font-bold">Repeat settings</span>
+              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                {recurrenceSummary(state)}
+              </span>
+            </span>
+            <ChevronDown
+              className={cn(
+                "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
+                repeatOpen && "rotate-180",
+              )}
+              aria-hidden
+            />
+          </button>
+
+          {repeatOpen ? (
+          <div className="mt-3 space-y-3">
           <p className="text-xs text-muted-foreground">
             Starts {startsLabel} · {state.recurrence === "custom" ? "custom schedule" : frequencyLabel}
           </p>
@@ -594,6 +661,8 @@ export function EventFormFields({
             <p className="text-xs text-muted-foreground">
               This event will keep repeating until you change or delete it.
             </p>
+          ) : null}
+          </div>
           ) : null}
         </div>
       ) : null}

@@ -147,6 +147,10 @@ export interface FamilyActivity {
   member_ids: MemberId[];
 }
 
+/**
+ * The single canonical "Activity" concept for an event. Stored as `event_type`
+ * for data compatibility; always presented to users as "Activity".
+ */
 export const EVENT_TYPES: { id: EventType; label: string }[] = [
   { id: "school", label: "School" },
   { id: "activity", label: "Activity" },
@@ -156,6 +160,11 @@ export const EVENT_TYPES: { id: EventType; label: string }[] = [
   { id: "family", label: "Family" },
   { id: "other", label: "Other" },
 ];
+
+/** Canonical display label for the Activity concept, whatever the source of the event. */
+export function activityLabel(type: EventType | string | null | undefined): string {
+  return EVENT_TYPES.find((t) => t.id === type)?.label ?? "Other";
+}
 
 export const RECURRENCE_OPTIONS = [
   { id: "none", label: "Does not repeat", rule: null },
