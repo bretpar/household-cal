@@ -5,9 +5,10 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Parker Family Calendar design system.
- * Warm off-white surfaces, soft pastel family colors, minimal shadows.
- * All colors use oklch and are exposed as semantic tokens.
+ * Our Family Calendar design system, derived from the logo artwork.
+ * Warm cream surfaces + white cards, navy/blue structure, teal for success,
+ * coral/rose as sparing accents, soft pastel member + category palettes.
+ * Everything is exposed as semantic tokens — never hard-code colors in components.
  */
 
 @theme inline {
