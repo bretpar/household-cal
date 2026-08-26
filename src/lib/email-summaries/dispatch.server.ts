@@ -194,6 +194,17 @@ export interface ScheduleRunResult {
   sent: number;
   skipped: number;
   failed: number;
+  /** outcome of the pre-send calendar refresh for this period, when attempted */
+  presync?: string;
+}
+
+async function familyTimezone(admin: AnyDb, familyId: string): Promise<string> {
+  const { data } = await admin
+    .from("families")
+    .select("timezone")
+    .eq("id", familyId)
+    .maybeSingle();
+  return (data?.timezone as string) || DEFAULT_TIMEZONE;
 }
 
 /** Runs one schedule if its send time has passed and it has not been sent yet. */
@@ -201,12 +212,23 @@ export async function runSchedule(
   admin: AnyDb,
   schedule: ScheduleRow,
   now: Date = new Date(),
+  deps: PresendDeps = {},
 ): Promise<ScheduleRunResult> {
-  const household = await loadHousehold(admin, schedule.family_id);
-  const due = dueRun(schedule, now, household.timezone);
+  const timezone = await familyTimezone(admin, schedule.family_id);
+  const due = dueRun(schedule, now, timezone);
   if (!due) {
     return { schedule_id: schedule.id, status: "not_due", sent: 0, skipped: 0, failed: 0 };
   }
+
+  // The T-5 pass normally already refreshed this period; this call is the
+  // catch-up for a missed pre-send run and a no-op otherwise. Whatever it
+  // reports, we go on to send using the freshest data available — never delay
+  // or skip the email because Google was slow.
+  const presync = await refreshForSchedule(admin, schedule, due.window.periodKey, deps);
+
+  // Read household data *after* the refresh so the email reflects it.
+  const household = await loadHousehold(admin, schedule.family_id);
+
 
   const recipients = (await loadRecipients(admin, schedule.id)).filter((r) => !r.unsubscribed_at);
   let sent = 0;
