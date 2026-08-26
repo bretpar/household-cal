@@ -96,7 +96,7 @@ export function EventDetailsDialog() {
   const { event, start, end } = occurrence;
   const Icon = eventTypeIcons[event.event_type];
   const repeats = recurrenceLabel(occurrence);
-  const typeLabel = EVENT_TYPES.find((t) => t.id === event.event_type)?.label ?? "Other";
+  const typeLabel = activityLabel(event.event_type);
   const appearance = categoryAppearanceFor(event.category_id);
 
   const needsScope = Boolean(event.recurrence_rule);

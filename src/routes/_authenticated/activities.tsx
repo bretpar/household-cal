@@ -153,7 +153,7 @@ function SeriesCard({ series }: { series: EventSeries }) {
   const { categoryAppearanceFor, memberById } = useCalendar();
   const { event } = series;
   const Icon = eventTypeIcons[event.event_type];
-  const typeLabel = EVENT_TYPES.find((t) => t.id === event.event_type)?.label ?? "Other";
+  const typeLabel = activityLabel(event.event_type);
   const appearance = categoryAppearanceFor(event.category_id);
   const start = new Date(event.start_at);
   const end = new Date(event.end_at);
