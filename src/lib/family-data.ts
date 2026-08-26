@@ -173,52 +173,55 @@ export interface MemberStyle {
   dot: string;
 }
 
-/** Static class map so Tailwind can see every palette utility. */
+/**
+ * Static class map so Tailwind can see every palette utility.
+ * Badge text uses the palette's own dark "ink" shade for contrast on pastels.
+ */
 export const MEMBER_PALETTE: Record<MemberColor, MemberStyle> = {
   sky: {
-    badge: "bg-member-sky text-member-foreground",
+    badge: "bg-member-sky text-member-sky-ink",
     soft: "bg-member-sky-soft",
     ring: "ring-member-sky",
     dot: "bg-member-sky",
   },
   rose: {
-    badge: "bg-member-rose text-member-foreground",
+    badge: "bg-member-rose text-member-rose-ink",
     soft: "bg-member-rose-soft",
     ring: "ring-member-rose",
     dot: "bg-member-rose",
   },
   amber: {
-    badge: "bg-member-amber text-member-foreground",
+    badge: "bg-member-amber text-member-amber-ink",
     soft: "bg-member-amber-soft",
     ring: "ring-member-amber",
     dot: "bg-member-amber",
   },
   sage: {
-    badge: "bg-member-sage text-member-foreground",
+    badge: "bg-member-sage text-member-sage-ink",
     soft: "bg-member-sage-soft",
     ring: "ring-member-sage",
     dot: "bg-member-sage",
   },
   teal: {
-    badge: "bg-member-teal text-member-foreground",
+    badge: "bg-member-teal text-member-teal-ink",
     soft: "bg-member-teal-soft",
     ring: "ring-member-teal",
     dot: "bg-member-teal",
   },
   lilac: {
-    badge: "bg-member-lilac text-member-foreground",
+    badge: "bg-member-lilac text-member-lilac-ink",
     soft: "bg-member-lilac-soft",
     ring: "ring-member-lilac",
     dot: "bg-member-lilac",
   },
   coral: {
-    badge: "bg-member-coral text-member-foreground",
+    badge: "bg-member-coral text-member-coral-ink",
     soft: "bg-member-coral-soft",
     ring: "ring-member-coral",
     dot: "bg-member-coral",
   },
   sand: {
-    badge: "bg-member-sand text-member-foreground",
+    badge: "bg-member-sand text-member-sand-ink",
     soft: "bg-member-sand-soft",
     ring: "ring-member-sand",
     dot: "bg-member-sand",
