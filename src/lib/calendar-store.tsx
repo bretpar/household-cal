@@ -14,6 +14,7 @@ import { clipboardFromOccurrence, type EventClipboard } from "@/lib/event-clipbo
 import {
   appearanceForEvent,
   eventMatchesCategory,
+  UNCATEGORIZED_FILTER,
   type CategoryAppearance,
   type CategorySelection,
   type EventCategory,
