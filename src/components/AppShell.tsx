@@ -47,11 +47,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Link
                   key={to}
                   to={to}
-                  className="flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary"
+                  className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary lg:px-4"
                   activeProps={{ className: "bg-secondary text-foreground" }}
                 >
                   <Icon className="h-4 w-4" aria-hidden />
-                  {label}
+                  <span className="hidden lg:inline">{label}</span>
                 </Link>
               ))}
             </nav>
@@ -62,7 +62,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary"
             >
               <LogOut className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">Sign out</span>
+              <span className="hidden lg:inline">Sign out</span>
             </button>
           </div>
         </div>
