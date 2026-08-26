@@ -200,7 +200,6 @@ export function dueRun(
   return best;
 }
 
-/** Window used by "Send preview" — the next period the schedule would cover. */
 /**
  * The scheduled send that is about to happen within `leadMs`, or null.
  *
