@@ -495,7 +495,7 @@ export function EventFormFields({
 
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-1.5">
-          <Label>Event type</Label>
+          <Label>Activity</Label>
           <Select
             value={state.eventType}
             onValueChange={(v) => set("eventType", v as EventType)}
