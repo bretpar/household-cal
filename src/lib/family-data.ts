@@ -161,6 +161,11 @@ export const EVENT_TYPES: { id: EventType; label: string }[] = [
   { id: "other", label: "Other" },
 ];
 
+/** Canonical display label for the Activity concept, whatever the source of the event. */
+export function activityLabel(type: EventType | string | null | undefined): string {
+  return EVENT_TYPES.find((t) => t.id === type)?.label ?? "Other";
+}
+
 export const RECURRENCE_OPTIONS = [
   { id: "none", label: "Does not repeat", rule: null },
   { id: "daily", label: "Daily", rule: "FREQ=DAILY" },
