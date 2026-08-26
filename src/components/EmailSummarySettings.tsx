@@ -101,7 +101,7 @@ export function EmailSummarySettings() {
   if (!isOwner) return null;
 
   const openNewSchedule = () =>
-    setScheduleDraft({ name: "", frequency: "weekly", send_time: DEFAULT_TIME.weekly! });
+    setScheduleDraft({ name: "", frequency: "weekly", send_time: DEFAULT_TIME["weekly"]! });
 
   const persistSchedule = () =>
     runGuardedMutation({
