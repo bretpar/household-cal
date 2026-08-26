@@ -281,6 +281,46 @@ const END_MODES: { id: RecurrenceEndMode; label: string }[] = [
   { id: "never", label: "Never" },
 ];
 
+/**
+ * Short human-readable recurrence summary shown while the repeat panel is
+ * collapsed. Display only — the stored rule comes from ruleForFormState().
+ */
+export function recurrenceSummary(state: EventFormState): string {
+  const option = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence);
+  const day = state.date ? new Date(`${state.date}T00:00`) : null;
+  const weekday = day ? format(day, "EEEE") : "";
+  const shortDays = (codes: WeekdayCode[]) =>
+    ORDERED_WEEKDAYS.filter((d) => codes.includes(d))
+      .map((d) => WEEKDAY_CODES.find((w) => w.code === d)?.short ?? d)
+      .join("/");
+
+  let base: string;
+  if (state.recurrence === "custom") {
+    const union = new Set<WeekdayCode>();
+    for (const id of state.members) {
+      for (const d of state.memberWeekdays[id] ?? []) union.add(d);
+    }
+    const days = shortDays([...union]);
+    base = days ? `Weekly · ${days}` : "Custom days by person";
+  } else if (state.recurrence === "weekly") {
+    base = weekday ? `Every ${weekday}` : "Weekly";
+  } else if (state.recurrence === "biweekly") {
+    base = weekday ? `Every 2 weeks · ${format(day!, "EEE")}` : "Every 2 weeks";
+  } else if (state.recurrence === "monthly") {
+    base = day ? `Monthly on the ${format(day, "do")}` : "Monthly";
+  } else {
+    base = option?.label ?? "Repeats";
+  }
+
+  if (state.recurrenceEnd === "on" && state.recurrenceUntil) {
+    return `${base} · until ${format(new Date(`${state.recurrenceUntil}T00:00`), "MMM d, yyyy")}`;
+  }
+  if (state.recurrenceEnd === "count") {
+    return `${base} · ${Math.max(1, Math.floor(state.recurrenceCount))} times`;
+  }
+  return base;
+}
+
 /** Shared fields for both the add and edit flows. Large touch targets for iPad/phone. */
 export function EventFormFields({
   state,
