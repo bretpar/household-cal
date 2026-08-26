@@ -10,6 +10,7 @@ import type { Db } from "@/lib/calendar-ops";
 import { requireOwner, resolveCurrentFamily } from "@/lib/household.server";
 
 import { DEFAULT_TIMEZONE } from "./dispatch.server";
+import { emailSelectableCalendars } from "./eligibility";
 import type { SummaryFrequency } from "./window";
 
 export interface RecipientView {
@@ -222,6 +223,30 @@ export async function deleteSchedule(db: Db, userId: string, scheduleId: string)
   if (error) throw error;
 }
 
+/**
+ * Server-side gate for recipient calendar selection: same household, eligible
+ * per the shared predicate, and at least one calendar picked.
+ */
+async function assertSelectableCalendars(
+  db: Db,
+  familyId: string,
+  sourceIds: string[],
+): Promise<void> {
+  if (sourceIds.length === 0) {
+    throw new Error("Pick at least one calendar for this recipient");
+  }
+  const { data, error } = await db
+    .from("calendar_sources")
+    .select("id, active, display_mode, selectable_in_email")
+    .eq("family_id", familyId)
+    .in("id", sourceIds);
+  if (error) throw error;
+  const allowed = new Set(emailSelectableCalendars((data ?? []) as any[]).map((s) => s.id));
+  if (sourceIds.some((id) => !allowed.has(id))) {
+    throw new Error("One of those calendars cannot be used for email summaries");
+  }
+}
+
 export async function saveRecipient(
   db: Db,
   userId: string,
@@ -240,6 +265,8 @@ export async function saveRecipient(
   const name = String(input.name ?? "").trim();
   if (!name) throw new Error("Add a name for this recipient");
   const email = normalizeEmailAddress(input.email);
+  const sourceIds = [...new Set(input.calendar_source_ids ?? [])];
+  await assertSelectableCalendars(db, familyId, sourceIds);
 
   let recipientId = input.id ?? null;
   const patch = {
@@ -267,8 +294,6 @@ export async function saveRecipient(
   }
 
   // per-recipient calendar selection: replace the whole set
-  const sourceIds = [...new Set(input.calendar_source_ids ?? [])];
-  await assertSelectableCalendars(db, familyId, sourceIds);
   await db
     .from("email_schedule_recipient_calendars")
     .delete()
