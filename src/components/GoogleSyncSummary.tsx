@@ -60,7 +60,7 @@ export function GoogleSyncSummary() {
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-sm font-bold">
             {connected && !needsAttention ? (
-              <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-hidden />
+              <span className="bg-success h-2 w-2 shrink-0 rounded-full" aria-hidden />
             ) : (
               <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" aria-hidden />
             )}

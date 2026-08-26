@@ -5,9 +5,10 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Parker Family Calendar design system.
- * Warm off-white surfaces, soft pastel family colors, minimal shadows.
- * All colors use oklch and are exposed as semantic tokens.
+ * Our Family Calendar design system, derived from the logo artwork.
+ * Warm cream surfaces + white cards, navy/blue structure, teal for success,
+ * coral/rose as sparing accents, soft pastel member + category palettes.
+ * Everything is exposed as semantic tokens — never hard-code colors in components.
  */
 
 @theme inline {
@@ -46,23 +47,55 @@
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
 
-  /* Family member pastel palette — households pick a palette key per member */
+  /* Brand palette straight from the logo */
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-navy-soft: var(--brand-navy-soft);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-blue-soft: var(--brand-blue-soft);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-teal-soft: var(--brand-teal-soft);
+  --color-brand-coral: var(--brand-coral);
+  --color-brand-coral-soft: var(--brand-coral-soft);
+  --color-brand-rose: var(--brand-rose);
+  --color-brand-rose-soft: var(--brand-rose-soft);
+
+  /* Status colors — success/synced is teal, errors stay a conventional red */
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-foreground: var(--warning-foreground);
+
+  /*
+   * Family member + category pastel palette.
+   * `-soft` = light tint used for event card / pill backgrounds.
+   * `-ink`  = dark related shade used for badge initials and text.
+   */
   --color-member-sky: var(--member-sky);
   --color-member-sky-soft: var(--member-sky-soft);
+  --color-member-sky-ink: var(--member-sky-ink);
   --color-member-rose: var(--member-rose);
   --color-member-rose-soft: var(--member-rose-soft);
+  --color-member-rose-ink: var(--member-rose-ink);
   --color-member-amber: var(--member-amber);
   --color-member-amber-soft: var(--member-amber-soft);
+  --color-member-amber-ink: var(--member-amber-ink);
   --color-member-sage: var(--member-sage);
   --color-member-sage-soft: var(--member-sage-soft);
+  --color-member-sage-ink: var(--member-sage-ink);
   --color-member-teal: var(--member-teal);
   --color-member-teal-soft: var(--member-teal-soft);
+  --color-member-teal-ink: var(--member-teal-ink);
   --color-member-lilac: var(--member-lilac);
   --color-member-lilac-soft: var(--member-lilac-soft);
+  --color-member-lilac-ink: var(--member-lilac-ink);
   --color-member-coral: var(--member-coral);
   --color-member-coral-soft: var(--member-coral-soft);
+  --color-member-coral-ink: var(--member-coral-ink);
   --color-member-sand: var(--member-sand);
   --color-member-sand-soft: var(--member-sand-soft);
+  --color-member-sand-ink: var(--member-sand-ink);
   --color-member-foreground: var(--member-foreground);
 
 
@@ -83,57 +116,84 @@
 :root {
   --radius: 1rem;
 
-  --background: oklch(0.975 0.011 85);
-  --foreground: oklch(0.31 0.03 55);
-  --surface: oklch(0.992 0.006 90);
-  --surface-muted: oklch(0.958 0.013 84);
+  /* Logo brand colors */
+  --brand-navy: #174e78;
+  --brand-navy-soft: #e3ecf3;
+  --brand-blue: #247ba8;
+  --brand-blue-soft: #e6f1f7;
+  --brand-teal: #55c4bc;
+  --brand-teal-soft: #e4f5f3;
+  --brand-coral: #f47f72;
+  --brand-coral-soft: #fdeae7;
+  --brand-rose: #f16f7a;
+  --brand-rose-soft: #fdeaec;
 
-  --card: oklch(0.994 0.005 90);
-  --card-foreground: oklch(0.31 0.03 55);
-  --popover: oklch(0.994 0.005 90);
-  --popover-foreground: oklch(0.31 0.03 55);
+  /* Warm neutral surfaces */
+  --background: #faf8f4;
+  --foreground: #263a45;
+  --surface: #ffffff;
+  --surface-muted: #f3f0ea;
 
-  --primary: oklch(0.62 0.09 35);
-  --primary-foreground: oklch(0.985 0.008 85);
-  --secondary: oklch(0.945 0.018 82);
-  --secondary-foreground: oklch(0.36 0.03 55);
-  --muted: oklch(0.952 0.014 84);
-  --muted-foreground: oklch(0.55 0.026 60);
-  --accent: oklch(0.93 0.03 80);
-  --accent-foreground: oklch(0.34 0.03 55);
-  --destructive: oklch(0.6 0.16 25);
-  --destructive-foreground: oklch(0.985 0.008 85);
+  --card: #ffffff;
+  --card-foreground: #263a45;
+  --popover: #ffffff;
+  --popover-foreground: #263a45;
 
-  --border: oklch(0.9 0.016 80);
-  --border-soft: oklch(0.935 0.012 82);
-  --input: oklch(0.91 0.015 80);
-  --ring: oklch(0.75 0.05 45);
+  --primary: #174e78;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f0;
+  --secondary-foreground: #263a45;
+  --muted: #f3f0ea;
+  --muted-foreground: #6f7e84;
+  --accent: #e6f1f7;
+  --accent-foreground: #174e78;
+  --destructive: #c53929;
+  --destructive-foreground: #ffffff;
 
-  --member-sky: oklch(0.78 0.062 238);
-  --member-sky-soft: oklch(0.935 0.028 238);
-  --member-rose: oklch(0.8 0.068 15);
-  --member-rose-soft: oklch(0.945 0.028 15);
-  --member-amber: oklch(0.85 0.085 65);
-  --member-amber-soft: oklch(0.955 0.035 70);
-  --member-sage: oklch(0.83 0.07 155);
-  --member-sage-soft: oklch(0.95 0.03 155);
-  --member-teal: oklch(0.81 0.065 198);
-  --member-teal-soft: oklch(0.945 0.028 198);
-  --member-lilac: oklch(0.8 0.06 300);
-  --member-lilac-soft: oklch(0.94 0.028 300);
-  --member-coral: oklch(0.81 0.075 35);
-  --member-coral-soft: oklch(0.945 0.032 35);
-  --member-sand: oklch(0.86 0.05 95);
-  --member-sand-soft: oklch(0.955 0.025 95);
-  --member-foreground: oklch(0.3 0.035 55);
+  --border: #e7e4de;
+  --border-soft: #efece6;
+  --input: #ded9d1;
+  --ring: #247ba8;
 
+  --success: #2f9e96;
+  --success-soft: #e4f5f3;
+  --success-foreground: #ffffff;
+  --warning: #d99a3c;
+  --warning-soft: #faf1de;
+  --warning-foreground: #6b4a10;
 
-  --coverage: oklch(0.925 0.017 78);
-  --coverage-strong: oklch(0.885 0.021 76);
-  --coverage-foreground: oklch(0.5 0.026 62);
+  --member-sky: #b9d8ea;
+  --member-sky-soft: #eaf3f9;
+  --member-sky-ink: #1c4f6d;
+  --member-rose: #f0c5cf;
+  --member-rose-soft: #fbedf1;
+  --member-rose-ink: #7a3145;
+  --member-amber: #ebd7a5;
+  --member-amber-soft: #faf3e2;
+  --member-amber-ink: #6a5015;
+  --member-sage: #c9dec9;
+  --member-sage-soft: #edf5ed;
+  --member-sage-ink: #2f5436;
+  --member-teal: #b9e3de;
+  --member-teal-soft: #e8f6f4;
+  --member-teal-ink: #1c5450;
+  --member-lilac: #d7cce6;
+  --member-lilac-soft: #f2eef8;
+  --member-lilac-ink: #4a3a63;
+  --member-coral: #f6c0b8;
+  --member-coral-soft: #fceae6;
+  --member-coral-ink: #7d3427;
+  --member-sand: #cfdbe4;
+  --member-sand-soft: #edf2f6;
+  --member-sand-ink: #38505e;
+  --member-foreground: #263a45;
 
-  --shared: oklch(0.964 0.009 88);
-  --shared-strong: oklch(0.885 0.014 86);
+  --coverage: #f1eee7;
+  --coverage-strong: #e3ded3;
+  --coverage-foreground: #6f7e84;
+
+  --shared: #f7f5f1;
+  --shared-strong: #e7e4de;
 }
 
 @layer base {
