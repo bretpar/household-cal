@@ -530,8 +530,30 @@ export function EventFormFields({
       </div>
 
       {repeats ? (
-        <div className="space-y-3 rounded-2xl bg-surface-muted p-3">
-          <p className="text-sm font-bold">Repeat settings</p>
+        <div className="rounded-2xl bg-surface-muted p-3">
+          <button
+            type="button"
+            aria-expanded={repeatOpen}
+            onClick={() => setRepeatOpen((v) => !v)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <span className="min-w-0">
+              <span className="block text-sm font-bold">Repeat settings</span>
+              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                {recurrenceSummary(state)}
+              </span>
+            </span>
+            <ChevronDown
+              className={cn(
+                "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
+                repeatOpen && "rotate-180",
+              )}
+              aria-hidden
+            />
+          </button>
+
+          {repeatOpen ? (
+          <div className="mt-3 space-y-3">
           <p className="text-xs text-muted-foreground">
             Starts {startsLabel} · {state.recurrence === "custom" ? "custom schedule" : frequencyLabel}
           </p>
