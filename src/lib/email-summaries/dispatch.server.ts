@@ -68,7 +68,7 @@ interface HouseholdData {
 }
 
 async function loadHousehold(admin: AnyDb, familyId: string): Promise<HouseholdData> {
-  const [familyRes, membersRes, sourcesRes, eventsRes] = await Promise.all([
+  const [familyRes, membersRes, sourcesRes, eventsRes, categoriesRes] = await Promise.all([
     admin.from("families").select("id, timezone").eq("id", familyId).maybeSingle(),
     admin.from("family_members").select("id, initial, color, active").eq("family_id", familyId),
     admin.from("calendar_sources").select("id, is_main, display_mode").eq("family_id", familyId),
@@ -76,7 +76,12 @@ async function loadHousehold(admin: AnyDb, familyId: string): Promise<HouseholdD
       .from("events")
       .select("*, event_members(family_member_id, weekdays)")
       .eq("family_id", familyId),
+    admin.from("event_categories").select("id, name, color").eq("family_id", familyId),
   ]);
+
+  const categoryById = new Map(
+    ((categoriesRes?.data ?? []) as any[]).map((c) => [c.id, { name: c.name, color: c.color }]),
+  );
 
   const sources = (sourcesRes.data ?? []) as {
     id: string;
@@ -103,6 +108,8 @@ async function loadHousehold(admin: AnyDb, familyId: string): Promise<HouseholdD
       weekdays: m.weekdays ?? null,
     })),
     member_ids: (e.event_members ?? []).map((m: any) => m.family_member_id),
+    category_color: categoryById.get(e.category_id)?.color ?? null,
+    category_name: categoryById.get(e.category_id)?.name ?? null,
   }));
 
   return {
@@ -179,6 +186,8 @@ export function renderSummary(
           title: item.title,
           time: item.time,
           badges: item.badges,
+          categoryColor: item.categoryColor ?? null,
+          categoryName: item.categoryName ?? null,
         })),
       })),
       calendarUrl: SITE_URL,

@@ -39,6 +39,9 @@ export interface SummaryEvent {
   excluded_dates?: string[] | null;
   participants?: { member_id: string; weekdays: string[] | null }[];
   member_ids?: string[];
+  /** palette name of the event's category colour; null = Uncategorized */
+  category_color?: string | null;
+  category_name?: string | null;
 }
 
 export interface SummaryBadge {
@@ -51,6 +54,9 @@ export interface SummaryItem {
   time: string;
   allDay: boolean;
   badges: SummaryBadge[];
+  /** visual only: category colour/name drive the email card accent + icon */
+  categoryColor?: string | null;
+  categoryName?: string | null;
   sortKey: number;
 }
 
@@ -232,7 +238,15 @@ export function buildSummaryDays(
         .map((m) => ({ initial: m.initial, color: m.color }));
 
       if (event.all_day) {
-        items.push({ title: event.title, time: "All day", allDay: true, badges, sortKey: 9999 });
+        items.push({
+          title: event.title,
+          time: "All day",
+          allDay: true,
+          badges,
+          categoryColor: event.category_color ?? null,
+          categoryName: event.category_name ?? null,
+          sortKey: 9999,
+        });
         continue;
       }
       const start = wallClock(new Date(event.start_at), timeZone);
@@ -248,6 +262,8 @@ export function buildSummaryDays(
         time: `${clockLabel(start.hour, start.minute)} – ${clockLabel(Math.floor(endTotal / 60), endTotal % 60)}`,
         allDay: false,
         badges,
+        categoryColor: event.category_color ?? null,
+        categoryName: event.category_name ?? null,
         sortKey: start.hour * 60 + start.minute,
       });
     }
