@@ -191,16 +191,36 @@ export function formatMonthName(dayKey: string): string {
   });
 }
 
+/** Weekday codes a recipient receives. Empty/undefined = every day. */
+export type WeekdaySelection = string[] | null | undefined;
+
+export function includesWeekday(selection: WeekdaySelection, dayKey: string): boolean {
+  if (!selection || selection.length === 0) return true;
+  return selection.includes(weekdayCode(dayKey));
+}
+
+/** Days inside the window that a recipient's day filter keeps. */
+export function selectedDaysInWindow(window: SummaryWindow, selection: WeekdaySelection): string[] {
+  const days: string[] = [];
+  for (let dayKey = window.startDayKey; dayKey <= window.endDayKey; dayKey = addDays(dayKey, 1)) {
+    if (includesWeekday(selection, dayKey)) days.push(dayKey);
+  }
+  return days;
+}
+
 export function buildSummaryDays(
   events: SummaryEvent[],
   window: SummaryWindow,
   timeZone: string,
   members: SummaryMember[],
+  weekdays?: WeekdaySelection,
 ): SummaryDay[] {
   const memberById = new Map(members.map((m) => [m.id, m]));
   const days: SummaryDay[] = [];
 
   for (let dayKey = window.startDayKey; dayKey <= window.endDayKey; dayKey = addDays(dayKey, 1)) {
+    // recipient day filter is applied after calendar filtering
+    if (!includesWeekday(weekdays, dayKey)) continue;
     const items: SummaryItem[] = [];
     for (const event of events) {
       if (!occursOnDayKey(event, dayKey, timeZone)) continue;
