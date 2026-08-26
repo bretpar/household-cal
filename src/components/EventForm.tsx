@@ -332,6 +332,8 @@ export function EventFormFields({
   idPrefix?: string;
 }) {
   const { members, styleFor, sources, categories } = useCalendar();
+  // Advanced recurrence controls stay tucked away until the user asks for them.
+  const [repeatOpen, setRepeatOpen] = useState(false);
   const activeMembers = members.filter((m) => m.active);
   // Only worth showing when there is an actual routing choice to make.
   const syncedCalendars = sources.filter((s) => s.provider === "google" && s.active);
