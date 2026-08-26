@@ -63,7 +63,25 @@ interface RecipientDraft {
   email: string;
   family_member_id: string | null;
   calendar_source_ids: string[];
+  weekdays: string[];
   resubscribe?: boolean;
+}
+
+const WEEKDAYS: { code: string; label: string }[] = [
+  { code: "MO", label: "Monday" },
+  { code: "TU", label: "Tuesday" },
+  { code: "WE", label: "Wednesday" },
+  { code: "TH", label: "Thursday" },
+  { code: "FR", label: "Friday" },
+  { code: "SA", label: "Saturday" },
+  { code: "SU", label: "Sunday" },
+];
+
+function daysLabel(weekdays: string[]): string {
+  if (weekdays.length === 0) return "all days";
+  return WEEKDAYS.filter((d) => weekdays.includes(d.code))
+    .map((d) => d.label.slice(0, 3))
+    .join(", ");
 }
 
 export function EmailSummarySettings() {
@@ -288,7 +306,8 @@ export function EmailSummarySettings() {
                         ? "main calendar only"
                         : `${recipient.calendar_source_ids.length} calendar${
                             recipient.calendar_source_ids.length === 1 ? "" : "s"
-                          }`}
+                          }`}{" "}
+                      · {daysLabel(recipient.weekdays)}
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
@@ -304,6 +323,7 @@ export function EmailSummarySettings() {
                           email: recipient.email,
                           family_member_id: recipient.family_member_id,
                           calendar_source_ids: recipient.calendar_source_ids,
+                          weekdays: recipient.weekdays,
                         })
                       }
                     >
@@ -337,6 +357,7 @@ export function EmailSummarySettings() {
                     email: "",
                     family_member_id: null,
                     calendar_source_ids: [],
+                    weekdays: [],
                   })
                 }
               >
@@ -514,6 +535,58 @@ export function EmailSummarySettings() {
                 <p className="text-xs text-muted-foreground">
                   Leave all unchecked to send just the main household calendar.
                 </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Days to include</Label>
+                <Select
+                  value={recipientDraft.weekdays.length === 0 ? "all" : "selected"}
+                  onValueChange={(mode) =>
+                    setRecipientDraft({
+                      ...recipientDraft,
+                      weekdays: mode === "all" ? [] : ["MO", "WE", "TH"],
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All days</SelectItem>
+                    <SelectItem value="selected">Selected days</SelectItem>
+                  </SelectContent>
+                </Select>
+                {recipientDraft.weekdays.length > 0 && (
+                  <div className="space-y-1.5">
+                    {WEEKDAYS.map((day) => {
+                      const checked = recipientDraft.weekdays.includes(day.code);
+                      return (
+                        <label
+                          key={day.code}
+                          className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-primary"
+                            checked={checked}
+                            onChange={() =>
+                              setRecipientDraft({
+                                ...recipientDraft,
+                                weekdays: checked
+                                  ? recipientDraft.weekdays.filter((c) => c !== day.code)
+                                  : [...recipientDraft.weekdays, day.code],
+                              })
+                            }
+                          />
+                          <span>{day.label}</span>
+                        </label>
+                      );
+                    })}
+                    <p className="text-xs text-muted-foreground">
+                      Only these days appear in this person's email. Daily summaries skip days that
+                      aren't selected.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}
