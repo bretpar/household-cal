@@ -132,6 +132,19 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       });
   }, [bundle.data?.family, refreshGoogle, queryClient]);
 
+  // A category filter can point at a category that was just deleted in Family
+  // settings. Drop the stale selection so the calendar never looks empty.
+  const categories = bundle.data?.categories ?? [];
+  const categoryMissing =
+    !!selectedCategory &&
+    selectedCategory !== UNCATEGORIZED_FILTER &&
+    categories.length > 0 &&
+    !categories.some((c) => c.id === selectedCategory);
+  useEffect(() => {
+    if (categoryMissing) setSelectedCategory(null);
+  }, [categoryMissing]);
+  const effectiveCategory: CategorySelection = categoryMissing ? null : selectedCategory;
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
 
   const createMutation = useMutation({
