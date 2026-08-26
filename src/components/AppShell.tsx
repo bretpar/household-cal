@@ -17,12 +17,8 @@ const NAV = [
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { family } = useCalendar();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-
-  const householdName = family?.name ?? "Family";
-  const initial = householdName.trim().charAt(0).toUpperCase() || "F";
 
   const signOut = async () => {
     await queryClient.cancelQueries();
@@ -36,10 +32,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-30 border-b border-border-soft bg-surface/90 backdrop-blur">
         <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:px-8">
           <Link to="/today" className="flex min-w-0 items-center gap-2">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-primary text-sm font-bold text-primary-foreground">
-              {initial}
+            <img
+              src={logoAsset.url}
+              alt="Our Family Calendar logo"
+              className="h-9 w-9 shrink-0 rounded-xl object-contain sm:h-10 sm:w-10"
+            />
+            <span className="truncate font-display text-base font-bold sm:text-lg">
+              Our Family Calendar
             </span>
-            <span className="truncate font-display text-lg font-bold">{householdName}</span>
           </Link>
           <div className="flex items-center gap-1">
             <SyncStatusIndicator />
