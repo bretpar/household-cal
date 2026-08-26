@@ -200,6 +200,22 @@ export function dueRun(
   return best;
 }
 
+/**
+ * The scheduled send that is about to happen within `leadMs`, or null.
+ *
+ * Used by the pre-send calendar refresh: at 5:55 PM this returns the 6:00 PM
+ * run (with the exact window that run will cover), so the refresh and the send
+ * agree on the period key and cannot disagree about which email is coming.
+ */
+export function upcomingRun(
+  schedule: { frequency: SummaryFrequency; send_time: string },
+  now: Date,
+  timeZone: string,
+  leadMs: number,
+): DueRun | null {
+  return dueRun(schedule, new Date(now.getTime() + leadMs), timeZone, leadMs);
+}
+
 /** Window used by "Send preview" — the next period the schedule would cover. */
 export function previewWindow(
   frequency: SummaryFrequency,

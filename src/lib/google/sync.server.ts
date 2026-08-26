@@ -769,7 +769,7 @@ export async function pullSource(
   conn: ConnectionContext,
   source: SourceRow,
   initial = false,
-): Promise<{ applied: number }> {
+): Promise<{ applied: number; ok: boolean }> {
   const now = new Date().toISOString();
   try {
     // The stable calendarId is the identity: a rename in Google just refreshes
@@ -801,7 +801,7 @@ export async function pullSource(
       })
       .eq("id", source.id);
 
-    return { applied: res.items.length };
+    return { applied: res.items.length, ok: true };
   } catch (error) {
     if (error instanceof GoogleAuthError) throw error;
     const unavailable = error instanceof google.GoogleCalendarUnavailableError;
@@ -828,7 +828,7 @@ export async function pullSource(
       source.id,
       reason,
     );
-    return { applied: 0 };
+    return { applied: 0, ok: false };
   }
 }
 
@@ -850,6 +850,38 @@ export async function pullHousehold(
     return { applied };
   });
   return result as { applied?: number; skipped?: string };
+}
+
+/**
+ * Pull a chosen subset of a household's connected calendars.
+ *
+ * Same pipeline (and therefore the same duplicate protection) as
+ * `pullHousehold`; the only difference is that callers who care about a few
+ * calendars — the pre-send refresh for emailed summaries, for instance — do not
+ * have to touch the rest of the household. `sourceIds = null` means all.
+ */
+export async function pullSelectedSources(
+  admin: Admin,
+  familyId: string,
+  sourceIds: string[] | null,
+): Promise<{ applied?: number; attempted?: number; failed?: number; skipped?: string }> {
+  const result = await guard(admin, familyId, async () => {
+    const conn = await getConnection(admin, familyId);
+    if (!conn) return { skipped: "not_connected" };
+    const all = await googleSources(admin, familyId);
+    const wanted = sourceIds ? all.filter((s) => sourceIds.includes(s.id)) : all;
+    if (wanted.length === 0) return { skipped: "no_google_calendar" };
+    let applied = 0;
+    let failed = 0;
+    for (const source of wanted) {
+      const outcome = await pullSource(admin, conn, source, false);
+      applied += outcome.applied;
+      if (!outcome.ok) failed += 1;
+    }
+    await touchSynced(admin, familyId);
+    return { applied, attempted: wanted.length, failed };
+  });
+  return result as { applied?: number; attempted?: number; failed?: number; skipped?: string };
 }
 
 /* --------------------------------------------------------------- reconcile */
