@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Home, LogOut, Sparkles, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
+import logoAsset from "@/assets/logo.png.asset.json";
 import { LegalFooter } from "@/components/LegalFooter";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { supabase } from "@/integrations/supabase/client";
