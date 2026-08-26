@@ -110,6 +110,7 @@ export type Database = {
           last_synced_at: string | null
           name: string
           provider: Database["public"]["Enums"]["calendar_provider"]
+          selectable_in_email: boolean
           sort_order: number
           sync_error: string | null
           sync_failure_count: number
@@ -132,6 +133,7 @@ export type Database = {
           last_synced_at?: string | null
           name: string
           provider?: Database["public"]["Enums"]["calendar_provider"]
+          selectable_in_email?: boolean
           sort_order?: number
           sync_error?: string | null
           sync_failure_count?: number
@@ -154,6 +156,7 @@ export type Database = {
           last_synced_at?: string | null
           name?: string
           provider?: Database["public"]["Enums"]["calendar_provider"]
+          selectable_in_email?: boolean
           sort_order?: number
           sync_error?: string | null
           sync_failure_count?: number
