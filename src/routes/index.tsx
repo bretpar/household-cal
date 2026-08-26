@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { CalendarDays, Palette, ShieldCheck, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import logoAsset from "@/assets/logo.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { LegalFooter } from "@/components/LegalFooter";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,7 +64,14 @@ function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-5 lg:px-8">
-        <span className="font-display text-lg font-bold">Our Family Calendar</span>
+        <div className="flex items-center gap-3">
+          <img
+            src={logoAsset.url}
+            alt="Our Family Calendar logo"
+            className="h-10 w-10 rounded-xl object-contain"
+          />
+          <span className="font-display text-lg font-bold">Our Family Calendar</span>
+        </div>
         <Link to="/auth">
           <Button variant="ghost" className="h-10 rounded-full px-4 font-bold">
             Sign in
