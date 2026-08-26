@@ -7,7 +7,6 @@ import logoAsset from "@/assets/logo.png.asset.json";
 import { LegalFooter } from "@/components/LegalFooter";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { supabase } from "@/integrations/supabase/client";
-import { useCalendar } from "@/lib/calendar-store";
 
 const NAV = [
   { to: "/today", label: "Today", icon: Home },
