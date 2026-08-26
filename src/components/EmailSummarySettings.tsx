@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Mail, Pause, Play, Plus, Send, Trash2, UserPlus } from "lucide-react";
+import { Mail, Plus, Send, Trash2, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -525,7 +525,6 @@ export function EmailSummarySettings() {
               Save
             </Button>
           </DialogFooter>
-        </DialogFooter>
         </DialogContent>
       </Dialog>
     </section>
