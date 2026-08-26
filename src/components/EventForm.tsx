@@ -617,6 +617,8 @@ export function EventFormFields({
               This event will keep repeating until you change or delete it.
             </p>
           ) : null}
+          </div>
+          ) : null}
         </div>
       ) : null}
 
