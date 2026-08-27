@@ -107,7 +107,8 @@ export function WeekView({
   const sourceName = (id: string | null) =>
     sources.find((s) => s.id === id)?.name ?? "Coverage";
   /** Childcare joins the soft care-coverage layer instead of competing as a card. */
-  const isCareLayer = (o: Occurrence) => isCoverage(o.event) || isChildcare(o.event);
+  const isCareLayer = (o: Occurrence) =>
+    isCoverage(o.event) || (isChildcare(o.event) && !o.event.all_day);
   const careLabel = (o: Occurrence) =>
     isChildcare(o.event) ? o.event.title : sourceName(o.event.calendar_source_id);
   /** Rolling window: the selected date is always the left-most column. */
@@ -176,7 +177,7 @@ export function WeekView({
           const allDay = occurrences.filter(
             (o) =>
               isDayBlock(o) &&
-              !isCoverage(o.event) &&
+              !isCareLayer(o) &&
               isSameDay(o.start, day) &&
               occurrenceMatchesFilter(o, selectedMembers),
           );
@@ -227,9 +228,7 @@ export function WeekView({
 
           {columns.map((day) => {
             const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
-            const coverage = dayOccurrences.filter(
-              (o) => isCareLayer(o) && (!isChildcare(o.event) || !isDayBlock(o)),
-            );
+            const coverage = dayOccurrences.filter((o) => isCareLayer(o));
             const visible = dayOccurrences.filter(
               (o) =>
                 !isCareLayer(o) &&
