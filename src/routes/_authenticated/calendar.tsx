@@ -38,17 +38,27 @@ export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
 });
 
-type ViewMode = "month" | "week" | "agenda";
+type ViewMode = CalendarViewMode;
 
 function CalendarPage() {
-  const { events, visibleEvents, selectedMembers, canEdit, loading, copiedEvent, startPaste } = useCalendar();
+  const { events, visibleEvents, selectedMembers, canEdit, loading, copiedEvent, startPaste, family } =
+    useCalendar();
   const onPaste = canEdit && copiedEvent ? startPaste : undefined;
   const isMobile = useIsMobile();
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("month");
-  const mode: ViewMode = isMobile && view === "month" ? view : view;
-  const isEmpty = !loading && events.length === 0;
+  const { defaultView } = useDefaultCalendarView(family?.id ?? null);
+  const [appliedDefault, setAppliedDefault] = useState(false);
 
+  // Open on the user's saved default view once, without fighting later manual changes.
+  useEffect(() => {
+    if (appliedDefault || !defaultView) return;
+    setView(defaultView);
+    setAppliedDefault(true);
+  }, [defaultView, appliedDefault]);
+
+  const mode: ViewMode = view;
+  const isEmpty = !loading && events.length === 0;
 
   const step = (direction: number) =>
     setAnchor((prev) =>
@@ -59,7 +69,7 @@ function CalendarPage() {
     mode === "month"
       ? format(anchor, "MMMM yyyy")
       : mode === "week"
-        ? `${format(startOfWeek(anchor, { weekStartsOn: 1 }), "MMM d")} – ${format(addDays(startOfWeek(anchor, { weekStartsOn: 1 }), 6), "MMM d")}`
+        ? `${format(anchor, "MMM d")} – ${format(addDays(anchor, 6), "MMM d")}`
         : format(anchor, "EEEE, MMM d");
 
   return (
