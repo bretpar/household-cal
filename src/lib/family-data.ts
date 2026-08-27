@@ -30,6 +30,8 @@ export type EventType =
   | "childcare"
   | "appointment"
   | "family"
+  | "travel"
+  | "birthday"
   | "other";
 
 export type DisplayMode = "events" | "coverage_background";
