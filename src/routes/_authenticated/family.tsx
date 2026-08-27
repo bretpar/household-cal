@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CalendarCog, Eye, Palette, RefreshCw, Users } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
 import { CalendarSyncSettings } from "@/components/CalendarSyncSettings";
 import { DeveloperTools } from "@/components/DeveloperTools";
 import { EmailSummarySettings } from "@/components/EmailSummarySettings";
