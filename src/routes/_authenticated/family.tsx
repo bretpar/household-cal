@@ -117,6 +117,7 @@ function FamilyPage() {
           icon={<CalendarCog className="h-4 w-4" aria-hidden />}
         >
           <div className="divide-y divide-border-soft overflow-hidden rounded-3xl border border-border-soft bg-card">
+            <CalendarDefaultViewSetting />
             {sources.map((source) => (
               <div
                 key={source.id}
