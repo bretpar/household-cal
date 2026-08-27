@@ -7,7 +7,7 @@ import { MemberBadgeRow } from "@/components/MemberBadge";
 import { eventTintClass } from "@/lib/event-colors";
 import { eventTypeIcons } from "@/components/EventCard";
 import { useReschedule } from "@/components/useReschedule";
-import { useLongPress } from "@/hooks/use-long-press";
+import { useTimeGridDrag } from "@/hooks/use-time-grid-drag";
 import {
   expandOccurrences,
   formatTimeRange,
@@ -97,14 +97,14 @@ export function WeekView({
   events,
   selectedMembers,
   days = 7,
-  onCreateAt,
+  onCreateRange,
 }: {
   anchor: Date;
   events: CalendarEvent[];
   selectedMembers: MemberId[];
   days?: number;
   /** press-and-hold on empty grid space; only when the user may create events */
-  onCreateAt?: ((date: Date, withTime: boolean) => void) | undefined;
+  onCreateRange?: ((start: Date, end: Date) => void) | undefined;
 }) {
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
@@ -135,32 +135,28 @@ export function WeekView({
     return next;
   };
 
-  /** Vertical offset inside a day column -> snapped time on that day. */
-  const startFromOffset = (day: Date, offsetY: number): Date => {
-    const minutes = (offsetY / HOUR_PX) * 60;
-    const total = Math.max(
-      DAY_START * 60,
-      Math.min(DAY_END * 60 - SNAP_MINUTES, DAY_START * 60 + minutes),
-    );
-    const snapped = Math.round(total / SNAP_MINUTES) * SNAP_MINUTES;
-    const next = new Date(day);
-    next.setHours(Math.floor(snapped / 60), snapped % 60, 0, 0);
-    return next;
-  };
+  // Press-and-hold to lift a preview block: empty space creates a 1-hour draft,
+  // an existing event lifts itself keeping its duration. Release opens the form.
+  const occurrenceByKey = new Map(occurrences.map((o) => [o.key, o]));
+  const { ghost, columnProps, dragging } = useTimeGridDrag({
+    enabled: Boolean(onCreateRange),
+    hourPx: HOUR_PX,
+    dayStartHour: DAY_START,
+    dayEndHour: DAY_END,
+    snapMinutes: SNAP_MINUTES,
+    resolveOccurrence: (key) => occurrenceByKey.get(key),
+    onCreate: (start, end) => onCreateRange?.(start, end),
+    onMove: (occurrence, start) => openOccurrence(occurrence, { proposedStart: start }),
+  });
 
-  // Press-and-hold empty grid space to create an event at that date/time.
-  const pressedDay = useRef<Date | null>(null);
-  const longPressProps = useLongPress(
-    onCreateAt
-      ? ({ offsetY }) => {
-          const day = pressedDay.current;
-          if (day) onCreateAt(startFromOffset(day, offsetY), true);
-        }
-      : undefined,
-    {
-      shouldIgnore: (target) => target instanceof Element && Boolean(target.closest("button")),
-    },
-  );
+  const ghostTimes = ghost
+    ? (() => {
+        const start = new Date(ghost.day);
+        start.setHours(Math.floor(ghost.startMinutes / 60), ghost.startMinutes % 60, 0, 0);
+        const end = new Date(start.getTime() + ghost.durationMinutes * 60000);
+        return { start, end, label: formatTimeRange(start, end, false) };
+      })()
+    : null;
 
   /** Day-block / all-day chips keep their time of day and only change day. */
   const sameTimeOn = (day: Date, occurrence: Occurrence): Date => {
@@ -240,7 +236,10 @@ export function WeekView({
         })}
       </div>
 
-      <div className="max-h-[70vh] overflow-y-auto">
+      <div
+        className="max-h-[70vh] overflow-y-auto"
+        style={dragging ? { touchAction: "none" } : undefined}
+      >
         <div
           className="relative grid"
           style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
@@ -273,11 +272,7 @@ export function WeekView({
                 className="relative border-l border-border-soft"
                 style={{ height: hours.length * HOUR_PX }}
                 {...dropProps((e) => startFromDrop(day, e))}
-                {...longPressProps}
-                onPointerDown={(e) => {
-                  pressedDay.current = day;
-                  longPressProps.onPointerDown?.(e);
-                }}
+                {...columnProps(day)}
               >
                 {hours.map((hour) => (
                   <div
@@ -294,6 +289,7 @@ export function WeekView({
                     <button
                       key={o.key}
                       type="button"
+                      data-occurrence-key={o.key}
                       {...dragProps(o)}
                       onClick={() => openOccurrence(o)}
                       aria-label={`${careLabel(o)} ${formatTimeRange(o.start, o.end, false)}`}
@@ -331,12 +327,15 @@ export function WeekView({
                       <button
                         key={o.key}
                         type="button"
+                        data-occurrence-key={o.key}
                         {...dragProps(o)}
                         onClick={() => openOccurrence(o)}
                         className={cn(
                           "absolute overflow-hidden rounded-xl border border-border-soft px-1.5 py-1 text-left shadow-soft transition-transform hover:-translate-y-px",
                           eventTintClass(categoryAppearanceFor(o.event.category_id)),
                           draggingKey === o.key && "opacity-40",
+                          ghost?.occurrence?.key === o.key &&
+                            "scale-[0.98] opacity-40 ring-2 ring-primary",
                         )}
                         style={{
                           top: topFor(o.start),
@@ -365,6 +364,26 @@ export function WeekView({
                     );
                   })}
                 </div>
+
+                {/* Live drag preview: never persisted, replaced by the real form on release. */}
+                {ghost && ghostTimes && isSameDay(ghost.day, day) ? (
+                  <div
+                    className="pointer-events-none absolute inset-x-1 z-20 rounded-xl border-2 border-primary bg-primary/15 px-1.5 py-1 shadow-soft"
+                    style={{
+                      top: (ghost.startMinutes / 60 - DAY_START) * HOUR_PX,
+                      height: (ghost.durationMinutes / 60) * HOUR_PX,
+                    }}
+                  >
+                    <p className="truncate text-[11px] font-bold text-primary">
+                      {ghost.kind === "move" && ghost.occurrence
+                        ? ghost.occurrence.event.title
+                        : "New event"}
+                    </p>
+                    <p className="truncate text-[10px] font-semibold text-primary/80">
+                      {ghostTimes.label}
+                    </p>
+                  </div>
+                ) : null}
               </div>
             );
           })}
