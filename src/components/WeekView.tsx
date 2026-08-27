@@ -10,6 +10,7 @@ import { useReschedule } from "@/components/useReschedule";
 import {
   expandOccurrences,
   formatTimeRange,
+  isChildcare,
   isCoverage,
   occurrenceMatchesFilter,
   type CalendarEvent,
@@ -105,6 +106,10 @@ export function WeekView({
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
   const sourceName = (id: string | null) =>
     sources.find((s) => s.id === id)?.name ?? "Coverage";
+  /** Childcare joins the soft care-coverage layer instead of competing as a card. */
+  const isCareLayer = (o: Occurrence) => isCoverage(o.event) || isChildcare(o.event);
+  const careLabel = (o: Occurrence) =>
+    isChildcare(o.event) ? o.event.title : sourceName(o.event.calendar_source_id);
   /** Rolling window: the selected date is always the left-most column. */
   const start = anchor;
   const columns: Date[] = Array.from({ length: days }, (_, i) => addDays(start, i));
@@ -171,7 +176,7 @@ export function WeekView({
           const allDay = occurrences.filter(
             (o) =>
               isDayBlock(o) &&
-              !isCoverage(o.event) &&
+              !isCareLayer(o) &&
               isSameDay(o.start, day) &&
               occurrenceMatchesFilter(o, selectedMembers),
           );
@@ -222,10 +227,12 @@ export function WeekView({
 
           {columns.map((day) => {
             const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
-            const coverage = dayOccurrences.filter((o) => isCoverage(o.event));
+            const coverage = dayOccurrences.filter(
+              (o) => isCareLayer(o) && (!isChildcare(o.event) || !isDayBlock(o)),
+            );
             const visible = dayOccurrences.filter(
               (o) =>
-                !isCoverage(o.event) &&
+                !isCareLayer(o) &&
                 !isDayBlock(o) &&
                 occurrenceMatchesFilter(o, selectedMembers),
             );
@@ -247,18 +254,37 @@ export function WeekView({
 
                 {/* Babysitter coverage: warm neutral shading across the whole scheduled range,
                     never a family colour and never an event card. Sits behind everything. */}
-                {coverage.map((o) => (
-                  <div
-                    key={o.key}
-                    aria-label={`${sourceName(o.event.calendar_source_id)} ${formatTimeRange(o.start, o.end, false)}`}
-                    className="pointer-events-none absolute inset-x-0 bg-coverage/60"
-                    style={{ top: topFor(o.start), height: heightFor(o) }}
-                  >
-                    <span className="block truncate px-1.5 pt-0.5 text-[9px] leading-tight font-semibold text-coverage-foreground">
-                      {sourceName(o.event.calendar_source_id)} · {compactRange(o.start, o.end)}
-                    </span>
-                  </div>
-                ))}
+                {coverage.map((o) =>
+                  isChildcare(o.event) ? (
+                    <button
+                      key={o.key}
+                      type="button"
+                      {...dragProps(o)}
+                      onClick={() => openOccurrence(o)}
+                      aria-label={`${careLabel(o)} ${formatTimeRange(o.start, o.end, false)}`}
+                      className={cn(
+                        "absolute inset-x-0 w-full border-y border-coverage-strong/40 bg-coverage/45 text-left",
+                        draggingKey === o.key && "opacity-40",
+                      )}
+                      style={{ top: topFor(o.start), height: heightFor(o) }}
+                    >
+                      <span className="block truncate px-1.5 pt-0.5 text-[9px] leading-tight font-semibold text-coverage-foreground">
+                        {careLabel(o)} · {compactRange(o.start, o.end)}
+                      </span>
+                    </button>
+                  ) : (
+                    <div
+                      key={o.key}
+                      aria-label={`${careLabel(o)} ${formatTimeRange(o.start, o.end, false)}`}
+                      className="pointer-events-none absolute inset-x-0 bg-coverage/60"
+                      style={{ top: topFor(o.start), height: heightFor(o) }}
+                    >
+                      <span className="block truncate px-1.5 pt-0.5 text-[9px] leading-tight font-semibold text-coverage-foreground">
+                        {careLabel(o)} · {compactRange(o.start, o.end)}
+                      </span>
+                    </div>
+                  ),
+                )}
 
                 {/* Timed events carry the strongest emphasis and sit above the coverage layer,
                     in side-by-side lanes when they overlap. The left gutter keeps shading visible. */}
