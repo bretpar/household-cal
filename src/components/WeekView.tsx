@@ -267,7 +267,7 @@ export function WeekView({
                       )}
                       style={{ top: topFor(o.start), height: heightFor(o) }}
                     >
-                      <span className="block truncate px-1.5 pt-0.5 text-[9px] leading-tight font-semibold text-coverage-foreground">
+                      <span className="absolute inset-x-0 top-0 truncate px-1.5 pt-0.5 text-[9px] leading-tight font-semibold text-coverage-foreground">
                         {careLabel(o)} · {compactRange(o.start, o.end)}
                       </span>
                     </button>
