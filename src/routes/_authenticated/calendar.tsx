@@ -1,18 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { addDays, addMonths, format, startOfWeek } from "date-fns";
+import { addDays, addMonths, format } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { AddEventDialog } from "@/components/AddEventDialog";
 import { AgendaView } from "@/components/AgendaView";
-import { CategoryFilter } from "@/components/CategoryFilter";
-import { MemberFilter } from "@/components/MemberFilter";
+import { CalendarFiltersSheet } from "@/components/CalendarFiltersSheet";
 import { MonthView } from "@/components/MonthView";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCalendar } from "@/lib/calendar-store";
+import {
+  CALENDAR_VIEW_LABEL,
+  useDefaultCalendarView,
+  type CalendarViewMode,
+} from "@/lib/calendar-view-preference";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
@@ -34,17 +38,27 @@ export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
 });
 
-type ViewMode = "month" | "week" | "agenda";
+type ViewMode = CalendarViewMode;
 
 function CalendarPage() {
-  const { events, visibleEvents, selectedMembers, canEdit, loading, copiedEvent, startPaste } = useCalendar();
+  const { events, visibleEvents, selectedMembers, canEdit, loading, copiedEvent, startPaste, family } =
+    useCalendar();
   const onPaste = canEdit && copiedEvent ? startPaste : undefined;
   const isMobile = useIsMobile();
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("month");
-  const mode: ViewMode = isMobile && view === "month" ? view : view;
-  const isEmpty = !loading && events.length === 0;
+  const { defaultView } = useDefaultCalendarView(family?.id ?? null);
+  const [appliedDefault, setAppliedDefault] = useState(false);
 
+  // Open on the user's saved default view once, without fighting later manual changes.
+  useEffect(() => {
+    if (appliedDefault || !defaultView) return;
+    setView(defaultView);
+    setAppliedDefault(true);
+  }, [defaultView, appliedDefault]);
+
+  const mode: ViewMode = view;
+  const isEmpty = !loading && events.length === 0;
 
   const step = (direction: number) =>
     setAnchor((prev) =>
@@ -55,7 +69,7 @@ function CalendarPage() {
     mode === "month"
       ? format(anchor, "MMMM yyyy")
       : mode === "week"
-        ? `${format(startOfWeek(anchor, { weekStartsOn: 1 }), "MMM d")} – ${format(addDays(startOfWeek(anchor, { weekStartsOn: 1 }), 6), "MMM d")}`
+        ? `${format(anchor, "MMM d")} – ${format(addDays(anchor, 6), "MMM d")}`
         : format(anchor, "EEEE, MMM d");
 
   return (
@@ -96,20 +110,23 @@ function CalendarPage() {
             </Button>
           </div>
 
-          <div className="flex rounded-full bg-surface-muted p-1">
-            {(["month", "week", "agenda"] as ViewMode[]).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setView(v)}
-                className={cn(
-                  "h-9 rounded-full px-4 text-sm font-semibold capitalize transition-colors",
-                  view === v ? "bg-surface text-foreground shadow-soft" : "text-muted-foreground",
-                )}
-              >
-                {v === "agenda" ? "Today" : v}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-full bg-surface-muted p-1">
+              {(["month", "week", "day"] as ViewMode[]).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
+                  className={cn(
+                    "h-9 rounded-full px-3.5 text-sm font-semibold transition-colors sm:px-4",
+                    view === v ? "bg-surface text-foreground shadow-soft" : "text-muted-foreground",
+                  )}
+                >
+                  {CALENDAR_VIEW_LABEL[v]}
+                </button>
+              ))}
+            </div>
+            <CalendarFiltersSheet />
           </div>
         </div>
         {isEmpty ? (
@@ -128,10 +145,6 @@ function CalendarPage() {
           </div>
         ) : null}
 
-
-        <MemberFilter />
-        <CategoryFilter />
-
         {mode === "month" ? (
           <MonthView
             month={anchor}
@@ -140,7 +153,7 @@ function CalendarPage() {
             onPaste={onPaste}
             onSelectDay={(day) => {
               setAnchor(day);
-              setView("agenda");
+              setView("day");
             }}
           />
         ) : mode === "week" ? (

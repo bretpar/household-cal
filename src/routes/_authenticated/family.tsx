@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CalendarCog, Eye, Palette, RefreshCw, Users } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
 import { CalendarSyncSettings } from "@/components/CalendarSyncSettings";
 import { DeveloperTools } from "@/components/DeveloperTools";
 import { EmailSummarySettings } from "@/components/EmailSummarySettings";
@@ -117,6 +118,7 @@ function FamilyPage() {
           icon={<CalendarCog className="h-4 w-4" aria-hidden />}
         >
           <div className="divide-y divide-border-soft overflow-hidden rounded-3xl border border-border-soft bg-card">
+            <CalendarDefaultViewSetting />
             {sources.map((source) => (
               <div
                 key={source.id}
