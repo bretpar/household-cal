@@ -48,6 +48,8 @@ const CATEGORY_SECTIONS: Record<EventType, string> = {
   childcare: "Childcare",
   appointment: "Appointments",
   family: "Family",
+  travel: "Travel",
+  birthday: "Birthdays",
   other: "Other",
 };
 

@@ -30,6 +30,8 @@ export type EventType =
   | "childcare"
   | "appointment"
   | "family"
+  | "travel"
+  | "birthday"
   | "other";
 
 export type DisplayMode = "events" | "coverage_background";
@@ -150,23 +152,34 @@ export interface FamilyActivity {
 }
 
 /**
- * The single canonical "Activity" concept for an event. Stored as `event_type`
- * for data compatibility; always presented to users as "Activity".
+ * The single canonical event classification. Stored as `event_type` for data
+ * compatibility; presented to users as the one and only "Category" dropdown.
  */
 export const EVENT_TYPES: { id: EventType; label: string }[] = [
   { id: "school", label: "School" },
   { id: "activity", label: "Activity" },
-  { id: "work", label: "Work" },
-  { id: "childcare", label: "Childcare" },
   { id: "appointment", label: "Appointment" },
+  { id: "childcare", label: "Childcare" },
   { id: "family", label: "Family" },
+  { id: "travel", label: "Travel" },
+  { id: "birthday", label: "Birthday" },
+  { id: "work", label: "Work" },
   { id: "other", label: "Other" },
 ];
 
-/** Canonical display label for the Activity concept, whatever the source of the event. */
+/** Canonical display label for the classification, whatever the source of the event. */
 export function activityLabel(type: EventType | string | null | undefined): string {
   return EVENT_TYPES.find((t) => t.id === type)?.label ?? "Other";
 }
+
+/**
+ * Childcare answers "who is covering this time", so it renders as a soft
+ * background layer in Day/Week rather than as a competing event card.
+ */
+export function isChildcare(event: Pick<CalendarEvent, "event_type">): boolean {
+  return event.event_type === "childcare";
+}
+
 
 export const RECURRENCE_OPTIONS = [
   { id: "none", label: "Does not repeat", rule: null },

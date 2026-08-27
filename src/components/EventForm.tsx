@@ -18,13 +18,10 @@ import { cn } from "@/lib/utils";
 import type { EventDraft } from "@/lib/calendar-store";
 import type { EventClipboard } from "@/lib/event-clipboard";
 import {
-  UNCATEGORIZED_APPEARANCE,
-  UNCATEGORIZED_LABEL,
   categoryAppearance,
 } from "@/lib/event-categories";
 
 /** Select needs a non-empty value for the system Uncategorized state. */
-const UNCATEGORIZED_VALUE = "__uncategorized__";
 import { useCalendar } from "@/lib/calendar-store";
 import {
   EVENT_TYPES,
@@ -252,7 +249,10 @@ export function draftFromFormState(
 
 export function validateFormState(state: EventFormState): string | null {
   if (!state.title.trim()) return "Please add an event name";
-  if (state.members.length === 0) return "Choose at least one family member";
+  // Childcare names the caregiver, so family members stay optional.
+  if (state.eventType !== "childcare" && state.members.length === 0) {
+    return "Choose at least one family member";
+  }
   const repeats =
     state.recurrence === "custom" ||
     (RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence)?.rule ?? null) !== null;
@@ -342,6 +342,16 @@ export function EventFormFields({
   const set = <K extends keyof EventFormState>(key: K, value: EventFormState[K]) =>
     onChange({ ...state, [key]: value });
 
+  /** Household category whose name matches the chosen classification, if one exists. */
+  const matchingCategory = (label: string) =>
+    categories.find((c) => c.name.trim().toLowerCase() === label.trim().toLowerCase()) ?? null;
+
+  const setEventType = (next: EventType) => {
+    const label = EVENT_TYPES.find((t) => t.id === next)?.label ?? "";
+    onChange({ ...state, eventType: next, categoryId: matchingCategory(label)?.id ?? null });
+  };
+
+
   const recurrenceOption = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence);
   const repeats = state.recurrence === "custom" || Boolean(recurrenceOption?.rule);
   const perPersonDays = usesPerPersonDays(state);
@@ -360,68 +370,76 @@ export function EventFormFields({
           id={`${idPrefix}-name`}
           value={state.title}
           onChange={(e) => set("title", e.target.value)}
-          placeholder="Soccer practice"
+          placeholder={state.eventType === "childcare" ? "Michelle" : "Soccer practice"}
           className="h-11 rounded-xl"
         />
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor={`${idPrefix}-date`}>Date</Label>
-        <Input
-          id={`${idPrefix}-date`}
-          type="date"
-          value={state.date}
-          onChange={(e) => {
-            const date = e.target.value;
-            onChange({
-              ...state,
-              date,
-              recurrenceUntil:
-                date && state.recurrenceUntil < date ? defaultUntil(date) : state.recurrenceUntil,
-            });
-          }}
-          className="h-11 rounded-xl"
-        />
-      </div>
-
-      <div className="flex items-center justify-between rounded-xl bg-surface-muted px-3 py-2.5">
-        <Label htmlFor={`${idPrefix}-all-day`} className="font-semibold">
-          All-day event
-        </Label>
-        <Switch
-          id={`${idPrefix}-all-day`}
-          checked={state.allDay}
-          onCheckedChange={(v) => set("allDay", v)}
-        />
+      {/* Date and All day share one row on anything wider than a tiny phone. */}
+      <div className="grid gap-3 min-[380px]:grid-cols-[minmax(0,1fr)_auto] min-[380px]:items-end">
+        <div className="min-w-0 space-y-1.5">
+          <Label htmlFor={`${idPrefix}-date`}>Date</Label>
+          <Input
+            id={`${idPrefix}-date`}
+            type="date"
+            value={state.date}
+            onChange={(e) => {
+              const date = e.target.value;
+              onChange({
+                ...state,
+                date,
+                recurrenceUntil:
+                  date && state.recurrenceUntil < date ? defaultUntil(date) : state.recurrenceUntil,
+              });
+            }}
+            className="h-11 w-full min-w-0 rounded-xl"
+          />
+        </div>
+        <div className="flex h-11 shrink-0 items-center justify-between gap-3 rounded-xl bg-surface-muted px-3">
+          <Label htmlFor={`${idPrefix}-all-day`} className="font-semibold whitespace-nowrap">
+            All day
+          </Label>
+          <Switch
+            id={`${idPrefix}-all-day`}
+            checked={state.allDay}
+            onCheckedChange={(v) => set("allDay", v)}
+          />
+        </div>
       </div>
 
       {!state.allDay ? (
-        <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="space-y-1.5">
+        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="min-w-0 space-y-1.5">
             <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
             <Input
               id={`${idPrefix}-start`}
               type="time"
               value={state.startTime}
               onChange={(e) => set("startTime", e.target.value)}
-              className="h-11 rounded-xl"
+              className="h-11 w-full min-w-0 rounded-xl"
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
             <Label htmlFor={`${idPrefix}-end`}>End time</Label>
             <Input
               id={`${idPrefix}-end`}
               type="time"
               value={state.endTime}
               onChange={(e) => set("endTime", e.target.value)}
-              className="h-11 rounded-xl"
+              className="h-11 w-full min-w-0 rounded-xl"
             />
           </div>
         </div>
       ) : null}
 
+
       <div className="space-y-2">
-        <Label>Who?</Label>
+        <Label>
+          Who?
+          {state.eventType === "childcare" ? (
+            <span className="ml-1 font-semibold text-muted-foreground">(optional)</span>
+          ) : null}
+        </Label>
         <div className="flex flex-wrap gap-2">
           {activeMembers.map((member) => {
             const on = state.members.includes(member.id);
@@ -539,24 +557,31 @@ export function EventFormFields({
 
 
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="space-y-1.5">
-          <Label>Activity</Label>
-          <Select
-            value={state.eventType}
-            onValueChange={(v) => set("eventType", v as EventType)}
-          >
+        {/* The single event-classification dropdown. Stored as event_type; the
+            matching household category (if any) is kept in sync so card tints
+            keep working for existing data. */}
+        <div className="min-w-0 space-y-1.5">
+          <Label>Category</Label>
+          <Select value={state.eventType} onValueChange={(v) => setEventType(v as EventType)}>
             <SelectTrigger className="h-11 rounded-xl">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {EVENT_TYPES.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.label}
-                </SelectItem>
-              ))}
+              {EVENT_TYPES.map((t) => {
+                const swatch = categoryAppearance(matchingCategory(t.label)).swatch;
+                return (
+                  <SelectItem key={t.id} value={t.id}>
+                    <span className="flex items-center gap-2">
+                      <span className={cn("h-3 w-3 rounded-full", swatch)} aria-hidden />
+                      {t.label}
+                    </span>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
+
         <div className="space-y-1.5">
           <Label>Repeats</Label>
           <Select value={state.recurrence} onValueChange={(v) => set("recurrence", v)}>
@@ -689,39 +714,8 @@ export function EventFormFields({
         </div>
       ) : null}
 
-      <div className="space-y-1.5">
-        <Label>Category</Label>
-        <Select
-          value={state.categoryId ?? UNCATEGORIZED_VALUE}
-          onValueChange={(v) => set("categoryId", v === UNCATEGORIZED_VALUE ? null : v)}
-        >
-          <SelectTrigger className="h-11 rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={UNCATEGORIZED_VALUE}>
-              <span className="flex items-center gap-2">
-                <span
-                  className={cn("h-3 w-3 rounded-full", UNCATEGORIZED_APPEARANCE.swatch)}
-                  aria-hidden
-                />
-                {UNCATEGORIZED_LABEL}
-              </span>
-            </SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category.id} value={category.id}>
-                <span className="flex items-center gap-2">
-                  <span
-                    className={cn("h-3 w-3 rounded-full", categoryAppearance(category).swatch)}
-                    aria-hidden
-                  />
-                  {category.name}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+
+
 
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-location`}>Location</Label>

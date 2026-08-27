@@ -1,6 +1,8 @@
 import {
   Baby,
   Briefcase,
+  Cake,
+  Plane,
   CalendarHeart,
   GraduationCap,
   MapPin,
@@ -23,6 +25,8 @@ export const eventTypeIcons: Record<EventType, LucideIcon> = {
   childcare: Baby,
   appointment: Stethoscope,
   family: CalendarHeart,
+  travel: Plane,
+  birthday: Cake,
   other: Sparkles,
 };
 

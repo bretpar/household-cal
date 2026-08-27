@@ -21,6 +21,7 @@ import {
   validateFormState,
   type EventFormState,
 } from "@/components/EventForm";
+import { UNCATEGORIZED_LABEL } from "@/lib/event-categories";
 import { runGuardedMutation } from "@/lib/async-submit";
 import { useCalendar, type RecurrenceScope } from "@/lib/calendar-store";
 
@@ -186,7 +187,11 @@ export function EventDetailsDialog() {
                   className={`h-2.5 w-2.5 shrink-0 rounded-full ${appearance.swatch}`}
                   aria-hidden
                 />
-                {appearance.label} · {typeLabel}
+                {/* One unified classification: never "Uncategorized · Activity". */}
+                {appearance.label === UNCATEGORIZED_LABEL ||
+                appearance.label.toLowerCase() === typeLabel.toLowerCase()
+                  ? typeLabel
+                  : `${appearance.label} · ${typeLabel}`}
               </DialogDescription>
             </DialogHeader>
 

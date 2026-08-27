@@ -2,9 +2,11 @@ import { addDays, format, isSameDay, startOfDay } from "date-fns";
 import { Baby, ClipboardPaste } from "lucide-react";
 
 import { EventCard } from "@/components/EventCard";
+import { useCalendar } from "@/lib/calendar-store";
 import {
   expandOccurrences,
   formatTimeRange,
+  isChildcare,
   isCoverage,
   occurrenceMatchesFilter,
   type CalendarEvent,
@@ -25,6 +27,7 @@ export function AgendaView({
   /** provided only when an event is copied and the user may create events */
   onPaste?: ((day: Date) => void) | undefined;
 }) {
+  const { openOccurrence } = useCalendar();
   const start = startOfDay(anchor);
   const occurrences = expandOccurrences(events, start, addDays(start, days));
   const dayList = Array.from({ length: days }, (_, i) => addDays(start, i));
@@ -33,9 +36,15 @@ export function AgendaView({
     <div className="space-y-6">
       {dayList.map((day) => {
         const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
-        const coverage = dayOccurrences.filter((o) => isCoverage(o.event));
+        // Childcare reads as a soft care-coverage strip above the day's events.
+        const coverage = dayOccurrences.filter(
+          (o) => isCoverage(o.event) || isChildcare(o.event),
+        );
         const visible = dayOccurrences.filter(
-          (o) => !isCoverage(o.event) && occurrenceMatchesFilter(o, selectedMembers),
+          (o) =>
+            !isCoverage(o.event) &&
+            !isChildcare(o.event) &&
+            occurrenceMatchesFilter(o, selectedMembers),
         );
 
         return (
@@ -58,13 +67,17 @@ export function AgendaView({
             </div>
 
             {coverage.map((o) => (
-              <div
+              <button
                 key={o.key}
-                className="flex items-center gap-2 rounded-2xl bg-coverage-strong/70 px-3 py-2 text-xs font-bold text-coverage-foreground"
+                type="button"
+                onClick={() => openOccurrence(o)}
+                className="flex w-full items-center gap-2 rounded-2xl bg-coverage/60 px-3 py-2 text-left text-xs font-bold text-coverage-foreground"
               >
-                <Baby className="h-4 w-4" aria-hidden />
-                {o.event.title} {formatTimeRange(o.start, o.end, false)}
-              </div>
+                <Baby className="h-4 w-4 shrink-0" aria-hidden />
+                <span className="min-w-0 truncate">
+                  {o.event.title} · {formatTimeRange(o.start, o.end, false)}
+                </span>
+              </button>
             ))}
 
             {visible.length === 0 ? (
