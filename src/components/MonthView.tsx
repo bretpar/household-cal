@@ -29,6 +29,7 @@ export function MonthView({
   selectedMembers,
   onSelectDay,
   onPaste,
+  onCreateAt,
 }: {
   month: Date;
   events: CalendarEvent[];
@@ -36,6 +37,8 @@ export function MonthView({
   onSelectDay: (day: Date) => void;
   /** provided only when an event is copied and the user may create events */
   onPaste?: ((day: Date) => void) | undefined;
+  /** press-and-hold on an empty day; provided only when the user may create events */
+  onCreateAt?: ((day: Date, withTime: boolean) => void) | undefined;
 }) {
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
@@ -43,6 +46,7 @@ export function MonthView({
   const occurrences = expandOccurrences(events, gridStart, gridEnd);
   const days: Date[] = [];
   for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) days.push(d);
+
 
   /** Month cells only change the day; the event keeps its time of day. */
   const sameTimeOn = (day: Date, occurrence: { start: Date }) => {
