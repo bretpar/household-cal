@@ -1,18 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { addDays, addMonths, format, startOfWeek } from "date-fns";
+import { addDays, addMonths, format } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { AddEventDialog } from "@/components/AddEventDialog";
 import { AgendaView } from "@/components/AgendaView";
-import { CategoryFilter } from "@/components/CategoryFilter";
-import { MemberFilter } from "@/components/MemberFilter";
+import { CalendarFiltersSheet } from "@/components/CalendarFiltersSheet";
 import { MonthView } from "@/components/MonthView";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCalendar } from "@/lib/calendar-store";
+import {
+  CALENDAR_VIEW_LABEL,
+  useDefaultCalendarView,
+  type CalendarViewMode,
+} from "@/lib/calendar-view-preference";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
