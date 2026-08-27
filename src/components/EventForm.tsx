@@ -379,7 +379,7 @@ export function EventFormFields({
       </div>
 
       {/* Date flexes; All day stays a compact fixed control with a real gap. */}
-      <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+      <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2.5 sm:gap-3">
         <div className="min-w-0 space-y-1.5">
           <Label htmlFor={`${idPrefix}-date`}>Date</Label>
           <Input
@@ -398,10 +398,10 @@ export function EventFormFields({
             className="h-11 w-full min-w-0 rounded-xl"
           />
         </div>
-        <div className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-surface-muted px-3">
+        <div className="flex h-11 shrink-0 items-center gap-2 rounded-xl border border-input bg-card px-3">
           <Label
             htmlFor={`${idPrefix}-all-day`}
-            className="text-xs font-semibold whitespace-nowrap sm:text-sm"
+            className="text-sm font-semibold whitespace-nowrap text-muted-foreground"
           >
             All day
           </Label>
@@ -415,16 +415,18 @@ export function EventFormFields({
 
       {/* Repeat stays out of the way until the event actually repeats. */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3 py-0.5">
           <Checkbox
             id={`${idPrefix}-repeats`}
             checked={repeats}
             onCheckedChange={(v) => set("recurrence", v ? "weekly" : "none")}
+            className="size-5 rounded-md"
           />
-          <Label htmlFor={`${idPrefix}-repeats`} className="font-semibold">
+          <Label htmlFor={`${idPrefix}-repeats`} className="text-sm font-semibold">
             Repeats
           </Label>
         </div>
+
 
         {repeats ? (
           <>
