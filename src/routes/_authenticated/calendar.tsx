@@ -46,9 +46,17 @@ function CalendarPage() {
     useCalendar();
   const onPaste = canEdit && copiedEvent ? startPaste : undefined;
   // Press-and-hold creation on touch devices; the Add Event button stays the fallback.
-  const [quickAdd, setQuickAdd] = useState<{ at: Date; withTime: boolean } | null>(null);
+  const [quickAdd, setQuickAdd] = useState<{
+    at: Date;
+    until?: Date | null;
+    withTime: boolean;
+  } | null>(null);
   const onCreateAt = canEdit
     ? (at: Date, withTime: boolean) => setQuickAdd({ at, withTime })
+    : undefined;
+  // Week/Day gestures propose a full time range from the dragged preview block.
+  const onCreateRange = canEdit
+    ? (at: Date, until: Date) => setQuickAdd({ at, until, withTime: true })
     : undefined;
   const isMobile = useIsMobile();
   const [anchor, setAnchor] = useState(() => new Date());
@@ -169,7 +177,7 @@ function CalendarPage() {
             events={visibleEvents}
             selectedMembers={selectedMembers}
             days={isMobile ? 3 : 7}
-            onCreateAt={onCreateAt}
+            onCreateRange={onCreateRange}
           />
         ) : (
           <div className="space-y-4">
@@ -178,7 +186,7 @@ function CalendarPage() {
               events={visibleEvents}
               selectedMembers={selectedMembers}
               days={1}
-              onCreateAt={onCreateAt}
+              onCreateRange={onCreateRange}
             />
             <AgendaView
               anchor={anchor}
@@ -191,6 +199,7 @@ function CalendarPage() {
       </div>
       <QuickAddEventDialog
         at={quickAdd?.at ?? null}
+        until={quickAdd?.until ?? null}
         withTime={quickAdd?.withTime ?? false}
         onClose={() => setQuickAdd(null)}
       />

@@ -89,7 +89,9 @@ interface CalendarStore {
   cancelPaste: () => void;
 
   activeOccurrence: Occurrence | null;
-  openOccurrence: (occurrence: Occurrence) => void;
+  /** proposed new start from a touch drag, prefilled into the edit form (never saved automatically) */
+  proposedStart: Date | null;
+  openOccurrence: (occurrence: Occurrence, options?: { proposedStart?: Date }) => void;
   closeOccurrence: () => void;
 }
 
@@ -107,7 +109,10 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
 
   const [selectedMembers, setSelectedMembers] = useState<MemberId[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CategorySelection>(null);
-  const [activeOccurrence, setActiveOccurrence] = useState<Occurrence | null>(null);
+  const [active, setActive] = useState<{
+    occurrence: Occurrence;
+    proposedStart: Date | null;
+  } | null>(null);
   const [copiedEvent, setCopiedEvent] = useState<EventClipboard | null>(null);
   const [pasteDate, setPasteDate] = useState<Date | null>(null);
 
@@ -238,12 +243,14 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       startPaste: setPasteDate,
       cancelPaste: () => setPasteDate(null),
 
-      activeOccurrence,
-      openOccurrence: setActiveOccurrence,
-      closeOccurrence: () => setActiveOccurrence(null),
+      activeOccurrence: active?.occurrence ?? null,
+      proposedStart: active?.proposedStart ?? null,
+      openOccurrence: (occurrence, options) =>
+        setActive({ occurrence, proposedStart: options?.proposedStart ?? null }),
+      closeOccurrence: () => setActive(null),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bundle.data, bundle.isLoading, selectedMembers, effectiveCategory, activeOccurrence, copiedEvent, pasteDate]);
+  }, [bundle.data, bundle.isLoading, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;
 }
