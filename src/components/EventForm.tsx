@@ -375,8 +375,8 @@ export function EventFormFields({
         />
       </div>
 
-      {/* Date and All day share one row on anything wider than a tiny phone. */}
-      <div className="grid gap-3 min-[380px]:grid-cols-[minmax(0,1fr)_auto] min-[380px]:items-end">
+      {/* Date flexes; All day stays a compact fixed control with a real gap. */}
+      <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
         <div className="min-w-0 space-y-1.5">
           <Label htmlFor={`${idPrefix}-date`}>Date</Label>
           <Input
@@ -395,8 +395,11 @@ export function EventFormFields({
             className="h-11 w-full min-w-0 rounded-xl"
           />
         </div>
-        <div className="flex h-11 shrink-0 items-center justify-between gap-3 rounded-xl bg-surface-muted px-3">
-          <Label htmlFor={`${idPrefix}-all-day`} className="font-semibold whitespace-nowrap">
+        <div className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-surface-muted px-3">
+          <Label
+            htmlFor={`${idPrefix}-all-day`}
+            className="text-xs font-semibold whitespace-nowrap sm:text-sm"
+          >
             All day
           </Label>
           <Switch
@@ -408,7 +411,7 @@ export function EventFormFields({
       </div>
 
       {!state.allDay ? (
-        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
           <div className="min-w-0 space-y-1.5">
             <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
             <Input
@@ -416,7 +419,7 @@ export function EventFormFields({
               type="time"
               value={state.startTime}
               onChange={(e) => set("startTime", e.target.value)}
-              className="h-11 w-full min-w-0 rounded-xl"
+              className="h-11 w-full min-w-0 rounded-xl px-2 sm:px-3"
             />
           </div>
           <div className="min-w-0 space-y-1.5">
@@ -426,11 +429,12 @@ export function EventFormFields({
               type="time"
               value={state.endTime}
               onChange={(e) => set("endTime", e.target.value)}
-              className="h-11 w-full min-w-0 rounded-xl"
+              className="h-11 w-full min-w-0 rounded-xl px-2 sm:px-3"
             />
           </div>
         </div>
       ) : null}
+
 
 
       <div className="space-y-2">
