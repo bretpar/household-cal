@@ -214,6 +214,65 @@
     font-family: var(--font-display);
     letter-spacing: -0.01em;
   }
+
+  /* iOS Safari native date/time inputs must be block-level and width-constrained
+     so they do not overflow their grid cells in the Add/Edit Event modal. */
+  input[type="date"],
+  input[type="time"] {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-inline-size: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  input[type="date"]::-webkit-date-and-time-value,
+  input[type="time"]::-webkit-date-and-time-value {
+    min-width: 0;
+    width: 100%;
+    text-align: left;
+  }
+
+  /* Focus / active-state safeguards for the Add/Edit Event modal on iPhone.
+     Keeps borders, helper text, and dropdown triggers from visually overlapping
+     adjacent fields at narrow widths. */
+  .date-row,
+  .time-row {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .date-row > *,
+  .time-row > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .date-row input,
+  .time-row input,
+  .date-row button,
+  .time-row button,
+  .date-row [role="combobox"],
+  .time-row [role="combobox"] {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .date-row input:focus,
+  .time-row input:focus,
+  .date-row [data-state="open"],
+  .time-row [data-state="open"] {
+    z-index: 1;
+  }
+
+  /* Helper text and small paragraphs must wrap instead of overlapping fields. */
+  p.text-xs,
+  .text-xs.text-muted-foreground {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+  }
 }
 
 @utility coverage-stripes {
