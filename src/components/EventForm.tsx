@@ -739,13 +739,12 @@ export function EventFormFields({
 
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-location`}>Location</Label>
-        <Input
+        <LocationAutocomplete
           id={`${idPrefix}-location`}
           value={state.location}
-          onChange={(e) => set("location", e.target.value)}
-          placeholder="Riverside Fields"
-          className="h-11 rounded-xl"
+          onChange={(next) => set("location", next)}
         />
+
       </div>
 
       <div className="space-y-1.5">
