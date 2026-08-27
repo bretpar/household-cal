@@ -379,8 +379,8 @@ export function EventFormFields({
       </div>
 
       {/* Date flexes; All day stays a compact fixed control with a real gap. */}
-      <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2.5 sm:gap-3">
-        <div className="min-w-0 space-y-1.5">
+      <div className="date-row grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+        <div className="min-w-0 max-w-full space-y-1.5">
           <Label htmlFor={`${idPrefix}-date`}>Date</Label>
           <Input
             id={`${idPrefix}-date`}
@@ -395,10 +395,10 @@ export function EventFormFields({
                   date && state.recurrenceUntil < date ? defaultUntil(date) : state.recurrenceUntil,
               });
             }}
-            className="h-11 w-full min-w-0 rounded-xl"
+            className="box-border h-11 w-full min-w-0 max-w-full rounded-xl"
           />
         </div>
-        <div className="flex h-11 shrink-0 items-center gap-2 rounded-xl border border-input bg-card px-3">
+        <div className="flex h-11 min-w-0 shrink-0 items-center gap-2 rounded-xl border border-input bg-card px-3">
           <Label
             htmlFor={`${idPrefix}-all-day`}
             className="text-sm font-semibold whitespace-nowrap text-muted-foreground"
@@ -616,25 +616,25 @@ export function EventFormFields({
       </div>
 
       {!state.allDay ? (
-        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-end gap-2.5 sm:gap-3">
-          <div className="min-w-0 space-y-1.5">
+        <div className="time-row grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-end gap-3">
+          <div className="min-w-0 max-w-full space-y-1.5">
             <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
             <Input
               id={`${idPrefix}-start`}
               type="time"
               value={state.startTime}
               onChange={(e) => set("startTime", e.target.value)}
-              className="box-border h-11 w-full max-w-full min-w-0 rounded-xl px-2 sm:px-3"
+              className="box-border h-11 w-full min-w-0 max-w-full rounded-xl px-2 sm:px-3"
             />
           </div>
-          <div className="min-w-0 space-y-1.5">
+          <div className="min-w-0 max-w-full space-y-1.5">
             <Label htmlFor={`${idPrefix}-end`}>End time</Label>
             <Input
               id={`${idPrefix}-end`}
               type="time"
               value={state.endTime}
               onChange={(e) => set("endTime", e.target.value)}
-              className="box-border h-11 w-full max-w-full min-w-0 rounded-xl px-2 sm:px-3"
+              className="box-border h-11 w-full min-w-0 max-w-full rounded-xl px-2 sm:px-3"
             />
           </div>
         </div>
