@@ -87,6 +87,7 @@
     },
   },
   "overrides": {
+    "entities": "4.5.0",
     "rolldown": "1.2.1",
   },
   "packages": {
