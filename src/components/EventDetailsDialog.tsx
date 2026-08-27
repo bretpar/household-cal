@@ -186,7 +186,11 @@ export function EventDetailsDialog() {
                   className={`h-2.5 w-2.5 shrink-0 rounded-full ${appearance.swatch}`}
                   aria-hidden
                 />
-                {appearance.label} · {typeLabel}
+                {/* One unified classification: never "Uncategorized · Activity". */}
+                {appearance.label === UNCATEGORIZED_LABEL ||
+                appearance.label.toLowerCase() === typeLabel.toLowerCase()
+                  ? typeLabel
+                  : `${appearance.label} · ${typeLabel}`}
               </DialogDescription>
             </DialogHeader>
 
