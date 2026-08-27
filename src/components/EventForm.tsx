@@ -3,8 +3,11 @@ import { format } from "date-fns";
 import { ChevronDown } from "lucide-react";
 
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LocationAutocomplete } from "@/components/LocationAutocomplete";
+
 import {
   Select,
   SelectContent,
@@ -375,8 +378,8 @@ export function EventFormFields({
         />
       </div>
 
-      {/* Date and All day share one row on anything wider than a tiny phone. */}
-      <div className="grid gap-3 min-[380px]:grid-cols-[minmax(0,1fr)_auto] min-[380px]:items-end">
+      {/* Date flexes; All day stays a compact fixed control with a real gap. */}
+      <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
         <div className="min-w-0 space-y-1.5">
           <Label htmlFor={`${idPrefix}-date`}>Date</Label>
           <Input
@@ -395,8 +398,11 @@ export function EventFormFields({
             className="h-11 w-full min-w-0 rounded-xl"
           />
         </div>
-        <div className="flex h-11 shrink-0 items-center justify-between gap-3 rounded-xl bg-surface-muted px-3">
-          <Label htmlFor={`${idPrefix}-all-day`} className="font-semibold whitespace-nowrap">
+        <div className="flex h-11 shrink-0 items-center gap-2 rounded-xl bg-surface-muted px-3">
+          <Label
+            htmlFor={`${idPrefix}-all-day`}
+            className="text-xs font-semibold whitespace-nowrap sm:text-sm"
+          >
             All day
           </Label>
           <Switch
@@ -408,7 +414,7 @@ export function EventFormFields({
       </div>
 
       {!state.allDay ? (
-        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
           <div className="min-w-0 space-y-1.5">
             <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
             <Input
@@ -416,7 +422,7 @@ export function EventFormFields({
               type="time"
               value={state.startTime}
               onChange={(e) => set("startTime", e.target.value)}
-              className="h-11 w-full min-w-0 rounded-xl"
+              className="h-11 w-full min-w-0 rounded-xl px-2 sm:px-3"
             />
           </div>
           <div className="min-w-0 space-y-1.5">
@@ -426,11 +432,12 @@ export function EventFormFields({
               type="time"
               value={state.endTime}
               onChange={(e) => set("endTime", e.target.value)}
-              className="h-11 w-full min-w-0 rounded-xl"
+              className="h-11 w-full min-w-0 rounded-xl px-2 sm:px-3"
             />
           </div>
         </div>
       ) : null}
+
 
 
       <div className="space-y-2">
@@ -479,218 +486,231 @@ export function EventFormFields({
         </div>
       </div>
 
-      {repeats && state.members.length > 0 ? (
-        <div className="space-y-3 rounded-xl bg-surface-muted p-3">
-          <div className="flex items-center justify-between gap-3">
-            <Label htmlFor={`${idPrefix}-custom-days`} className="font-semibold">
-              Customize days by person
-            </Label>
-            <Switch
-              id={`${idPrefix}-custom-days`}
-              checked={perPersonDays}
-              disabled={state.recurrence === "custom"}
-              onCheckedChange={(v) => set("customizeDays", v)}
-            />
-          </div>
-          {perPersonDays ? (
-
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Pick each person's days. The event only appears on days someone is scheduled.
-              </p>
-              {state.members.map((memberId) => {
-                const member = activeMembers.find((m) => m.id === memberId);
-                if (!member) return null;
-                const selectedDays = state.memberWeekdays[memberId] ?? [];
-                return (
-                  <div key={memberId} className="space-y-1.5">
-                    <div className="flex items-center gap-2 text-sm font-semibold">
-                      <span
-                        className={cn(
-                          "flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold",
-                          styleFor(memberId).badge,
-                        )}
-                      >
-                        {member.initial}
-                      </span>
-                      {member.name}
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {WEEKDAY_CODES.map((day) => {
-                        const on = selectedDays.includes(day.code);
-                        return (
-                          <button
-                            key={day.code}
-                            type="button"
-                            aria-pressed={on}
-                            aria-label={`${member.name} ${day.label}`}
-                            onClick={() =>
-                              onChange({
-                                ...state,
-                                memberWeekdays: {
-                                  ...state.memberWeekdays,
-                                  [memberId]: on
-                                    ? selectedDays.filter((d) => d !== day.code)
-                                    : [...selectedDays, day.code],
-                                },
-                              })
-                            }
-                            className={cn(
-                              "h-9 min-w-11 rounded-lg px-2 text-xs font-semibold transition-colors",
-                              on
-                                ? cn(styleFor(memberId).soft, "ring-2", styleFor(memberId).ring)
-                                : "bg-background text-muted-foreground",
-                            )}
-                          >
-                            {day.short}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        {/* The single event-classification dropdown. Stored as event_type; the
-            matching household category (if any) is kept in sync so card tints
-            keep working for existing data. */}
-        <div className="min-w-0 space-y-1.5">
-          <Label>Category</Label>
-          <Select value={state.eventType} onValueChange={(v) => setEventType(v as EventType)}>
-            <SelectTrigger className="h-11 rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {EVENT_TYPES.map((t) => {
-                const swatch = categoryAppearance(matchingCategory(t.label)).swatch;
-                return (
-                  <SelectItem key={t.id} value={t.id}>
-                    <span className="flex items-center gap-2">
-                      <span className={cn("h-3 w-3 rounded-full", swatch)} aria-hidden />
-                      {t.label}
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Repeats</Label>
-          <Select value={state.recurrence} onValueChange={(v) => set("recurrence", v)}>
-            <SelectTrigger className="h-11 rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {RECURRENCE_OPTIONS.map((r) => (
-                <SelectItem key={r.id} value={r.id}>
-                  {r.label}
+      {/* The single event-classification dropdown. Stored as event_type; the
+          matching household category (if any) is kept in sync so card tints
+          keep working for existing data. */}
+      <div className="min-w-0 space-y-1.5">
+        <Label>Category</Label>
+        <Select value={state.eventType} onValueChange={(v) => setEventType(v as EventType)}>
+          <SelectTrigger className="h-11 rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {EVENT_TYPES.map((t) => {
+              const swatch = categoryAppearance(matchingCategory(t.label)).swatch;
+              return (
+                <SelectItem key={t.id} value={t.id}>
+                  <span className="flex items-center gap-2">
+                    <span className={cn("h-3 w-3 rounded-full", swatch)} aria-hidden />
+                    {t.label}
+                  </span>
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+              );
+            })}
+          </SelectContent>
+        </Select>
       </div>
 
-      {repeats ? (
-        <div className="rounded-2xl bg-surface-muted p-3">
-          <button
-            type="button"
-            aria-expanded={repeatOpen}
-            onClick={() => setRepeatOpen((v) => !v)}
-            className="flex w-full items-center justify-between gap-3 text-left"
-          >
-            <span className="min-w-0">
-              <span className="block text-sm font-bold">Repeat settings</span>
-              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                {recurrenceSummary(state)}
-              </span>
-            </span>
-            <ChevronDown
-              className={cn(
-                "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
-                repeatOpen && "rotate-180",
-              )}
-              aria-hidden
-            />
-          </button>
-
-          {repeatOpen ? (
-          <div className="mt-3 space-y-3">
-          <p className="text-xs text-muted-foreground">
-            Starts {startsLabel} · {state.recurrence === "custom" ? "custom schedule" : frequencyLabel}
-          </p>
-
-          <div className="space-y-2">
-            <Label>Ends</Label>
-            <div className="flex flex-wrap gap-2">
-              {END_MODES.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  aria-pressed={state.recurrenceEnd === option.id}
-                  onClick={() => set("recurrenceEnd", option.id)}
-                  className={cn(
-                    "h-11 min-w-0 shrink rounded-full px-4 text-sm font-semibold transition-all",
-                    state.recurrenceEnd === option.id
-                      ? "bg-secondary font-bold ring-2 ring-primary"
-                      : "bg-card text-muted-foreground",
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {state.recurrenceEnd === "on" ? (
-            <div className="space-y-1.5">
-              <Label htmlFor={`${idPrefix}-until`}>Repeat until</Label>
-              <Input
-                id={`${idPrefix}-until`}
-                type="date"
-                min={state.date}
-                value={state.recurrenceUntil}
-                onChange={(e) => set("recurrenceUntil", e.target.value)}
-                className="h-11 rounded-xl bg-card"
-              />
-              <p className="text-xs text-muted-foreground">
-                Includes the last repeat on or before this date.
-              </p>
-            </div>
-          ) : null}
-
-          {state.recurrenceEnd === "count" ? (
-            <div className="space-y-1.5">
-              <Label htmlFor={`${idPrefix}-count`}>Number of occurrences</Label>
-              <Input
-                id={`${idPrefix}-count`}
-                type="number"
-                min={1}
-                step={1}
-                value={state.recurrenceCount}
-                onChange={(e) => set("recurrenceCount", Math.max(1, Number(e.target.value) || 1))}
-                className="h-11 rounded-xl bg-card"
-              />
-            </div>
-          ) : null}
-
-          {state.recurrenceEnd === "never" ? (
-            <p className="text-xs text-muted-foreground">
-              This event will keep repeating until you change or delete it.
-            </p>
-          ) : null}
-          </div>
-          ) : null}
+      {/* Repeat stays out of the way until the event actually repeats. */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2.5">
+          <Checkbox
+            id={`${idPrefix}-repeats`}
+            checked={repeats}
+            onCheckedChange={(v) => set("recurrence", v ? "weekly" : "none")}
+          />
+          <Label htmlFor={`${idPrefix}-repeats`} className="font-semibold">
+            Repeats
+          </Label>
         </div>
-      ) : null}
+
+        {repeats ? (
+          <>
+            <Select value={state.recurrence} onValueChange={(v) => set("recurrence", v)}>
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RECURRENCE_OPTIONS.filter((r) => r.id !== "none").map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {state.members.length > 0 ? (
+              <div className="space-y-3 rounded-xl bg-surface-muted p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor={`${idPrefix}-custom-days`} className="font-semibold">
+                    Customize days by person
+                  </Label>
+                  <Switch
+                    id={`${idPrefix}-custom-days`}
+                    checked={perPersonDays}
+                    disabled={state.recurrence === "custom"}
+                    onCheckedChange={(v) => set("customizeDays", v)}
+                  />
+                </div>
+                {perPersonDays ? (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Pick each person's days. The event only appears on days someone is scheduled.
+                    </p>
+                    {state.members.map((memberId) => {
+                      const member = activeMembers.find((m) => m.id === memberId);
+                      if (!member) return null;
+                      const selectedDays = state.memberWeekdays[memberId] ?? [];
+                      return (
+                        <div key={memberId} className="space-y-1.5">
+                          <div className="flex items-center gap-2 text-sm font-semibold">
+                            <span
+                              className={cn(
+                                "flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold",
+                                styleFor(memberId).badge,
+                              )}
+                            >
+                              {member.initial}
+                            </span>
+                            {member.name}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {WEEKDAY_CODES.map((day) => {
+                              const on = selectedDays.includes(day.code);
+                              return (
+                                <button
+                                  key={day.code}
+                                  type="button"
+                                  aria-pressed={on}
+                                  aria-label={`${member.name} ${day.label}`}
+                                  onClick={() =>
+                                    onChange({
+                                      ...state,
+                                      memberWeekdays: {
+                                        ...state.memberWeekdays,
+                                        [memberId]: on
+                                          ? selectedDays.filter((d) => d !== day.code)
+                                          : [...selectedDays, day.code],
+                                      },
+                                    })
+                                  }
+                                  className={cn(
+                                    "h-9 min-w-11 rounded-lg px-2 text-xs font-semibold transition-colors",
+                                    on
+                                      ? cn(styleFor(memberId).soft, "ring-2", styleFor(memberId).ring)
+                                      : "bg-background text-muted-foreground",
+                                  )}
+                                >
+                                  {day.short}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="rounded-2xl bg-surface-muted p-3">
+              <button
+                type="button"
+                aria-expanded={repeatOpen}
+                onClick={() => setRepeatOpen((v) => !v)}
+                className="flex w-full items-center justify-between gap-3 text-left"
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold">Repeat settings</span>
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                    {recurrenceSummary(state)}
+                  </span>
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
+                    repeatOpen && "rotate-180",
+                  )}
+                  aria-hidden
+                />
+              </button>
+
+              {repeatOpen ? (
+                <div className="mt-3 space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Starts {startsLabel} ·{" "}
+                    {state.recurrence === "custom" ? "custom schedule" : frequencyLabel}
+                  </p>
+
+                  <div className="space-y-2">
+                    <Label>Ends</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {END_MODES.map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          aria-pressed={state.recurrenceEnd === option.id}
+                          onClick={() => set("recurrenceEnd", option.id)}
+                          className={cn(
+                            "h-11 min-w-0 shrink rounded-full px-4 text-sm font-semibold transition-all",
+                            state.recurrenceEnd === option.id
+                              ? "bg-secondary font-bold ring-2 ring-primary"
+                              : "bg-card text-muted-foreground",
+                          )}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {state.recurrenceEnd === "on" ? (
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`${idPrefix}-until`}>Repeat until</Label>
+                      <Input
+                        id={`${idPrefix}-until`}
+                        type="date"
+                        min={state.date}
+                        value={state.recurrenceUntil}
+                        onChange={(e) => set("recurrenceUntil", e.target.value)}
+                        className="h-11 rounded-xl bg-card"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Includes the last repeat on or before this date.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {state.recurrenceEnd === "count" ? (
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`${idPrefix}-count`}>Number of occurrences</Label>
+                      <Input
+                        id={`${idPrefix}-count`}
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={state.recurrenceCount}
+                        onChange={(e) =>
+                          set("recurrenceCount", Math.max(1, Number(e.target.value) || 1))
+                        }
+                        className="h-11 rounded-xl bg-card"
+                      />
+                    </div>
+                  ) : null}
+
+                  {state.recurrenceEnd === "never" ? (
+                    <p className="text-xs text-muted-foreground">
+                      This event will keep repeating until you change or delete it.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+      </div>
+
 
       {syncedCalendars.length > 1 ? (
         <div className="space-y-1.5">
@@ -719,13 +739,12 @@ export function EventFormFields({
 
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-location`}>Location</Label>
-        <Input
+        <LocationAutocomplete
           id={`${idPrefix}-location`}
           value={state.location}
-          onChange={(e) => set("location", e.target.value)}
-          placeholder="Riverside Fields"
-          className="h-11 rounded-xl"
+          onChange={(next) => set("location", next)}
         />
+
       </div>
 
       <div className="space-y-1.5">
