@@ -45,6 +45,7 @@ export function useLongPress(
       timer.current = setTimeout(() => {
         timer.current = null;
         origin.current = null;
+        fired.current = true;
         // Subtle tactile acknowledgement where the platform supports it.
         navigator.vibrate?.(12);
         onLongPress({ offsetX, offsetY });
@@ -67,6 +68,14 @@ export function useLongPress(
     [clear],
   );
 
+  /** Swallow the tap that ends a recognized long press. */
+  const onClickCapture = useCallback((event: { stopPropagation: () => void; preventDefault: () => void }) => {
+    if (!fired.current) return;
+    fired.current = false;
+    event.stopPropagation();
+    event.preventDefault();
+  }, []);
+
   if (!onLongPress) return {};
 
   return {
@@ -75,5 +84,7 @@ export function useLongPress(
     onPointerUp: clear,
     onPointerCancel: clear,
     onPointerLeave: clear,
+    onClickCapture,
   };
 }
+
