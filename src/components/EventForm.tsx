@@ -365,60 +365,63 @@ export function EventFormFields({
         />
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor={`${idPrefix}-date`}>Date</Label>
-        <Input
-          id={`${idPrefix}-date`}
-          type="date"
-          value={state.date}
-          onChange={(e) => {
-            const date = e.target.value;
-            onChange({
-              ...state,
-              date,
-              recurrenceUntil:
-                date && state.recurrenceUntil < date ? defaultUntil(date) : state.recurrenceUntil,
-            });
-          }}
-          className="h-11 rounded-xl"
-        />
-      </div>
-
-      <div className="flex items-center justify-between rounded-xl bg-surface-muted px-3 py-2.5">
-        <Label htmlFor={`${idPrefix}-all-day`} className="font-semibold">
-          All-day event
-        </Label>
-        <Switch
-          id={`${idPrefix}-all-day`}
-          checked={state.allDay}
-          onCheckedChange={(v) => set("allDay", v)}
-        />
+      {/* Date and All day share one row on anything wider than a tiny phone. */}
+      <div className="grid gap-3 min-[380px]:grid-cols-[minmax(0,1fr)_auto] min-[380px]:items-end">
+        <div className="min-w-0 space-y-1.5">
+          <Label htmlFor={`${idPrefix}-date`}>Date</Label>
+          <Input
+            id={`${idPrefix}-date`}
+            type="date"
+            value={state.date}
+            onChange={(e) => {
+              const date = e.target.value;
+              onChange({
+                ...state,
+                date,
+                recurrenceUntil:
+                  date && state.recurrenceUntil < date ? defaultUntil(date) : state.recurrenceUntil,
+              });
+            }}
+            className="h-11 w-full min-w-0 rounded-xl"
+          />
+        </div>
+        <div className="flex h-11 shrink-0 items-center justify-between gap-3 rounded-xl bg-surface-muted px-3">
+          <Label htmlFor={`${idPrefix}-all-day`} className="font-semibold whitespace-nowrap">
+            All day
+          </Label>
+          <Switch
+            id={`${idPrefix}-all-day`}
+            checked={state.allDay}
+            onCheckedChange={(v) => set("allDay", v)}
+          />
+        </div>
       </div>
 
       {!state.allDay ? (
-        <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="space-y-1.5">
+        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="min-w-0 space-y-1.5">
             <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
             <Input
               id={`${idPrefix}-start`}
               type="time"
               value={state.startTime}
               onChange={(e) => set("startTime", e.target.value)}
-              className="h-11 rounded-xl"
+              className="h-11 w-full min-w-0 rounded-xl"
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
             <Label htmlFor={`${idPrefix}-end`}>End time</Label>
             <Input
               id={`${idPrefix}-end`}
               type="time"
               value={state.endTime}
               onChange={(e) => set("endTime", e.target.value)}
-              className="h-11 rounded-xl"
+              className="h-11 w-full min-w-0 rounded-xl"
             />
           </div>
         </div>
       ) : null}
+
 
       <div className="space-y-2">
         <Label>Who?</Label>
