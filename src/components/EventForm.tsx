@@ -287,9 +287,14 @@ export function ruleForFormState(state: EventFormState): string | null {
     if (days.length === 0) return null;
     return `FREQ=WEEKLY;BYDAY=${days.join(",")}`;
   }
+  if (state.recurrence === "weekly") {
+    const days = effectiveWeeklyDays(state);
+    return days.length > 0 ? `FREQ=WEEKLY;BYDAY=${days.join(",")}` : "FREQ=WEEKLY";
+  }
   const rule = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence)?.rule ?? null;
   return rule;
 }
+
 
 /**
  * The calendar new events land on when the user never opens the picker.
