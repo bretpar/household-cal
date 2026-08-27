@@ -214,6 +214,25 @@
     font-family: var(--font-display);
     letter-spacing: -0.01em;
   }
+
+  /* iOS Safari native date/time inputs must be block-level and width-constrained
+     so they do not overflow their grid cells in the Add/Edit Event modal. */
+  input[type="date"],
+  input[type="time"] {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-inline-size: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  input[type="date"]::-webkit-date-and-time-value,
+  input[type="time"]::-webkit-date-and-time-value {
+    min-width: 0;
+    width: 100%;
+    text-align: left;
+  }
 }
 
 @utility coverage-stripes {
