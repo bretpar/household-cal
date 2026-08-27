@@ -1,4 +1,4 @@
-import type { DragEvent } from "react";
+import { useRef, type DragEvent } from "react";
 import { addDays, format, isSameDay } from "date-fns";
 
 import { cn } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { MemberBadgeRow } from "@/components/MemberBadge";
 import { eventTintClass } from "@/lib/event-colors";
 import { eventTypeIcons } from "@/components/EventCard";
 import { useReschedule } from "@/components/useReschedule";
+import { useLongPress } from "@/hooks/use-long-press";
 import {
   expandOccurrences,
   formatTimeRange,
@@ -96,11 +97,14 @@ export function WeekView({
   events,
   selectedMembers,
   days = 7,
+  onCreateAt,
 }: {
   anchor: Date;
   events: CalendarEvent[];
   selectedMembers: MemberId[];
   days?: number;
+  /** press-and-hold on empty grid space; only when the user may create events */
+  onCreateAt?: ((date: Date, withTime: boolean) => void) | undefined;
 }) {
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
@@ -130,6 +134,33 @@ export function WeekView({
     next.setHours(Math.floor(snapped / 60), snapped % 60, 0, 0);
     return next;
   };
+
+  /** Vertical offset inside a day column -> snapped time on that day. */
+  const startFromOffset = (day: Date, offsetY: number): Date => {
+    const minutes = (offsetY / HOUR_PX) * 60;
+    const total = Math.max(
+      DAY_START * 60,
+      Math.min(DAY_END * 60 - SNAP_MINUTES, DAY_START * 60 + minutes),
+    );
+    const snapped = Math.round(total / SNAP_MINUTES) * SNAP_MINUTES;
+    const next = new Date(day);
+    next.setHours(Math.floor(snapped / 60), snapped % 60, 0, 0);
+    return next;
+  };
+
+  // Press-and-hold empty grid space to create an event at that date/time.
+  const pressedDay = useRef<Date | null>(null);
+  const longPressProps = useLongPress(
+    onCreateAt
+      ? ({ offsetY }) => {
+          const day = pressedDay.current;
+          if (day) onCreateAt(startFromOffset(day, offsetY), true);
+        }
+      : undefined,
+    {
+      shouldIgnore: (target) => target instanceof Element && Boolean(target.closest("button")),
+    },
+  );
 
   /** Day-block / all-day chips keep their time of day and only change day. */
   const sameTimeOn = (day: Date, occurrence: Occurrence): Date => {
@@ -242,6 +273,11 @@ export function WeekView({
                 className="relative border-l border-border-soft"
                 style={{ height: hours.length * HOUR_PX }}
                 {...dropProps((e) => startFromDrop(day, e))}
+                {...longPressProps}
+                onPointerDown={(e) => {
+                  pressedDay.current = day;
+                  longPressProps.onPointerDown?.(e);
+                }}
               >
                 {hours.map((hour) => (
                   <div

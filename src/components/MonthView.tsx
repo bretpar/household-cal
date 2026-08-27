@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import {
   addDays,
   endOfMonth,
@@ -13,6 +14,8 @@ import { Baby, ClipboardPaste } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EventPill } from "@/components/EventCard";
 import { useReschedule } from "@/components/useReschedule";
+import { useLongPress } from "@/hooks/use-long-press";
+
 import {
   expandOccurrences,
   isCoverage,
@@ -29,6 +32,7 @@ export function MonthView({
   selectedMembers,
   onSelectDay,
   onPaste,
+  onCreateAt,
 }: {
   month: Date;
   events: CalendarEvent[];
@@ -36,6 +40,8 @@ export function MonthView({
   onSelectDay: (day: Date) => void;
   /** provided only when an event is copied and the user may create events */
   onPaste?: ((day: Date) => void) | undefined;
+  /** press-and-hold on an empty day; provided only when the user may create events */
+  onCreateAt?: ((day: Date, withTime: boolean) => void) | undefined;
 }) {
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
@@ -44,12 +50,30 @@ export function MonthView({
   const days: Date[] = [];
   for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) days.push(d);
 
+  // Press-and-hold an empty day to create an event. The day is captured on
+  // pointer down so a single hook can serve every cell.
+  const pressedDay = useRef<Date | null>(null);
+  const longPressProps = useLongPress(
+    onCreateAt ? () => {
+      const day = pressedDay.current;
+      if (day) onCreateAt(day, false);
+    } : undefined,
+    {
+      shouldIgnore: (target) =>
+        target instanceof Element && Boolean(target.closest("[data-occurrence],button")),
+    },
+  );
+
+
+
+
   /** Month cells only change the day; the event keeps its time of day. */
   const sameTimeOn = (day: Date, occurrence: { start: Date }) => {
     const next = new Date(day);
     next.setHours(occurrence.start.getHours(), occurrence.start.getMinutes(), 0, 0);
     return next;
   };
+
 
   return (
     <>
@@ -84,6 +108,12 @@ export function MonthView({
               aria-label={format(day, "EEEE, MMMM d")}
               onClick={() => onSelectDay(day)}
               {...dropProps((_e, o) => sameTimeOn(day, o))}
+              {...longPressProps}
+              onPointerDown={(e) => {
+                pressedDay.current = day;
+                longPressProps.onPointerDown?.(e);
+              }}
+
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
@@ -128,6 +158,7 @@ export function MonthView({
                 {visible.slice(0, 3).map((occurrence) => (
                   <div
                     key={occurrence.key}
+                    data-occurrence=""
                     {...dragProps(occurrence)}
                     className={cn(draggingKey === occurrence.key && "opacity-40")}
                   >

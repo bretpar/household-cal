@@ -8,6 +8,7 @@ import { AddEventDialog } from "@/components/AddEventDialog";
 import { AgendaView } from "@/components/AgendaView";
 import { CalendarFiltersSheet } from "@/components/CalendarFiltersSheet";
 import { MonthView } from "@/components/MonthView";
+import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -44,6 +45,11 @@ function CalendarPage() {
   const { events, visibleEvents, selectedMembers, canEdit, loading, copiedEvent, startPaste, family } =
     useCalendar();
   const onPaste = canEdit && copiedEvent ? startPaste : undefined;
+  // Press-and-hold creation on touch devices; the Add Event button stays the fallback.
+  const [quickAdd, setQuickAdd] = useState<{ at: Date; withTime: boolean } | null>(null);
+  const onCreateAt = canEdit
+    ? (at: Date, withTime: boolean) => setQuickAdd({ at, withTime })
+    : undefined;
   const isMobile = useIsMobile();
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("month");
@@ -151,6 +157,7 @@ function CalendarPage() {
             events={visibleEvents}
             selectedMembers={selectedMembers}
             onPaste={onPaste}
+            onCreateAt={onCreateAt}
             onSelectDay={(day) => {
               setAnchor(day);
               setView("day");
@@ -162,10 +169,17 @@ function CalendarPage() {
             events={visibleEvents}
             selectedMembers={selectedMembers}
             days={isMobile ? 3 : 7}
+            onCreateAt={onCreateAt}
           />
         ) : (
           <div className="space-y-4">
-            <WeekView anchor={anchor} events={visibleEvents} selectedMembers={selectedMembers} days={1} />
+            <WeekView
+              anchor={anchor}
+              events={visibleEvents}
+              selectedMembers={selectedMembers}
+              days={1}
+              onCreateAt={onCreateAt}
+            />
             <AgendaView
               anchor={anchor}
               events={visibleEvents}
@@ -175,6 +189,11 @@ function CalendarPage() {
           </div>
         )}
       </div>
+      <QuickAddEventDialog
+        at={quickAdd?.at ?? null}
+        withTime={quickAdd?.withTime ?? false}
+        onClose={() => setQuickAdd(null)}
+      />
     </AppShell>
   );
 }
