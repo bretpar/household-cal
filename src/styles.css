@@ -233,6 +233,46 @@
     width: 100%;
     text-align: left;
   }
+
+  /* Focus / active-state safeguards for the Add/Edit Event modal on iPhone.
+     Keeps borders, helper text, and dropdown triggers from visually overlapping
+     adjacent fields at narrow widths. */
+  .date-row,
+  .time-row {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .date-row > *,
+  .time-row > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .date-row input,
+  .time-row input,
+  .date-row button,
+  .time-row button,
+  .date-row [role="combobox"],
+  .time-row [role="combobox"] {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .date-row input:focus,
+  .time-row input:focus,
+  .date-row [data-state="open"],
+  .time-row [data-state="open"] {
+    z-index: 1;
+  }
+
+  /* Helper text and small paragraphs must wrap instead of overlapping fields. */
+  p.text-xs,
+  .text-xs.text-muted-foreground {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+  }
 }
 
 @utility coverage-stripes {
