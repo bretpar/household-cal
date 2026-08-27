@@ -262,7 +262,7 @@ export function WeekView({
                       onClick={() => openOccurrence(o)}
                       aria-label={`${careLabel(o)} ${formatTimeRange(o.start, o.end, false)}`}
                       className={cn(
-                        "absolute inset-x-0 w-full border-y border-coverage-strong/40 bg-coverage/45 text-left",
+                        "absolute inset-x-0 block w-full border-y border-coverage-strong/40 bg-coverage/45 text-left align-top",
                         draggingKey === o.key && "opacity-40",
                       )}
                       style={{ top: topFor(o.start), height: heightFor(o) }}
