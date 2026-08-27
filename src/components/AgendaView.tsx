@@ -2,6 +2,7 @@ import { addDays, format, isSameDay, startOfDay } from "date-fns";
 import { Baby, ClipboardPaste } from "lucide-react";
 
 import { EventCard } from "@/components/EventCard";
+import { useCalendar } from "@/lib/calendar-store";
 import {
   expandOccurrences,
   formatTimeRange,
@@ -26,6 +27,7 @@ export function AgendaView({
   /** provided only when an event is copied and the user may create events */
   onPaste?: ((day: Date) => void) | undefined;
 }) {
+  const { openOccurrence } = useCalendar();
   const start = startOfDay(anchor);
   const occurrences = expandOccurrences(events, start, addDays(start, days));
   const dayList = Array.from({ length: days }, (_, i) => addDays(start, i));

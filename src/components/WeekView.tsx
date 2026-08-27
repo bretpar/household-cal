@@ -176,7 +176,7 @@ export function WeekView({
           const allDay = occurrences.filter(
             (o) =>
               isDayBlock(o) &&
-              !isCareLayer(o) &&
+              !isCoverage(o.event) &&
               isSameDay(o.start, day) &&
               occurrenceMatchesFilter(o, selectedMembers),
           );
