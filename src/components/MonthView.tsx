@@ -13,6 +13,8 @@ import { Baby, ClipboardPaste } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EventPill } from "@/components/EventCard";
 import { useReschedule } from "@/components/useReschedule";
+import { useLongPress } from "@/hooks/use-long-press";
+
 import {
   expandOccurrences,
   isCoverage,
@@ -54,6 +56,7 @@ export function MonthView({
     next.setHours(occurrence.start.getHours(), occurrence.start.getMinutes(), 0, 0);
     return next;
   };
+
 
   return (
     <>
