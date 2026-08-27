@@ -82,13 +82,39 @@ export function defaultUntil(date: string): string {
   return format(base, "yyyy-MM-dd");
 }
 
-export function emptyFormState(defaultDate?: Date): EventFormState {
-  const date = format(defaultDate ?? new Date(), "yyyy-MM-dd");
+/** Weekday code (MO…SU) for a yyyy-MM-dd string. */
+export function weekdayCodeFor(date: string): WeekdayCode | null {
+  if (!date) return null;
+  const day = new Date(`${date}T00:00`);
+  if (Number.isNaN(day.getTime())) return null;
+  return ORDERED_WEEKDAYS[(day.getDay() + 6) % 7] ?? null;
+}
+
+/** The weekdays a Weekly series lands on — defaults to the event's own weekday. */
+export function effectiveWeeklyDays(state: EventFormState): WeekdayCode[] {
+  if (state.weeklyDays.length > 0) {
+    return ORDERED_WEEKDAYS.filter((d) => state.weeklyDays.includes(d));
+  }
+  const code = weekdayCodeFor(state.date);
+  return code ? [code] : [];
+}
+
+/**
+ * A blank form. When `useDateTime` is true the pressed time is carried over as
+ * the start time (used by press-and-hold creation in Week/Day views).
+ */
+export function emptyFormState(defaultDate?: Date, useDateTime = false): EventFormState {
+  const base = defaultDate ?? new Date();
+  const date = format(base, "yyyy-MM-dd");
+  const startTime = useDateTime ? format(base, "HH:mm") : "16:00";
+  const endTime = useDateTime
+    ? format(new Date(base.getTime() + 60 * 60 * 1000), "HH:mm")
+    : "17:00";
   return {
     title: "",
     date,
-    startTime: "16:00",
-    endTime: "17:00",
+    startTime,
+    endTime,
     allDay: false,
     members: [],
     eventType: "activity",
@@ -97,6 +123,7 @@ export function emptyFormState(defaultDate?: Date): EventFormState {
     recurrenceEnd: "on",
     recurrenceUntil: defaultUntil(date),
     recurrenceCount: 10,
+    weeklyDays: [],
     customizeDays: false,
     memberWeekdays: {},
     location: "",
@@ -121,6 +148,19 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
     : parsed?.count
       ? "count"
       : "never";
+  // A plain weekly rule with BYDAY is the simple multi-weekday case; only
+  // per-person weekday rules mean the advanced Custom schedule.
+  const weeklyByDay =
+    !perPerson && !match && parsed?.freq === "WEEKLY" && parsed.interval === 1 && parsed.byDay
+      ? (parsed.byDay.filter((d) => ORDERED_WEEKDAYS.includes(d as WeekdayCode)) as WeekdayCode[])
+      : [];
+  const recurrence = match?.id
+    ? match.id
+    : weeklyByDay.length > 0
+      ? "weekly"
+      : event.recurrence_rule
+        ? "custom"
+        : "none";
   return {
     title: event.title,
     date,
@@ -130,10 +170,11 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
     members: [...event.member_ids],
     eventType: event.event_type,
     categoryId: event.category_id ?? null,
-    recurrence: match?.id ?? (event.recurrence_rule ? "custom" : "none"),
+    recurrence,
     recurrenceEnd: end_mode,
     recurrenceUntil: event.recurrence_until ?? defaultUntil(date),
     recurrenceCount: parsed?.count ?? 10,
+    weeklyDays: weeklyByDay,
     customizeDays: perPerson,
     memberWeekdays,
     location: event.location ?? "",
@@ -141,6 +182,7 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
     calendarSourceId: event.calendar_source_id ?? null,
   };
 }
+
 
 /** Copied details + the newly chosen day. Never a recurring series by default. */
 export function formStateFromClipboard(clip: EventClipboard, date: Date): EventFormState {
