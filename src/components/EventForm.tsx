@@ -530,13 +530,60 @@ export function EventFormFields({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {RECURRENCE_OPTIONS.filter((r) => r.id !== "none").map((r) => (
+                {RECURRENCE_OPTIONS.filter(
+                  (r) =>
+                    r.id !== "none" &&
+                    // Legacy frequencies stay available for events that already use them.
+                    (PRIMARY_RECURRENCE_IDS.includes(r.id) || state.recurrence === r.id),
+                ).map((r) => (
                   <SelectItem key={r.id} value={r.id}>
-                    {r.label}
+                    {r.id === "custom" ? "Custom" : r.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Weekly multi-day picker: the simple "Mon/Wed/Thu" case, kept
+                entirely separate from per-person attendance rules. */}
+            {state.recurrence === "weekly" ? (
+              <div className="space-y-1.5 rounded-xl bg-surface-muted p-3">
+                <Label>Repeats on</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {WEEKDAY_CODES.map((day) => {
+                    const on = weeklyDays.includes(day.code);
+                    return (
+                      <button
+                        key={day.code}
+                        type="button"
+                        aria-pressed={on}
+                        aria-label={day.label}
+                        onClick={() => {
+                          const next = on
+                            ? weeklyDays.filter((d) => d !== day.code)
+                            : [...weeklyDays, day.code];
+                          // Never leave the series with no day at all.
+                          if (next.length === 0) return;
+                          set("weeklyDays", ORDERED_WEEKDAYS.filter((d) => next.includes(d)));
+                        }}
+                        className={cn(
+                          "h-10 w-10 rounded-full text-xs font-bold transition-colors",
+                          on
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-card text-muted-foreground",
+                        )}
+                      >
+                        {day.short[0]}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Tap more days to repeat several times a week.
+                </p>
+              </div>
+            ) : null}
+
+
 
             {state.members.length > 0 ? (
               <div className="space-y-3 rounded-xl bg-surface-muted p-3">
