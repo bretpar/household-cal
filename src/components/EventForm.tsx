@@ -342,6 +342,16 @@ export function EventFormFields({
   const set = <K extends keyof EventFormState>(key: K, value: EventFormState[K]) =>
     onChange({ ...state, [key]: value });
 
+  /** Household category whose name matches the chosen classification, if one exists. */
+  const matchingCategory = (label: string) =>
+    categories.find((c) => c.name.trim().toLowerCase() === label.trim().toLowerCase()) ?? null;
+
+  const setEventType = (next: EventType) => {
+    const label = EVENT_TYPES.find((t) => t.id === next)?.label ?? "";
+    onChange({ ...state, eventType: next, categoryId: matchingCategory(label)?.id ?? null });
+  };
+
+
   const recurrenceOption = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence);
   const repeats = state.recurrence === "custom" || Boolean(recurrenceOption?.rule);
   const perPersonDays = usesPerPersonDays(state);
