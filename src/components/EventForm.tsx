@@ -764,7 +764,9 @@ export function EventFormFields({
       </div>
 
       {!state.allDay ? (
-        <div className="time-row grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-end gap-3">
+        {/* Stacks on very narrow phones, side by side as soon as there is room. */}
+        <div className="time-row grid w-full min-w-0 max-w-full grid-cols-1 items-end gap-3 min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] min-[360px]:gap-4">
+
           <div className="min-w-0 max-w-full space-y-1.5">
             <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
             <NativePickerField
