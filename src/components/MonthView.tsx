@@ -91,6 +91,12 @@ export function MonthView({
               aria-label={format(day, "EEEE, MMMM d")}
               onClick={() => onSelectDay(day)}
               {...dropProps((_e, o) => sameTimeOn(day, o))}
+              {...longPressProps}
+              onPointerDown={(e) => {
+                pressedDay.current = day;
+                longPressProps.onPointerDown?.(e);
+              }}
+
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
