@@ -542,24 +542,31 @@ export function EventFormFields({
 
 
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="space-y-1.5">
-          <Label>Activity</Label>
-          <Select
-            value={state.eventType}
-            onValueChange={(v) => set("eventType", v as EventType)}
-          >
+        {/* The single event-classification dropdown. Stored as event_type; the
+            matching household category (if any) is kept in sync so card tints
+            keep working for existing data. */}
+        <div className="min-w-0 space-y-1.5">
+          <Label>Category</Label>
+          <Select value={state.eventType} onValueChange={(v) => setEventType(v as EventType)}>
             <SelectTrigger className="h-11 rounded-xl">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {EVENT_TYPES.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.label}
-                </SelectItem>
-              ))}
+              {EVENT_TYPES.map((t) => {
+                const swatch = categoryAppearance(matchingCategory(t.label)).swatch;
+                return (
+                  <SelectItem key={t.id} value={t.id}>
+                    <span className="flex items-center gap-2">
+                      <span className={cn("h-3 w-3 rounded-full", swatch)} aria-hidden />
+                      {t.label}
+                    </span>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
+
         <div className="space-y-1.5">
           <Label>Repeats</Label>
           <Select value={state.recurrence} onValueChange={(v) => set("recurrence", v)}>
