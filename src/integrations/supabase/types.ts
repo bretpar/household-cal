@@ -968,6 +968,8 @@ export type Database = {
         | "appointment"
         | "family"
         | "other"
+        | "travel"
+        | "birthday"
       family_role: "owner" | "editor" | "viewer"
       invitation_status: "pending" | "accepted" | "expired" | "revoked"
       member_access: "full" | "view_only"
@@ -1110,6 +1112,8 @@ export const Constants = {
         "appointment",
         "family",
         "other",
+        "travel",
+        "birthday",
       ],
       family_role: ["owner", "editor", "viewer"],
       invitation_status: ["pending", "accepted", "expired", "revoked"],
