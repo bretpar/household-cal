@@ -200,7 +200,9 @@ export function formStateFromClipboard(clip: EventClipboard, date: Date): EventF
     recurrenceEnd: "on",
     recurrenceUntil: defaultUntil(day),
     recurrenceCount: 10,
+    weeklyDays: [],
     customizeDays: false,
+
     memberWeekdays: {},
     location: clip.location,
     notes: clip.notes,
