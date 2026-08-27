@@ -145,10 +145,6 @@ function CalendarPage() {
           </div>
         ) : null}
 
-
-        <MemberFilter />
-        <CategoryFilter />
-
         {mode === "month" ? (
           <MonthView
             month={anchor}
