@@ -153,7 +153,7 @@ function CalendarPage() {
             onPaste={onPaste}
             onSelectDay={(day) => {
               setAnchor(day);
-              setView("agenda");
+              setView("day");
             }}
           />
         ) : mode === "week" ? (
