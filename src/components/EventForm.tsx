@@ -58,6 +58,12 @@ export interface EventFormState {
   recurrenceUntil: string;
   /** Occurrence count, used when recurrenceEnd is "count". */
   recurrenceCount: number;
+  /**
+   * Weekdays the Weekly frequency repeats on. Empty = the event's own weekday.
+   * Event-level only: it never touches per-member attendance rules.
+   */
+  weeklyDays: WeekdayCode[];
+
   /** when on, each selected member gets their own weekdays inside the series */
   customizeDays: boolean;
   /** member id -> weekdays they take part in. Missing/empty = every occurrence. */
