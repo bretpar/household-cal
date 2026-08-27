@@ -211,9 +211,8 @@ export function useTimeGridDrag({
       onPointerUp: commit,
       onPointerCancel: reset,
       onClickCapture,
-      style: ghost ? ({ touchAction: "none" } as const) : undefined,
     }),
-    [onPointerDown, onPointerMove, commit, reset, onClickCapture, ghost],
+    [onPointerDown, onPointerMove, commit, reset, onClickCapture],
   );
 
   return { ghost, columnProps, dragging: ghost !== null };
