@@ -164,6 +164,45 @@ function combine(date: string, time: string) {
   return new Date(`${date}T${time || "00:00"}`).toISOString();
 }
 
+function formattedPickerValue(type: "date" | "time", value: string): string {
+  if (!value) return type === "date" ? "Choose date" : "Choose time";
+  if (type === "date") {
+    return format(new Date(`${value}T00:00`), "MMM d, yyyy");
+  }
+  const [hours = 0, minutes = 0] = value.split(":").map(Number);
+  return format(new Date(2000, 0, 1, hours, minutes), "h:mm a");
+}
+
+function NativePickerField({
+  id,
+  type,
+  value,
+  onChange,
+}: {
+  id: string;
+  type: "date" | "time";
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="group relative h-11 w-full min-w-0 max-w-full">
+      <div
+        aria-hidden="true"
+        className="flex h-11 w-full min-w-0 items-center overflow-hidden rounded-xl border border-input bg-transparent px-3 text-base shadow-sm transition-colors group-focus-within:ring-1 group-focus-within:ring-ring md:text-sm"
+      >
+        <span className="min-w-0 truncate">{formattedPickerValue(type, value)}</span>
+      </div>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="absolute inset-0 z-10 block h-full w-full cursor-pointer opacity-0"
+      />
+    </div>
+  );
+}
+
 /** null = every occurrence of the series, so an untouched person keeps the simple behavior. */
 function allWeekdays(days: WeekdayCode[] | undefined): WeekdayCode[] | null {
   return days && days.length > 0 ? days : null;
@@ -382,12 +421,11 @@ export function EventFormFields({
       <div className="date-row grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
         <div className="min-w-0 max-w-full space-y-1.5">
           <Label htmlFor={`${idPrefix}-date`}>Date</Label>
-          <Input
+          <NativePickerField
             id={`${idPrefix}-date`}
             type="date"
             value={state.date}
-            onChange={(e) => {
-              const date = e.target.value;
+            onChange={(date) => {
               onChange({
                 ...state,
                 date,
@@ -395,7 +433,6 @@ export function EventFormFields({
                   date && state.recurrenceUntil < date ? defaultUntil(date) : state.recurrenceUntil,
               });
             }}
-            className="box-border h-11 w-full min-w-0 max-w-full rounded-xl"
           />
         </div>
         <div className="flex h-11 min-w-0 shrink-0 items-center gap-2 rounded-xl border border-input bg-card px-3">
@@ -619,22 +656,20 @@ export function EventFormFields({
         <div className="time-row grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-end gap-3">
           <div className="min-w-0 max-w-full space-y-1.5">
             <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
-            <Input
+            <NativePickerField
               id={`${idPrefix}-start`}
               type="time"
               value={state.startTime}
-              onChange={(e) => set("startTime", e.target.value)}
-              className="box-border h-11 w-full min-w-0 max-w-full rounded-xl px-2 sm:px-3"
+              onChange={(value) => set("startTime", value)}
             />
           </div>
           <div className="min-w-0 max-w-full space-y-1.5">
             <Label htmlFor={`${idPrefix}-end`}>End time</Label>
-            <Input
+            <NativePickerField
               id={`${idPrefix}-end`}
               type="time"
               value={state.endTime}
-              onChange={(e) => set("endTime", e.target.value)}
-              className="box-border h-11 w-full min-w-0 max-w-full rounded-xl px-2 sm:px-3"
+              onChange={(value) => set("endTime", value)}
             />
           </div>
         </div>
