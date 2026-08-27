@@ -1,4 +1,4 @@
-import { useRef, type DragEvent } from "react";
+import type { DragEvent } from "react";
 import { addDays, format, isSameDay } from "date-fns";
 
 import { cn } from "@/lib/utils";
