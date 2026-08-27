@@ -18,7 +18,10 @@ Object.assign(process.env, serverEnv);
 // Resolve through Node instead of hardcoding node_modules paths so the build works
 // with any installer layout (hoisted or symlinked/nested).
 const require = createRequire(import.meta.url);
-const entitiesDir = path.dirname(require.resolve("entities/package.json"));
+// entities' "exports" map hides ./package.json, so resolve the CJS entry (lib/index.js)
+// and walk up one level to get the package root.
+const entitiesDir = path.resolve(path.dirname(require.resolve("entities")), "..");
+
 
 export default defineConfig({
   vite: {
