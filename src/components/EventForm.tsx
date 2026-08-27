@@ -400,7 +400,14 @@ export function recurrenceSummary(state: EventFormState): string {
     const days = shortDays([...union]);
     base = days ? `Weekly · ${days}` : "Custom days by person";
   } else if (state.recurrence === "weekly") {
-    base = weekday ? `Every ${weekday}` : "Weekly";
+    const days = effectiveWeeklyDays(state);
+    base =
+      days.length > 1
+        ? `Weekly · ${shortDays(days)}`
+        : weekday
+          ? `Every ${weekday}`
+          : "Weekly";
+
   } else if (state.recurrence === "biweekly") {
     base = weekday ? `Every 2 weeks · ${format(day!, "EEE")}` : "Every 2 weeks";
   } else if (state.recurrence === "monthly") {
