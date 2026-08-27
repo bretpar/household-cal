@@ -370,7 +370,7 @@ export function EventFormFields({
           id={`${idPrefix}-name`}
           value={state.title}
           onChange={(e) => set("title", e.target.value)}
-          placeholder="Soccer practice"
+          placeholder={state.eventType === "childcare" ? "Michelle" : "Soccer practice"}
           className="h-11 rounded-xl"
         />
       </div>
