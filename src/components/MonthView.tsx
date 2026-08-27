@@ -49,6 +49,22 @@ export function MonthView({
   const days: Date[] = [];
   for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) days.push(d);
 
+  // Press-and-hold an empty day to create an event. The day is captured on
+  // pointer down so a single hook can serve every cell.
+  const pressedDay = useRef<Date | null>(null);
+  const longPressProps = useLongPress(
+    onCreateAt ? () => {
+      const day = pressedDay.current;
+      if (day) onCreateAt(day, false);
+    } : undefined,
+    {
+      shouldIgnore: (target) =>
+        target instanceof Element && Boolean(target.closest("[data-occurrence],button")),
+    },
+  );
+
+
+
 
   /** Month cells only change the day; the event keeps its time of day. */
   const sameTimeOn = (day: Date, occurrence: { start: Date }) => {
