@@ -18,13 +18,10 @@ import { cn } from "@/lib/utils";
 import type { EventDraft } from "@/lib/calendar-store";
 import type { EventClipboard } from "@/lib/event-clipboard";
 import {
-  UNCATEGORIZED_APPEARANCE,
-  UNCATEGORIZED_LABEL,
   categoryAppearance,
 } from "@/lib/event-categories";
 
 /** Select needs a non-empty value for the system Uncategorized state. */
-const UNCATEGORIZED_VALUE = "__uncategorized__";
 import { useCalendar } from "@/lib/calendar-store";
 import {
   EVENT_TYPES,
@@ -252,7 +249,10 @@ export function draftFromFormState(
 
 export function validateFormState(state: EventFormState): string | null {
   if (!state.title.trim()) return "Please add an event name";
-  if (state.members.length === 0) return "Choose at least one family member";
+  // Childcare names the caregiver, so family members stay optional.
+  if (state.eventType !== "childcare" && state.members.length === 0) {
+    return "Choose at least one family member";
+  }
   const repeats =
     state.recurrence === "custom" ||
     (RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence)?.rule ?? null) !== null;
@@ -434,7 +434,12 @@ export function EventFormFields({
 
 
       <div className="space-y-2">
-        <Label>Who?</Label>
+        <Label>
+          Who?
+          {state.eventType === "childcare" ? (
+            <span className="ml-1 font-semibold text-muted-foreground">(optional)</span>
+          ) : null}
+        </Label>
         <div className="flex flex-wrap gap-2">
           {activeMembers.map((member) => {
             const on = state.members.includes(member.id);
