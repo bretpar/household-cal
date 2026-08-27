@@ -1,5 +1,5 @@
 import type { DragEvent } from "react";
-import { addDays, format, isSameDay, startOfWeek } from "date-fns";
+import { addDays, format, isSameDay } from "date-fns";
 
 import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
