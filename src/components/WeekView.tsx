@@ -107,7 +107,8 @@ export function WeekView({
   const sourceName = (id: string | null) =>
     sources.find((s) => s.id === id)?.name ?? "Coverage";
   /** Childcare joins the soft care-coverage layer instead of competing as a card. */
-  const isCareLayer = (o: Occurrence) => isCoverage(o.event) || isChildcare(o.event);
+  const isCareLayer = (o: Occurrence) =>
+    isCoverage(o.event) || (isChildcare(o.event) && !o.event.all_day);
   const careLabel = (o: Occurrence) =>
     isChildcare(o.event) ? o.event.title : sourceName(o.event.calendar_source_id);
   /** Rolling window: the selected date is always the left-most column. */
@@ -176,7 +177,7 @@ export function WeekView({
           const allDay = occurrences.filter(
             (o) =>
               isDayBlock(o) &&
-              !isCoverage(o.event) &&
+              !isCareLayer(o) &&
               isSameDay(o.start, day) &&
               occurrenceMatchesFilter(o, selectedMembers),
           );
@@ -227,9 +228,7 @@ export function WeekView({
 
           {columns.map((day) => {
             const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
-            const coverage = dayOccurrences.filter(
-              (o) => isCareLayer(o) && (!isChildcare(o.event) || !isDayBlock(o)),
-            );
+            const coverage = dayOccurrences.filter((o) => isCareLayer(o));
             const visible = dayOccurrences.filter(
               (o) =>
                 !isCareLayer(o) &&
@@ -263,12 +262,12 @@ export function WeekView({
                       onClick={() => openOccurrence(o)}
                       aria-label={`${careLabel(o)} ${formatTimeRange(o.start, o.end, false)}`}
                       className={cn(
-                        "absolute inset-x-0 w-full border-y border-coverage-strong/40 bg-coverage/45 text-left",
+                        "absolute inset-x-0 flex w-full items-start justify-start border-y border-coverage-strong/40 bg-coverage/45 text-left",
                         draggingKey === o.key && "opacity-40",
                       )}
                       style={{ top: topFor(o.start), height: heightFor(o) }}
                     >
-                      <span className="block truncate px-1.5 pt-0.5 text-[9px] leading-tight font-semibold text-coverage-foreground">
+                      <span className="absolute inset-x-0 top-0 truncate px-1.5 pt-0.5 text-[9px] leading-tight font-semibold text-coverage-foreground">
                         {careLabel(o)} · {compactRange(o.start, o.end)}
                       </span>
                     </button>
