@@ -260,6 +260,10 @@ function allWeekdays(days: WeekdayCode[] | undefined): WeekdayCode[] | null {
 
 const ORDERED_WEEKDAYS = WEEKDAY_CODES.map((w) => w.code);
 
+/** Frequencies offered in the dropdown; others are legacy-only. */
+const PRIMARY_RECURRENCE_IDS: string[] = ["daily", "weekly", "custom"];
+
+
 /** Per-person days are always in play for the Custom schedule. */
 export function usesPerPersonDays(state: EventFormState): boolean {
   return state.customizeDays || state.recurrence === "custom";
@@ -455,7 +459,9 @@ export function EventFormFields({
   const recurrenceOption = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence);
   const repeats = state.recurrence === "custom" || Boolean(recurrenceOption?.rule);
   const perPersonDays = usesPerPersonDays(state);
+  const weeklyDays = effectiveWeeklyDays(state);
   const frequencyLabel = recurrenceOption?.label ?? "";
+
 
   const startsLabel = state.date
     ? format(new Date(`${state.date}T00:00`), "EEEE, MMM d, yyyy")
