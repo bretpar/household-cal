@@ -60,6 +60,25 @@ const DELETE_OPTIONS: { id: RecurrenceScope; label: string; hint: string }[] = [
 
 type Mode = "details" | "edit" | "delete";
 
+/**
+ * Prefills a dragged occurrence's proposed time. The duration is preserved and
+ * nothing is saved until the user submits, so recurrence scope still applies.
+ */
+function withProposedStart(
+  state: EventFormState,
+  occurrence: Occurrence,
+  start: Date,
+): EventFormState {
+  const duration = occurrence.end.getTime() - occurrence.start.getTime();
+  const end = new Date(start.getTime() + duration);
+  return {
+    ...state,
+    date: format(start, "yyyy-MM-dd"),
+    startTime: format(start, "HH:mm"),
+    endTime: format(end, "HH:mm"),
+  };
+}
+
 function recurrenceLabel(occurrence: Occurrence) {
   return describeRecurrence(occurrence.event);
 }
@@ -68,6 +87,7 @@ function recurrenceLabel(occurrence: Occurrence) {
 export function EventDetailsDialog() {
   const {
     activeOccurrence,
+    proposedStart,
     closeOccurrence,
     canEdit,
     updateEvent,
@@ -85,11 +105,13 @@ export function EventDetailsDialog() {
 
   useEffect(() => {
     if (activeOccurrence) {
-      setMode("details");
+      // A touch drag lands straight in the edit form with the proposed time filled in.
+      setMode(proposedStart ? "edit" : "details");
       setScope("this");
-      setState(formStateFromOccurrence(activeOccurrence));
+      const base = formStateFromOccurrence(activeOccurrence);
+      setState(proposedStart ? withProposedStart(base, activeOccurrence, proposedStart) : base);
     }
-  }, [activeOccurrence]);
+  }, [activeOccurrence, proposedStart]);
 
   if (!activeOccurrence) return null;
 
