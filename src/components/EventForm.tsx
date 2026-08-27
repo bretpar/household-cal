@@ -413,104 +413,6 @@ export function EventFormFields({
         </div>
       </div>
 
-      {!state.allDay ? (
-        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
-          <div className="min-w-0 space-y-1.5">
-            <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
-            <Input
-              id={`${idPrefix}-start`}
-              type="time"
-              value={state.startTime}
-              onChange={(e) => set("startTime", e.target.value)}
-              className="h-11 w-full min-w-0 rounded-xl px-2 sm:px-3"
-            />
-          </div>
-          <div className="min-w-0 space-y-1.5">
-            <Label htmlFor={`${idPrefix}-end`}>End time</Label>
-            <Input
-              id={`${idPrefix}-end`}
-              type="time"
-              value={state.endTime}
-              onChange={(e) => set("endTime", e.target.value)}
-              className="h-11 w-full min-w-0 rounded-xl px-2 sm:px-3"
-            />
-          </div>
-        </div>
-      ) : null}
-
-
-
-      <div className="space-y-2">
-        <Label>
-          Who?
-          {state.eventType === "childcare" ? (
-            <span className="ml-1 font-semibold text-muted-foreground">(optional)</span>
-          ) : null}
-        </Label>
-        <div className="flex flex-wrap gap-2">
-          {activeMembers.map((member) => {
-            const on = state.members.includes(member.id);
-            return (
-              <button
-                key={member.id}
-                type="button"
-                aria-pressed={on}
-                onClick={() =>
-                  set(
-                    "members",
-                    on
-                      ? state.members.filter((m) => m !== member.id)
-                      : [...state.members, member.id],
-                  )
-                }
-                className={cn(
-                  "flex h-11 max-w-full min-w-0 items-center gap-2 rounded-full pr-4 pl-1.5 text-sm font-semibold transition-all",
-                  on
-                    ? cn(styleFor(member.id).soft, "ring-2", styleFor(member.id).ring)
-                    : "bg-surface-muted text-muted-foreground",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
-                    styleFor(member.id).badge,
-                    !on && "opacity-60",
-                  )}
-                >
-                  {member.initial}
-                </span>
-                <span className="min-w-0 truncate">{member.name}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* The single event-classification dropdown. Stored as event_type; the
-          matching household category (if any) is kept in sync so card tints
-          keep working for existing data. */}
-      <div className="min-w-0 space-y-1.5">
-        <Label>Category</Label>
-        <Select value={state.eventType} onValueChange={(v) => setEventType(v as EventType)}>
-          <SelectTrigger className="h-11 rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {EVENT_TYPES.map((t) => {
-              const swatch = categoryAppearance(matchingCategory(t.label)).swatch;
-              return (
-                <SelectItem key={t.id} value={t.id}>
-                  <span className="flex items-center gap-2">
-                    <span className={cn("h-3 w-3 rounded-full", swatch)} aria-hidden />
-                    {t.label}
-                  </span>
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-      </div>
-
       {/* Repeat stays out of the way until the event actually repeats. */}
       <div className="space-y-3">
         <div className="flex items-center gap-2.5">
@@ -709,6 +611,104 @@ export function EventFormFields({
             </div>
           </>
         ) : null}
+      </div>
+
+      {!state.allDay ? (
+        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+          <div className="min-w-0 space-y-1.5">
+            <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
+            <Input
+              id={`${idPrefix}-start`}
+              type="time"
+              value={state.startTime}
+              onChange={(e) => set("startTime", e.target.value)}
+              className="h-11 w-full min-w-0 rounded-xl px-2 sm:px-3"
+            />
+          </div>
+          <div className="min-w-0 space-y-1.5">
+            <Label htmlFor={`${idPrefix}-end`}>End time</Label>
+            <Input
+              id={`${idPrefix}-end`}
+              type="time"
+              value={state.endTime}
+              onChange={(e) => set("endTime", e.target.value)}
+              className="h-11 w-full min-w-0 rounded-xl px-2 sm:px-3"
+            />
+          </div>
+        </div>
+      ) : null}
+
+
+
+      {/* The single event-classification dropdown. Stored as event_type; the
+          matching household category (if any) is kept in sync so card tints
+          keep working for existing data. */}
+      <div className="min-w-0 space-y-1.5">
+        <Label>Category</Label>
+        <Select value={state.eventType} onValueChange={(v) => setEventType(v as EventType)}>
+          <SelectTrigger className="h-11 rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {EVENT_TYPES.map((t) => {
+              const swatch = categoryAppearance(matchingCategory(t.label)).swatch;
+              return (
+                <SelectItem key={t.id} value={t.id}>
+                  <span className="flex items-center gap-2">
+                    <span className={cn("h-3 w-3 rounded-full", swatch)} aria-hidden />
+                    {t.label}
+                  </span>
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label>
+          Who?
+          {state.eventType === "childcare" ? (
+            <span className="ml-1 font-semibold text-muted-foreground">(optional)</span>
+          ) : null}
+        </Label>
+        <div className="flex flex-wrap gap-2">
+          {activeMembers.map((member) => {
+            const on = state.members.includes(member.id);
+            return (
+              <button
+                key={member.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() =>
+                  set(
+                    "members",
+                    on
+                      ? state.members.filter((m) => m !== member.id)
+                      : [...state.members, member.id],
+                  )
+                }
+                className={cn(
+                  "flex h-11 max-w-full min-w-0 items-center gap-2 rounded-full pr-4 pl-1.5 text-sm font-semibold transition-all",
+                  on
+                    ? cn(styleFor(member.id).soft, "ring-2", styleFor(member.id).ring)
+                    : "bg-surface-muted text-muted-foreground",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
+                    styleFor(member.id).badge,
+                    !on && "opacity-60",
+                  )}
+                >
+                  {member.initial}
+                </span>
+                <span className="min-w-0 truncate">{member.name}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
 
