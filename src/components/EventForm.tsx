@@ -692,39 +692,8 @@ export function EventFormFields({
         </div>
       ) : null}
 
-      <div className="space-y-1.5">
-        <Label>Category</Label>
-        <Select
-          value={state.categoryId ?? UNCATEGORIZED_VALUE}
-          onValueChange={(v) => set("categoryId", v === UNCATEGORIZED_VALUE ? null : v)}
-        >
-          <SelectTrigger className="h-11 rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={UNCATEGORIZED_VALUE}>
-              <span className="flex items-center gap-2">
-                <span
-                  className={cn("h-3 w-3 rounded-full", UNCATEGORIZED_APPEARANCE.swatch)}
-                  aria-hidden
-                />
-                {UNCATEGORIZED_LABEL}
-              </span>
-            </SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category.id} value={category.id}>
-                <span className="flex items-center gap-2">
-                  <span
-                    className={cn("h-3 w-3 rounded-full", categoryAppearance(category).swatch)}
-                    aria-hidden
-                  />
-                  {category.name}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+
+
 
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-location`}>Location</Label>
