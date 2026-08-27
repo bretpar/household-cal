@@ -616,7 +616,7 @@ export function EventFormFields({
       </div>
 
       {!state.allDay ? (
-        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-end gap-2.5 sm:gap-3">
           <div className="min-w-0 space-y-1.5">
             <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
             <Input
@@ -624,7 +624,7 @@ export function EventFormFields({
               type="time"
               value={state.startTime}
               onChange={(e) => set("startTime", e.target.value)}
-              className="h-11 w-full min-w-0 rounded-xl px-2 sm:px-3"
+              className="box-border h-11 w-full max-w-full min-w-0 rounded-xl px-2 sm:px-3"
             />
           </div>
           <div className="min-w-0 space-y-1.5">
@@ -634,11 +634,12 @@ export function EventFormFields({
               type="time"
               value={state.endTime}
               onChange={(e) => set("endTime", e.target.value)}
-              className="h-11 w-full min-w-0 rounded-xl px-2 sm:px-3"
+              className="box-border h-11 w-full max-w-full min-w-0 rounded-xl px-2 sm:px-3"
             />
           </div>
         </div>
       ) : null}
+
 
 
 
