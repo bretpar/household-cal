@@ -21,6 +21,7 @@ import {
   validateFormState,
   type EventFormState,
 } from "@/components/EventForm";
+import { UNCATEGORIZED_LABEL } from "@/lib/event-categories";
 import { runGuardedMutation } from "@/lib/async-submit";
 import { useCalendar, type RecurrenceScope } from "@/lib/calendar-store";
 
