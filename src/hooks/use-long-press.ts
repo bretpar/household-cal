@@ -78,8 +78,6 @@ export function useLongPress(
     event.preventDefault();
   }, []);
 
-  if (!onLongPress) return {};
-
   return {
     onPointerDown,
     onPointerMove,

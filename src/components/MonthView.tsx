@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import {
   addDays,
   endOfMonth,
@@ -157,6 +158,7 @@ export function MonthView({
                 {visible.slice(0, 3).map((occurrence) => (
                   <div
                     key={occurrence.key}
+                    data-occurrence=""
                     {...dragProps(occurrence)}
                     className={cn(draggingKey === occurrence.key && "opacity-40")}
                   >
