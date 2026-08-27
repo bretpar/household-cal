@@ -11,7 +11,9 @@ import { classifyGoogleFailure, type GoogleEvent } from "@/lib/google/mapping";
 export const GATEWAY_BASE_URL = "https://connector-gateway.lovable.dev";
 export const CONNECTOR_ID = "google_calendar";
 export const GOOGLE_SCOPES = [
-  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+  "https://www.googleapis.com/auth/calendar.calendars",
 ];
 
 /** Raised when Google/the gateway says the connection is no longer usable. */
