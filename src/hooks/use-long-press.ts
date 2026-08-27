@@ -24,6 +24,8 @@ export function useLongPress(
 ) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const origin = useRef<{ x: number; y: number } | null>(null);
+  const fired = useRef(false);
+
   const { shouldIgnore } = options;
 
   const clear = useCallback(() => {
