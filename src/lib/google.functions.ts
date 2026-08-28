@@ -163,6 +163,21 @@ export const renameCalendarSlot = createServerFn({ method: "POST" })
     return renameSlot(family, data.source_id, data.name);
   });
 
+export const setCalendarDisplayMode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { source_id: string; display_mode: "events" | "coverage_background" }) => {
+    if (input.display_mode !== "events" && input.display_mode !== "coverage_background") {
+      throw new Error("Unknown display style");
+    }
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const { resolveOwnedFamily, setDisplayMode } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can configure calendar sync");
+    return setDisplayMode(family, data.source_id, data.display_mode);
+  });
+
 export const setMainCalendarSlot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { source_id: string }) => input)
