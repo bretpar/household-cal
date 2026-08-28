@@ -60,6 +60,60 @@ export function resolveCategory(
   return categories.find((c) => c.id === categoryId) ?? null;
 }
 
+/** Anything with a category-ish shape: a stored id and/or the legacy event_type. */
+export type CategorizableEvent = {
+  category_id?: string | null;
+  event_type?: EventType | null;
+};
+
+/** Accepts a bare category id or a whole event row. */
+export type CategoryRef = string | null | undefined | CategorizableEvent;
+
+function refToEvent(ref: CategoryRef): CategorizableEvent {
+  if (ref === null || ref === undefined) return { category_id: null };
+  if (typeof ref === "string") return { category_id: ref };
+  return ref;
+}
+
+/**
+ * Legacy/stale bridge: events created before household categories existed (and
+ * everything imported from Google) only carry `event_type`. Match them to the
+ * household category whose name maps to the same behaviour, so older rows show
+ * the household's current name/colour instead of Uncategorized.
+ */
+export function categoryForEventType(
+  categories: EventCategory[],
+  eventType: EventType | null | undefined,
+): EventCategory | null {
+  if (!eventType || eventType === "other") return null;
+  return categories.find((c) => eventTypeForCategoryName(c.name) === eventType) ?? null;
+}
+
+/**
+ * Single source of truth for "which household category is this event in".
+ * Order: the stored category row → the legacy event_type match → Uncategorized
+ * (which also covers ids pointing at a category that was deleted or renamed
+ * away in Settings).
+ */
+export function resolveEventCategory(
+  categories: EventCategory[],
+  ref: CategoryRef,
+): EventCategory | null {
+  const event = refToEvent(ref);
+  return (
+    resolveCategory(categories, event.category_id) ??
+    categoryForEventType(categories, event.event_type)
+  );
+}
+
+/** Effective category id for form defaults/filters; null = Uncategorized. */
+export function resolvedCategoryId(
+  categories: EventCategory[],
+  ref: CategoryRef,
+): string | null {
+  return resolveEventCategory(categories, ref)?.id ?? null;
+}
+
 /** Anything unmapped — including Google imports — resolves to Uncategorized. */
 export function categoryAppearance(category: EventCategory | null): CategoryAppearance {
   if (!category) return { ...UNCATEGORIZED_APPEARANCE };
@@ -69,10 +123,11 @@ export function categoryAppearance(category: EventCategory | null): CategoryAppe
 
 export function appearanceForEvent(
   categories: EventCategory[],
-  categoryId: string | null | undefined,
+  ref: CategoryRef,
 ): CategoryAppearance {
-  return categoryAppearance(resolveCategory(categories, categoryId));
+  return categoryAppearance(resolveEventCategory(categories, ref));
 }
+
 
 export function canAddCategory(categories: EventCategory[]): boolean {
   return categories.length < MAX_CUSTOM_CATEGORIES;
