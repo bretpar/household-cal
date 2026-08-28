@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { addDays, addMonths, format } from "date-fns";
+import { addDays, addMonths, format, startOfWeek } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
@@ -89,12 +89,17 @@ function CalendarPage() {
     sensitivity: mode,
   });
 
+  // Full week columns honor the week-start preference; the 3-day phone layout
+  // stays rolling from the anchor so it keeps looking forward from today.
+  const weekDays = isMobile ? 3 : 7;
+  const weekAnchor = weekDays === 7 ? startOfWeek(anchor, { weekStartsOn: weekStart }) : anchor;
+
   const label =
 
     mode === "month"
       ? format(anchor, "MMMM yyyy")
       : mode === "week"
-        ? `${format(anchor, "MMM d")} – ${format(addDays(anchor, 6), "MMM d")}`
+        ? `${format(weekAnchor, "MMM d")} – ${format(addDays(weekAnchor, weekDays - 1), "MMM d")}`
         : format(anchor, "EEEE, MMM d");
 
   return (
@@ -186,10 +191,10 @@ function CalendarPage() {
             />
           ) : mode === "week" ? (
             <WeekView
-              anchor={anchor}
+              anchor={weekAnchor}
               events={visibleEvents}
               selectedMembers={selectedMembers}
-              days={isMobile ? 3 : 7}
+              days={weekDays}
               onCreateRange={onCreateRange}
             />
           ) : (

@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LocationAutocomplete } from "@/components/LocationAutocomplete";
+import { TimeField } from "@/components/TimeField";
 
 import {
   Select,
@@ -770,18 +771,16 @@ export function EventFormFields({
 
           <div className="min-w-0 max-w-full space-y-1.5">
             <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
-            <NativePickerField
+            <TimeField
               id={`${idPrefix}-start`}
-              type="time"
               value={state.startTime}
               onChange={(value) => set("startTime", value)}
             />
           </div>
           <div className="min-w-0 max-w-full space-y-1.5">
             <Label htmlFor={`${idPrefix}-end`}>End time</Label>
-            <NativePickerField
+            <TimeField
               id={`${idPrefix}-end`}
-              type="time"
               value={state.endTime}
               onChange={(value) => set("endTime", value)}
             />
