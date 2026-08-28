@@ -386,25 +386,42 @@ export function WeekView({
 
 
 
-                {/* Live drag preview: never persisted, replaced by the real form on release. */}
-                {ghost && ghostTimes && isSameDay(ghost.day, day) ? (
-                  <div
-                    className="pointer-events-none absolute inset-x-1 z-20 rounded-xl border-2 border-primary bg-primary/15 px-1.5 py-1 shadow-soft"
-                    style={{
-                      top: (ghost.startMinutes / 60 - DAY_START) * HOUR_PX,
-                      height: (ghost.durationMinutes / 60) * HOUR_PX,
-                    }}
-                  >
-                    <p className="truncate text-[11px] font-bold text-primary">
-                      {ghost.kind === "move" && ghost.occurrence
-                        ? ghost.occurrence.event.title
-                        : "New event"}
-                    </p>
-                    <p className="truncate text-[10px] font-semibold text-primary/80">
-                      {ghostTimes.label}
-                    </p>
-                  </div>
-                ) : null}
+                {/* Live drag preview: never persisted, replaced by the real form on release.
+                    Long coverage shifts stay unfilled so the day is still readable. */}
+                {ghost && ghostTimes && isSameDay(ghost.day, day)
+                  ? (() => {
+                      const isCare = Boolean(ghost.occurrence && isCareLayer(ghost.occurrence));
+                      return (
+                        <div
+                          className={cn(
+                            "pointer-events-none absolute inset-x-1 z-20 rounded-xl border-2 px-1.5 py-1",
+                            isCare
+                              ? "border-coverage-strong/80 bg-coverage/40"
+                              : "border-primary bg-primary/15 shadow-soft",
+                          )}
+                          style={{
+                            top: (ghost.startMinutes / 60 - DAY_START) * HOUR_PX,
+                            height: (ghost.durationMinutes / 60) * HOUR_PX,
+                          }}
+                        >
+                          <p
+                            className={cn(
+                              "inline-flex max-w-full items-center gap-1 truncate rounded-full px-1.5 text-[10px] font-bold",
+                              isCare
+                                ? "bg-surface/85 text-coverage-foreground"
+                                : "text-primary",
+                            )}
+                          >
+                            {ghost.kind === "move" && ghost.occurrence
+                              ? ghost.occurrence.event.title
+                              : "New event"}
+                            <span className="font-semibold opacity-80">{ghostTimes.label}</span>
+                          </p>
+                        </div>
+                      );
+                    })()
+                  : null}
+
               </div>
             );
           })}
