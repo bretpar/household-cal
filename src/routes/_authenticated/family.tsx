@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { CalendarCog, Eye, Palette, RefreshCw, Users } from "lucide-react";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { CalendarCog, ChevronRight, Eye, Palette, RefreshCw, Users } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
