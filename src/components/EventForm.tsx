@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { ChevronDown } from "lucide-react";
 
@@ -26,6 +26,7 @@ import {
   eventTypeForCategoryName,
   UNCATEGORIZED_APPEARANCE,
   UNCATEGORIZED_LABEL,
+  resolvedCategoryId,
   UNCATEGORIZED_VALUE,
 } from "@/lib/event-categories";
 
@@ -463,6 +464,26 @@ export function EventFormFields({
     });
   };
 
+  /**
+   * Older events (and Google imports) may carry a stale/missing category_id
+   * while still holding a legacy event_type. Resolve them against the current
+   * household list so the dropdown preselects the right category, and fall
+   * back to Uncategorized when the category no longer exists.
+   */
+  const resolvedCategoryValue = resolvedCategoryId(categories, {
+    category_id: state.categoryId,
+    event_type: state.eventType,
+  });
+
+  // Heal the draft once categories are loaded so saving writes the resolved
+  // category id (or clears a dangling one) instead of the stale value.
+  useEffect(() => {
+    if (categories.length === 0) return;
+    if (resolvedCategoryValue === state.categoryId) return;
+    setCategory(resolvedCategoryValue);
+  }, [resolvedCategoryValue, state.categoryId, categories.length]);
+
+
 
   const recurrenceOption = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence);
   const repeats = state.recurrence === "custom" || Boolean(recurrenceOption?.rule);
@@ -804,7 +825,7 @@ export function EventFormFields({
       <div className="min-w-0 space-y-1.5">
         <Label>Category</Label>
         <Select
-          value={state.categoryId ?? UNCATEGORIZED_VALUE}
+          value={resolvedCategoryValue ?? UNCATEGORIZED_VALUE}
           onValueChange={(v) => setCategory(v === UNCATEGORIZED_VALUE ? null : v)}
         >
           <SelectTrigger className="h-11 rounded-xl">

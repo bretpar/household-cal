@@ -20,7 +20,11 @@ import {
   type MemberId,
   type WeekdayCode,
 } from "@/lib/family-data";
-import { UNCATEGORIZED_LABEL, type EventCategory } from "@/lib/event-categories";
+import {
+  resolveEventCategory,
+  UNCATEGORIZED_LABEL,
+  type EventCategory,
+} from "@/lib/event-categories";
 
 export type GroupMode = "category" | "day" | "frequency" | "duration" | "member" | "none";
 export type SortMode = "name" | "next" | "start" | "created";
@@ -212,9 +216,7 @@ export function groupSeries(
     } else if (mode === "category") {
       // Household Event Categories are the source of truth; fall back to the
       // Uncategorized bucket when an event has no category row.
-      const category = series.event.category_id
-        ? (categories.find((c) => c.id === series.event.category_id) ?? null)
-        : null;
+      const category = resolveEventCategory(categories, series.event);
       if (category) {
         const order = categories.findIndex((c) => c.id === category.id);
         push(category.id, category.name, order < 0 ? 90 : order, series);

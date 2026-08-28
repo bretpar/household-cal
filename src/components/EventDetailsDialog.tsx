@@ -120,7 +120,7 @@ export function EventDetailsDialog() {
   const Icon = eventTypeIcons[event.event_type];
   const repeats = recurrenceLabel(occurrence);
   const typeLabel = activityLabel(event.event_type);
-  const appearance = categoryAppearanceFor(event.category_id);
+  const appearance = categoryAppearanceFor(event);
 
   const needsScope = Boolean(event.recurrence_rule);
 
