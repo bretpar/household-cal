@@ -943,6 +943,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_preferences: {
+        Row: {
+          created_at: string
+          default_calendar_view: string
+          updated_at: string
+          user_id: string
+          week_start: number
+        }
+        Insert: {
+          created_at?: string
+          default_calendar_view?: string
+          updated_at?: string
+          user_id: string
+          week_start?: number
+        }
+        Update: {
+          created_at?: string
+          default_calendar_view?: string
+          updated_at?: string
+          user_id?: string
+          week_start?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

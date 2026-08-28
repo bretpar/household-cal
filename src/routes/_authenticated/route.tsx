@@ -6,6 +6,7 @@ import { PasteEventDialog } from "@/components/PasteEventDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureFamilyMembership } from "@/lib/calendar.functions";
 import { CalendarProvider } from "@/lib/calendar-store";
+import { UserPreferencesProvider } from "@/lib/user-preferences";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -26,11 +27,13 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   return (
-    <CalendarProvider>
-      <Outlet />
-      <EventDetailsDialog />
-      <PasteEventDialog />
-      <CopiedEventBar />
-    </CalendarProvider>
+    <UserPreferencesProvider>
+      <CalendarProvider>
+        <Outlet />
+        <EventDetailsDialog />
+        <PasteEventDialog />
+        <CopiedEventBar />
+      </CalendarProvider>
+    </UserPreferencesProvider>
   );
 }

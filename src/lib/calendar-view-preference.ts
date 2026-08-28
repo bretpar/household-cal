@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useUserPreferences, type CalendarViewMode } from "@/lib/user-preferences";
 
-/** Calendar view modes, shared by the Calendar page and the Settings preference. */
-export type CalendarViewMode = "month" | "week" | "day";
+/** Calendar view modes, shared by the Calendar page and the Preferences screen. */
+export type { CalendarViewMode };
 
 export const CALENDAR_VIEW_LABEL: Record<CalendarViewMode, string> = {
   month: "Month",
@@ -9,37 +9,17 @@ export const CALENDAR_VIEW_LABEL: Record<CalendarViewMode, string> = {
   day: "Day",
 };
 
-const STORAGE_PREFIX = "ofc:default-calendar-view";
-
-function keyFor(scope: string | null | undefined) {
-  return scope ? `${STORAGE_PREFIX}:${scope}` : STORAGE_PREFIX;
-}
-
-function read(scope: string | null | undefined): CalendarViewMode | null {
-  if (typeof window === "undefined") return null;
-  const value = window.localStorage.getItem(keyFor(scope));
-  return value === "month" || value === "week" || value === "day" ? value : null;
-}
-
 /**
- * Per-user default calendar view, stored in the browser for the signed-in scope.
- * Read after hydration so SSR markup stays stable.
+ * Per-user default calendar view, stored in the backend so it follows the user
+ * across devices. The legacy `scope` argument is ignored.
  */
-export function useDefaultCalendarView(scope: string | null | undefined) {
-  const [defaultView, setDefaultView] = useState<CalendarViewMode | null>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    setDefaultView(read(scope));
-    setReady(true);
-  }, [scope]);
-
-  const save = (next: CalendarViewMode) => {
-    setDefaultView(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(keyFor(scope), next);
-    }
+export function useDefaultCalendarView(_scope?: string | null | undefined) {
+  const { defaultView, ready, savePreferences } = useUserPreferences();
+  return {
+    defaultView: ready ? defaultView : null,
+    ready,
+    setDefaultView: (next: CalendarViewMode) => {
+      void savePreferences({ defaultView: next });
+    },
   };
-
-  return { defaultView, ready, setDefaultView: save };
 }
