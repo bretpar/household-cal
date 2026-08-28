@@ -27,11 +27,13 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   return (
-    <CalendarProvider>
-      <Outlet />
-      <EventDetailsDialog />
-      <PasteEventDialog />
-      <CopiedEventBar />
-    </CalendarProvider>
+    <UserPreferencesProvider>
+      <CalendarProvider>
+        <Outlet />
+        <EventDetailsDialog />
+        <PasteEventDialog />
+        <CopiedEventBar />
+      </CalendarProvider>
+    </UserPreferencesProvider>
   );
 }
