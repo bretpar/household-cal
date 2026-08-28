@@ -321,7 +321,9 @@ export function WeekView({
 
                 {/* Timed events carry the strongest emphasis and sit above the coverage layer,
                     in side-by-side lanes when they overlap. The left gutter keeps shading visible. */}
-                <div className="absolute inset-y-0 right-1 left-3 sm:left-4">
+                {/* The lane wrapper is transparent but must not steal taps from the
+                    coverage layer beneath it; only the real event buttons handle hits. */}
+                <div className="pointer-events-none absolute inset-y-0 right-1 left-3 sm:left-4">
                   {withLanes(visible).map(({ occurrence: o, lane, laneCount }) => {
                     const Icon = eventTypeIcons[o.event.event_type];
                     const compact = heightFor(o) < 44;
@@ -333,9 +335,10 @@ export function WeekView({
                         {...dragProps(o)}
                         onClick={() => openOccurrence(o)}
                         className={cn(
+                          // pointer-events-auto re-enables hits on the real buttons,
                           // touch-hit-44 adds an invisible 44px hit area so thin
                           // events stay tappable without growing visually.
-                          "touch-hit-44 absolute rounded-xl text-left transition-transform hover:-translate-y-px",
+                          "pointer-events-auto touch-hit-44 absolute rounded-xl text-left transition-transform hover:-translate-y-px",
                           draggingKey === o.key && "opacity-40",
                           ghost?.occurrence?.key === o.key &&
                             "scale-[0.98] opacity-40 ring-2 ring-primary",
