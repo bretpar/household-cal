@@ -101,6 +101,8 @@ export function EventDetailsDialog() {
   const [scope, setScope] = useState<RecurrenceScope>("this");
   const [state, setState] = useState<EventFormState | null>(null);
   const [busy, setBusy] = useState(false);
+  // Inline copy of the validation message so a blocked save is never silent.
+  const [formError, setFormError] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -137,6 +139,7 @@ export function EventDetailsDialog() {
   const saveEdit = async () => {
     if (!state) return;
     const error = validateFormState(state);
+    setFormError(error);
     if (error) {
       toast.error(error);
       return;
@@ -317,7 +320,14 @@ export function EventDetailsDialog() {
 
             {state ? (
               <div className="-mx-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 pb-24 max-sm:pb-[max(7rem,env(safe-area-inset-bottom)+4rem)] sm:-mx-6 sm:px-6">
-                <EventFormFields state={state} onChange={setState} idPrefix="edit" />
+                <EventFormFields
+                  state={state}
+                  onChange={(next) => {
+                    if (formError) setFormError(null);
+                    setState(next);
+                  }}
+                  idPrefix="edit"
+                />
                 {scopePicker}
                 <div className="border-t pt-4">
                   <Button
@@ -333,6 +343,12 @@ export function EventDetailsDialog() {
               </div>
             ) : null}
 
+
+            {formError ? (
+              <p role="alert" className="shrink-0 text-sm font-semibold text-destructive">
+                {formError}
+              </p>
+            ) : null}
 
             <DialogFooter>
               <Button
