@@ -20,6 +20,7 @@ import {
   type MemberId,
   type WeekdayCode,
 } from "@/lib/family-data";
+import { UNCATEGORIZED_LABEL, type EventCategory } from "@/lib/event-categories";
 
 export type GroupMode = "category" | "day" | "frequency" | "duration" | "member" | "none";
 export type SortMode = "name" | "next" | "start" | "created";
@@ -196,6 +197,7 @@ export function groupSeries(
   mode: GroupMode,
   sort: SortMode,
   members: FamilyMember[] = [],
+  categories: EventCategory[] = [],
 ): SeriesGroup[] {
   const buckets = new Map<string, { label: string; order: number; items: EventSeries[] }>();
   const push = (key: string, label: string, order: number, item: EventSeries) => {
@@ -208,8 +210,17 @@ export function groupSeries(
     if (mode === "none") {
       push("all", "All repeating events", 0, series);
     } else if (mode === "category") {
-      const type = series.event.event_type;
-      push(type, categorySection(type), CATEGORY_ORDER.indexOf(type), series);
+      // Household Event Categories are the source of truth; fall back to the
+      // Uncategorized bucket when an event has no category row.
+      const category = series.event.category_id
+        ? (categories.find((c) => c.id === series.event.category_id) ?? null)
+        : null;
+      if (category) {
+        const order = categories.findIndex((c) => c.id === category.id);
+        push(category.id, category.name, order < 0 ? 90 : order, series);
+      } else {
+        push("uncategorized", UNCATEGORIZED_LABEL, 99, series);
+      }
     } else if (mode === "frequency") {
       const label = frequencyLabel(series.event);
       push(label, label, 0, series);
