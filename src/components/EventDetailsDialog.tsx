@@ -200,7 +200,7 @@ export function EventDetailsDialog() {
         {mode === "details" ? (
           <>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+              <DialogTitle className="flex items-center gap-2 pr-24">
                 <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
                 <span className="min-w-0 truncate">{event.title}</span>
               </DialogTitle>
@@ -215,7 +215,39 @@ export function EventDetailsDialog() {
                   ? typeLabel
                   : `${appearance.label} · ${typeLabel}`}
               </DialogDescription>
+              {canEdit ? (
+                // Copy sits immediately left of Edit in the upper-right.
+                <div className="absolute top-3.5 right-12 flex items-center gap-1 sm:top-5 sm:right-14">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    aria-label="Copy event"
+                    title="Copy event"
+                    className="h-9 w-9 rounded-full"
+                    onClick={() => {
+                      copyOccurrence(occurrence);
+                      toast.success(`Copied ${event.title} — pick a day to paste it`);
+                      closeOccurrence();
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    aria-label="Edit event"
+                    title="Edit event"
+                    className="h-9 w-9 rounded-full"
+                    onClick={() => setMode("edit")}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : null}
             </DialogHeader>
+
 
             <div className="-mx-4 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 text-sm sm:-mx-6 sm:px-6">
               <p className="flex items-center gap-2 font-semibold">
