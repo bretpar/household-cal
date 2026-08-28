@@ -463,6 +463,18 @@ export function EventFormFields({
     });
   };
 
+  /**
+   * Older events (and Google imports) may carry a stale/missing category_id
+   * while still holding a legacy event_type. Resolve them against the current
+   * household list so the dropdown preselects the right category, and fall
+   * back to Uncategorized when the category no longer exists.
+   */
+  const resolvedCategoryValue = resolvedCategoryId(categories, {
+    category_id: state.categoryId,
+    event_type: state.eventType,
+  });
+
+
 
   const recurrenceOption = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence);
   const repeats = state.recurrence === "custom" || Boolean(recurrenceOption?.rule);
