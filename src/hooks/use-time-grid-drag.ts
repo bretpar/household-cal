@@ -134,6 +134,10 @@ export function useTimeGridDrag({
       const captureTarget = event.currentTarget;
       const pointerId = event.pointerId;
       clearTimer();
+      // Coverage bands are large touch surfaces: require a more deliberate
+      // hold before entering move/drag mode so a quick tap opens the event.
+      const holdMs =
+        occurrence && isCoverageLayer?.(occurrence) ? COVERAGE_HOLD_MS : HOLD_MS;
 
       timer.current = setTimeout(() => {
         timer.current = null;
