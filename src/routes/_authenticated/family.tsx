@@ -140,15 +140,7 @@ function FamilyPage() {
                 />
               </div>
             ))}
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4">
-              <div className="min-w-0">
-                <p className="text-sm font-bold">Week starts on Monday</p>
-                <p className="text-xs text-muted-foreground">
-                  Month and week views currently always start on Monday · Not adjustable yet
-                </p>
-              </div>
-              <Switch checked disabled aria-label="Week starts on Monday" />
-            </div>
+            <WeekStartSetting />
           </div>
         </SettingsSection>
 
