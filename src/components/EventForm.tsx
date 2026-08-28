@@ -37,6 +37,7 @@ import {
   parseRecurrenceRule,
   withRecurrenceCount,
   type CalendarSource,
+  type EventType,
   type MemberId,
   type Occurrence,
   type WeekdayCode,
