@@ -170,13 +170,16 @@ export const UNCATEGORIZED_FILTER = "uncategorized";
 export type CategorySelection = string | null;
 
 export function eventMatchesCategory(
-  event: { category_id?: string | null },
+  event: CategorizableEvent,
   selected: CategorySelection,
+  categories: EventCategory[] = [],
 ): boolean {
   if (!selected) return true;
-  if (selected === UNCATEGORIZED_FILTER) return !event.category_id;
-  return event.category_id === selected;
+  const resolved = resolvedCategoryId(categories, event);
+  if (selected === UNCATEGORIZED_FILTER) return !resolved;
+  return resolved === selected;
 }
+
 
 /** Select value standing in for the system Uncategorized state (no row). */
 export const UNCATEGORIZED_VALUE = "uncategorized";
