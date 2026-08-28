@@ -19,6 +19,7 @@ import {
   useDefaultCalendarView,
   type CalendarViewMode,
 } from "@/lib/calendar-view-preference";
+import { useWeekStart } from "@/lib/week-start-preference";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
