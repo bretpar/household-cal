@@ -86,9 +86,13 @@ export function EventComposerContent({
 }) {
   const { addEvent, sources } = useCalendar();
   const [saving, setSaving] = useState(false);
+  // Shown inside the dialog so a blocked submit is never silent, even if a
+  // toast is off-screen or covered.
+  const [formError, setFormError] = useState<string | null>(null);
 
   const submit = async () => {
     const error = validateFormState(state);
+    setFormError(error);
     if (error) {
       toast.error(error);
       return;
