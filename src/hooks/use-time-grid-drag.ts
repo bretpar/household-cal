@@ -145,7 +145,10 @@ export function useTimeGridDrag({
           durationMinutes: duration,
           occurrence: start.occurrence,
         });
+        // iOS starts a selection/loupe on a held touch; drop it as the drag begins.
+        window.getSelection?.()?.removeAllRanges();
         vibrate(14);
+
         try {
           captureTarget.setPointerCapture(pointerId);
         } catch {
