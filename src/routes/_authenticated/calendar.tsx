@@ -191,10 +191,10 @@ function CalendarPage() {
             />
           ) : mode === "week" ? (
             <WeekView
-              anchor={anchor}
+              anchor={weekAnchor}
               events={visibleEvents}
               selectedMembers={selectedMembers}
-              days={isMobile ? 3 : 7}
+              days={weekDays}
               onCreateRange={onCreateRange}
             />
           ) : (
