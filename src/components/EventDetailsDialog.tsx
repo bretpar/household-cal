@@ -303,28 +303,6 @@ export function EventDetailsDialog() {
               ) : null}
             </div>
 
-            {canEdit ? (
-              <DialogFooter>
-                <Button
-                  variant="ghost"
-                  type="button"
-                  className="h-11 rounded-full text-destructive"
-                  onClick={() => setMode("delete")}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Delete
-                </Button>
-                <Button
-                  type="button"
-                  className="h-11 rounded-full px-6 font-bold"
-                  onClick={() => setMode("edit")}
-                >
-                  <Pencil className="h-4 w-4" />
-                  Edit
-                </Button>
-
-              </DialogFooter>
-            ) : null}
           </>
         ) : mode === "edit" ? (
           <>
@@ -337,8 +315,20 @@ export function EventDetailsDialog() {
               <div className="-mx-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 pb-24 max-sm:pb-[max(7rem,env(safe-area-inset-bottom)+4rem)] sm:-mx-6 sm:px-6">
                 <EventFormFields state={state} onChange={setState} idPrefix="edit" />
                 {scopePicker}
+                <div className="border-t pt-4">
+                  <Button
+                    variant="ghost"
+                    type="button"
+                    className="h-11 w-full rounded-full text-destructive"
+                    onClick={() => setMode("delete")}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete event
+                  </Button>
+                </div>
               </div>
             ) : null}
+
 
             <DialogFooter>
               <Button
