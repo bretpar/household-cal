@@ -19,6 +19,7 @@ import {
   useDefaultCalendarView,
   type CalendarViewMode,
 } from "@/lib/calendar-view-preference";
+import { useWeekStart } from "@/lib/week-start-preference";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
@@ -63,6 +64,7 @@ function CalendarPage() {
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("month");
   const { defaultView } = useDefaultCalendarView(family?.id ?? null);
+  const { weekStart } = useWeekStart(family?.id ?? null);
   const [appliedDefault, setAppliedDefault] = useState(false);
 
   // Open on the user's saved default view once, without fighting later manual changes.
@@ -84,6 +86,7 @@ function CalendarPage() {
   const swipeProps = useHorizontalSwipe({
     onSwipeLeft: () => step(1),
     onSwipeRight: () => step(-1),
+    sensitivity: mode,
   });
 
   const label =
@@ -175,6 +178,7 @@ function CalendarPage() {
               selectedMembers={selectedMembers}
               onPaste={onPaste}
               onCreateAt={onCreateAt}
+              weekStartsOn={weekStart}
               onSelectDay={(day) => {
                 setAnchor(day);
                 setView("day");

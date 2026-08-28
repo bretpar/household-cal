@@ -24,7 +24,8 @@ import {
   type MemberId,
 } from "@/lib/family-data";
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MONDAY_FIRST = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const SUNDAY_FIRST = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function MonthView({
   month,
@@ -33,6 +34,7 @@ export function MonthView({
   onSelectDay,
   onPaste,
   onCreateAt,
+  weekStartsOn = 1,
 }: {
   month: Date;
   events: CalendarEvent[];
@@ -42,10 +44,13 @@ export function MonthView({
   onPaste?: ((day: Date) => void) | undefined;
   /** press-and-hold on an empty day; provided only when the user may create events */
   onCreateAt?: ((day: Date, withTime: boolean) => void) | undefined;
+  /** 0 = Sunday-first grid, 1 = Monday-first grid */
+  weekStartsOn?: 0 | 1;
 }) {
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
-  const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
-  const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
+  const WEEKDAYS = weekStartsOn === 0 ? SUNDAY_FIRST : MONDAY_FIRST;
+  const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn });
+  const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn });
   const occurrences = expandOccurrences(events, gridStart, gridEnd);
   const days: Date[] = [];
   for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) days.push(d);
