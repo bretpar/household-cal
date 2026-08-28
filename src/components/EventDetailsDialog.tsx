@@ -101,6 +101,8 @@ export function EventDetailsDialog() {
   const [scope, setScope] = useState<RecurrenceScope>("this");
   const [state, setState] = useState<EventFormState | null>(null);
   const [busy, setBusy] = useState(false);
+  // Inline copy of the validation message so a blocked save is never silent.
+  const [formError, setFormError] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -137,6 +139,7 @@ export function EventDetailsDialog() {
   const saveEdit = async () => {
     if (!state) return;
     const error = validateFormState(state);
+    setFormError(error);
     if (error) {
       toast.error(error);
       return;
