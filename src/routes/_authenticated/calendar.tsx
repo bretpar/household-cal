@@ -80,7 +80,14 @@ function CalendarPage() {
       mode === "month" ? addMonths(prev, direction) : addDays(prev, direction * (mode === "week" ? 7 : 1)),
     );
 
+  // Swipe left = forward, swipe right = back — same state as the arrows.
+  const swipeProps = useHorizontalSwipe({
+    onSwipeLeft: () => step(1),
+    onSwipeRight: () => step(-1),
+  });
+
   const label =
+
     mode === "month"
       ? format(anchor, "MMMM yyyy")
       : mode === "week"
