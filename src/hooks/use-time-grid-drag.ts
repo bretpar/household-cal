@@ -4,6 +4,12 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import type { Occurrence } from "@/lib/family-data";
 
 const HOLD_MS = 400;
+/**
+ * Coverage/childcare bands are large touch surfaces where a deliberate tap
+ * naturally lingers. Use a longer hold threshold so a quick tap reliably opens
+ * the event instead of entering move/drag mode.
+ */
+const COVERAGE_HOLD_MS = 600;
 /** Finger drift allowed before we treat the gesture as a scroll instead. */
 const MOVE_TOLERANCE_PX = 12;
 const DEFAULT_SNAP_MINUTES = 15;
