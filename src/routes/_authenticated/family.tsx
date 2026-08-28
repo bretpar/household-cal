@@ -142,6 +142,18 @@ function FamilyPage() {
               </div>
             ))}
             <WeekStartSetting />
+            <Link
+              to="/preferences"
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4 transition-colors hover:bg-surface-muted"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold">All my preferences</p>
+                <p className="text-xs text-muted-foreground">
+                  Week start day and default view, saved to your account
+                </p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </Link>
           </div>
         </SettingsSection>
 
