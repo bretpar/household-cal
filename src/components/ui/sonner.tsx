@@ -5,6 +5,10 @@ type ToasterProps = React.ComponentProps<typeof Sonner>;
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
+      // Top-center keeps toasts visible above the mobile bottom-sheet dialogs,
+      // which previously covered bottom-right toasts (validation errors looked
+      // like "nothing happened").
+      position="top-center"
       className="toaster group"
       toastOptions={{
         classNames: {
