@@ -33,7 +33,7 @@ export const eventTypeIcons: Record<EventType, LucideIcon> = {
 export function EventPill({ occurrence }: { occurrence: Occurrence }) {
   const { openOccurrence, categoryAppearanceFor } = useCalendar();
   const { event } = occurrence;
-  const appearance = categoryAppearanceFor(event.category_id);
+  const appearance = categoryAppearanceFor(event);
   return (
     <button
       type="button"
@@ -65,7 +65,7 @@ export function EventCard({
   const { openOccurrence, categoryAppearanceFor } = useCalendar();
   const { event, start, end } = occurrence;
   const Icon = eventTypeIcons[event.event_type];
-  const appearance = categoryAppearanceFor(event.category_id);
+  const appearance = categoryAppearanceFor(event);
 
   return (
     <button

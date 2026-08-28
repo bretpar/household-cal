@@ -225,7 +225,7 @@ export function WeekView({
                   className={cn(
                     "flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left text-[10px] font-semibold opacity-80 transition-opacity hover:opacity-100",
                     draggingKey === o.key && "opacity-40",
-                    eventTintClass(categoryAppearanceFor(o.event.category_id)),
+                    eventTintClass(categoryAppearanceFor(o.event)),
                   )}
                 >
                   <span className="min-w-0 flex-1 truncate">{o.event.title}</span>
@@ -352,7 +352,7 @@ export function WeekView({
                         <div
                           className={cn(
                             "absolute inset-0 overflow-hidden rounded-xl border border-border-soft px-1.5 py-1 shadow-soft",
-                            eventTintClass(categoryAppearanceFor(o.event.category_id)),
+                            eventTintClass(categoryAppearanceFor(o.event)),
                           )}
                         >
                           {/* Tap target is the wording/time label only. */}

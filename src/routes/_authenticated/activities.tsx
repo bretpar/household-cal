@@ -154,7 +154,7 @@ function SeriesCard({ series }: { series: EventSeries }) {
   const { event } = series;
   const Icon = eventTypeIcons[event.event_type];
   const typeLabel = activityLabel(event.event_type);
-  const appearance = categoryAppearanceFor(event.category_id);
+  const appearance = categoryAppearanceFor(event);
   const start = new Date(event.start_at);
   const end = new Date(event.end_at);
 
