@@ -169,7 +169,7 @@ export function WeekView({
   return (
     <>
       {dialog}
-    <div className="overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft">
+    <div className="calendar-gesture-surface overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft">
       <div
         className="grid border-b border-border-soft bg-surface-muted"
         style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
@@ -345,25 +345,25 @@ export function WeekView({
                           width: `calc(${100 / laneCount}% - 2px)`,
                         }}
                       >
-                        <span
+                        <div
                           className={cn(
-                            "pointer-events-none absolute inset-0 block overflow-hidden rounded-xl border border-border-soft px-1.5 py-1 shadow-soft",
+                            "pointer-events-none absolute inset-0 overflow-hidden rounded-xl border border-border-soft px-1.5 py-1 shadow-soft",
                             eventTintClass(categoryAppearanceFor(o.event.category_id)),
                           )}
                         >
-                          <span className="flex items-center gap-1">
+                          <div className="flex items-center gap-1">
                             <Icon className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
                             <span className="min-w-0 flex-1 truncate text-[11px] font-bold">
                               {o.event.title}
                             </span>
-                          </span>
+                          </div>
                           <MemberBadgeRow ids={o.member_ids} size="xs" className="mt-0.5" />
                           {compact ? null : (
-                            <span className="mt-0.5 block truncate text-[9px] font-semibold text-muted-foreground">
+                            <p className="mt-0.5 truncate text-[9px] font-semibold text-muted-foreground">
                               {formatTimeRange(o.start, o.end, false)}
-                            </span>
+                            </p>
                           )}
-                        </span>
+                        </div>
                       </button>
                     );
                   })}
