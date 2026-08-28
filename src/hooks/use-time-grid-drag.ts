@@ -171,9 +171,9 @@ export function useTimeGridDrag({
         } catch {
           /* capture is a nicety; drag still works without it */
         }
-      }, HOLD_MS);
+      }, holdMs);
     },
-    [enabled, resolveOccurrence, snap, snapMinutes, createMinutes, dayStartHour, hourPx],
+    [enabled, resolveOccurrence, snap, snapMinutes, createMinutes, dayStartHour, hourPx, isCoverageLayer],
   );
 
   const onPointerMove = useCallback(
