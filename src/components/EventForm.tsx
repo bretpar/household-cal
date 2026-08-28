@@ -23,18 +23,20 @@ import type { EventDraft } from "@/lib/calendar-store";
 import type { EventClipboard } from "@/lib/event-clipboard";
 import {
   categoryAppearance,
+  eventTypeForCategoryName,
+  UNCATEGORIZED_APPEARANCE,
+  UNCATEGORIZED_LABEL,
+  UNCATEGORIZED_VALUE,
 } from "@/lib/event-categories";
 
 /** Select needs a non-empty value for the system Uncategorized state. */
 import { useCalendar } from "@/lib/calendar-store";
 import {
-  EVENT_TYPES,
   RECURRENCE_OPTIONS,
   WEEKDAY_CODES,
   parseRecurrenceRule,
   withRecurrenceCount,
   type CalendarSource,
-  type EventType,
   type MemberId,
   type Occurrence,
   type WeekdayCode,
@@ -770,7 +772,7 @@ export function EventFormFields({
 
       {!state.allDay ? (
         // Stacks on very narrow phones, side by side as soon as there is room.
-        <div className="time-row grid w-full min-w-0 max-w-full grid-cols-1 items-end gap-3 min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] min-[360px]:gap-4">
+        <div className="time-row grid w-full min-w-0 max-w-full grid-cols-1 items-end gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] min-[430px]:gap-4">
 
 
           <div className="min-w-0 max-w-full space-y-1.5">
