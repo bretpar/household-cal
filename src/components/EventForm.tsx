@@ -475,6 +475,14 @@ export function EventFormFields({
     event_type: state.eventType,
   });
 
+  // Heal the draft once categories are loaded so saving writes the resolved
+  // category id (or clears a dangling one) instead of the stale value.
+  useEffect(() => {
+    if (categories.length === 0) return;
+    if (resolvedCategoryValue === state.categoryId) return;
+    setCategory(resolvedCategoryValue);
+  }, [resolvedCategoryValue, state.categoryId, categories.length]);
+
 
 
   const recurrenceOption = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence);
