@@ -221,7 +221,7 @@ export function EventDetailsDialog() {
               </DialogDescription>
               {canEdit ? (
                 // Copy sits immediately left of Edit in the upper-right.
-                <div className="absolute top-3.5 right-12 flex items-center gap-1 sm:top-5 sm:right-14">
+                <div className="absolute top-3.5 right-4 flex items-center gap-1 sm:top-5 sm:right-6">
                   <Button
                     variant="ghost"
                     size="icon"
