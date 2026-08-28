@@ -11,6 +11,7 @@ import { MonthView } from "@/components/MonthView";
 import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
+import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCalendar } from "@/lib/calendar-store";
 import {
@@ -79,7 +80,14 @@ function CalendarPage() {
       mode === "month" ? addMonths(prev, direction) : addDays(prev, direction * (mode === "week" ? 7 : 1)),
     );
 
+  // Swipe left = forward, swipe right = back — same state as the arrows.
+  const swipeProps = useHorizontalSwipe({
+    onSwipeLeft: () => step(1),
+    onSwipeRight: () => step(-1),
+  });
+
   const label =
+
     mode === "month"
       ? format(anchor, "MMMM yyyy")
       : mode === "week"
@@ -159,43 +167,46 @@ function CalendarPage() {
           </div>
         ) : null}
 
-        {mode === "month" ? (
-          <MonthView
-            month={anchor}
-            events={visibleEvents}
-            selectedMembers={selectedMembers}
-            onPaste={onPaste}
-            onCreateAt={onCreateAt}
-            onSelectDay={(day) => {
-              setAnchor(day);
-              setView("day");
-            }}
-          />
-        ) : mode === "week" ? (
-          <WeekView
-            anchor={anchor}
-            events={visibleEvents}
-            selectedMembers={selectedMembers}
-            days={isMobile ? 3 : 7}
-            onCreateRange={onCreateRange}
-          />
-        ) : (
-          <div className="space-y-4">
+        <div {...swipeProps} className="touch-pan-y">
+          {mode === "month" ? (
+            <MonthView
+              month={anchor}
+              events={visibleEvents}
+              selectedMembers={selectedMembers}
+              onPaste={onPaste}
+              onCreateAt={onCreateAt}
+              onSelectDay={(day) => {
+                setAnchor(day);
+                setView("day");
+              }}
+            />
+          ) : mode === "week" ? (
             <WeekView
               anchor={anchor}
               events={visibleEvents}
               selectedMembers={selectedMembers}
-              days={1}
+              days={isMobile ? 3 : 7}
               onCreateRange={onCreateRange}
             />
-            <AgendaView
-              anchor={anchor}
-              events={visibleEvents}
-              selectedMembers={selectedMembers}
-              onPaste={onPaste}
-            />
-          </div>
-        )}
+          ) : (
+            <div className="space-y-4">
+              <WeekView
+                anchor={anchor}
+                events={visibleEvents}
+                selectedMembers={selectedMembers}
+                days={1}
+                onCreateRange={onCreateRange}
+              />
+              <AgendaView
+                anchor={anchor}
+                events={visibleEvents}
+                selectedMembers={selectedMembers}
+                onPaste={onPaste}
+              />
+            </div>
+          )}
+        </div>
+
       </div>
       <QuickAddEventDialog
         at={quickAdd?.at ?? null}
