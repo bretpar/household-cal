@@ -86,6 +86,7 @@ function CalendarPage() {
   const swipeProps = useHorizontalSwipe({
     onSwipeLeft: () => step(1),
     onSwipeRight: () => step(-1),
+    sensitivity: mode,
   });
 
   const label =
