@@ -178,6 +178,7 @@ function CalendarPage() {
               selectedMembers={selectedMembers}
               onPaste={onPaste}
               onCreateAt={onCreateAt}
+              weekStartsOn={weekStart}
               onSelectDay={(day) => {
                 setAnchor(day);
                 setView("day");
