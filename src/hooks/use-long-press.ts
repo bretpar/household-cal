@@ -43,11 +43,14 @@ export function useLongPress(
       const offsetX = event.clientX - rect.left;
       const offsetY = event.clientY - rect.top;
       origin.current = { x: event.clientX, y: event.clientY };
+      fired.current = false;
       clear();
       timer.current = setTimeout(() => {
         timer.current = null;
         origin.current = null;
         fired.current = true;
+        // iOS raises a selection/loupe on a held touch; drop it as we take over.
+        window.getSelection?.()?.removeAllRanges();
         // Subtle tactile acknowledgement where the platform supports it.
         navigator.vibrate?.(12);
         onLongPress({ offsetX, offsetY });
@@ -78,7 +81,16 @@ export function useLongPress(
     event.preventDefault();
   }, []);
 
+  const onContextMenu = useCallback(
+    (event: { preventDefault: () => void }) => {
+      if (!onLongPress) return;
+      event.preventDefault();
+    },
+    [onLongPress],
+  );
+
   return {
+    onContextMenu,
     onPointerDown,
     onPointerMove,
     onPointerUp: clear,

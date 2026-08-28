@@ -105,6 +105,8 @@ export function useTimeGridDrag({
     (day: Date, event: ReactPointerEvent<HTMLElement>) => {
       if (!enabled) return;
       if (event.pointerType === "mouse") return;
+      // A fresh press always starts as a potential tap.
+      fired.current = false;
       const target = event.target instanceof Element ? event.target : null;
       const holder = target?.closest<HTMLElement>("[data-occurrence-key]");
       const occurrence = holder ? (resolveOccurrence(holder.dataset["occurrenceKey"]!) ?? null) : null;
@@ -119,6 +121,7 @@ export function useTimeGridDrag({
       const captureTarget = event.currentTarget;
       const pointerId = event.pointerId;
       clearTimer();
+
       timer.current = setTimeout(() => {
         timer.current = null;
         const start = press.current;
@@ -142,7 +145,10 @@ export function useTimeGridDrag({
           durationMinutes: duration,
           occurrence: start.occurrence,
         });
+        // iOS starts a selection/loupe on a held touch; drop it as the drag begins.
+        window.getSelection?.()?.removeAllRanges();
         vibrate(14);
+
         try {
           captureTarget.setPointerCapture(pointerId);
         } catch {
@@ -203,6 +209,12 @@ export function useTimeGridDrag({
     event.preventDefault();
   }, []);
 
+  /** Suppress the native context menu / selection callout the hold would raise. */
+  const onContextMenu = useCallback((event: { preventDefault: () => void }) => {
+    if (!enabled) return;
+    event.preventDefault();
+  }, [enabled]);
+
   /** Handlers for one day column. */
   const columnProps = useCallback(
     (day: Date) => ({
@@ -211,9 +223,11 @@ export function useTimeGridDrag({
       onPointerUp: commit,
       onPointerCancel: reset,
       onClickCapture,
+      onContextMenu,
     }),
-    [onPointerDown, onPointerMove, commit, reset, onClickCapture],
+    [onPointerDown, onPointerMove, commit, reset, onClickCapture, onContextMenu],
   );
+
 
   return { ghost, columnProps, dragging: ghost !== null };
 }

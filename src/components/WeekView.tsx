@@ -169,7 +169,7 @@ export function WeekView({
   return (
     <>
       {dialog}
-    <div className="overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft">
+    <div className="calendar-gesture-surface overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft">
       <div
         className="grid border-b border-border-soft bg-surface-muted"
         style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
@@ -331,8 +331,9 @@ export function WeekView({
                         {...dragProps(o)}
                         onClick={() => openOccurrence(o)}
                         className={cn(
-                          "absolute overflow-hidden rounded-xl border border-border-soft px-1.5 py-1 text-left shadow-soft transition-transform hover:-translate-y-px",
-                          eventTintClass(categoryAppearanceFor(o.event.category_id)),
+                          // touch-hit-44 adds an invisible 44px hit area so thin
+                          // events stay tappable without growing visually.
+                          "touch-hit-44 absolute rounded-xl text-left transition-transform hover:-translate-y-px",
                           draggingKey === o.key && "opacity-40",
                           ghost?.occurrence?.key === o.key &&
                             "scale-[0.98] opacity-40 ring-2 ring-primary",
@@ -344,26 +345,30 @@ export function WeekView({
                           width: `calc(${100 / laneCount}% - 2px)`,
                         }}
                       >
-                        <div className="flex items-center gap-1">
-                          <Icon className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
-                          <span className="min-w-0 flex-1 truncate text-[11px] font-bold">
-                            {o.event.title}
-                          </span>
-                        </div>
-                        {compact ? (
+                        <div
+                          className={cn(
+                            "pointer-events-none absolute inset-0 overflow-hidden rounded-xl border border-border-soft px-1.5 py-1 shadow-soft",
+                            eventTintClass(categoryAppearanceFor(o.event.category_id)),
+                          )}
+                        >
+                          <div className="flex items-center gap-1">
+                            <Icon className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
+                            <span className="min-w-0 flex-1 truncate text-[11px] font-bold">
+                              {o.event.title}
+                            </span>
+                          </div>
                           <MemberBadgeRow ids={o.member_ids} size="xs" className="mt-0.5" />
-                        ) : (
-                          <>
-                            <MemberBadgeRow ids={o.member_ids} size="xs" className="mt-0.5" />
+                          {compact ? null : (
                             <p className="mt-0.5 truncate text-[9px] font-semibold text-muted-foreground">
                               {formatTimeRange(o.start, o.end, false)}
                             </p>
-                          </>
-                        )}
+                          )}
+                        </div>
                       </button>
                     );
                   })}
                 </div>
+
 
                 {/* Live drag preview: never persisted, replaced by the real form on release. */}
                 {ghost && ghostTimes && isSameDay(ghost.day, day) ? (
