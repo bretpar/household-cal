@@ -122,8 +122,21 @@ export function EventComposerContent({
       </DialogHeader>
 
       <div className="-mx-4 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-24 max-sm:pb-[max(7rem,env(safe-area-inset-bottom)+4rem)] sm:-mx-6 sm:px-6">
-        <EventFormFields state={state} onChange={onChange} idPrefix={idPrefix} />
+        <EventFormFields
+          state={state}
+          onChange={(next) => {
+            if (formError) setFormError(null);
+            onChange(next);
+          }}
+          idPrefix={idPrefix}
+        />
       </div>
+
+      {formError ? (
+        <p role="alert" className="shrink-0 text-sm font-semibold text-destructive">
+          {formError}
+        </p>
+      ) : null}
 
       <DialogFooter>
         <Button
