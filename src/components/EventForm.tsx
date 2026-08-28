@@ -26,6 +26,7 @@ import {
   eventTypeForCategoryName,
   UNCATEGORIZED_APPEARANCE,
   UNCATEGORIZED_LABEL,
+  resolvedCategoryId,
   UNCATEGORIZED_VALUE,
 } from "@/lib/event-categories";
 
@@ -816,7 +817,7 @@ export function EventFormFields({
       <div className="min-w-0 space-y-1.5">
         <Label>Category</Label>
         <Select
-          value={state.categoryId ?? UNCATEGORIZED_VALUE}
+          value={resolvedCategoryValue ?? UNCATEGORIZED_VALUE}
           onValueChange={(v) => setCategory(v === UNCATEGORIZED_VALUE ? null : v)}
         >
           <SelectTrigger className="h-11 rounded-xl">
