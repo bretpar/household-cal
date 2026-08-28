@@ -11,7 +11,7 @@
  * guess a category from Google's own colour.
  */
 
-import { MEMBER_COLORS, styleForColor, type MemberColor } from "@/lib/family-data";
+import { MEMBER_COLORS, styleForColor, type EventType, type MemberColor } from "@/lib/family-data";
 
 export const MAX_CUSTOM_CATEGORIES = 7;
 
@@ -121,4 +121,29 @@ export function eventMatchesCategory(
   if (!selected) return true;
   if (selected === UNCATEGORIZED_FILTER) return !event.category_id;
   return event.category_id === selected;
+}
+
+/** Select value standing in for the system Uncategorized state (no row). */
+export const UNCATEGORIZED_VALUE = "uncategorized";
+
+/**
+ * Household categories are the single source of truth for what an event is.
+ * `event_type` remains stored for behavioural rules (childcare renders as a
+ * coverage layer) and Google mapping, so we derive it from the chosen
+ * category's name instead of asking the user twice.
+ */
+export function eventTypeForCategoryName(name: string | null | undefined): EventType {
+  const clean = (name ?? "").trim().toLowerCase();
+  if (!clean) return "other";
+  if (/(babysit|childcare|nanny|sitter|caregiv|coverage)/.test(clean)) return "childcare";
+  if (clean.startsWith("school")) return "school";
+  if (clean.startsWith("activit")) return "activity";
+  if (clean.startsWith("appointment")) return "appointment";
+  if (clean.startsWith("work")) return "work";
+  if (clean.startsWith("famil")) return "family";
+  if (clean.startsWith("travel") || clean.startsWith("trip") || clean.startsWith("vacation")) {
+    return "travel";
+  }
+  if (clean.startsWith("birthday")) return "birthday";
+  return "other";
 }

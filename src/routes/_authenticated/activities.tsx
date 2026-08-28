@@ -44,14 +44,14 @@ export const Route = createFileRoute("/_authenticated/activities")({
 });
 
 function ActivitiesPage() {
-  const { events, members, loading, canEdit } = useCalendar();
+  const { events, members, loading, canEdit, categories } = useCalendar();
   const [group, setGroup] = useState<GroupMode>("category");
   const [sort, setSort] = useState<SortMode>("next");
 
   const series = useMemo(() => buildSeriesList(events), [events]);
   const groups = useMemo(
-    () => groupSeries(series, group, sort, members),
-    [series, group, sort, members],
+    () => groupSeries(series, group, sort, members, categories),
+    [series, group, sort, members, categories],
   );
 
   return (

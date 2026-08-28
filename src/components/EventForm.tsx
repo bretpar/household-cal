@@ -23,12 +23,15 @@ import type { EventDraft } from "@/lib/calendar-store";
 import type { EventClipboard } from "@/lib/event-clipboard";
 import {
   categoryAppearance,
+  eventTypeForCategoryName,
+  UNCATEGORIZED_APPEARANCE,
+  UNCATEGORIZED_LABEL,
+  UNCATEGORIZED_VALUE,
 } from "@/lib/event-categories";
 
 /** Select needs a non-empty value for the system Uncategorized state. */
 import { useCalendar } from "@/lib/calendar-store";
 import {
-  EVENT_TYPES,
   RECURRENCE_OPTIONS,
   WEEKDAY_CODES,
   parseRecurrenceRule,
@@ -447,13 +450,17 @@ export function EventFormFields({
   const set = <K extends keyof EventFormState>(key: K, value: EventFormState[K]) =>
     onChange({ ...state, [key]: value });
 
-  /** Household category whose name matches the chosen classification, if one exists. */
-  const matchingCategory = (label: string) =>
-    categories.find((c) => c.name.trim().toLowerCase() === label.trim().toLowerCase()) ?? null;
-
-  const setEventType = (next: EventType) => {
-    const label = EVENT_TYPES.find((t) => t.id === next)?.label ?? "";
-    onChange({ ...state, eventType: next, categoryId: matchingCategory(label)?.id ?? null });
+  /**
+   * Category is the user-facing choice; event_type is derived from its name so
+   * childcare/coverage behaviour keeps working without a second dropdown.
+   */
+  const setCategory = (categoryId: string | null) => {
+    const category = categoryId ? (categories.find((c) => c.id === categoryId) ?? null) : null;
+    onChange({
+      ...state,
+      categoryId,
+      eventType: eventTypeForCategoryName(category?.name ?? null),
+    });
   };
 
 
@@ -766,7 +773,7 @@ export function EventFormFields({
 
       {!state.allDay ? (
         // Stacks on very narrow phones, side by side as soon as there is room.
-        <div className="time-row grid w-full min-w-0 max-w-full grid-cols-1 items-end gap-3 min-[360px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] min-[360px]:gap-4">
+        <div className="time-row grid w-full min-w-0 max-w-full grid-cols-1 items-end gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] min-[430px]:gap-4">
 
 
           <div className="min-w-0 max-w-full space-y-1.5">
@@ -791,27 +798,39 @@ export function EventFormFields({
 
 
 
-      {/* The single event-classification dropdown. Stored as event_type; the
-          matching household category (if any) is kept in sync so card tints
-          keep working for existing data. */}
+      {/* Household Event Categories (Settings → Event Categories) are the only
+          source of truth here. event_type is derived from the chosen category
+          so behaviour like childcare coverage keeps working. */}
       <div className="min-w-0 space-y-1.5">
         <Label>Category</Label>
-        <Select value={state.eventType} onValueChange={(v) => setEventType(v as EventType)}>
+        <Select
+          value={state.categoryId ?? UNCATEGORIZED_VALUE}
+          onValueChange={(v) => setCategory(v === UNCATEGORIZED_VALUE ? null : v)}
+        >
           <SelectTrigger className="h-11 rounded-xl">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {EVENT_TYPES.map((t) => {
-              const swatch = categoryAppearance(matchingCategory(t.label)).swatch;
-              return (
-                <SelectItem key={t.id} value={t.id}>
-                  <span className="flex items-center gap-2">
-                    <span className={cn("h-3 w-3 rounded-full", swatch)} aria-hidden />
-                    {t.label}
-                  </span>
-                </SelectItem>
-              );
-            })}
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                <span className="flex items-center gap-2">
+                  <span
+                    className={cn("h-3 w-3 rounded-full", categoryAppearance(category).swatch)}
+                    aria-hidden
+                  />
+                  {category.name}
+                </span>
+              </SelectItem>
+            ))}
+            <SelectItem value={UNCATEGORIZED_VALUE}>
+              <span className="flex items-center gap-2">
+                <span
+                  className={cn("h-3 w-3 rounded-full", UNCATEGORIZED_APPEARANCE.swatch)}
+                  aria-hidden
+                />
+                {UNCATEGORIZED_LABEL}
+              </span>
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>

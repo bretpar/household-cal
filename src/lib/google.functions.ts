@@ -16,6 +16,8 @@ export interface CalendarSlot {
   name: string;
   external_calendar_id: string | null;
   is_main: boolean;
+  /** display-only: normal event cards vs. background coverage shading */
+  display_mode: "events" | "coverage_background";
   last_synced_at: string | null;
   sync_status: string;
   sync_error: string | null;
@@ -49,7 +51,7 @@ export const getSyncSettings = createServerFn({ method: "GET" })
       .maybeSingle();
     const { data: calendars } = await supabaseAdmin
       .from("calendar_sources")
-      .select("id, name, external_calendar_id, is_main, last_synced_at, sync_status, sync_error")
+      .select("id, name, external_calendar_id, is_main, display_mode, last_synced_at, sync_status, sync_error")
       .eq("family_id", family)
       .eq("provider", "google")
       .order("sort_order", { ascending: true });
@@ -161,6 +163,21 @@ export const renameCalendarSlot = createServerFn({ method: "POST" })
     const family = await resolveOwnedFamily(context.supabase, context.userId);
     if (!family) throw new Error("Only household owners can configure calendar sync");
     return renameSlot(family, data.source_id, data.name);
+  });
+
+export const setCalendarDisplayMode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { source_id: string; display_mode: "events" | "coverage_background" }) => {
+    if (input.display_mode !== "events" && input.display_mode !== "coverage_background") {
+      throw new Error("Unknown display style");
+    }
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const { resolveOwnedFamily, setDisplayMode } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can configure calendar sync");
+    return setDisplayMode(family, data.source_id, data.display_mode);
   });
 
 export const setMainCalendarSlot = createServerFn({ method: "POST" })

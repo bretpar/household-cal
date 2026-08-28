@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { formatDistanceToNow } from "date-fns";
-import { AlertTriangle, CalendarPlus, Link2, RefreshCw, Star, Unlink } from "lucide-react";
+import { AlertTriangle, CalendarPlus, Info, Link2, RefreshCw, Star, Unlink } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -30,12 +32,78 @@ import {
   getSyncSettings,
   listGoogleCalendars,
   renameCalendarSlot,
+  setCalendarDisplayMode,
   setMainCalendarSlot,
   startGoogleCalendarConnect,
   syncNow,
 } from "@/lib/google.functions";
 
 const SYNC_KEY = ["calendar-sync"] as const;
+
+const DISPLAY_STYLES = [
+  { id: "events", label: "Normal events" },
+  { id: "coverage_background", label: "Background coverage" },
+] as const;
+
+/**
+ * Display-only preference per synced calendar. Nothing here touches Google
+ * data, sync behaviour, times, recurrence, categories or participants.
+ */
+function DisplayStyleControl({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: "events" | "coverage_background";
+  disabled: boolean;
+  onChange: (next: "events" | "coverage_background") => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <Label className="text-xs font-bold">Display style</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label="About display style"
+              className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-surface-muted"
+            >
+              <Info className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="max-w-[16rem] text-xs leading-relaxed">
+            Normal events appear as regular calendar bubbles. Background coverage shades the
+            calendar behind other activities, which can be helpful for things like childcare,
+            school, or availability schedules.
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {DISPLAY_STYLES.map((style) => (
+          <button
+            key={style.id}
+            type="button"
+            disabled={disabled}
+            aria-pressed={value === style.id}
+            onClick={() => value !== style.id && onChange(style.id)}
+            className={cn(
+              "rounded-xl border px-3 py-2 text-xs font-bold transition-colors disabled:opacity-60",
+              value === style.id
+                ? "border-transparent bg-primary text-primary-foreground"
+                : "border-border-soft bg-card text-muted-foreground hover:bg-surface-muted",
+            )}
+          >
+            {style.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Choose how events from this calendar appear.
+      </p>
+    </div>
+  );
+}
 
 /** Waits for the consent popup to hand back its one-time code. */
 function waitForOAuth(popup: Window): Promise<string | null> {
@@ -80,6 +148,7 @@ export function CalendarSyncSettings() {
   const attach = useServerFn(connectCalendarSlot);
   const rename = useServerFn(renameCalendarSlot);
   const makeMain = useServerFn(setMainCalendarSlot);
+  const setDisplay = useServerFn(setCalendarDisplayMode);
   const detach = useServerFn(disconnectCalendarSlot);
   const disconnect = useServerFn(disconnectGoogleAccount);
   const runSync = useServerFn(syncNow);
@@ -106,6 +175,16 @@ export function CalendarSyncSettings() {
     mutationFn: (input: { data: { source_id: string; name: string } }) => rename(input),
     onSuccess: () => {
       toast.success("Calendar renamed");
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const displayMutation = useMutation({
+    mutationFn: (input: {
+      data: { source_id: string; display_mode: "events" | "coverage_background" };
+    }) => setDisplay(input),
+    onSuccess: () => {
+      toast.success("Display style updated");
       refresh();
     },
     onError: (error: Error) => toast.error(error.message),
@@ -337,6 +416,15 @@ export function CalendarSyncSettings() {
                             {slot.sync_error ? ` · retrying: ${slot.sync_error}` : ""}
                           </p>
                         )}
+                        <DisplayStyleControl
+                          value={slot.display_mode}
+                          disabled={displayMutation.isPending}
+                          onChange={(next) =>
+                            displayMutation.mutate({
+                              data: { source_id: slot.id, display_mode: next },
+                            })
+                          }
+                        />
                         <div className="flex flex-wrap gap-2">
                           <Button
                             variant="outline"

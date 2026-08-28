@@ -206,6 +206,25 @@ export async function renameSlot(
   return { ok: true };
 }
 
+/**
+ * Display-only preference: whether a calendar's events render as normal
+ * foreground cards or as background coverage shading. Google data and sync
+ * behaviour are untouched.
+ */
+export async function setDisplayMode(
+  familyId: string,
+  sourceId: string,
+  mode: "events" | "coverage_background",
+): Promise<{ ok: true }> {
+  const { error } = await supabaseAdmin
+    .from("calendar_sources")
+    .update({ display_mode: mode })
+    .eq("id", sourceId)
+    .eq("family_id", familyId);
+  if (error) throw error;
+  return { ok: true };
+}
+
 export async function setMain(familyId: string, sourceId: string): Promise<{ ok: true }> {
   await supabaseAdmin
     .from("calendar_sources")
