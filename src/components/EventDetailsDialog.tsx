@@ -315,19 +315,6 @@ export function EventDetailsDialog() {
                   Delete
                 </Button>
                 <Button
-                  variant="secondary"
-                  type="button"
-                  className="h-11 rounded-full font-semibold"
-                  onClick={() => {
-                    copyOccurrence(occurrence);
-                    toast.success(`Copied ${event.title} — pick a day to paste it`);
-                    closeOccurrence();
-                  }}
-                >
-                  <Copy className="h-4 w-4" />
-                  Copy
-                </Button>
-                <Button
                   type="button"
                   className="h-11 rounded-full px-6 font-bold"
                   onClick={() => setMode("edit")}
@@ -335,6 +322,7 @@ export function EventDetailsDialog() {
                   <Pencil className="h-4 w-4" />
                   Edit
                 </Button>
+
               </DialogFooter>
             ) : null}
           </>
