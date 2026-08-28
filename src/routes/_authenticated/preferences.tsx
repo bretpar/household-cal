@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CalendarCog } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
-import { SettingsSection } from "@/components/SettingsSection";
 import { CALENDAR_VIEW_LABEL, type CalendarViewMode } from "@/lib/calendar-view-preference";
 import { cn } from "@/lib/utils";
 import { useUserPreferences, type WeekStart } from "@/lib/user-preferences";
@@ -79,12 +78,18 @@ function PreferencesPage() {
           </p>
         </header>
 
-        <SettingsSection
-          title="Calendar Display"
-          description="How your weeks are laid out and which view opens first"
-          defaultOpen
-          icon={<CalendarCog className="h-4 w-4" aria-hidden />}
-        >
+        <section className="space-y-3">
+          <div className="flex items-center gap-3 px-1">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-surface-muted text-muted-foreground">
+              <CalendarCog className="h-4 w-4" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold">Calendar Display</h2>
+              <p className="text-xs text-muted-foreground">
+                How your weeks are laid out and which view opens first
+              </p>
+            </div>
+          </div>
           <div className="divide-y divide-border-soft overflow-hidden rounded-3xl border border-border-soft bg-card">
             <div className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div className="min-w-0">
@@ -122,7 +127,7 @@ function PreferencesPage() {
               />
             </div>
           </div>
-        </SettingsSection>
+        </section>
       </div>
     </AppShell>
   );
