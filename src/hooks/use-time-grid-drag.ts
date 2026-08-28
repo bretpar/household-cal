@@ -37,6 +37,12 @@ interface Options {
   createMinutes?: number;
   /** maps a `data-occurrence-key` back to its occurrence */
   resolveOccurrence: (key: string) => Occurrence | undefined;
+  /**
+   * Identifies coverage/childcare occurrences whose bands are large touch
+   * surfaces. Presses starting on these use a longer hold threshold so quick
+   * taps reliably open the event instead of entering move/drag mode.
+   */
+  isCoverageLayer?: (occurrence: Occurrence) => boolean;
   onCreate: (start: Date, end: Date) => void;
   onMove: (occurrence: Occurrence, start: Date) => void;
 }
