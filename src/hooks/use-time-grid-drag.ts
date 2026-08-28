@@ -70,6 +70,7 @@ export function useTimeGridDrag({
   snapMinutes = DEFAULT_SNAP_MINUTES,
   createMinutes = DEFAULT_CREATE_MINUTES,
   resolveOccurrence,
+  isCoverageLayer,
   onCreate,
   onMove,
 }: Options) {
