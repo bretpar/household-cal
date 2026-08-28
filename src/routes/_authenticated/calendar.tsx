@@ -64,6 +64,7 @@ function CalendarPage() {
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("month");
   const { defaultView } = useDefaultCalendarView(family?.id ?? null);
+  const { weekStart } = useWeekStart(family?.id ?? null);
   const [appliedDefault, setAppliedDefault] = useState(false);
 
   // Open on the user's saved default view once, without fighting later manual changes.
