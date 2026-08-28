@@ -12,6 +12,7 @@ import { GoogleSyncSummary } from "@/components/GoogleSyncSummary";
 import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { MemberBadge } from "@/components/MemberBadge";
 import { SettingsSection } from "@/components/SettingsSection";
+import { WeekStartSetting } from "@/components/WeekStartSetting";
 import { Switch } from "@/components/ui/switch";
 import { useCalendar } from "@/lib/calendar-store";
 
