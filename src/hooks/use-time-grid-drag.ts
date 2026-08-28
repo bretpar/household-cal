@@ -105,6 +105,8 @@ export function useTimeGridDrag({
     (day: Date, event: ReactPointerEvent<HTMLElement>) => {
       if (!enabled) return;
       if (event.pointerType === "mouse") return;
+      // A fresh press always starts as a potential tap.
+      fired.current = false;
       const target = event.target instanceof Element ? event.target : null;
       const holder = target?.closest<HTMLElement>("[data-occurrence-key]");
       const occurrence = holder ? (resolveOccurrence(holder.dataset["occurrenceKey"]!) ?? null) : null;
@@ -119,6 +121,7 @@ export function useTimeGridDrag({
       const captureTarget = event.currentTarget;
       const pointerId = event.pointerId;
       clearTimer();
+
       timer.current = setTimeout(() => {
         timer.current = null;
         const start = press.current;
