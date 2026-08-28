@@ -4,6 +4,12 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import type { Occurrence } from "@/lib/family-data";
 
 const HOLD_MS = 400;
+/**
+ * Coverage/childcare bands are large touch surfaces where a deliberate tap
+ * naturally lingers. Use a longer hold threshold so a quick tap reliably opens
+ * the event instead of entering move/drag mode.
+ */
+const COVERAGE_HOLD_MS = 600;
 /** Finger drift allowed before we treat the gesture as a scroll instead. */
 const MOVE_TOLERANCE_PX = 12;
 const DEFAULT_SNAP_MINUTES = 15;
@@ -31,6 +37,12 @@ interface Options {
   createMinutes?: number;
   /** maps a `data-occurrence-key` back to its occurrence */
   resolveOccurrence: (key: string) => Occurrence | undefined;
+  /**
+   * Identifies coverage/childcare occurrences whose bands are large touch
+   * surfaces. Presses starting on these use a longer hold threshold so quick
+   * taps reliably open the event instead of entering move/drag mode.
+   */
+  isCoverageLayer?: (occurrence: Occurrence) => boolean;
   onCreate: (start: Date, end: Date) => void;
   onMove: (occurrence: Occurrence, start: Date) => void;
 }
@@ -58,6 +70,7 @@ export function useTimeGridDrag({
   snapMinutes = DEFAULT_SNAP_MINUTES,
   createMinutes = DEFAULT_CREATE_MINUTES,
   resolveOccurrence,
+  isCoverageLayer,
   onCreate,
   onMove,
 }: Options) {
@@ -121,6 +134,10 @@ export function useTimeGridDrag({
       const captureTarget = event.currentTarget;
       const pointerId = event.pointerId;
       clearTimer();
+      // Coverage bands are large touch surfaces: require a more deliberate
+      // hold before entering move/drag mode so a quick tap opens the event.
+      const holdMs =
+        occurrence && isCoverageLayer?.(occurrence) ? COVERAGE_HOLD_MS : HOLD_MS;
 
       timer.current = setTimeout(() => {
         timer.current = null;
@@ -154,9 +171,9 @@ export function useTimeGridDrag({
         } catch {
           /* capture is a nicety; drag still works without it */
         }
-      }, HOLD_MS);
+      }, holdMs);
     },
-    [enabled, resolveOccurrence, snap, snapMinutes, createMinutes, dayStartHour, hourPx],
+    [enabled, resolveOccurrence, snap, snapMinutes, createMinutes, dayStartHour, hourPx, isCoverageLayer],
   );
 
   const onPointerMove = useCallback(
