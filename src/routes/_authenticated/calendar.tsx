@@ -11,6 +11,7 @@ import { MonthView } from "@/components/MonthView";
 import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
+import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCalendar } from "@/lib/calendar-store";
 import {
