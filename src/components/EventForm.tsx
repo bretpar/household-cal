@@ -791,27 +791,39 @@ export function EventFormFields({
 
 
 
-      {/* The single event-classification dropdown. Stored as event_type; the
-          matching household category (if any) is kept in sync so card tints
-          keep working for existing data. */}
+      {/* Household Event Categories (Settings → Event Categories) are the only
+          source of truth here. event_type is derived from the chosen category
+          so behaviour like childcare coverage keeps working. */}
       <div className="min-w-0 space-y-1.5">
         <Label>Category</Label>
-        <Select value={state.eventType} onValueChange={(v) => setEventType(v as EventType)}>
+        <Select
+          value={state.categoryId ?? UNCATEGORIZED_VALUE}
+          onValueChange={(v) => setCategory(v === UNCATEGORIZED_VALUE ? null : v)}
+        >
           <SelectTrigger className="h-11 rounded-xl">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {EVENT_TYPES.map((t) => {
-              const swatch = categoryAppearance(matchingCategory(t.label)).swatch;
-              return (
-                <SelectItem key={t.id} value={t.id}>
-                  <span className="flex items-center gap-2">
-                    <span className={cn("h-3 w-3 rounded-full", swatch)} aria-hidden />
-                    {t.label}
-                  </span>
-                </SelectItem>
-              );
-            })}
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                <span className="flex items-center gap-2">
+                  <span
+                    className={cn("h-3 w-3 rounded-full", categoryAppearance(category).swatch)}
+                    aria-hidden
+                  />
+                  {category.name}
+                </span>
+              </SelectItem>
+            ))}
+            <SelectItem value={UNCATEGORIZED_VALUE}>
+              <span className="flex items-center gap-2">
+                <span
+                  className={cn("h-3 w-3 rounded-full", UNCATEGORIZED_APPEARANCE.swatch)}
+                  aria-hidden
+                />
+                {UNCATEGORIZED_LABEL}
+              </span>
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
