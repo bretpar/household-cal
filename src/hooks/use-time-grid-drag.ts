@@ -209,6 +209,12 @@ export function useTimeGridDrag({
     event.preventDefault();
   }, []);
 
+  /** Suppress the native context menu / selection callout the hold would raise. */
+  const onContextMenu = useCallback((event: { preventDefault: () => void }) => {
+    if (!enabled) return;
+    event.preventDefault();
+  }, [enabled]);
+
   /** Handlers for one day column. */
   const columnProps = useCallback(
     (day: Date) => ({
@@ -217,9 +223,11 @@ export function useTimeGridDrag({
       onPointerUp: commit,
       onPointerCancel: reset,
       onClickCapture,
+      onContextMenu,
     }),
-    [onPointerDown, onPointerMove, commit, reset, onClickCapture],
+    [onPointerDown, onPointerMove, commit, reset, onClickCapture, onContextMenu],
   );
+
 
   return { ghost, columnProps, dragging: ghost !== null };
 }
