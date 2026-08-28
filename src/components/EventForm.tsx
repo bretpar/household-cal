@@ -447,13 +447,17 @@ export function EventFormFields({
   const set = <K extends keyof EventFormState>(key: K, value: EventFormState[K]) =>
     onChange({ ...state, [key]: value });
 
-  /** Household category whose name matches the chosen classification, if one exists. */
-  const matchingCategory = (label: string) =>
-    categories.find((c) => c.name.trim().toLowerCase() === label.trim().toLowerCase()) ?? null;
-
-  const setEventType = (next: EventType) => {
-    const label = EVENT_TYPES.find((t) => t.id === next)?.label ?? "";
-    onChange({ ...state, eventType: next, categoryId: matchingCategory(label)?.id ?? null });
+  /**
+   * Category is the user-facing choice; event_type is derived from its name so
+   * childcare/coverage behaviour keeps working without a second dropdown.
+   */
+  const setCategory = (categoryId: string | null) => {
+    const category = categoryId ? (categories.find((c) => c.id === categoryId) ?? null) : null;
+    onChange({
+      ...state,
+      categoryId,
+      eventType: eventTypeForCategoryName(category?.name ?? null),
+    });
   };
 
 
