@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { format } from "date-fns";
 
 import { Dialog } from "@/components/ui/dialog";
@@ -8,6 +8,10 @@ import { emptyFormState, type EventFormState } from "@/components/EventForm";
 /**
  * The Add Event form opened by press-and-hold on empty calendar space, with the
  * pressed date (and time, in Week/Day views) prefilled.
+ *
+ * State is reinitialized on every open transition (render-phase adjustment), so
+ * pressing the same day/slot twice always starts from a blank form — even when
+ * the slot's date/time key is identical to the previous one.
  */
 export function QuickAddEventDialog({
   at,
@@ -21,29 +25,38 @@ export function QuickAddEventDialog({
   withTime: boolean;
   onClose: () => void;
 }) {
-  const [state, setState] = useState<EventFormState | null>(null);
-  const key = at ? `${at.toISOString()}:${until?.toISOString() ?? ""}:${withTime}` : null;
+  const wasOpen = useRef(false);
+  const [session, setSession] = useState<{ formKey: string; state: EventFormState } | null>(null);
 
-  useEffect(() => {
-    if (!at) return;
-    const base = emptyFormState(at, withTime);
-    setState(until ? { ...base, endTime: format(until, "HH:mm") } : base);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  const isOpen = at !== null;
+  if (isOpen !== wasOpen.current) {
+    wasOpen.current = isOpen;
+    if (isOpen && at) {
+      const base = emptyFormState(at, withTime);
+      const formKey = `${at.toISOString()}:${until?.toISOString() ?? ""}:${withTime}:${Date.now()}`;
+      setSession({
+        formKey,
+        state: until ? { ...base, endTime: format(until, "HH:mm") } : base,
+      });
+    } else {
+      setSession(null);
+    }
+  }
 
-  if (!at || !state) return null;
+  if (!at || !session) return null;
 
   return (
     <Dialog open onOpenChange={(next) => (next ? null : onClose())}>
       <EventComposerContent
+        key={session.formKey}
         title="Add an event"
         description={
           withTime
             ? `${format(at, "EEEE, MMM d")} at ${format(at, "h:mm a")}`
             : format(at, "EEEE, MMM d")
         }
-        state={state}
-        onChange={setState}
+        state={session.state}
+        onChange={(state) => setSession({ formKey: session.formKey, state })}
         idPrefix="quick-add"
         onClose={onClose}
       />
