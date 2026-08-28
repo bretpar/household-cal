@@ -390,7 +390,7 @@ export function EventDetailsDialog() {
                 variant="ghost"
                 type="button"
                 className="h-11 rounded-full"
-                onClick={() => setMode("details")}
+                onClick={() => setMode("edit")}
               >
                 Cancel
               </Button>
