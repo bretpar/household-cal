@@ -161,10 +161,23 @@ describe("grouping and sorting", () => {
     NOW,
   );
 
-  it("groups by category with plural sections", () => {
-    const groups = groupSeries(list, "category", "name", members);
-    expect(groups.map((g) => g.label)).toEqual(["School", "Activities", "Childcare"]);
+  it("groups by the household's event categories, healing legacy event types", () => {
+    // Household Event Categories are the single source of truth; legacy events
+    // carrying only event_type resolve onto the matching category.
+    const categories = [
+      { id: "c1", family_id: "f", name: "School", color: "sky", sort_order: 0 },
+      { id: "c2", family_id: "f", name: "Activities", color: "sage", sort_order: 1 },
+      { id: "c3", family_id: "f", name: "Babysitter", color: "rose", sort_order: 2 },
+    ] as never;
+    const groups = groupSeries(list, "category", "name", members, categories);
+    expect(groups.map((g) => g.label)).toEqual(["School", "Activities", "Babysitter"]);
   });
+
+  it("falls back to Uncategorized when no household categories match", () => {
+    const groups = groupSeries(list, "category", "name", members);
+    expect(groups.map((g) => g.label)).toEqual(["Uncategorized"]);
+  });
+
 
   it("groups by family member and buckets unassigned series", () => {
     const groups = groupSeries(list, "member", "name", members);
