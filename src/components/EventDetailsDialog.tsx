@@ -196,11 +196,15 @@ export function EventDetailsDialog() {
 
   return (
     <Dialog open onOpenChange={(next) => (next ? null : closeOccurrence())}>
-      <DialogContent className="rounded-3xl sm:max-w-lg">
+      <DialogContent
+        className="rounded-3xl sm:max-w-lg"
+        hideClose={mode === "details"}
+        {...(mode === "details" ? { onSwipeClose: closeOccurrence } : {})}
+      >
         {mode === "details" ? (
           <>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 pr-24">
+              <DialogTitle className="flex items-center gap-2 pr-20">
                 <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
                 <span className="min-w-0 truncate">{event.title}</span>
               </DialogTitle>
