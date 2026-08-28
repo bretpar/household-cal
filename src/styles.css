@@ -299,6 +299,9 @@
 @utility touch-hit-44 {
   &::after {
     content: "";
+    /* Never intercept taps meant for nested labels/buttons. */
+    pointer-events: none;
+
     position: absolute;
     left: 0;
     right: 0;
