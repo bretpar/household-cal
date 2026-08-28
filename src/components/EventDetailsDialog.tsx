@@ -341,6 +341,12 @@ export function EventDetailsDialog() {
             ) : null}
 
 
+            {formError ? (
+              <p role="alert" className="shrink-0 text-sm font-semibold text-destructive">
+                {formError}
+              </p>
+            ) : null}
+
             <DialogFooter>
               <Button
                 variant="ghost"
