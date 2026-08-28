@@ -159,43 +159,46 @@ function CalendarPage() {
           </div>
         ) : null}
 
-        {mode === "month" ? (
-          <MonthView
-            month={anchor}
-            events={visibleEvents}
-            selectedMembers={selectedMembers}
-            onPaste={onPaste}
-            onCreateAt={onCreateAt}
-            onSelectDay={(day) => {
-              setAnchor(day);
-              setView("day");
-            }}
-          />
-        ) : mode === "week" ? (
-          <WeekView
-            anchor={anchor}
-            events={visibleEvents}
-            selectedMembers={selectedMembers}
-            days={isMobile ? 3 : 7}
-            onCreateRange={onCreateRange}
-          />
-        ) : (
-          <div className="space-y-4">
+        <div {...swipeProps} className="touch-pan-y">
+          {mode === "month" ? (
+            <MonthView
+              month={anchor}
+              events={visibleEvents}
+              selectedMembers={selectedMembers}
+              onPaste={onPaste}
+              onCreateAt={onCreateAt}
+              onSelectDay={(day) => {
+                setAnchor(day);
+                setView("day");
+              }}
+            />
+          ) : mode === "week" ? (
             <WeekView
               anchor={anchor}
               events={visibleEvents}
               selectedMembers={selectedMembers}
-              days={1}
+              days={isMobile ? 3 : 7}
               onCreateRange={onCreateRange}
             />
-            <AgendaView
-              anchor={anchor}
-              events={visibleEvents}
-              selectedMembers={selectedMembers}
-              onPaste={onPaste}
-            />
-          </div>
-        )}
+          ) : (
+            <div className="space-y-4">
+              <WeekView
+                anchor={anchor}
+                events={visibleEvents}
+                selectedMembers={selectedMembers}
+                days={1}
+                onCreateRange={onCreateRange}
+              />
+              <AgendaView
+                anchor={anchor}
+                events={visibleEvents}
+                selectedMembers={selectedMembers}
+                onPaste={onPaste}
+              />
+            </div>
+          )}
+        </div>
+
       </div>
       <QuickAddEventDialog
         at={quickAdd?.at ?? null}
