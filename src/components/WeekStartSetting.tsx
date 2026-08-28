@@ -12,7 +12,7 @@ export function WeekStartSetting() {
       <div className="min-w-0">
         <p className="text-sm font-bold">Week starts on Monday</p>
         <p className="text-xs text-muted-foreground">
-          Choose whether calendar weeks begin on Monday or Sunday.
+          Saved to your account and used on every device.
         </p>
       </div>
       <Switch

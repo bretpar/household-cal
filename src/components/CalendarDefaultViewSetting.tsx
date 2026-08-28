@@ -17,7 +17,7 @@ export function CalendarDefaultViewSetting() {
       <div className="min-w-0">
         <p className="text-sm font-bold">Calendar default view</p>
         <p className="text-xs text-muted-foreground">
-          The Calendar page opens on this view on this device.
+          The Calendar page opens on this view, on every device.
         </p>
       </div>
       <div className="flex rounded-full bg-surface-muted p-1" role="group" aria-label="Calendar default view">
