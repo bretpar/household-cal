@@ -14,8 +14,10 @@ import { clipboardFromOccurrence, type EventClipboard } from "@/lib/event-clipbo
 import {
   appearanceForEvent,
   eventMatchesCategory,
+  resolvedCategoryId,
   UNCATEGORIZED_FILTER,
   type CategoryAppearance,
+  type CategoryRef,
   type CategorySelection,
   type EventCategory,
 } from "@/lib/event-categories";
@@ -61,7 +63,9 @@ interface CalendarStore {
   /** household categories, sorted; Uncategorized is not a row */
   categories: EventCategory[];
   /** category label + colour classes for an event's category_id (null = Uncategorized) */
-  categoryAppearanceFor: (categoryId: string | null | undefined) => CategoryAppearance;
+  categoryAppearanceFor: (ref: CategoryRef) => CategoryAppearance;
+  /** effective household category id for an event (legacy/stale-safe); null = Uncategorized */
+  resolvedCategoryIdFor: (ref: CategoryRef) => string | null;
 
   addEvent: (draft: EventDraft) => Promise<void>;
   updateEvent: (
@@ -195,11 +199,12 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       activities: data?.activities ?? [],
       events: data?.events ?? [],
       visibleEvents: (data?.events ?? []).filter(
-        (event) => isCoverage(event) || eventMatchesCategory(event, effectiveCategory),
+        (event) =>
+          isCoverage(event) || eventMatchesCategory(event, effectiveCategory, categories),
       ),
       categories: data?.categories ?? [],
-      categoryAppearanceFor: (categoryId) =>
-        appearanceForEvent(data?.categories ?? [], categoryId),
+      categoryAppearanceFor: (ref) => appearanceForEvent(data?.categories ?? [], ref),
+      resolvedCategoryIdFor: (ref) => resolvedCategoryId(data?.categories ?? [], ref),
 
       addEvent: async (draft) => {
         await createMutation.mutateAsync(draft);
