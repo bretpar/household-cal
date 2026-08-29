@@ -119,6 +119,8 @@ export function WeekView({
   const careLabel = (o: Occurrence) =>
     isChildcare(o.event) ? o.event.title : sourceName(o.event.calendar_source_id);
   /** Rolling window: the selected date is always the left-most column. */
+  /** One column = Day view, which gets the slightly larger shared type scale. */
+  const viewScale = days === 1 ? "day" : "week";
   const start = anchor;
   const columns: Date[] = Array.from({ length: days }, (_, i) => addDays(start, i));
   const occurrences = expandOccurrences(events, columns[0]!, addDays(columns[days - 1]!, 1));
