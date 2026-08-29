@@ -311,3 +311,44 @@
     min-height: 44px;
   }
 }
+
+/* Calendar period navigation: outgoing period slides away while the incoming
+   one slides in from the opposite side (iOS Calendar feel). */
+@keyframes cal-slide-in-from-right {
+  from { transform: translate3d(100%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes cal-slide-in-from-left {
+  from { transform: translate3d(-100%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes cal-slide-out-to-left {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-100%, 0, 0); }
+}
+@keyframes cal-slide-out-to-right {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(100%, 0, 0); }
+}
+
+@utility cal-slide-in-right {
+  animation: cal-slide-in-from-right 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@utility cal-slide-in-left {
+  animation: cal-slide-in-from-left 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@utility cal-slide-out-left {
+  animation: cal-slide-out-to-left 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@utility cal-slide-out-right {
+  animation: cal-slide-out-to-right 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-slide-in-right,
+  .cal-slide-in-left,
+  .cal-slide-out-left,
+  .cal-slide-out-right {
+    animation-duration: 1ms;
+  }
+}

@@ -12,6 +12,7 @@ import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
 import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
+import { usePeriodSlide } from "@/hooks/use-period-slide";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCalendar } from "@/lib/calendar-store";
 import {
@@ -77,10 +78,20 @@ function CalendarPage() {
   const mode: ViewMode = view;
   const isEmpty = !loading && events.length === 0;
 
-  const step = (direction: number) =>
-    setAnchor((prev) =>
-      mode === "month" ? addMonths(prev, direction) : addDays(prev, direction * (mode === "week" ? 7 : 1)),
-    );
+  // Slide the old period out while the new one slides in from the other side.
+  const slide = usePeriodSlide<Date>();
+
+  const shift = (from: Date, direction: number) =>
+    mode === "month" ? addMonths(from, direction) : addDays(from, direction * (mode === "week" ? 7 : 1));
+
+  const step = (direction: 1 | -1) =>
+    slide.navigate(anchor, direction, () => setAnchor((prev) => shift(prev, direction)));
+
+  const goToday = () => {
+    const today = new Date();
+    const direction: 1 | -1 = today >= anchor ? 1 : -1;
+    slide.navigate(anchor, direction, () => setAnchor(today));
+  };
 
   // Swipe left = forward, swipe right = back — same state as the arrows.
   const swipeProps = useHorizontalSwipe({
@@ -92,15 +103,65 @@ function CalendarPage() {
   // Full week columns honor the week-start preference; the 3-day phone layout
   // stays rolling from the anchor so it keeps looking forward from today.
   const weekDays = isMobile ? 3 : 7;
-  const weekAnchor = weekDays === 7 ? startOfWeek(anchor, { weekStartsOn: weekStart }) : anchor;
+  const weekAnchorFor = (at: Date) =>
+    weekDays === 7 ? startOfWeek(at, { weekStartsOn: weekStart }) : at;
 
-  const label =
-
+  const labelFor = (at: Date) =>
     mode === "month"
-      ? format(anchor, "MMMM yyyy")
+      ? format(at, "MMMM yyyy")
       : mode === "week"
-        ? `${format(weekAnchor, "MMM d")} – ${format(addDays(weekAnchor, weekDays - 1), "MMM d")}`
-        : format(anchor, "EEEE, MMM d");
+        ? `${format(weekAnchorFor(at), "MMM d")} – ${format(addDays(weekAnchorFor(at), weekDays - 1), "MMM d")}`
+        : format(at, "EEEE, MMM d");
+  const label = labelFor(anchor);
+
+  const renderPeriod = (at: Date) =>
+    mode === "month" ? (
+      <MonthView
+        month={at}
+        events={visibleEvents}
+        selectedMembers={selectedMembers}
+        onPaste={onPaste}
+        onCreateAt={onCreateAt}
+        weekStartsOn={weekStart}
+        onSelectDay={(day) => {
+          setAnchor(day);
+          setView("day");
+        }}
+      />
+    ) : mode === "week" ? (
+      <WeekView
+        anchor={weekAnchorFor(at)}
+        events={visibleEvents}
+        selectedMembers={selectedMembers}
+        days={weekDays}
+        onCreateRange={onCreateRange}
+      />
+    ) : (
+      <div className="space-y-4">
+        <WeekView
+          anchor={at}
+          events={visibleEvents}
+          selectedMembers={selectedMembers}
+          days={1}
+          onCreateRange={onCreateRange}
+        />
+        <AgendaView
+          anchor={at}
+          events={visibleEvents}
+          selectedMembers={selectedMembers}
+          onPaste={onPaste}
+        />
+      </div>
+    );
+
+  const incomingClass = slide.outgoing
+    ? slide.outgoing.direction === 1
+      ? "cal-slide-in-right"
+      : "cal-slide-in-left"
+    : undefined;
+  const outgoingClass =
+    slide.outgoing?.direction === 1 ? "cal-slide-out-left" : "cal-slide-out-right";
+
 
   return (
     <AppShell>
@@ -121,7 +182,27 @@ function CalendarPage() {
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <span className="min-w-0 truncate text-base font-bold sm:text-lg">{label}</span>
+            <span className="relative min-w-0 flex-1 overflow-hidden">
+              {slide.outgoing ? (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute inset-0 truncate text-base font-bold sm:text-lg",
+                    outgoingClass,
+                  )}
+                >
+                  {labelFor(slide.outgoing.value)}
+                </span>
+              ) : null}
+              <span
+                className={cn(
+                  "block min-w-0 truncate text-base font-bold sm:text-lg",
+                  incomingClass,
+                )}
+              >
+                {label}
+              </span>
+            </span>
             <Button
               variant="ghost"
               size="icon"
@@ -134,10 +215,11 @@ function CalendarPage() {
             <Button
               variant="ghost"
               className="ml-1 h-9 rounded-full px-3 text-xs font-bold"
-              onClick={() => setAnchor(new Date())}
+              onClick={goToday}
             >
               Today
             </Button>
+
           </div>
 
           <div className="flex items-center gap-2">
@@ -175,46 +257,18 @@ function CalendarPage() {
           </div>
         ) : null}
 
-        <div {...swipeProps} className="touch-pan-y">
-          {mode === "month" ? (
-            <MonthView
-              month={anchor}
-              events={visibleEvents}
-              selectedMembers={selectedMembers}
-              onPaste={onPaste}
-              onCreateAt={onCreateAt}
-              weekStartsOn={weekStart}
-              onSelectDay={(day) => {
-                setAnchor(day);
-                setView("day");
-              }}
-            />
-          ) : mode === "week" ? (
-            <WeekView
-              anchor={weekAnchor}
-              events={visibleEvents}
-              selectedMembers={selectedMembers}
-              days={weekDays}
-              onCreateRange={onCreateRange}
-            />
-          ) : (
-            <div className="space-y-4">
-              <WeekView
-                anchor={anchor}
-                events={visibleEvents}
-                selectedMembers={selectedMembers}
-                days={1}
-                onCreateRange={onCreateRange}
-              />
-              <AgendaView
-                anchor={anchor}
-                events={visibleEvents}
-                selectedMembers={selectedMembers}
-                onPaste={onPaste}
-              />
+        <div {...swipeProps} className="relative touch-pan-y overflow-hidden">
+          {slide.outgoing ? (
+            <div
+              aria-hidden
+              className={cn("pointer-events-none absolute inset-x-0 top-0", outgoingClass)}
+            >
+              {renderPeriod(slide.outgoing.value)}
             </div>
-          )}
+          ) : null}
+          <div className={incomingClass}>{renderPeriod(anchor)}</div>
         </div>
+
 
       </div>
       <QuickAddEventDialog
