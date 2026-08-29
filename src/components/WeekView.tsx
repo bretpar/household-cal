@@ -170,7 +170,12 @@ export function WeekView({
   return (
     <>
       {dialog}
-    <div className="calendar-gesture-surface overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft">
+    <div
+      className={cn(
+        "calendar-gesture-surface overflow-hidden",
+        !bare && "rounded-3xl border border-border-soft bg-surface shadow-soft",
+      )}
+    >
       <div
         className="grid border-b border-border-soft bg-surface-muted"
         style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
