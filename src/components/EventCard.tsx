@@ -15,6 +15,7 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
 import { eventAccentClass, eventTintClass } from "@/lib/event-colors";
+import { EVENT_TYPE_SCALE } from "@/lib/event-typography";
 import { MemberBadgeRow } from "@/components/MemberBadge";
 import { formatTimeRange, type EventType, type Occurrence } from "@/lib/family-data";
 
