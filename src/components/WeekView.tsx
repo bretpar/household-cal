@@ -99,6 +99,7 @@ export function WeekView({
   days = 7,
   onCreateRange,
   bare = false,
+  fill = false,
 }: {
   anchor: Date;
   events: CalendarEvent[];
@@ -108,7 +109,10 @@ export function WeekView({
   onCreateRange?: ((start: Date, end: Date) => void) | undefined;
   /** render without the card frame (parent supplies a stationary one) */
   bare?: boolean;
+  /** fill the parent's height; only the hourly timeline scrolls */
+  fill?: boolean;
 }) {
+
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
   const sourceName = (id: string | null) =>
@@ -176,13 +180,15 @@ export function WeekView({
     <div
       className={cn(
         "calendar-gesture-surface overflow-hidden",
+        fill && "flex min-h-0 flex-1 flex-col",
         !bare && "rounded-3xl border border-border-soft bg-surface shadow-soft",
       )}
     >
       <div
-        className="grid border-b border-border-soft bg-surface-muted"
+        className="grid shrink-0 border-b border-border-soft bg-surface-muted"
         style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
       >
+
         <div />
         {columns.map((day) => (
           <div key={day.toISOString()} className="py-2 text-center">
@@ -203,8 +209,9 @@ export function WeekView({
 
       {/* all-day row */}
       <div
-        className="grid border-b border-border-soft"
+        className="grid shrink-0 border-b border-border-soft"
         style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
+
       >
         <div className="py-1.5 pr-1 text-right text-[10px] font-semibold text-muted-foreground">
           Day
@@ -246,9 +253,13 @@ export function WeekView({
       </div>
 
       <div
-        className="max-h-[70vh] overflow-y-auto"
+        className={cn(
+          "overflow-y-auto overscroll-contain",
+          fill ? "min-h-0 flex-1" : "max-h-[70vh]",
+        )}
         style={dragging ? { touchAction: "none" } : undefined}
       >
+
         <div
           className="relative grid"
           style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}

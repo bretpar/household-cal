@@ -793,11 +793,9 @@ export function EventFormFields({
       </div>
 
       {!state.allDay ? (
-        // Stacks on very narrow phones, side by side as soon as there is room.
-        <div className="time-row grid w-full min-w-0 max-w-full grid-cols-1 items-end gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] min-[430px]:gap-4">
-
-
-          <div className="min-w-0 max-w-full space-y-1.5">
+        // Stacks on narrow phones, side by side as soon as both fields fit cleanly.
+        <div className="time-row flex w-full min-w-0 max-w-full flex-col gap-3 min-[480px]:flex-row min-[480px]:items-end min-[480px]:gap-4">
+          <div className="min-w-0 flex-1 basis-0 space-y-1.5">
             <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
             <TimeField
               id={`${idPrefix}-start`}
@@ -805,7 +803,7 @@ export function EventFormFields({
               onChange={(value) => set("startTime", value)}
             />
           </div>
-          <div className="min-w-0 max-w-full space-y-1.5">
+          <div className="min-w-0 flex-1 basis-0 space-y-1.5">
             <Label htmlFor={`${idPrefix}-end`}>End time</Label>
             <TimeField
               id={`${idPrefix}-end`}
@@ -815,6 +813,7 @@ export function EventFormFields({
           </div>
         </div>
       ) : null}
+
 
 
 

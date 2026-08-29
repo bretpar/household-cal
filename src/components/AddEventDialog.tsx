@@ -28,9 +28,12 @@ import { useCalendar } from "@/lib/calendar-store";
 export function AddEventDialog({
   defaultDate,
   className,
+  /** icon-only trigger for compact mobile toolbars */
+  compact = false,
 }: {
   defaultDate?: Date;
   className?: string;
+  compact?: boolean;
 }) {
   const { canEdit } = useCalendar();
   const [open, setOpen] = useState(false);
@@ -47,11 +50,22 @@ export function AddEventDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button size="lg" className={cn("h-11 rounded-full px-5 font-bold", className)}>
-          <Plus className="h-4 w-4" />
-          Add Event
-        </Button>
+        {compact ? (
+          <Button
+            size="icon"
+            aria-label="Add event"
+            className={cn("h-9 w-9 shrink-0 rounded-full", className)}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button size="lg" className={cn("h-11 rounded-full px-5 font-bold", className)}>
+            <Plus className="h-4 w-4" />
+            Add Event
+          </Button>
+        )}
       </DialogTrigger>
+
       <EventComposerContent
         title="Add an event"
         description="Everything the family needs to know, in one place."

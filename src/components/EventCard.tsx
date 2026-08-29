@@ -30,7 +30,14 @@ export const eventTypeIcons: Record<EventType, LucideIcon> = {
   other: Sparkles,
 };
 
-export function EventPill({ occurrence }: { occurrence: Occurrence }) {
+export function EventPill({
+  occurrence,
+  /** denser row used when the month grid is height-constrained (mobile full-screen) */
+  compact = false,
+}: {
+  occurrence: Occurrence;
+  compact?: boolean;
+}) {
   const { openOccurrence, categoryAppearanceFor } = useCalendar();
   const { event } = occurrence;
   const appearance = categoryAppearanceFor(event);
@@ -43,7 +50,8 @@ export function EventPill({ occurrence }: { occurrence: Occurrence }) {
         openOccurrence(occurrence);
       }}
       className={cn(
-        "flex w-full items-center gap-1 rounded-lg px-1.5 py-1 text-left text-[11px] leading-tight",
+        "flex w-full items-center gap-1 rounded-lg text-left leading-tight",
+        compact ? "px-1 py-px text-[10px]" : "px-1.5 py-1 text-[11px]",
         eventTintClass(appearance),
       )}
     >
@@ -52,6 +60,7 @@ export function EventPill({ occurrence }: { occurrence: Occurrence }) {
     </button>
   );
 }
+
 
 export function EventCard({
   occurrence,

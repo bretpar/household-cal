@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   addDays,
   endOfMonth,
@@ -36,6 +36,7 @@ export function MonthView({
   onCreateAt,
   weekStartsOn = 1,
   bare = false,
+  fill = false,
 }: {
   month: Date;
   events: CalendarEvent[];
@@ -49,6 +50,8 @@ export function MonthView({
   weekStartsOn?: 0 | 1;
   /** render without the card frame (parent supplies a stationary one) */
   bare?: boolean;
+  /** stretch the grid to the parent's height so the whole month fits without scrolling */
+  fill?: boolean;
 }) {
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
   const WEEKDAYS = weekStartsOn === 0 ? SUNDAY_FIRST : MONDAY_FIRST;
@@ -57,6 +60,26 @@ export function MonthView({
   const occurrences = expandOccurrences(events, gridStart, gridEnd);
   const days: Date[] = [];
   for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) days.push(d);
+  const weeks = Math.max(1, Math.round(days.length / 7));
+
+  // In fill mode rows share the available height, so how many event rows fit is
+  // measured rather than hardcoded: 6-week months get shorter rows automatically.
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [rowHeight, setRowHeight] = useState(0);
+  useEffect(() => {
+    const node = gridRef.current;
+    if (!fill || !node || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setRowHeight(node.clientHeight / weeks));
+    observer.observe(node);
+    setRowHeight(node.clientHeight / weeks);
+    return () => observer.disconnect();
+  }, [fill, weeks]);
+
+  const EVENT_ROW_PX = 15;
+  const maxVisible = fill
+    ? Math.max(1, Math.min(5, Math.floor((rowHeight - 30) / EVENT_ROW_PX) || 1))
+    : 3;
+
 
   // Press-and-hold an empty day to create an event. The day is captured on
   // pointer down so a single hook can serve every cell.
@@ -89,21 +112,29 @@ export function MonthView({
     <div
       className={cn(
         "calendar-gesture-surface overflow-hidden",
+        fill && "flex min-h-0 flex-1 flex-col",
         !bare && "rounded-3xl border border-border-soft bg-surface shadow-soft",
       )}
     >
-      <div className="grid grid-cols-7 border-b border-border-soft bg-surface-muted">
+      <div className="grid shrink-0 grid-cols-7 border-b border-border-soft bg-surface-muted">
         {WEEKDAYS.map((day) => (
           <div
             key={day}
-            className="py-2 text-center text-[11px] font-bold tracking-wide text-muted-foreground uppercase"
+            className={cn(
+              "text-center text-[11px] font-bold tracking-wide text-muted-foreground uppercase",
+              fill ? "py-1 sm:py-2" : "py-2",
+            )}
           >
             <span className="hidden sm:inline">{day}</span>
             <span className="sm:hidden">{day[0]}</span>
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7">
+      <div
+        ref={gridRef}
+        className={cn("grid grid-cols-7", fill && "min-h-0 flex-1")}
+        style={fill ? { gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))` } : undefined}
+      >
         {days.map((day) => {
           const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
           const coverage = dayOccurrences.filter((o) => isCoverage(o.event));
@@ -112,6 +143,8 @@ export function MonthView({
           );
           const inMonth = isSameMonth(day, month);
           const today = isSameDay(day, new Date());
+          const overflowing = visible.length > maxVisible;
+          const shownCount = overflowing ? Math.max(1, maxVisible - 1) : maxVisible;
 
           return (
             <div
@@ -134,15 +167,24 @@ export function MonthView({
                 }
               }}
               className={cn(
-                "relative min-h-[92px] cursor-pointer border-t border-l border-border-soft p-1.5 text-left align-top transition-colors first:border-l-0 hover:bg-secondary/60 sm:min-h-[124px] sm:p-2",
+                "relative cursor-pointer border-t border-l border-border-soft text-left align-top transition-colors first:border-l-0 hover:bg-secondary/60",
+                fill
+                  ? "min-h-0 overflow-hidden p-1 sm:p-2"
+                  : "min-h-[92px] p-1.5 sm:min-h-[124px] sm:p-2",
                 !inMonth && "opacity-45",
                 coverage.length > 0 && "bg-coverage/70",
               )}
             >
-              <div className="mb-1 flex items-center justify-between gap-1">
+              <div
+                className={cn(
+                  "flex items-center justify-between gap-1",
+                  fill ? "mb-0.5" : "mb-1",
+                )}
+              >
                 <span
                   className={cn(
-                    "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
+                    "flex items-center justify-center rounded-full font-bold",
+                    fill ? "h-5 w-5 text-[11px] sm:h-6 sm:w-6 sm:text-xs" : "h-6 w-6 text-xs",
                     today ? "bg-primary text-primary-foreground" : "text-foreground",
                   )}
                 >
@@ -167,20 +209,20 @@ export function MonthView({
                   />
                 ) : null}
               </div>
-              <div className="space-y-1">
-                {visible.slice(0, 3).map((occurrence) => (
+              <div className={fill ? "space-y-px" : "space-y-1"}>
+                {visible.slice(0, shownCount).map((occurrence) => (
                   <div
                     key={occurrence.key}
                     data-occurrence=""
                     {...dragProps(occurrence)}
                     className={cn(draggingKey === occurrence.key && "opacity-40")}
                   >
-                    <EventPill occurrence={occurrence} />
+                    <EventPill occurrence={occurrence} compact={fill} />
                   </div>
                 ))}
-                {visible.length > 3 ? (
+                {overflowing ? (
                   <p className="px-1 text-[10px] font-semibold text-muted-foreground">
-                    +{visible.length - 3} more
+                    +{visible.length - shownCount} more
                   </p>
                 ) : null}
               </div>
@@ -188,6 +230,7 @@ export function MonthView({
           );
         })}
       </div>
+
     </div>
     </>
   );
