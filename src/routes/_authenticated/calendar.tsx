@@ -223,8 +223,8 @@ function CalendarPage() {
               variant="ghost"
               size="icon"
               className="h-10 w-10 rounded-full"
-              aria-label="Next"
-              onClick={() => step(1)}
+              aria-label={`Next ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+              onClick={() => step(1, { focus: true })}
             >
               <ChevronRight className="h-5 w-5" />
             </Button>
@@ -273,6 +273,10 @@ function CalendarPage() {
           </div>
         ) : null}
 
+        {/* Announces the newly active period to screen readers on navigation. */}
+        <p aria-live="polite" className="sr-only">
+          {label}
+        </p>
         <div {...swipeProps} className="relative touch-pan-y overflow-hidden">
           {slide.outgoing ? (
             <div
@@ -282,7 +286,24 @@ function CalendarPage() {
               {renderPeriod(slide.outgoing.value)}
             </div>
           ) : null}
-          <div className={incomingClass}>{renderPeriod(anchor)}</div>
+          <div
+            ref={periodRef}
+            tabIndex={-1}
+            role="group"
+            aria-label={`${CALENDAR_VIEW_LABEL[mode]} view: ${label}`}
+            className={cn("outline-none", incomingClass)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                step(-1, { focus: true });
+              } else if (e.key === "ArrowRight") {
+                e.preventDefault();
+                step(1, { focus: true });
+              }
+            }}
+          >
+            {renderPeriod(anchor)}
+          </div>
         </div>
 
 
