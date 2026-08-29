@@ -1,12 +1,10 @@
-import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Home, LogOut, Sparkles, Users } from "lucide-react";
+import { Link, useRouter } from "@tanstack/react-router";
+import { CalendarDays, Home, Sparkles, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
 import logoAsset from "@/assets/logo.png.asset.json";
 import { LegalFooter } from "@/components/LegalFooter";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
-import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 
@@ -29,8 +27,6 @@ export function AppShell({
   children: ReactNode;
   fitViewport?: boolean;
 }) {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const router = useRouter();
 
   /** Warm the route (code + loader data) as soon as a finger/pointer lands. */
@@ -38,14 +34,8 @@ export function AppShell({
     void router.preloadRoute({ to }).catch(() => {});
   };
 
-  const signOut = async () => {
-    await queryClient.cancelQueries();
-    queryClient.clear();
-    await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
-  };
-
   return (
+
     <div
       className={cn(
         "bg-background",
@@ -84,16 +74,8 @@ export function AppShell({
                 </Link>
               ))}
             </nav>
-            <button
-              type="button"
-              onClick={signOut}
-              aria-label="Sign out"
-              className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary"
-            >
-              <LogOut className="h-4 w-4" aria-hidden />
-              <span className="hidden lg:inline">Sign out</span>
-            </button>
           </div>
+
         </div>
       </header>
 
@@ -101,10 +83,11 @@ export function AppShell({
         className={cn(
           "mx-auto w-full max-w-6xl",
           fitViewport
-            ? "flex min-h-0 flex-1 flex-col overflow-hidden px-3 pt-2 pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:block md:min-h-0 md:flex-none md:overflow-visible md:px-4 md:pt-5 md:pb-12 lg:px-8"
-            : "px-4 pt-5 pb-28 md:pb-12 lg:px-8",
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden px-3 pt-2 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:block md:min-h-0 md:flex-none md:overflow-visible md:px-4 md:pt-5 md:pb-12 lg:px-8"
+            : "px-4 pt-5 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-12 lg:px-8",
         )}
       >
+
         {children}
         {fitViewport ? (
           <div className="hidden md:block">
@@ -117,8 +100,8 @@ export function AppShell({
 
 
       {/* Phone bottom navigation */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border-soft bg-surface/95 backdrop-blur md:hidden">
-        <div className="grid h-14 min-h-[3.5rem] grid-cols-4 items-stretch">
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border-soft bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+        <div className="grid h-auto grid-cols-4">
           {NAV.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}
@@ -126,7 +109,7 @@ export function AppShell({
               preload="intent"
               onTouchStart={() => prefetch(to)}
               onPointerDown={() => prefetch(to)}
-              className="flex h-full min-h-12 w-full flex-col items-center justify-center gap-2 text-xs font-semibold text-muted-foreground active:bg-secondary/50"
+              className="flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-h-[calc(3.5rem+env(safe-area-inset-bottom))] flex-col items-center justify-start gap-2 pt-2.5 text-xs font-semibold text-muted-foreground active:bg-secondary/50"
               activeProps={{ className: "bg-secondary text-primary" }}
             >
               <Icon className="h-6 w-6" aria-hidden />
@@ -134,9 +117,8 @@ export function AppShell({
             </Link>
           ))}
         </div>
-        <div className="pointer-events-none h-3" aria-hidden="true" />
-        <div className="pointer-events-none h-[env(safe-area-inset-bottom)]" aria-hidden="true" />
       </nav>
+
     </div>
   );
 }

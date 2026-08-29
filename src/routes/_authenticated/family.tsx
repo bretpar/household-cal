@@ -1,5 +1,6 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
-import { CalendarCog, ChevronRight, Eye, Palette, RefreshCw, Users } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { CalendarCog, ChevronRight, Eye, LogOut, Palette, RefreshCw, Users } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
@@ -13,8 +14,11 @@ import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { MemberBadge } from "@/components/MemberBadge";
 import { SettingsSection } from "@/components/SettingsSection";
 import { WeekStartSetting } from "@/components/WeekStartSetting";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { supabase } from "@/integrations/supabase/client";
 import { useCalendar } from "@/lib/calendar-store";
+
 
 
 export const Route = createFileRoute("/_authenticated/family")({
@@ -43,10 +47,20 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 function FamilyPage() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { members, sources, family, role } = useCalendar();
   const caregivers = members.filter((m) => m.role === "caregiver");
 
+  const signOut = async () => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  };
+
   return (
+
     <AppShell>
       <div className="space-y-6">
         <header>
@@ -159,7 +173,20 @@ function FamilyPage() {
 
 
         <DeveloperTools />
+
+        <div className="pt-2">
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={signOut}
+            className="h-12 w-full rounded-full text-base font-bold"
+          >
+            <LogOut className="h-5 w-5" aria-hidden />
+            Sign out
+          </Button>
+        </div>
       </div>
     </AppShell>
   );
 }
+
