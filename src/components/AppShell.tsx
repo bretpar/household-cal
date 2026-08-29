@@ -109,10 +109,20 @@ export function AppShell({
               preload="intent"
               onTouchStart={() => prefetch(to)}
               onPointerDown={() => prefetch(to)}
-              className="flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-h-[calc(3.5rem+env(safe-area-inset-bottom))] flex-col items-center justify-start gap-2 pt-2.5 text-xs font-semibold text-muted-foreground active:bg-secondary/50"
-              activeProps={{ className: "bg-secondary text-primary" }}
+              className={cn(
+                "relative flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-h-[calc(3.5rem+env(safe-area-inset-bottom))] flex-col items-center justify-start gap-2 pt-2.5 text-xs font-semibold text-muted-foreground",
+                "transition-all duration-150 ease-out",
+                "active:scale-95 active:bg-secondary/60 active:text-foreground",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40",
+              )}
+              activeProps={{
+                className: cn(
+                  "bg-secondary text-primary",
+                  "after:absolute after:top-1 after:h-1 after:w-1 after:rounded-full after:bg-primary",
+                ),
+              }}
             >
-              <Icon className="h-6 w-6" aria-hidden />
+              <Icon className="h-6 w-6 transition-transform duration-150 ease-out" aria-hidden />
               <span className="leading-none">{label}</span>
             </Link>
           ))}
