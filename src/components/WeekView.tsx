@@ -8,9 +8,15 @@ import { MemberBadgeRow } from "@/components/MemberBadge";
 import { eventTintClass } from "@/lib/event-colors";
 import { eventTypeIcons } from "@/components/EventCard";
 import { CalendarEventContent } from "@/components/CalendarEventContent";
-import { densityForHeight, EVENT_TYPE_SCALE } from "@/lib/event-typography";
+import {
+  densityForHeight,
+  EVENT_TYPE_SCALE,
+  type CalendarViewScale,
+  type EventDensity,
+} from "@/lib/event-typography";
 import { useReschedule } from "@/components/useReschedule";
 import { useTimeGridDrag } from "@/hooks/use-time-grid-drag";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   expandOccurrences,
   formatTimeRange,
@@ -21,6 +27,24 @@ import {
   type MemberId,
   type Occurrence,
 } from "@/lib/family-data";
+
+/** Responsive density for timed events in Week/Day view.
+ *  Mobile keeps the aggressive compact rules. Desktop/tablet has enough
+ *  horizontal room to show the title + time for events ~30 min and up. */
+function timedEventDensity(
+  view: CalendarViewScale,
+  height: number,
+  isMobile: boolean,
+): EventDensity {
+  if (isMobile) return densityForHeight(view, height);
+  if (view === "week") {
+    if (height >= 70) return "full";
+    if (height >= 30) return "medium"; // 30 min -> title + time
+    if (height >= 20) return "short";
+    return "tiny";
+  }
+  return densityForHeight(view, height);
+}
 
 /** Full 24-hour timeline so overnight and early-morning events are visible. */
 const DAY_START = 0;
@@ -112,6 +136,7 @@ export function WeekView({
 }) {
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
+  const isMobile = useIsMobile();
   const sourceName = (id: string | null) => sources.find((s) => s.id === id)?.name ?? "Coverage";
   /** Childcare joins the soft care-coverage layer instead of competing as a card. */
   const isCareLayer = (o: Occurrence) =>
@@ -401,7 +426,9 @@ export function WeekView({
                       const Icon = eventTypeIcons[o.event.event_type];
                       const blockHeight = heightFor(o);
                       // Height decides which rows are shown — never the font size.
-                      const density = densityForHeight(viewScale, blockHeight);
+                      // On desktop/tablet there is enough room to keep title + time
+                      // for events ~30 min and up; mobile keeps the compact rules.
+                      const density = timedEventDensity(viewScale, blockHeight, isMobile);
                       const compact = density === "tiny" || density === "short";
                       return (
                         <div
