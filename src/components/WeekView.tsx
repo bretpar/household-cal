@@ -250,9 +250,13 @@ export function WeekView({
       </div>
 
       <div
-        className="max-h-[70vh] overflow-y-auto"
+        className={cn(
+          "overflow-y-auto overscroll-contain",
+          fill ? "min-h-0 flex-1" : "max-h-[70vh]",
+        )}
         style={dragging ? { touchAction: "none" } : undefined}
       >
+
         <div
           className="relative grid"
           style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
