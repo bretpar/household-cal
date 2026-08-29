@@ -47,8 +47,16 @@ export const createEvent = createServerFn({ method: "POST" })
     const familyId = await resolveWritableFamily(db, context.userId);
     const sourceId = data.calendar_source_id ?? (await defaultEventSource(db, familyId));
     const id = await insertEvent(db, familyId, { ...data, calendar_source_id: sourceId });
+    // The Google push must never hold the user's save open: a slow or hung
+    // Google API call would otherwise leave the Add Event dialog spinning
+    // after the event already exists. Bound it; the reconciliation pass
+    // repairs anything a cut-off push misses (pushToGoogle already swallows
+    // errors for the same reason).
     const { pushToGoogle } = await import("@/lib/google/push.server");
-    await pushToGoogle(familyId, id);
+    await Promise.race([
+      pushToGoogle(familyId, id),
+      new Promise<void>((resolve) => setTimeout(resolve, 2500)),
+    ]);
     return { id };
   });
 
@@ -77,8 +85,13 @@ export const updateEventFn = createServerFn({ method: "POST" })
       await db.from("events").update({ needs_family_assignment: false }).eq("id", data.event_id);
     }
     const { pushToGoogle } = await import("@/lib/google/push.server");
-    await pushToGoogle(familyId, data.event_id);
-    if (created && created !== data.event_id) await pushToGoogle(familyId, created);
+    await Promise.race([
+      (async () => {
+        await pushToGoogle(familyId, data.event_id);
+        if (created && created !== data.event_id) await pushToGoogle(familyId, created);
+      })(),
+      new Promise<void>((resolve) => setTimeout(resolve, 2500)),
+    ]);
     return { ok: true };
   });
 
@@ -98,8 +111,12 @@ export const deleteEventFn = createServerFn({ method: "POST" })
 
     await applyEventDelete(db, data.event_id, data.occurrence_day, data.scope);
 
-    if (wholeEventGone) await sync.pushEventDeletion(supabaseAdmin, familyId, links);
-    else await sync.pushEvent(supabaseAdmin, familyId, data.event_id);
+    await Promise.race([
+      wholeEventGone
+        ? sync.pushEventDeletion(supabaseAdmin, familyId, links)
+        : sync.pushEvent(supabaseAdmin, familyId, data.event_id),
+      new Promise<void>((resolve) => setTimeout(resolve, 2500)),
+    ]);
     return { ok: true };
   });
 
