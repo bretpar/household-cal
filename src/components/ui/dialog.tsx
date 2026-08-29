@@ -43,6 +43,12 @@ const DialogContent = React.forwardRef<
   const [dragY, setDragY] = React.useState(0);
   const startY = React.useRef<number | null>(null);
 
+  // Drag-to-dismiss only applies to the mobile bottom sheet (max-sm). On
+  // tablet/desktop the centered dialog relies on translate -50% classes and
+  // an inline transform would override them.
+  const isMobileSheet = () =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches;
+
   const canDrag = (target: EventTarget | null) => {
     // Only start a sheet drag when no inner scroller is scrolled down.
     let node = target as HTMLElement | null;
