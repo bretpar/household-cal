@@ -25,12 +25,6 @@ const TUNING: Record<SwipeSensitivity, Tuning> = {
 
 const MAX_DURATION = 800; // ms — longer holds are drags, not swipes
 
-/** Short, subtle tap when navigation actually happens. */
-function haptic() {
-  if (typeof navigator === "undefined") return;
-  navigator.vibrate?.(10);
-}
-
 /**
  * Native-feeling horizontal swipe navigation for the calendar surfaces.
  *
