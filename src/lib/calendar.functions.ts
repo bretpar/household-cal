@@ -85,8 +85,13 @@ export const updateEventFn = createServerFn({ method: "POST" })
       await db.from("events").update({ needs_family_assignment: false }).eq("id", data.event_id);
     }
     const { pushToGoogle } = await import("@/lib/google/push.server");
-    await pushToGoogle(familyId, data.event_id);
-    if (created && created !== data.event_id) await pushToGoogle(familyId, created);
+    await Promise.race([
+      (async () => {
+        await pushToGoogle(familyId, data.event_id);
+        if (created && created !== data.event_id) await pushToGoogle(familyId, created);
+      })(),
+      new Promise<void>((resolve) => setTimeout(resolve, 2500)),
+    ]);
     return { ok: true };
   });
 
@@ -106,8 +111,12 @@ export const deleteEventFn = createServerFn({ method: "POST" })
 
     await applyEventDelete(db, data.event_id, data.occurrence_day, data.scope);
 
-    if (wholeEventGone) await sync.pushEventDeletion(supabaseAdmin, familyId, links);
-    else await sync.pushEvent(supabaseAdmin, familyId, data.event_id);
+    await Promise.race([
+      wholeEventGone
+        ? sync.pushEventDeletion(supabaseAdmin, familyId, links)
+        : sync.pushEvent(supabaseAdmin, familyId, data.event_id),
+      new Promise<void>((resolve) => setTimeout(resolve, 2500)),
+    ]);
     return { ok: true };
   });
 
