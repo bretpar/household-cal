@@ -209,8 +209,9 @@ export function WeekView({
 
       {/* all-day row */}
       <div
-        className="grid border-b border-border-soft"
+        className="grid shrink-0 border-b border-border-soft"
         style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
+
       >
         <div className="py-1.5 pr-1 text-right text-[10px] font-semibold text-muted-foreground">
           Day
