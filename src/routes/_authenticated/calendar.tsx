@@ -77,10 +77,20 @@ function CalendarPage() {
   const mode: ViewMode = view;
   const isEmpty = !loading && events.length === 0;
 
-  const step = (direction: number) =>
-    setAnchor((prev) =>
-      mode === "month" ? addMonths(prev, direction) : addDays(prev, direction * (mode === "week" ? 7 : 1)),
-    );
+  // Slide the old period out while the new one slides in from the other side.
+  const slide = usePeriodSlide<Date>();
+
+  const shift = (from: Date, direction: number) =>
+    mode === "month" ? addMonths(from, direction) : addDays(from, direction * (mode === "week" ? 7 : 1));
+
+  const step = (direction: 1 | -1) =>
+    slide.navigate(anchor, direction, () => setAnchor((prev) => shift(prev, direction)));
+
+  const goToday = () => {
+    const today = new Date();
+    const direction: 1 | -1 = today >= anchor ? 1 : -1;
+    slide.navigate(anchor, direction, () => setAnchor(today));
+  };
 
   // Swipe left = forward, swipe right = back — same state as the arrows.
   const swipeProps = useHorizontalSwipe({
@@ -92,15 +102,66 @@ function CalendarPage() {
   // Full week columns honor the week-start preference; the 3-day phone layout
   // stays rolling from the anchor so it keeps looking forward from today.
   const weekDays = isMobile ? 3 : 7;
-  const weekAnchor = weekDays === 7 ? startOfWeek(anchor, { weekStartsOn: weekStart }) : anchor;
+  const weekAnchorFor = (at: Date) =>
+    weekDays === 7 ? startOfWeek(at, { weekStartsOn: weekStart }) : at;
+  const weekAnchor = weekAnchorFor(anchor);
 
-  const label =
-
+  const labelFor = (at: Date) =>
     mode === "month"
-      ? format(anchor, "MMMM yyyy")
+      ? format(at, "MMMM yyyy")
       : mode === "week"
-        ? `${format(weekAnchor, "MMM d")} – ${format(addDays(weekAnchor, weekDays - 1), "MMM d")}`
-        : format(anchor, "EEEE, MMM d");
+        ? `${format(weekAnchorFor(at), "MMM d")} – ${format(addDays(weekAnchorFor(at), weekDays - 1), "MMM d")}`
+        : format(at, "EEEE, MMM d");
+  const label = labelFor(anchor);
+
+  const renderPeriod = (at: Date) =>
+    mode === "month" ? (
+      <MonthView
+        month={at}
+        events={visibleEvents}
+        selectedMembers={selectedMembers}
+        onPaste={onPaste}
+        onCreateAt={onCreateAt}
+        weekStartsOn={weekStart}
+        onSelectDay={(day) => {
+          setAnchor(day);
+          setView("day");
+        }}
+      />
+    ) : mode === "week" ? (
+      <WeekView
+        anchor={weekAnchorFor(at)}
+        events={visibleEvents}
+        selectedMembers={selectedMembers}
+        days={weekDays}
+        onCreateRange={onCreateRange}
+      />
+    ) : (
+      <div className="space-y-4">
+        <WeekView
+          anchor={at}
+          events={visibleEvents}
+          selectedMembers={selectedMembers}
+          days={1}
+          onCreateRange={onCreateRange}
+        />
+        <AgendaView
+          anchor={at}
+          events={visibleEvents}
+          selectedMembers={selectedMembers}
+          onPaste={onPaste}
+        />
+      </div>
+    );
+
+  const incomingClass = slide.outgoing
+    ? slide.outgoing.direction === 1
+      ? "cal-slide-in-right"
+      : "cal-slide-in-left"
+    : undefined;
+  const outgoingClass =
+    slide.outgoing?.direction === 1 ? "cal-slide-out-left" : "cal-slide-out-right";
+
 
   return (
     <AppShell>
