@@ -1,4 +1,5 @@
 import type { DragEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addDays, format, isSameDay } from "date-fns";
 
 import { cn } from "@/lib/utils";
@@ -21,8 +22,9 @@ import {
   type Occurrence,
 } from "@/lib/family-data";
 
-const DAY_START = 7;
-const DAY_END = 22;
+/** Full 24-hour timeline so overnight and early-morning events are visible. */
+const DAY_START = 0;
+const DAY_END = 24;
 const HOUR_PX = 60;
 /** Drops snap to a friendly grid rather than to the exact pixel. */
 const SNAP_MINUTES = 15;
@@ -44,6 +46,10 @@ function isDayBlock(o: Occurrence): boolean {
 function hourLabel(hour: number) {
   const h = hour % 12 === 0 ? 12 : hour % 12;
   return `${h} ${hour < 12 ? "AM" : "PM"}`;
+}
+
+function minutesFromTop(px: number) {
+  return (px / HOUR_PX) * 60;
 }
 
 interface Placed {
