@@ -1,5 +1,6 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
-import { CalendarCog, ChevronRight, Eye, Palette, RefreshCw, Users } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { CalendarCog, ChevronRight, Eye, LogOut, Palette, RefreshCw, Users } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
@@ -13,8 +14,11 @@ import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { MemberBadge } from "@/components/MemberBadge";
 import { SettingsSection } from "@/components/SettingsSection";
 import { WeekStartSetting } from "@/components/WeekStartSetting";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { supabase } from "@/integrations/supabase/client";
 import { useCalendar } from "@/lib/calendar-store";
+
 
 
 export const Route = createFileRoute("/_authenticated/family")({
