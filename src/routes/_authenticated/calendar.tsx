@@ -144,6 +144,7 @@ function CalendarPage() {
         onCreateAt={onCreateAt}
         weekStartsOn={weekStart}
         bare
+        fill={isMobile}
         onSelectDay={(day) => {
           setAnchor(day);
           setView("day");
@@ -157,6 +158,18 @@ function CalendarPage() {
         days={weekDays}
         onCreateRange={onCreateRange}
         bare
+        fill={isMobile}
+      />
+    ) : isMobile ? (
+      // Phone day view: only the hourly timeline scrolls, the page stays put.
+      <WeekView
+        anchor={at}
+        events={visibleEvents}
+        selectedMembers={selectedMembers}
+        days={1}
+        onCreateRange={onCreateRange}
+        bare
+        fill
       />
     ) : (
       <div>
@@ -178,6 +191,7 @@ function CalendarPage() {
         </div>
       </div>
     );
+
 
   const incomingClass = slide.outgoing
     ? slide.outgoing.direction === 1
