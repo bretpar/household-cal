@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { AppShell } from "@/components/AppShell";
 import { AddEventDialog } from "@/components/AddEventDialog";
 import { AgendaView } from "@/components/AgendaView";
-import { CategoryFilter } from "@/components/CategoryFilter";
+
 import { MemberFilter } from "@/components/MemberFilter";
 import { useCalendar } from "@/lib/calendar-store";
 import { isCoverage, occurrencesForDay } from "@/lib/family-data";
