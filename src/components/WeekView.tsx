@@ -191,13 +191,13 @@ export function WeekView({
 
         <div />
         {columns.map((day) => (
-          <div key={day.toISOString()} className="py-2 text-center">
-            <p className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+          <div key={day.toISOString()} className="px-1 py-1 text-center">
+            <p className="text-[10px] leading-none font-bold tracking-wide text-muted-foreground uppercase">
               {format(day, "EEE")}
             </p>
             <p
               className={cn(
-                "mx-auto mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold",
+                "mx-auto mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-[13px] leading-none font-bold",
                 isSameDay(day, new Date()) && "bg-primary text-primary-foreground",
               )}
             >
