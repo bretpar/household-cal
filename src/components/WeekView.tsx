@@ -299,6 +299,16 @@ export function WeekView({
                   <span className="relative -top-1.5">{hourLabel(hour)}</span>
                 </div>
               ))}
+              {todayColumnIndex !== -1 && (
+                <div
+                  className="absolute right-0 z-20 flex -translate-y-1/2 items-center pr-1"
+                  style={{ top: nowTop }}
+                >
+                  <span className="rounded bg-brand-coral px-1 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                    {format(now, "h:mm a")}
+                  </span>
+                </div>
+              )}
             </div>
 
             {columns.map((day) => {
