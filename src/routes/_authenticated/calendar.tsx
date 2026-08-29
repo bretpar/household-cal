@@ -81,8 +81,10 @@ function CalendarPage() {
   // Slide the old period out while the new one slides in from the other side.
   const slide = usePeriodSlide<Date>();
 
+  // Week view is a continuous horizontal day strip: it advances one day at a
+  // time whenever fewer than 7 columns fit, so no date is ever skipped.
   const shift = (from: Date, direction: number) =>
-    mode === "month" ? addMonths(from, direction) : addDays(from, direction * (mode === "week" ? 7 : 1));
+    mode === "month" ? addMonths(from, direction) : addDays(from, direction);
 
   // Subtle tap on any period change; focus returns to the period region so
   // keyboard and screen-reader users land on the newly active date range.
@@ -116,18 +118,20 @@ function CalendarPage() {
     sensitivity: mode,
   });
 
-  // Full week columns honor the week-start preference; the 3-day phone layout
-  // stays rolling from the anchor so it keeps looking forward from today.
+  // Week view is a rolling day strip anchored on the selected date, so a swipe
+  // advances a single day and every date can be reached.
   const weekDays = isMobile ? 3 : 7;
-  const weekAnchorFor = (at: Date) =>
-    weekDays === 7 ? startOfWeek(at, { weekStartsOn: weekStart }) : at;
+  const weekAnchorFor = (at: Date) => at;
 
-  const labelFor = (at: Date) =>
-    mode === "month"
-      ? format(at, "MMMM yyyy")
-      : mode === "week"
-        ? `${format(weekAnchorFor(at), "MMM d")} – ${format(addDays(weekAnchorFor(at), weekDays - 1), "MMM d")}`
-        : format(at, "EEEE, MMM d");
+
+  // Week label always shows the 7-day week the visible days sit in, so it only
+  // changes when the rolling window crosses into the next/previous week.
+  const labelFor = (at: Date) => {
+    if (mode === "month") return format(at, "MMMM yyyy");
+    if (mode !== "week") return format(at, "EEEE, MMM d");
+    const weekOf = startOfWeek(at, { weekStartsOn: weekStart });
+    return `${format(weekOf, "MMM d")} – ${format(addDays(weekOf, 6), "MMM d")}`;
+  };
   const label = labelFor(anchor);
 
   const renderPeriod = (at: Date) =>
@@ -139,6 +143,7 @@ function CalendarPage() {
         onPaste={onPaste}
         onCreateAt={onCreateAt}
         weekStartsOn={weekStart}
+        bare
         onSelectDay={(day) => {
           setAnchor(day);
           setView("day");
@@ -151,22 +156,26 @@ function CalendarPage() {
         selectedMembers={selectedMembers}
         days={weekDays}
         onCreateRange={onCreateRange}
+        bare
       />
     ) : (
-      <div className="space-y-4">
+      <div>
         <WeekView
           anchor={at}
           events={visibleEvents}
           selectedMembers={selectedMembers}
           days={1}
           onCreateRange={onCreateRange}
+          bare
         />
+        <div className="border-t border-border-soft p-4">
         <AgendaView
           anchor={at}
           events={visibleEvents}
           selectedMembers={selectedMembers}
           onPaste={onPaste}
         />
+        </div>
       </div>
     );
 
@@ -198,26 +207,9 @@ function CalendarPage() {
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <span className="relative min-w-0 flex-1 overflow-hidden">
-              {slide.outgoing ? (
-                <span
-                  aria-hidden
-                  className={cn(
-                    "absolute inset-0 truncate text-base font-bold sm:text-lg",
-                    outgoingClass,
-                  )}
-                >
-                  {labelFor(slide.outgoing.value)}
-                </span>
-              ) : null}
-              <span
-                className={cn(
-                  "block min-w-0 truncate text-base font-bold sm:text-lg",
-                  incomingClass,
-                )}
-              >
-                {label}
-              </span>
+            {/* The header stays put: only the grid content animates. */}
+            <span className="min-w-0 flex-1 truncate text-base font-bold sm:text-lg">
+              {label}
             </span>
             <Button
               variant="ghost"
@@ -277,6 +269,7 @@ function CalendarPage() {
         <p aria-live="polite" className="sr-only">
           {label}
         </p>
+        <div className="overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft">
         <div {...swipeProps} className="relative touch-pan-y overflow-hidden">
           {slide.outgoing ? (
             <div
@@ -304,6 +297,7 @@ function CalendarPage() {
           >
             {renderPeriod(anchor)}
           </div>
+        </div>
         </div>
 
 
