@@ -58,9 +58,7 @@ export function EventPill({
         "flex w-full items-center gap-1 rounded-lg text-left",
         // Month typography is one fixed scale; only the padding tightens.
         compact ? scale.padding.tiny : scale.padding.medium,
-        muted
-          ? "bg-coverage/60 text-coverage-foreground"
-          : eventTintClass(appearance),
+        muted ? "bg-coverage/60 text-coverage-foreground" : eventTintClass(appearance),
       )}
     >
       <span className={cn("min-w-0 flex-1 truncate", scale.title)}>{event.title}</span>
@@ -68,7 +66,6 @@ export function EventPill({
     </button>
   );
 }
-
 
 export function EventCard({
   occurrence,

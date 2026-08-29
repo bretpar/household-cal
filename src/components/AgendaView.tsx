@@ -38,9 +38,7 @@ export function AgendaView({
       {dayList.map((day) => {
         const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
         // Childcare reads as a soft care-coverage strip above the day's events.
-        const coverage = dayOccurrences.filter(
-          (o) => isCoverage(o.event) || isChildcare(o.event),
-        );
+        const coverage = dayOccurrences.filter((o) => isCoverage(o.event) || isChildcare(o.event));
         const visible = dayOccurrences.filter(
           (o) =>
             !isCoverage(o.event) &&
@@ -75,9 +73,7 @@ export function AgendaView({
                 className="flex w-full items-center gap-2 rounded-2xl bg-coverage/60 px-3 py-2 text-left text-coverage-foreground"
               >
                 <Baby className="h-4 w-4 shrink-0" aria-hidden />
-                <span
-                  className={`min-w-0 truncate ${EVENT_TYPE_SCALE.day.title}`}
-                >
+                <span className={`min-w-0 truncate ${EVENT_TYPE_SCALE.day.title}`}>
                   {o.event.title}
                 </span>
                 <span

@@ -89,16 +89,9 @@ export function CalendarEventContent({
   // Full: icon + title, time, badges on their own row.
   return (
     <div className={wrapperClass}>
-      <button
-        type="button"
-        onClick={onOpen}
-        disabled={!onOpen}
-        className="block w-full text-left"
-      >
+      <button type="button" onClick={onOpen} disabled={!onOpen} className="block w-full text-left">
         <span className="flex items-center gap-1.5">
-          {Icon ? (
-            <Icon className={cn("shrink-0", scale.icon, timeTone)} aria-hidden />
-          ) : null}
+          {Icon ? <Icon className={cn("shrink-0", scale.icon, timeTone)} aria-hidden /> : null}
           <span className={cn("min-w-0 flex-1 truncate", scale.title)}>{label}</span>
         </span>
         <span className={cn("mt-0.5 block truncate", scale.time, timeTone)}>{time}</span>
