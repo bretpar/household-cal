@@ -117,8 +117,8 @@ export function AppShell({
 
 
       {/* Phone bottom navigation */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border-soft bg-surface/95 backdrop-blur md:hidden">
-        <div className="grid h-14 min-h-[3.5rem] grid-cols-4 items-stretch">
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border-soft bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+        <div className="grid h-auto grid-cols-4">
           {NAV.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}
@@ -126,7 +126,7 @@ export function AppShell({
               preload="intent"
               onTouchStart={() => prefetch(to)}
               onPointerDown={() => prefetch(to)}
-              className="flex h-full min-h-12 w-full flex-col items-center justify-center gap-2 text-xs font-semibold text-muted-foreground active:bg-secondary/50"
+              className="flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-h-[calc(3.5rem+env(safe-area-inset-bottom))] flex-col items-center justify-start gap-2 pt-2.5 text-xs font-semibold text-muted-foreground active:bg-secondary/50"
               activeProps={{ className: "bg-secondary text-primary" }}
             >
               <Icon className="h-6 w-6" aria-hidden />
@@ -134,9 +134,8 @@ export function AppShell({
             </Link>
           ))}
         </div>
-        <div className="pointer-events-none h-3" aria-hidden="true" />
-        <div className="pointer-events-none h-[env(safe-area-inset-bottom)]" aria-hidden="true" />
       </nav>
+
     </div>
   );
 }
