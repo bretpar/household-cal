@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Home, LogOut, Sparkles, Users } from "lucide-react";
 import type { ReactNode } from "react";
@@ -31,6 +31,12 @@ export function AppShell({
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const router = useRouter();
+
+  /** Warm the route (code + loader data) as soon as a finger/pointer lands. */
+  const prefetch = (to: string) => {
+    void router.preloadRoute({ to }).catch(() => {});
+  };
 
   const signOut = async () => {
     await queryClient.cancelQueries();
@@ -68,6 +74,8 @@ export function AppShell({
                 <Link
                   key={to}
                   to={to}
+                  preload="intent"
+                  onPointerDown={() => prefetch(to)}
                   className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary lg:px-4"
                   activeProps={{ className: "bg-secondary text-foreground" }}
                 >
@@ -115,6 +123,9 @@ export function AppShell({
             <Link
               key={to}
               to={to}
+              preload="intent"
+              onTouchStart={() => prefetch(to)}
+              onPointerDown={() => prefetch(to)}
               className="flex h-full min-h-12 w-full flex-col items-center justify-center gap-2 text-xs font-semibold text-muted-foreground active:bg-secondary/50"
               activeProps={{ className: "bg-secondary text-primary" }}
             >
