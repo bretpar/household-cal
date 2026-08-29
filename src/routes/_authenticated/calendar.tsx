@@ -11,8 +11,7 @@ import { MonthView } from "@/components/MonthView";
 import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
-import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
-import { usePeriodSlide } from "@/hooks/use-period-slide";
+import { usePeriodCarousel } from "@/hooks/use-period-carousel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCalendar } from "@/lib/calendar-store";
 import {
@@ -219,7 +218,7 @@ function CalendarPage() {
             variant="ghost"
             size="icon"
             className="h-9 w-9 shrink-0 rounded-full"
-            aria-label={`Previous ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+            aria-label={`Previous ${viewLabel(mode).toLowerCase()}`}
             onClick={() => step(-1, { focus: true })}
           >
             <ChevronLeft className="h-5 w-5" />
@@ -229,7 +228,7 @@ function CalendarPage() {
             variant="ghost"
             size="icon"
             className="h-9 w-9 shrink-0 rounded-full"
-            aria-label={`Next ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+            aria-label={`Next ${viewLabel(mode).toLowerCase()}`}
             onClick={() => step(1, { focus: true })}
           >
             <ChevronRight className="h-5 w-5" />
@@ -250,7 +249,7 @@ function CalendarPage() {
               variant="ghost"
               size="icon"
               className="h-10 w-10 rounded-full"
-              aria-label={`Previous ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+              aria-label={`Previous ${viewLabel(mode).toLowerCase()}`}
               onClick={() => step(-1, { focus: true })}
             >
               <ChevronLeft className="h-5 w-5" />
@@ -263,7 +262,7 @@ function CalendarPage() {
               variant="ghost"
               size="icon"
               className="h-10 w-10 rounded-full"
-              aria-label={`Next ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+              aria-label={`Next ${viewLabel(mode).toLowerCase()}`}
               onClick={() => step(1, { focus: true })}
             >
               <ChevronRight className="h-5 w-5" />
@@ -290,7 +289,7 @@ function CalendarPage() {
                     view === v ? "bg-surface text-foreground shadow-soft" : "text-muted-foreground",
                   )}
                 >
-                  {CALENDAR_VIEW_LABEL[v]}
+                  {viewLabel(v)}
                 </button>
               ))}
             </div>
@@ -311,7 +310,7 @@ function CalendarPage() {
                   view === v ? "bg-surface text-foreground shadow-soft" : "text-muted-foreground",
                 )}
               >
-                {CALENDAR_VIEW_LABEL[v]}
+                {viewLabel(v)}
               </button>
             ))}
           </div>
