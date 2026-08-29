@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { LegalFooter } from "@/components/LegalFooter";
-import { supabase } from "@/integrations/supabase/client";
+import { getSessionStatus, hasCachedSession, peekSessionStatus } from "@/lib/session-hint";
 
 const LOGO_IMAGE_URL =
   "https://ourfamilycalendar.com/__l5e/assets-v1/1cbc3ae6-235d-438e-9bff-3eace728929e/logo.png";
@@ -55,36 +55,40 @@ const FEATURES = [
   },
 ];
 
+function AuthLoadingShell() {
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center bg-background"
+      aria-busy="true"
+      aria-label="Loading"
+    >
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-border-soft border-t-primary" />
+    </div>
+  );
+}
+
 function LandingPage() {
   const navigate = useNavigate();
-  const [checking, setChecking] = useState(true);
+  // Start in "checking" whenever a persisted session might exist, so the
+  // landing page never paints for an already-signed-in user.
+  const [checking, setChecking] = useState(
+    () => peekSessionStatus() !== false || hasCachedSession(),
+  );
 
   useEffect(() => {
     let active = true;
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        if (!active) return;
-        if (data.session) navigate({ to: "/today", replace: true });
-        else setChecking(false);
-      })
-      .catch(() => {
-        if (active) setChecking(false);
-      });
+    getSessionStatus().then((signedIn) => {
+      if (!active) return;
+      if (signedIn) navigate({ to: "/today", replace: true });
+      else setChecking(false);
+    });
     return () => {
       active = false;
     };
   }, [navigate]);
 
-  if (checking) {
-    return (
-      <div
-        className="min-h-screen bg-background"
-        aria-busy="true"
-        aria-label="Loading"
-      />
-    );
-  }
+  if (checking) return <AuthLoadingShell />;
+
 
 
   return (
@@ -116,7 +120,7 @@ function LandingPage() {
           <div className="mt-6 flex flex-wrap gap-3">
             <Link to="/auth">
               <Button size="lg" className="h-12 rounded-full px-6 font-bold">
-                {checking ? "Get started" : "Get started"}
+                Get started
               </Button>
             </Link>
           </div>
