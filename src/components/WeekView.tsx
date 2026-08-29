@@ -300,8 +300,13 @@ export function WeekView({
                     The shaded body is inert (long-press there creates a normal event, like
                     blank calendar space); only the small header label is interactive. */}
                 {coverage.map((o) => {
-                  const label = `${careLabel(o)} · ${formatTimeRange(o.start, o.end, false)}`;
                   const moving = draggingKey === o.key || ghost?.occurrence?.key === o.key;
+                  const blockHeight = heightFor(o);
+                  // Background coverage uses the SAME type scale as any other
+                  // event in this view — only the colour is muted. The label
+                  // area is capped so long shifts stay readable underneath.
+                  const labelHeight = Math.min(blockHeight, 56);
+                  const density = densityForHeight(viewScale, labelHeight);
                   return (
                     <div
                       key={o.key}
@@ -311,28 +316,28 @@ export function WeekView({
                         // Subtle selected state: outline only, keeps the coverage colour.
                         moving && "ring-2 ring-coverage-strong/70 ring-inset",
                       )}
-                      style={{ top: topFor(o.start), height: heightFor(o) }}
+                      style={{ top: topFor(o.start), height: blockHeight }}
                       aria-label={`${careLabel(o)} ${formatTimeRange(o.start, o.end, false)}`}
                     >
-                      {isChildcare(o.event) ? (
-                        <div
-                          data-occurrence-key={o.key}
-                          {...dragProps(o)}
-                          className="pointer-events-auto absolute inset-x-0 top-0 flex"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => openOccurrence(o)}
-                            className="touch-hit-44 min-w-0 max-w-full truncate rounded-br-md px-1.5 py-1 text-left text-[11px] leading-tight font-semibold text-coverage-foreground"
-                          >
-                            {label}
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="block truncate px-1.5 py-1 text-[11px] leading-tight font-semibold text-coverage-foreground">
-                          {label}
-                        </span>
-                      )}
+                      <div
+                        {...(isChildcare(o.event)
+                          ? { "data-occurrence-key": o.key, ...dragProps(o) }
+                          : {})}
+                        className={cn(
+                          "absolute inset-x-0 top-0 text-coverage-foreground",
+                          isChildcare(o.event) && "pointer-events-auto touch-hit-44",
+                        )}
+                        style={{ height: labelHeight }}
+                      >
+                        <CalendarEventContent
+                          occurrence={o}
+                          view={viewScale}
+                          density={density}
+                          muted
+                          title={careLabel(o)}
+                          onOpen={isChildcare(o.event) ? () => openOccurrence(o) : undefined}
+                        />
+                      </div>
                     </div>
                   );
                 })}
