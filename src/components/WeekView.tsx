@@ -180,13 +180,15 @@ export function WeekView({
     <div
       className={cn(
         "calendar-gesture-surface overflow-hidden",
+        fill && "flex min-h-0 flex-1 flex-col",
         !bare && "rounded-3xl border border-border-soft bg-surface shadow-soft",
       )}
     >
       <div
-        className="grid border-b border-border-soft bg-surface-muted"
+        className="grid shrink-0 border-b border-border-soft bg-surface-muted"
         style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
       >
+
         <div />
         {columns.map((day) => (
           <div key={day.toISOString()} className="py-2 text-center">
