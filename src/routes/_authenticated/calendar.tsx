@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { addDays, addMonths, format, startOfWeek } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -84,12 +84,28 @@ function CalendarPage() {
   const shift = (from: Date, direction: number) =>
     mode === "month" ? addMonths(from, direction) : addDays(from, direction * (mode === "week" ? 7 : 1));
 
-  const step = (direction: 1 | -1) =>
+  // Subtle tap on any period change; focus returns to the period region so
+  // keyboard and screen-reader users land on the newly active date range.
+  const periodRef = useRef<HTMLDivElement | null>(null);
+  const haptic = () => navigator.vibrate?.(10);
+  const focusPeriod = () => {
+    // Wait for the slide to start so focus lands on the incoming period.
+    requestAnimationFrame(() => periodRef.current?.focus({ preventScroll: true }));
+  };
+
+  const step = (direction: 1 | -1, { focus = false }: { focus?: boolean } = {}) => {
+    if (slide.animating) return;
+    haptic();
+    if (focus) focusPeriod();
     slide.navigate(anchor, direction, () => setAnchor((prev) => shift(prev, direction)));
+  };
 
   const goToday = () => {
+    if (slide.animating) return;
     const today = new Date();
     const direction: 1 | -1 = today >= anchor ? 1 : -1;
+    haptic();
+    focusPeriod();
     slide.navigate(anchor, direction, () => setAnchor(today));
   };
 
@@ -177,8 +193,8 @@ function CalendarPage() {
               variant="ghost"
               size="icon"
               className="h-10 w-10 rounded-full"
-              aria-label="Previous"
-              onClick={() => step(-1)}
+              aria-label={`Previous ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+              onClick={() => step(-1, { focus: true })}
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
@@ -207,8 +223,8 @@ function CalendarPage() {
               variant="ghost"
               size="icon"
               className="h-10 w-10 rounded-full"
-              aria-label="Next"
-              onClick={() => step(1)}
+              aria-label={`Next ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+              onClick={() => step(1, { focus: true })}
             >
               <ChevronRight className="h-5 w-5" />
             </Button>
@@ -257,6 +273,10 @@ function CalendarPage() {
           </div>
         ) : null}
 
+        {/* Announces the newly active period to screen readers on navigation. */}
+        <p aria-live="polite" className="sr-only">
+          {label}
+        </p>
         <div {...swipeProps} className="relative touch-pan-y overflow-hidden">
           {slide.outgoing ? (
             <div
@@ -266,7 +286,24 @@ function CalendarPage() {
               {renderPeriod(slide.outgoing.value)}
             </div>
           ) : null}
-          <div className={incomingClass}>{renderPeriod(anchor)}</div>
+          <div
+            ref={periodRef}
+            tabIndex={-1}
+            role="group"
+            aria-label={`${CALENDAR_VIEW_LABEL[mode]} view: ${label}`}
+            className={cn("outline-none", incomingClass)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                step(-1, { focus: true });
+              } else if (e.key === "ArrowRight") {
+                e.preventDefault();
+                step(1, { focus: true });
+              }
+            }}
+          >
+            {renderPeriod(anchor)}
+          </div>
         </div>
 
 
