@@ -203,14 +203,46 @@ function CalendarPage() {
 
 
   return (
-    <AppShell>
-      <div className="space-y-4">
-        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+    <AppShell fitViewport>
+      <div className="flex min-h-0 flex-1 flex-col gap-2 md:block md:space-y-4">
+        {/* Desktop / tablet header — unchanged */}
+        <header className="hidden grid-cols-[minmax(0,1fr)_auto] items-center gap-3 md:grid">
           <h1 className="truncate text-2xl font-bold sm:text-3xl">Calendar</h1>
           <AddEventDialog defaultDate={anchor} />
         </header>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Compact phone toolbar: navigation, Today and + on one row. */}
+        <div className="flex shrink-0 items-center gap-1 md:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0 rounded-full"
+            aria-label={`Previous ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+            onClick={() => step(-1, { focus: true })}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <span className="min-w-0 flex-1 truncate text-center text-sm font-bold">{label}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0 rounded-full"
+            aria-label={`Next ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+            onClick={() => step(1, { focus: true })}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            className="h-9 shrink-0 rounded-full px-2.5 text-xs font-bold"
+            onClick={goToday}
+          >
+            Today
+          </Button>
+          <AddEventDialog defaultDate={anchor} compact />
+        </div>
+
+        <div className="hidden flex-wrap items-center justify-between gap-3 md:flex">
           <div className="flex min-w-0 items-center gap-1">
             <Button
               variant="ghost"
@@ -263,8 +295,29 @@ function CalendarPage() {
             <CalendarFiltersSheet />
           </div>
         </div>
+
+        {/* Phone view switcher + filters */}
+        <div className="flex shrink-0 items-center gap-2 md:hidden">
+          <div className="flex min-w-0 flex-1 rounded-full bg-surface-muted p-1">
+            {(["month", "week", "day"] as ViewMode[]).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                className={cn(
+                  "h-8 flex-1 rounded-full text-xs font-semibold transition-colors",
+                  view === v ? "bg-surface text-foreground shadow-soft" : "text-muted-foreground",
+                )}
+              >
+                {CALENDAR_VIEW_LABEL[v]}
+              </button>
+            ))}
+          </div>
+          <CalendarFiltersSheet />
+        </div>
+
         {isEmpty ? (
-          <div className="rounded-3xl border border-dashed border-border bg-surface p-6 text-center">
+          <div className="hidden rounded-3xl border border-dashed border-border bg-surface p-6 text-center md:block">
             <p className="text-base font-bold">No events yet</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {canEdit
@@ -283,12 +336,18 @@ function CalendarPage() {
         <p aria-live="polite" className="sr-only">
           {label}
         </p>
-        <div className="overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft">
-        <div {...swipeProps} className="relative touch-pan-y overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft md:block">
+        <div
+          {...swipeProps}
+          className="relative flex min-h-0 flex-1 flex-col touch-pan-y overflow-hidden md:block"
+        >
           {slide.outgoing ? (
             <div
               aria-hidden
-              className={cn("pointer-events-none absolute inset-x-0 top-0", outgoingClass)}
+              className={cn(
+                "pointer-events-none absolute inset-x-0 top-0 bottom-0 flex flex-col overflow-hidden md:bottom-auto md:block",
+                outgoingClass,
+              )}
             >
               {renderPeriod(slide.outgoing.value)}
             </div>
@@ -298,7 +357,10 @@ function CalendarPage() {
             tabIndex={-1}
             role="group"
             aria-label={`${CALENDAR_VIEW_LABEL[mode]} view: ${label}`}
-            className={cn("outline-none", incomingClass)}
+            className={cn(
+              "flex min-h-0 flex-1 flex-col outline-none md:block",
+              incomingClass,
+            )}
             onKeyDown={(e) => {
               if (e.key === "ArrowLeft") {
                 e.preventDefault();
@@ -316,6 +378,7 @@ function CalendarPage() {
 
 
       </div>
+
       <QuickAddEventDialog
         at={quickAdd?.at ?? null}
         until={quickAdd?.until ?? null}
