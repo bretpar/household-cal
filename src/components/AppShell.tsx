@@ -87,10 +87,24 @@ export function AppShell({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 pt-5 pb-28 md:pb-12 lg:px-8">
+      <main
+        className={cn(
+          "mx-auto w-full max-w-6xl",
+          fitViewport
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden px-3 pt-2 pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:block md:min-h-0 md:flex-none md:overflow-visible md:px-4 md:pt-5 md:pb-12 lg:px-8"
+            : "px-4 pt-5 pb-28 md:pb-12 lg:px-8",
+        )}
+      >
         {children}
-        <LegalFooter />
+        {fitViewport ? (
+          <div className="hidden md:block">
+            <LegalFooter />
+          </div>
+        ) : (
+          <LegalFooter />
+        )}
       </main>
+
 
       {/* Phone bottom navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border-soft bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
