@@ -12,6 +12,7 @@ import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
 import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
+import { usePeriodSlide } from "@/hooks/use-period-slide";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCalendar } from "@/lib/calendar-store";
 import {
@@ -104,7 +105,6 @@ function CalendarPage() {
   const weekDays = isMobile ? 3 : 7;
   const weekAnchorFor = (at: Date) =>
     weekDays === 7 ? startOfWeek(at, { weekStartsOn: weekStart }) : at;
-  const weekAnchor = weekAnchorFor(anchor);
 
   const labelFor = (at: Date) =>
     mode === "month"
