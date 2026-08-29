@@ -6,6 +6,8 @@ import { useCalendar } from "@/lib/calendar-store";
 import { MemberBadgeRow } from "@/components/MemberBadge";
 import { eventTintClass } from "@/lib/event-colors";
 import { eventTypeIcons } from "@/components/EventCard";
+import { CalendarEventContent } from "@/components/CalendarEventContent";
+import { densityForHeight } from "@/lib/event-typography";
 import { useReschedule } from "@/components/useReschedule";
 import { useTimeGridDrag } from "@/hooks/use-time-grid-drag";
 import {
