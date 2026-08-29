@@ -35,6 +35,7 @@ export function MonthView({
   onPaste,
   onCreateAt,
   weekStartsOn = 1,
+  bare = false,
 }: {
   month: Date;
   events: CalendarEvent[];
@@ -46,6 +47,8 @@ export function MonthView({
   onCreateAt?: ((day: Date, withTime: boolean) => void) | undefined;
   /** 0 = Sunday-first grid, 1 = Monday-first grid */
   weekStartsOn?: 0 | 1;
+  /** render without the card frame (parent supplies a stationary one) */
+  bare?: boolean;
 }) {
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
   const WEEKDAYS = weekStartsOn === 0 ? SUNDAY_FIRST : MONDAY_FIRST;

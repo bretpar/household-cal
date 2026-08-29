@@ -98,6 +98,7 @@ export function WeekView({
   selectedMembers,
   days = 7,
   onCreateRange,
+  bare = false,
 }: {
   anchor: Date;
   events: CalendarEvent[];
@@ -105,6 +106,8 @@ export function WeekView({
   days?: number;
   /** press-and-hold on empty grid space; only when the user may create events */
   onCreateRange?: ((start: Date, end: Date) => void) | undefined;
+  /** render without the card frame (parent supplies a stationary one) */
+  bare?: boolean;
 }) {
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
