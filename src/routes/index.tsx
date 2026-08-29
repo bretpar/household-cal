@@ -60,11 +60,32 @@ function LandingPage() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/today", replace: true });
-      else setChecking(false);
-    });
+    let active = true;
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active) return;
+        if (data.session) navigate({ to: "/today", replace: true });
+        else setChecking(false);
+      })
+      .catch(() => {
+        if (active) setChecking(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [navigate]);
+
+  if (checking) {
+    return (
+      <div
+        className="min-h-screen bg-background"
+        aria-busy="true"
+        aria-label="Loading"
+      />
+    );
+  }
+
 
   return (
     <div className="min-h-screen bg-background">
