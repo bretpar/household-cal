@@ -11,8 +11,7 @@ import { MonthView } from "@/components/MonthView";
 import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
-import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
-import { usePeriodSlide } from "@/hooks/use-period-slide";
+import { usePeriodCarousel } from "@/hooks/use-period-carousel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCalendar } from "@/lib/calendar-store";
 import {
@@ -78,61 +77,61 @@ function CalendarPage() {
   const mode: ViewMode = view;
   const isEmpty = !loading && events.length === 0;
 
-  // Slide the old period out while the new one slides in from the other side.
-  const slide = usePeriodSlide<Date>();
+  // Week view is a 7-day calendar where there is room, and a 3-day calendar on
+  // phones so each column is wide enough to read.
+  const weekDays = isMobile ? 3 : 7;
 
-  // Week view is a continuous horizontal day strip: it advances one day at a
-  // time whenever fewer than 7 columns fit, so no date is ever skipped.
-  const shift = (from: Date, direction: number) =>
-    mode === "month" ? addMonths(from, direction) : addDays(from, direction);
+  // Arrows / swipes advance exactly one unit of the current view.
+  const shift = (from: Date, direction: number) => {
+    if (mode === "month") return addMonths(from, direction);
+    if (mode === "week") return addDays(from, weekDays * direction);
+    return addDays(from, direction);
+  };
 
   // Subtle tap on any period change; focus returns to the period region so
   // keyboard and screen-reader users land on the newly active date range.
   const periodRef = useRef<HTMLDivElement | null>(null);
   const haptic = () => navigator.vibrate?.(10);
   const focusPeriod = () => {
-    // Wait for the slide to start so focus lands on the incoming period.
     requestAnimationFrame(() => periodRef.current?.focus({ preventScroll: true }));
   };
 
+  // Finger-following paging: the track moves with the drag and snaps on release.
+  const carousel = usePeriodCarousel({
+    sensitivity: mode,
+    onNavigate: haptic,
+    onCommit: (direction) => setAnchor((prev) => shift(prev, direction)),
+  });
+
   const step = (direction: 1 | -1, { focus = false }: { focus?: boolean } = {}) => {
-    if (slide.animating) return;
-    haptic();
+    if (carousel.busy) return;
     if (focus) focusPeriod();
-    slide.navigate(anchor, direction, () => setAnchor((prev) => shift(prev, direction)));
+    carousel.commit(direction);
   };
 
   const goToday = () => {
-    if (slide.animating) return;
-    const today = new Date();
-    const direction: 1 | -1 = today >= anchor ? 1 : -1;
+    if (carousel.busy) return;
     haptic();
     focusPeriod();
-    slide.navigate(anchor, direction, () => setAnchor(today));
+    setAnchor(new Date());
   };
 
-  // Swipe left = forward, swipe right = back — same state as the arrows.
-  const swipeProps = useHorizontalSwipe({
-    onSwipeLeft: () => step(1),
-    onSwipeRight: () => step(-1),
-    sensitivity: mode,
-  });
+  // Desktop/tablet Week snaps to the containing 7-day week; the phone 3-day
+  // view starts on the anchored date itself.
+  const weekAnchorFor = (at: Date) =>
+    isMobile ? at : startOfWeek(at, { weekStartsOn: weekStart });
 
-  // Week view is a rolling day strip anchored on the selected date, so a swipe
-  // advances a single day and every date can be reached.
-  const weekDays = isMobile ? 3 : 7;
-  const weekAnchorFor = (at: Date) => at;
-
-
-  // Week label always shows the 7-day week the visible days sit in, so it only
-  // changes when the rolling window crosses into the next/previous week.
   const labelFor = (at: Date) => {
     if (mode === "month") return format(at, "MMMM yyyy");
     if (mode !== "week") return format(at, "EEEE, MMM d");
-    const weekOf = startOfWeek(at, { weekStartsOn: weekStart });
-    return `${format(weekOf, "MMM d")} – ${format(addDays(weekOf, 6), "MMM d")}`;
+    const from = weekAnchorFor(at);
+    const to = addDays(from, weekDays - 1);
+    return `${format(from, "MMM d")} – ${format(to, "MMM d")}`;
   };
   const label = labelFor(anchor);
+
+  const viewLabel = (v: ViewMode) =>
+    v === "week" && isMobile ? "3 Day" : CALENDAR_VIEW_LABEL[v];
 
   const renderPeriod = (at: Date) =>
     mode === "month" ? (
@@ -192,14 +191,16 @@ function CalendarPage() {
       </div>
     );
 
+  // Neighbours mount only while a gesture/transition is in flight so idle
+  // rendering cost stays the same as before.
+  const showNeighbours = carousel.dragging || carousel.animating;
+  const trackStyle = {
+    transform: `translate3d(${carousel.offset}px, 0, 0)`,
+    transition: carousel.dragging
+      ? "none"
+      : `transform ${carousel.duration}ms cubic-bezier(0.32, 0.72, 0, 1)`,
+  } as const;
 
-  const incomingClass = slide.outgoing
-    ? slide.outgoing.direction === 1
-      ? "cal-slide-in-right"
-      : "cal-slide-in-left"
-    : undefined;
-  const outgoingClass =
-    slide.outgoing?.direction === 1 ? "cal-slide-out-left" : "cal-slide-out-right";
 
 
   return (
@@ -217,7 +218,7 @@ function CalendarPage() {
             variant="ghost"
             size="icon"
             className="h-9 w-9 shrink-0 rounded-full"
-            aria-label={`Previous ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+            aria-label={`Previous ${viewLabel(mode).toLowerCase()}`}
             onClick={() => step(-1, { focus: true })}
           >
             <ChevronLeft className="h-5 w-5" />
@@ -227,7 +228,7 @@ function CalendarPage() {
             variant="ghost"
             size="icon"
             className="h-9 w-9 shrink-0 rounded-full"
-            aria-label={`Next ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+            aria-label={`Next ${viewLabel(mode).toLowerCase()}`}
             onClick={() => step(1, { focus: true })}
           >
             <ChevronRight className="h-5 w-5" />
@@ -248,7 +249,7 @@ function CalendarPage() {
               variant="ghost"
               size="icon"
               className="h-10 w-10 rounded-full"
-              aria-label={`Previous ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+              aria-label={`Previous ${viewLabel(mode).toLowerCase()}`}
               onClick={() => step(-1, { focus: true })}
             >
               <ChevronLeft className="h-5 w-5" />
@@ -261,7 +262,7 @@ function CalendarPage() {
               variant="ghost"
               size="icon"
               className="h-10 w-10 rounded-full"
-              aria-label={`Next ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+              aria-label={`Next ${viewLabel(mode).toLowerCase()}`}
               onClick={() => step(1, { focus: true })}
             >
               <ChevronRight className="h-5 w-5" />
@@ -288,7 +289,7 @@ function CalendarPage() {
                     view === v ? "bg-surface text-foreground shadow-soft" : "text-muted-foreground",
                   )}
                 >
-                  {CALENDAR_VIEW_LABEL[v]}
+                  {viewLabel(v)}
                 </button>
               ))}
             </div>
@@ -309,7 +310,7 @@ function CalendarPage() {
                   view === v ? "bg-surface text-foreground shadow-soft" : "text-muted-foreground",
                 )}
               >
-                {CALENDAR_VIEW_LABEL[v]}
+                {viewLabel(v)}
               </button>
             ))}
           </div>
@@ -338,43 +339,51 @@ function CalendarPage() {
         </p>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft md:block">
         <div
-          {...swipeProps}
+          ref={carousel.containerRef}
           className="relative flex min-h-0 flex-1 flex-col touch-pan-y overflow-hidden md:block"
         >
-          {slide.outgoing ? (
-            <div
-              aria-hidden
-              className={cn(
-                "pointer-events-none absolute inset-x-0 top-0 bottom-0 flex flex-col overflow-hidden md:bottom-auto md:block",
-                outgoingClass,
-              )}
-            >
-              {renderPeriod(slide.outgoing.value)}
-            </div>
-          ) : null}
           <div
-            ref={periodRef}
-            tabIndex={-1}
-            role="group"
-            aria-label={`${CALENDAR_VIEW_LABEL[mode]} view: ${label}`}
-            className={cn(
-              "flex min-h-0 flex-1 flex-col outline-none md:block",
-              incomingClass,
-            )}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowLeft") {
-                e.preventDefault();
-                step(-1, { focus: true });
-              } else if (e.key === "ArrowRight") {
-                e.preventDefault();
-                step(1, { focus: true });
-              }
-            }}
+            className="relative flex min-h-0 flex-1 flex-col will-change-transform md:block"
+            style={trackStyle}
           >
-            {renderPeriod(anchor)}
+            {showNeighbours ? (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 right-full flex w-full flex-col overflow-hidden md:block"
+              >
+                {renderPeriod(shift(anchor, -1))}
+              </div>
+            ) : null}
+            <div
+              ref={periodRef}
+              tabIndex={-1}
+              role="group"
+              aria-label={`${viewLabel(mode)} view: ${label}`}
+              className="flex min-h-0 flex-1 flex-col outline-none md:block"
+              onKeyDown={(e) => {
+                if (e.key === "ArrowLeft") {
+                  e.preventDefault();
+                  step(-1, { focus: true });
+                } else if (e.key === "ArrowRight") {
+                  e.preventDefault();
+                  step(1, { focus: true });
+                }
+              }}
+            >
+              {renderPeriod(anchor)}
+            </div>
+            {showNeighbours ? (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 left-full flex w-full flex-col overflow-hidden md:block"
+              >
+                {renderPeriod(shift(anchor, 1))}
+              </div>
+            ) : null}
           </div>
         </div>
         </div>
+
 
 
       </div>
