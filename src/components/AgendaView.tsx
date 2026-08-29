@@ -3,6 +3,7 @@ import { Baby, ClipboardPaste } from "lucide-react";
 
 import { EventCard } from "@/components/EventCard";
 import { useCalendar } from "@/lib/calendar-store";
+import { EVENT_TYPE_SCALE, eventTimeToneClass } from "@/lib/event-typography";
 import {
   expandOccurrences,
   formatTimeRange,
@@ -37,9 +38,7 @@ export function AgendaView({
       {dayList.map((day) => {
         const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
         // Childcare reads as a soft care-coverage strip above the day's events.
-        const coverage = dayOccurrences.filter(
-          (o) => isCoverage(o.event) || isChildcare(o.event),
-        );
+        const coverage = dayOccurrences.filter((o) => isCoverage(o.event) || isChildcare(o.event));
         const visible = dayOccurrences.filter(
           (o) =>
             !isCoverage(o.event) &&
@@ -71,11 +70,16 @@ export function AgendaView({
                 key={o.key}
                 type="button"
                 onClick={() => openOccurrence(o)}
-                className="flex w-full items-center gap-2 rounded-2xl bg-coverage/60 px-3 py-2 text-left text-xs font-bold text-coverage-foreground"
+                className="flex w-full items-center gap-2 rounded-2xl bg-coverage/60 px-3 py-2 text-left text-coverage-foreground"
               >
                 <Baby className="h-4 w-4 shrink-0" aria-hidden />
-                <span className="min-w-0 truncate">
-                  {o.event.title} · {formatTimeRange(o.start, o.end, false)}
+                <span className={`min-w-0 truncate ${EVENT_TYPE_SCALE.day.title}`}>
+                  {o.event.title}
+                </span>
+                <span
+                  className={`shrink-0 truncate ${EVENT_TYPE_SCALE.day.time} ${eventTimeToneClass(true)}`}
+                >
+                  {formatTimeRange(o.start, o.end, false)}
                 </span>
               </button>
             ))}

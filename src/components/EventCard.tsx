@@ -15,6 +15,7 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
 import { eventAccentClass, eventTintClass } from "@/lib/event-colors";
+import { EVENT_TYPE_SCALE } from "@/lib/event-typography";
 import { MemberBadgeRow } from "@/components/MemberBadge";
 import { formatTimeRange, type EventType, type Occurrence } from "@/lib/family-data";
 
@@ -34,13 +35,17 @@ export function EventPill({
   occurrence,
   /** denser row used when the month grid is height-constrained (mobile full-screen) */
   compact = false,
+  /** background/secondary source: same type scale, muted colour only */
+  muted = false,
 }: {
   occurrence: Occurrence;
   compact?: boolean;
+  muted?: boolean;
 }) {
   const { openOccurrence, categoryAppearanceFor } = useCalendar();
   const { event } = occurrence;
   const appearance = categoryAppearanceFor(event);
+  const scale = EVENT_TYPE_SCALE.month;
   return (
     <button
       type="button"
@@ -50,17 +55,17 @@ export function EventPill({
         openOccurrence(occurrence);
       }}
       className={cn(
-        "flex w-full items-center gap-1 rounded-lg text-left leading-tight",
-        compact ? "px-1 py-px text-[10px]" : "px-1.5 py-1 text-[11px]",
-        eventTintClass(appearance),
+        "flex w-full items-center gap-1 rounded-lg text-left",
+        // Month typography is one fixed scale; only the padding tightens.
+        compact ? scale.padding.tiny : scale.padding.medium,
+        muted ? "bg-coverage/60 text-coverage-foreground" : eventTintClass(appearance),
       )}
     >
-      <span className="min-w-0 flex-1 truncate font-semibold">{event.title}</span>
-      <MemberBadgeRow ids={occurrence.member_ids} size="xs" />
+      <span className={cn("min-w-0 flex-1 truncate", scale.title)}>{event.title}</span>
+      <MemberBadgeRow ids={occurrence.member_ids} size={scale.badge} />
     </button>
   );
 }
-
 
 export function EventCard({
   occurrence,
@@ -90,9 +95,9 @@ export function EventCard({
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5">
             <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="truncate text-sm font-bold">{event.title}</span>
+            <span className={cn("truncate", EVENT_TYPE_SCALE.day.title)}>{event.title}</span>
           </div>
-          <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
+          <p className={cn("mt-0.5 text-muted-foreground", EVENT_TYPE_SCALE.day.time)}>
             {showDate ? `${showDate} · ` : ""}
             {formatTimeRange(start, end, event.all_day)}
             {" · "}
@@ -110,7 +115,7 @@ export function EventCard({
             </p>
           ) : null}
         </div>
-        <MemberBadgeRow ids={occurrence.member_ids} size="sm" className="pt-0.5" />
+        <MemberBadgeRow ids={occurrence.member_ids} size="base" className="pt-0.5" />
       </div>
     </button>
   );

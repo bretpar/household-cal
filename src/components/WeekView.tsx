@@ -6,6 +6,8 @@ import { useCalendar } from "@/lib/calendar-store";
 import { MemberBadgeRow } from "@/components/MemberBadge";
 import { eventTintClass } from "@/lib/event-colors";
 import { eventTypeIcons } from "@/components/EventCard";
+import { CalendarEventContent } from "@/components/CalendarEventContent";
+import { densityForHeight, EVENT_TYPE_SCALE } from "@/lib/event-typography";
 import { useReschedule } from "@/components/useReschedule";
 import { useTimeGridDrag } from "@/hooks/use-time-grid-drag";
 import {
@@ -25,7 +27,6 @@ const HOUR_PX = 60;
 /** Drops snap to a friendly grid rather than to the exact pixel. */
 const SNAP_MINUTES = 15;
 
-
 function topFor(date: Date) {
   return (date.getHours() + date.getMinutes() / 60 - DAY_START) * HOUR_PX;
 }
@@ -44,9 +45,6 @@ function hourLabel(hour: number) {
   const h = hour % 12 === 0 ? 12 : hour % 12;
   return `${h} ${hour < 12 ? "AM" : "PM"}`;
 }
-
-
-
 
 interface Placed {
   occurrence: Occurrence;
@@ -106,17 +104,17 @@ export function WeekView({
   /** fill the parent's height; only the hourly timeline scrolls */
   fill?: boolean;
 }) {
-
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
-  const sourceName = (id: string | null) =>
-    sources.find((s) => s.id === id)?.name ?? "Coverage";
+  const sourceName = (id: string | null) => sources.find((s) => s.id === id)?.name ?? "Coverage";
   /** Childcare joins the soft care-coverage layer instead of competing as a card. */
   const isCareLayer = (o: Occurrence) =>
     isCoverage(o.event) || (isChildcare(o.event) && !o.event.all_day);
   const careLabel = (o: Occurrence) =>
     isChildcare(o.event) ? o.event.title : sourceName(o.event.calendar_source_id);
   /** Rolling window: the selected date is always the left-most column. */
+  /** One column = Day view, which gets the slightly larger shared type scale. */
+  const viewScale = days === 1 ? "day" : "week";
   const start = anchor;
   const columns: Date[] = Array.from({ length: days }, (_, i) => addDays(start, i));
   const occurrences = expandOccurrences(events, columns[0]!, addDays(columns[days - 1]!, 1));
@@ -167,330 +165,265 @@ export function WeekView({
     return next;
   };
 
-
   return (
     <>
       {dialog}
-    <div
-      className={cn(
-        "calendar-gesture-surface overflow-hidden",
-        fill && "flex min-h-0 flex-1 flex-col",
-        !bare && "rounded-3xl border border-border-soft bg-surface shadow-soft",
-      )}
-    >
-      <div
-        className="grid shrink-0 border-b border-border-soft bg-surface-muted"
-        style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
-      >
-
-        <div />
-        {columns.map((day) => (
-          <div key={day.toISOString()} className="px-1 py-1 text-center">
-            <p className="text-[10px] leading-none font-bold tracking-wide text-muted-foreground uppercase">
-              {format(day, "EEE")}
-            </p>
-            <p
-              className={cn(
-                "mx-auto mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-[13px] leading-none font-bold",
-                isSameDay(day, new Date()) && "bg-primary text-primary-foreground",
-              )}
-            >
-              {format(day, "d")}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* all-day row */}
-      <div
-        className="grid shrink-0 border-b border-border-soft"
-        style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
-
-      >
-        <div className="py-1.5 pr-1 text-right text-[10px] font-semibold text-muted-foreground">
-          Day
-        </div>
-        {columns.map((day) => {
-          const allDay = occurrences.filter(
-            (o) =>
-              isDayBlock(o) &&
-              !isCareLayer(o) &&
-              isSameDay(o.start, day) &&
-              occurrenceMatchesFilter(o, selectedMembers),
-          );
-          return (
-            <div
-              key={day.toISOString()}
-              className="min-h-7 space-y-0.5 border-l border-border-soft p-1"
-              {...dropProps((_e, o) => sameTimeOn(day, o))}
-            >
-              {/* Background commitments (school, work): deliberately lighter than timed events */}
-              {allDay.map((o) => (
-                <button
-                  key={o.key}
-                  type="button"
-                  {...dragProps(o)}
-                  onClick={() => openOccurrence(o)}
-                  className={cn(
-                    "flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left text-[10px] font-semibold opacity-80 transition-opacity hover:opacity-100",
-                    draggingKey === o.key && "opacity-40",
-                    eventTintClass(categoryAppearanceFor(o.event)),
-                  )}
-                >
-                  <span className="min-w-0 flex-1 truncate">{o.event.title}</span>
-                  <MemberBadgeRow ids={o.member_ids} size="xs" />
-                </button>
-              ))}
-            </div>
-          );
-        })}
-      </div>
-
       <div
         className={cn(
-          "overflow-y-auto overscroll-contain",
-          fill ? "min-h-0 flex-1" : "max-h-[70vh]",
+          "calendar-gesture-surface overflow-hidden",
+          fill && "flex min-h-0 flex-1 flex-col",
+          !bare && "rounded-3xl border border-border-soft bg-surface shadow-soft",
         )}
-        style={dragging ? { touchAction: "none" } : undefined}
       >
-
         <div
-          className="relative grid"
+          className="grid shrink-0 border-b border-border-soft bg-surface-muted"
           style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
         >
-          <div className="relative">
-            {hours.map((hour) => (
-              <div
-                key={hour}
-                style={{ height: HOUR_PX }}
-                className="pr-1.5 text-right text-[10px] font-semibold text-muted-foreground"
+          <div />
+          {columns.map((day) => (
+            <div key={day.toISOString()} className="px-1 py-1 text-center">
+              <p className="text-[10px] leading-none font-bold tracking-wide text-muted-foreground uppercase">
+                {format(day, "EEE")}
+              </p>
+              <p
+                className={cn(
+                  "mx-auto mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-[13px] leading-none font-bold",
+                  isSameDay(day, new Date()) && "bg-primary text-primary-foreground",
+                )}
               >
-                <span className="relative -top-1.5">{hourLabel(hour)}</span>
-              </div>
-            ))}
-          </div>
+                {format(day, "d")}
+              </p>
+            </div>
+          ))}
+        </div>
 
+        {/* all-day row */}
+        <div
+          className="grid shrink-0 border-b border-border-soft"
+          style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
+        >
+          <div className="py-1.5 pr-1 text-right text-[10px] font-semibold text-muted-foreground">
+            Day
+          </div>
           {columns.map((day) => {
-            const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
-            const coverage = dayOccurrences.filter((o) => isCareLayer(o));
-            const visible = dayOccurrences.filter(
+            const allDay = occurrences.filter(
               (o) =>
+                isDayBlock(o) &&
                 !isCareLayer(o) &&
-                !isDayBlock(o) &&
+                isSameDay(o.start, day) &&
                 occurrenceMatchesFilter(o, selectedMembers),
             );
-
             return (
               <div
                 key={day.toISOString()}
-                className="relative border-l border-border-soft"
-                style={{ height: hours.length * HOUR_PX }}
-                {...dropProps((e) => startFromDrop(day, e))}
-                {...columnProps(day)}
+                className="min-h-7 space-y-0.5 border-l border-border-soft p-1"
+                {...dropProps((_e, o) => sameTimeOn(day, o))}
               >
-                {hours.map((hour) => (
-                  <div
-                    key={hour}
-                    style={{ height: HOUR_PX }}
-                    className="border-b border-border-soft/60"
-                  />
-                ))}
-
-                {/* Babysitter coverage: warm neutral shading across the whole scheduled range.
-                    The shaded body is inert (long-press there creates a normal event, like
-                    blank calendar space); only the small header label is interactive. */}
-                {coverage.map((o) => {
-                  const label = `${careLabel(o)} · ${formatTimeRange(o.start, o.end, false)}`;
-                  const moving = draggingKey === o.key || ghost?.occurrence?.key === o.key;
-                  return (
-                    <div
-                      key={o.key}
-                      className={cn(
-                        "pointer-events-none absolute inset-x-0 border-y border-coverage-strong/40",
-                        isChildcare(o.event) ? "bg-coverage/45" : "bg-coverage/60",
-                        // Subtle selected state: outline only, keeps the coverage colour.
-                        moving && "ring-2 ring-coverage-strong/70 ring-inset",
-                      )}
-                      style={{ top: topFor(o.start), height: heightFor(o) }}
-                      aria-label={`${careLabel(o)} ${formatTimeRange(o.start, o.end, false)}`}
+                {/* Background commitments (school, work): same type scale as timed
+                  events, differentiated by lower contrast only. */}
+                {allDay.map((o) => (
+                  <button
+                    key={o.key}
+                    type="button"
+                    {...dragProps(o)}
+                    onClick={() => openOccurrence(o)}
+                    className={cn(
+                      "flex w-full items-center gap-1.5 rounded-md text-left opacity-80 transition-opacity hover:opacity-100",
+                      EVENT_TYPE_SCALE[viewScale].padding.tiny,
+                      draggingKey === o.key && "opacity-40",
+                      eventTintClass(categoryAppearanceFor(o.event)),
+                    )}
+                  >
+                    <span
+                      className={cn("min-w-0 flex-1 truncate", EVENT_TYPE_SCALE[viewScale].title)}
                     >
-                      {isChildcare(o.event) ? (
-                        <div
-                          data-occurrence-key={o.key}
-                          {...dragProps(o)}
-                          className="pointer-events-auto absolute inset-x-0 top-0 flex"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => openOccurrence(o)}
-                            className="touch-hit-44 min-w-0 max-w-full truncate rounded-br-md px-1.5 py-1 text-left text-[11px] leading-tight font-semibold text-coverage-foreground"
-                          >
-                            {label}
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="block truncate px-1.5 py-1 text-[11px] leading-tight font-semibold text-coverage-foreground">
-                          {label}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {/* Timed events sit above the coverage layer in side-by-side lanes.
-                    The block body is the move (long-press) target; only the text
-                    label opens details on tap. */}
-                <div className="pointer-events-none absolute inset-y-0 right-1 left-3 sm:left-4">
-                  {withLanes(visible).map(({ occurrence: o, lane, laneCount }) => {
-                    const Icon = eventTypeIcons[o.event.event_type];
-                    const blockHeight = heightFor(o);
-                    // Content density follows the rendered height so a short
-                    // event never looks longer than it is.
-                    const density =
-                      blockHeight < 34 ? "tiny" : blockHeight < 62 ? "compact" : "full";
-                    return (
-                      <div
-                        key={o.key}
-                        data-occurrence-key={o.key}
-                        {...dragProps(o)}
-                        className={cn(
-                          "pointer-events-auto touch-hit-44 absolute rounded-xl text-left",
-                          draggingKey === o.key && "opacity-40",
-                          ghost?.occurrence?.key === o.key &&
-                            "ring-2 ring-primary/70 ring-inset",
-                        )}
-                        style={{
-                          top: topFor(o.start),
-                          height: blockHeight,
-                          left: `calc(${(lane / laneCount) * 100}% + 1px)`,
-                          width: `calc(${100 / laneCount}% - 2px)`,
-                        }}
-                      >
-                        <div
-                          className={cn(
-                            "absolute inset-0 overflow-hidden rounded-xl border border-border-soft shadow-soft",
-                            density === "full" ? "px-1.5 py-1" : "px-1.5 py-0.5",
-                            eventTintClass(categoryAppearanceFor(o.event)),
-                          )}
-                        >
-                          {density === "tiny" ? (
-                            // Single line: title → time → attendee.
-                            <button
-                              type="button"
-                              onClick={() => openOccurrence(o)}
-                              className="flex w-full items-center gap-1 text-left"
-                            >
-                              <span className="min-w-0 flex-1 truncate text-[11px] leading-tight font-bold">
-                                {o.event.title}
-                              </span>
-                              <span className="shrink-0 truncate text-[10px] leading-tight font-semibold text-muted-foreground">
-                                {formatTimeRange(o.start, o.end, false)}
-                              </span>
-                              <MemberBadgeRow
-                                ids={o.member_ids}
-                                size="xs"
-                                className="pointer-events-none shrink-0"
-                              />
-                            </button>
-                          ) : density === "compact" ? (
-                            // Two tight lines with badges pushed to the side.
-                            <div className="flex h-full min-w-0 items-start gap-1">
-                              <button
-                                type="button"
-                                onClick={() => openOccurrence(o)}
-                                className="block min-w-0 flex-1 text-left"
-                              >
-                                <span className="block truncate text-[11px] leading-tight font-bold">
-                                  {o.event.title}
-                                </span>
-                                <span className="block truncate text-[10px] leading-tight font-semibold text-muted-foreground">
-                                  {formatTimeRange(o.start, o.end, false)}
-                                </span>
-                              </button>
-                              <MemberBadgeRow
-                                ids={o.member_ids}
-                                size="xs"
-                                className="pointer-events-none shrink-0"
-                              />
-                            </div>
-                          ) : (
-                            <>
-                              {/* Tap target is the wording/time label only. */}
-                              <button
-                                type="button"
-                                onClick={() => openOccurrence(o)}
-                                className="block w-full text-left"
-                              >
-                                <span className="flex items-center gap-1">
-                                  <Icon
-                                    className="h-3 w-3 shrink-0 text-muted-foreground"
-                                    aria-hidden
-                                  />
-                                  <span className="min-w-0 flex-1 truncate text-[11px] font-bold">
-                                    {o.event.title}
-                                  </span>
-                                </span>
-                                <span className="mt-0.5 block truncate text-[10px] font-semibold text-muted-foreground">
-                                  {formatTimeRange(o.start, o.end, false)}
-                                </span>
-                              </button>
-                              <MemberBadgeRow
-                                ids={o.member_ids}
-                                size="xs"
-                                className="pointer-events-none mt-0.5"
-                              />
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-
-
-                {/* Live drag preview: never persisted, replaced by the real form on release.
-                    Long coverage shifts stay unfilled so the day is still readable. */}
-                {ghost && ghostTimes && isSameDay(ghost.day, day)
-                  ? (() => {
-                      const isCare = Boolean(ghost.occurrence && isCareLayer(ghost.occurrence));
-                      return (
-                        <div
-                          className={cn(
-                            "pointer-events-none absolute inset-x-1 z-20 rounded-xl border-2 px-1.5 py-1",
-                            isCare
-                              ? "border-coverage-strong/80 bg-coverage/40"
-                              : "border-primary bg-primary/15 shadow-soft",
-                          )}
-                          style={{
-                            top: (ghost.startMinutes / 60 - DAY_START) * HOUR_PX,
-                            height: (ghost.durationMinutes / 60) * HOUR_PX,
-                          }}
-                        >
-                          <p
-                            className={cn(
-                              "inline-flex max-w-full items-center gap-1 truncate rounded-full px-1.5 text-[10px] font-bold",
-                              isCare
-                                ? "bg-surface/85 text-coverage-foreground"
-                                : "text-primary",
-                            )}
-                          >
-                            {ghost.kind === "move" && ghost.occurrence
-                              ? ghost.occurrence.event.title
-                              : "New event"}
-                            <span className="font-semibold opacity-80">{ghostTimes.label}</span>
-                          </p>
-                        </div>
-                      );
-                    })()
-                  : null}
-
+                      {o.event.title}
+                    </span>
+                    <MemberBadgeRow ids={o.member_ids} size={EVENT_TYPE_SCALE[viewScale].badge} />
+                  </button>
+                ))}
               </div>
             );
           })}
         </div>
+
+        <div
+          className={cn(
+            "overflow-y-auto overscroll-contain",
+            fill ? "min-h-0 flex-1" : "max-h-[70vh]",
+          )}
+          style={dragging ? { touchAction: "none" } : undefined}
+        >
+          <div
+            className="relative grid"
+            style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
+          >
+            <div className="relative">
+              {hours.map((hour) => (
+                <div
+                  key={hour}
+                  style={{ height: HOUR_PX }}
+                  className="pr-1.5 text-right text-[10px] font-semibold text-muted-foreground"
+                >
+                  <span className="relative -top-1.5">{hourLabel(hour)}</span>
+                </div>
+              ))}
+            </div>
+
+            {columns.map((day) => {
+              const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
+              const coverage = dayOccurrences.filter((o) => isCareLayer(o));
+              const visible = dayOccurrences.filter(
+                (o) =>
+                  !isCareLayer(o) && !isDayBlock(o) && occurrenceMatchesFilter(o, selectedMembers),
+              );
+
+              return (
+                <div
+                  key={day.toISOString()}
+                  className="relative border-l border-border-soft"
+                  style={{ height: hours.length * HOUR_PX }}
+                  {...dropProps((e) => startFromDrop(day, e))}
+                  {...columnProps(day)}
+                >
+                  {hours.map((hour) => (
+                    <div
+                      key={hour}
+                      style={{ height: HOUR_PX }}
+                      className="border-b border-border-soft/60"
+                    />
+                  ))}
+
+                  {/* Babysitter coverage: warm neutral shading across the whole scheduled range.
+                    The shaded body is inert (long-press there creates a normal event, like
+                    blank calendar space); only the small header label is interactive. */}
+                  {coverage.map((o) => {
+                    const moving = draggingKey === o.key || ghost?.occurrence?.key === o.key;
+                    const blockHeight = heightFor(o);
+                    // Background coverage uses the SAME type scale as any other
+                    // event in this view — only the colour is muted. The label
+                    // area is capped so long shifts stay readable underneath.
+                    const labelHeight = Math.min(blockHeight, 56);
+                    const density = densityForHeight(viewScale, labelHeight);
+                    return (
+                      <div
+                        key={o.key}
+                        className={cn(
+                          "pointer-events-none absolute inset-x-0 border-y border-coverage-strong/40",
+                          isChildcare(o.event) ? "bg-coverage/45" : "bg-coverage/60",
+                          // Subtle selected state: outline only, keeps the coverage colour.
+                          moving && "ring-2 ring-coverage-strong/70 ring-inset",
+                        )}
+                        style={{ top: topFor(o.start), height: blockHeight }}
+                        aria-label={`${careLabel(o)} ${formatTimeRange(o.start, o.end, false)}`}
+                      >
+                        <div
+                          {...(isChildcare(o.event)
+                            ? { "data-occurrence-key": o.key, ...dragProps(o) }
+                            : {})}
+                          className={cn(
+                            "absolute inset-x-0 top-0 text-coverage-foreground",
+                            isChildcare(o.event) && "pointer-events-auto touch-hit-44",
+                          )}
+                          style={{ height: labelHeight }}
+                        >
+                          <CalendarEventContent
+                            occurrence={o}
+                            view={viewScale}
+                            density={density}
+                            muted
+                            title={careLabel(o)}
+                            onOpen={isChildcare(o.event) ? () => openOccurrence(o) : undefined}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Timed events sit above the coverage layer in side-by-side lanes.
+                    The block body is the move (long-press) target; only the text
+                    label opens details on tap. */}
+                  <div className="pointer-events-none absolute inset-y-0 right-1 left-3 sm:left-4">
+                    {withLanes(visible).map(({ occurrence: o, lane, laneCount }) => {
+                      const Icon = eventTypeIcons[o.event.event_type];
+                      const blockHeight = heightFor(o);
+                      // Height decides which rows are shown — never the font size.
+                      const density = densityForHeight(viewScale, blockHeight);
+                      return (
+                        <div
+                          key={o.key}
+                          data-occurrence-key={o.key}
+                          {...dragProps(o)}
+                          className={cn(
+                            "pointer-events-auto touch-hit-44 absolute rounded-xl text-left",
+                            draggingKey === o.key && "opacity-40",
+                            ghost?.occurrence?.key === o.key && "ring-2 ring-primary/70 ring-inset",
+                          )}
+                          style={{
+                            top: topFor(o.start),
+                            height: blockHeight,
+                            left: `calc(${(lane / laneCount) * 100}% + 1px)`,
+                            width: `calc(${100 / laneCount}% - 2px)`,
+                          }}
+                        >
+                          <div
+                            className={cn(
+                              "absolute inset-0 overflow-hidden rounded-xl border border-border-soft shadow-soft",
+                              eventTintClass(categoryAppearanceFor(o.event)),
+                            )}
+                          >
+                            <CalendarEventContent
+                              occurrence={o}
+                              view={viewScale}
+                              density={density}
+                              icon={Icon}
+                              onOpen={() => openOccurrence(o)}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Live drag preview: never persisted, replaced by the real form on release.
+                    Long coverage shifts stay unfilled so the day is still readable. */}
+                  {ghost && ghostTimes && isSameDay(ghost.day, day)
+                    ? (() => {
+                        const isCare = Boolean(ghost.occurrence && isCareLayer(ghost.occurrence));
+                        return (
+                          <div
+                            className={cn(
+                              "pointer-events-none absolute inset-x-1 z-20 rounded-xl border-2 px-1.5 py-1",
+                              isCare
+                                ? "border-coverage-strong/80 bg-coverage/40"
+                                : "border-primary bg-primary/15 shadow-soft",
+                            )}
+                            style={{
+                              top: (ghost.startMinutes / 60 - DAY_START) * HOUR_PX,
+                              height: (ghost.durationMinutes / 60) * HOUR_PX,
+                            }}
+                          >
+                            <p
+                              className={cn(
+                                "inline-flex max-w-full items-center gap-1 truncate rounded-full px-1.5 text-[10px] font-bold",
+                                isCare ? "bg-surface/85 text-coverage-foreground" : "text-primary",
+                              )}
+                            >
+                              {ghost.kind === "move" && ghost.occurrence
+                                ? ghost.occurrence.event.title
+                                : "New event"}
+                              <span className="font-semibold opacity-80">{ghostTimes.label}</span>
+                            </p>
+                          </div>
+                        );
+                      })()
+                    : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
-    </div>
     </>
   );
 }
