@@ -83,10 +83,11 @@ export function AppShell({
         className={cn(
           "mx-auto w-full max-w-6xl",
           fitViewport
-            ? "flex min-h-0 flex-1 flex-col overflow-hidden px-3 pt-2 pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:block md:min-h-0 md:flex-none md:overflow-visible md:px-4 md:pt-5 md:pb-12 lg:px-8"
-            : "px-4 pt-5 pb-28 md:pb-12 lg:px-8",
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden px-3 pt-2 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:block md:min-h-0 md:flex-none md:overflow-visible md:px-4 md:pt-5 md:pb-12 lg:px-8"
+            : "px-4 pt-5 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-12 lg:px-8",
         )}
       >
+
         {children}
         {fitViewport ? (
           <div className="hidden md:block">
