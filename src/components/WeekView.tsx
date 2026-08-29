@@ -45,14 +45,8 @@ function hourLabel(hour: number) {
   return `${h} ${hour < 12 ? "AM" : "PM"}`;
 }
 
-/** "8–5" style compact range for the babysitter coverage label. */
-function compactRange(start: Date, end: Date) {
-  const part = (d: Date) => {
-    const h = d.getHours() % 12 === 0 ? 12 : d.getHours() % 12;
-    return d.getMinutes() === 0 ? `${h}` : `${h}:${String(d.getMinutes()).padStart(2, "0")}`;
-  };
-  return `${part(start)}–${part(end)}`;
-}
+
+
 
 interface Placed {
   occurrence: Occurrence;
