@@ -87,16 +87,16 @@ export function AppShell({
             : "px-4 pt-5 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-12 lg:px-8",
         )}
       >
-
         {children}
-        {fitViewport ? (
-          <div className="hidden md:block">
-            <LegalFooter />
-          </div>
-        ) : (
-          <LegalFooter />
-        )}
       </main>
+
+      {fitViewport ? (
+        <div className="hidden md:block">
+          <LegalFooter />
+        </div>
+      ) : (
+        <LegalFooter />
+      )}
 
 
       {/* Phone bottom navigation */}
