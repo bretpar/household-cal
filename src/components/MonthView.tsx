@@ -36,6 +36,7 @@ export function MonthView({
   onCreateAt,
   weekStartsOn = 1,
   bare = false,
+  fill = false,
 }: {
   month: Date;
   events: CalendarEvent[];
@@ -49,6 +50,8 @@ export function MonthView({
   weekStartsOn?: 0 | 1;
   /** render without the card frame (parent supplies a stationary one) */
   bare?: boolean;
+  /** stretch the grid to the parent's height so the whole month fits without scrolling */
+  fill?: boolean;
 }) {
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
   const WEEKDAYS = weekStartsOn === 0 ? SUNDAY_FIRST : MONDAY_FIRST;
@@ -57,6 +60,26 @@ export function MonthView({
   const occurrences = expandOccurrences(events, gridStart, gridEnd);
   const days: Date[] = [];
   for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) days.push(d);
+  const weeks = Math.max(1, Math.round(days.length / 7));
+
+  // In fill mode rows share the available height, so how many event rows fit is
+  // measured rather than hardcoded: 6-week months get shorter rows automatically.
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [rowHeight, setRowHeight] = useState(0);
+  useEffect(() => {
+    const node = gridRef.current;
+    if (!fill || !node || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setRowHeight(node.clientHeight / weeks));
+    observer.observe(node);
+    setRowHeight(node.clientHeight / weeks);
+    return () => observer.disconnect();
+  }, [fill, weeks]);
+
+  const EVENT_ROW_PX = 15;
+  const maxVisible = fill
+    ? Math.max(1, Math.min(5, Math.floor((rowHeight - 30) / EVENT_ROW_PX) || 1))
+    : 3;
+
 
   // Press-and-hold an empty day to create an event. The day is captured on
   // pointer down so a single hook can serve every cell.
