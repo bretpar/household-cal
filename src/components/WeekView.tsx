@@ -278,6 +278,7 @@ export function WeekView({
         </div>
 
         <div
+          ref={scrollRef}
           className={cn(
             "overflow-y-auto overscroll-contain",
             fill ? "min-h-0 flex-1" : "max-h-[70vh]",
