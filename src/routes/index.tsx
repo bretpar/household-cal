@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { LegalFooter } from "@/components/LegalFooter";
-import { supabase } from "@/integrations/supabase/client";
+import { getSessionStatus, hasCachedSession, peekSessionStatus } from "@/lib/session-hint";
 
 const LOGO_IMAGE_URL =
   "https://ourfamilycalendar.com/__l5e/assets-v1/1cbc3ae6-235d-438e-9bff-3eace728929e/logo.png";
