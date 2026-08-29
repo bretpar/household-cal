@@ -136,6 +136,7 @@ export function WeekView({
 }) {
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
+  const isMobile = useIsMobile();
   const sourceName = (id: string | null) => sources.find((s) => s.id === id)?.name ?? "Coverage";
   /** Childcare joins the soft care-coverage layer instead of competing as a card. */
   const isCareLayer = (o: Occurrence) =>
