@@ -15,7 +15,18 @@ const NAV = [
   { to: "/family", label: "Family", icon: Users },
 ] as const;
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  /**
+   * Mobile-only full-screen mode: the shell fills the viewport, the page body
+   * never scrolls, and children get a flex column with the remaining height.
+   * Desktop/tablet layout is unchanged.
+   */
+  fitViewport = false,
+}: {
+  children: ReactNode;
+  fitViewport?: boolean;
+}) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -27,9 +38,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b border-border-soft bg-surface/90 backdrop-blur">
+    <div
+      className={cn(
+        "bg-background",
+        fitViewport
+          ? "flex h-[100dvh] min-h-0 flex-col overflow-hidden md:h-auto md:min-h-screen md:overflow-visible"
+          : "min-h-screen",
+      )}
+    >
+      <header className="sticky top-0 z-30 shrink-0 border-b border-border-soft bg-surface/90 backdrop-blur">
         <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:px-8">
+
           <Link to="/today" className="flex min-w-0 items-center gap-2">
             <img
               src={logoAsset.url}
