@@ -5,7 +5,10 @@ import type { MemberId } from "@/lib/family-data";
 
 const sizes = {
   xs: "h-4 w-4 text-[9px]",
+  /** Week-view standard badge (~20px). */
   sm: "h-5 w-5 text-[10px]",
+  /** Day-view standard badge (~22px). */
+  base: "h-[22px] w-[22px] text-[11px]",
   md: "h-7 w-7 text-xs",
   lg: "h-11 w-11 text-base",
 };
