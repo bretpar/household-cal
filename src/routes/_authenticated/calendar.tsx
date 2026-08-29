@@ -236,46 +236,18 @@ function CalendarPage() {
           </div>
         ) : null}
 
-        <div {...swipeProps} className="touch-pan-y">
-          {mode === "month" ? (
-            <MonthView
-              month={anchor}
-              events={visibleEvents}
-              selectedMembers={selectedMembers}
-              onPaste={onPaste}
-              onCreateAt={onCreateAt}
-              weekStartsOn={weekStart}
-              onSelectDay={(day) => {
-                setAnchor(day);
-                setView("day");
-              }}
-            />
-          ) : mode === "week" ? (
-            <WeekView
-              anchor={weekAnchor}
-              events={visibleEvents}
-              selectedMembers={selectedMembers}
-              days={weekDays}
-              onCreateRange={onCreateRange}
-            />
-          ) : (
-            <div className="space-y-4">
-              <WeekView
-                anchor={anchor}
-                events={visibleEvents}
-                selectedMembers={selectedMembers}
-                days={1}
-                onCreateRange={onCreateRange}
-              />
-              <AgendaView
-                anchor={anchor}
-                events={visibleEvents}
-                selectedMembers={selectedMembers}
-                onPaste={onPaste}
-              />
+        <div {...swipeProps} className="relative touch-pan-y overflow-hidden">
+          {slide.outgoing ? (
+            <div
+              aria-hidden
+              className={cn("pointer-events-none absolute inset-x-0 top-0", outgoingClass)}
+            >
+              {renderPeriod(slide.outgoing.value)}
             </div>
-          )}
+          ) : null}
+          <div className={incomingClass}>{renderPeriod(anchor)}</div>
         </div>
+
 
       </div>
       <QuickAddEventDialog
