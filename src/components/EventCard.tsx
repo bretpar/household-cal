@@ -98,9 +98,9 @@ export function EventCard({
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5">
             <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="truncate text-sm font-bold">{event.title}</span>
+            <span className={cn("truncate", EVENT_TYPE_SCALE.day.title)}>{event.title}</span>
           </div>
-          <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
+          <p className={cn("mt-0.5 text-muted-foreground", EVENT_TYPE_SCALE.day.time)}>
             {showDate ? `${showDate} · ` : ""}
             {formatTimeRange(start, end, event.all_day)}
             {" · "}
@@ -118,7 +118,7 @@ export function EventCard({
             </p>
           ) : null}
         </div>
-        <MemberBadgeRow ids={occurrence.member_ids} size="sm" className="pt-0.5" />
+        <MemberBadgeRow ids={occurrence.member_ids} size="base" className="pt-0.5" />
       </div>
     </button>
   );
