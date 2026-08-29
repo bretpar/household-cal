@@ -173,7 +173,20 @@ function FamilyPage() {
 
 
         <DeveloperTools />
+
+        <div className="pt-2">
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={signOut}
+            className="h-12 w-full rounded-full text-base font-bold"
+          >
+            <LogOut className="h-5 w-5" aria-hidden />
+            Sign out
+          </Button>
+        </div>
       </div>
     </AppShell>
   );
 }
+
