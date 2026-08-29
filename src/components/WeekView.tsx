@@ -306,7 +306,7 @@ export function WeekView({
                     The shaded body is inert (long-press there creates a normal event, like
                     blank calendar space); only the small header label is interactive. */}
                 {coverage.map((o) => {
-                  const label = `${careLabel(o)} · ${compactRange(o.start, o.end)}`;
+                  const label = `${careLabel(o)} · ${formatTimeRange(o.start, o.end, false)}`;
                   const moving = draggingKey === o.key || ghost?.occurrence?.key === o.key;
                   return (
                     <div
