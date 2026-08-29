@@ -329,13 +329,13 @@ export function WeekView({
                           <button
                             type="button"
                             onClick={() => openOccurrence(o)}
-                            className="touch-hit-44 min-w-0 max-w-full truncate rounded-br-md px-1.5 py-0.5 text-left text-[9px] leading-tight font-semibold text-coverage-foreground"
+                            className="touch-hit-44 min-w-0 max-w-full truncate rounded-br-md px-1.5 py-1 text-left text-[11px] leading-tight font-semibold text-coverage-foreground"
                           >
                             {label}
                           </button>
                         </div>
                       ) : (
-                        <span className="block truncate px-1.5 pt-0.5 text-[9px] leading-tight font-semibold text-coverage-foreground">
+                        <span className="block truncate px-1.5 py-1 text-[11px] leading-tight font-semibold text-coverage-foreground">
                           {label}
                         </span>
                       )}
