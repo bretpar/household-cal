@@ -99,6 +99,7 @@ export function WeekView({
   days = 7,
   onCreateRange,
   bare = false,
+  fill = false,
 }: {
   anchor: Date;
   events: CalendarEvent[];
@@ -108,7 +109,10 @@ export function WeekView({
   onCreateRange?: ((start: Date, end: Date) => void) | undefined;
   /** render without the card frame (parent supplies a stationary one) */
   bare?: boolean;
+  /** fill the parent's height; only the hourly timeline scrolls */
+  fill?: boolean;
 }) {
+
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
   const sourceName = (id: string | null) =>
