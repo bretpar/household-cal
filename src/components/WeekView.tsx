@@ -228,7 +228,8 @@ export function WeekView({
               className="min-h-7 space-y-0.5 border-l border-border-soft p-1"
               {...dropProps((_e, o) => sameTimeOn(day, o))}
             >
-              {/* Background commitments (school, work): deliberately lighter than timed events */}
+              {/* Background commitments (school, work): same type scale as timed
+                  events, differentiated by lower contrast only. */}
               {allDay.map((o) => (
                 <button
                   key={o.key}
@@ -236,13 +237,24 @@ export function WeekView({
                   {...dragProps(o)}
                   onClick={() => openOccurrence(o)}
                   className={cn(
-                    "flex w-full items-center gap-1 rounded-md px-1 py-0.5 text-left text-[10px] font-semibold opacity-80 transition-opacity hover:opacity-100",
+                    "flex w-full items-center gap-1.5 rounded-md text-left opacity-80 transition-opacity hover:opacity-100",
+                    EVENT_TYPE_SCALE[viewScale].padding.tiny,
                     draggingKey === o.key && "opacity-40",
                     eventTintClass(categoryAppearanceFor(o.event)),
                   )}
                 >
-                  <span className="min-w-0 flex-1 truncate">{o.event.title}</span>
-                  <MemberBadgeRow ids={o.member_ids} size="xs" />
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1 truncate",
+                      EVENT_TYPE_SCALE[viewScale].title,
+                    )}
+                  >
+                    {o.event.title}
+                  </span>
+                  <MemberBadgeRow
+                    ids={o.member_ids}
+                    size={EVENT_TYPE_SCALE[viewScale].badge}
+                  />
                 </button>
               ))}
             </div>
