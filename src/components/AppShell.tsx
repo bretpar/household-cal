@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Home, LogOut, Sparkles, Users } from "lucide-react";
 import type { ReactNode } from "react";
