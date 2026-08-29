@@ -182,7 +182,27 @@ function CalendarPage() {
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <span className="min-w-0 truncate text-base font-bold sm:text-lg">{label}</span>
+            <span className="relative min-w-0 flex-1 overflow-hidden">
+              {slide.outgoing ? (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute inset-0 truncate text-base font-bold sm:text-lg",
+                    outgoingClass,
+                  )}
+                >
+                  {labelFor(slide.outgoing.value)}
+                </span>
+              ) : null}
+              <span
+                className={cn(
+                  "block min-w-0 truncate text-base font-bold sm:text-lg",
+                  incomingClass,
+                )}
+              >
+                {label}
+              </span>
+            </span>
             <Button
               variant="ghost"
               size="icon"
@@ -195,10 +215,11 @@ function CalendarPage() {
             <Button
               variant="ghost"
               className="ml-1 h-9 rounded-full px-3 text-xs font-bold"
-              onClick={() => setAnchor(new Date())}
+              onClick={goToday}
             >
               Today
             </Button>
+
           </div>
 
           <div className="flex items-center gap-2">
