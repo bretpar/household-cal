@@ -98,6 +98,25 @@ function AuthPage() {
     }
   };
 
+  const sendReset = async () => {
+    if (!email.trim()) {
+      toast.error("Enter your email");
+      return;
+    }
+    setBusy(true);
+    try {
+      await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: "https://ourfamilycalendar.com/reset-password",
+      });
+    } catch {
+      // Never reveal whether the address exists.
+    } finally {
+      setBusy(false);
+      setResetSent(true);
+    }
+  };
+
+
   const googleSignIn = async () => {
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: redirect
