@@ -335,6 +335,18 @@ export function WeekView({
                     />
                   ))}
 
+                  {/* Live current-time indicator for today only. */}
+                  {isSameDay(day, now) && (
+                    <div
+                      className="pointer-events-none absolute inset-x-0 z-10"
+                      style={{ top: nowTop }}
+                      aria-hidden
+                    >
+                      <div className="absolute -left-[3px] top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-brand-coral ring-2 ring-surface" />
+                      <div className="h-px w-full bg-brand-coral" />
+                    </div>
+                  )}
+
                   {/* Babysitter coverage: warm neutral shading across the whole scheduled range.
                     The shaded body is inert (long-press there creates a normal event, like
                     blank calendar space); only the small header label is interactive. */}
