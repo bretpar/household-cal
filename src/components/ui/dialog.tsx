@@ -62,7 +62,8 @@ const DialogContent = React.forwardRef<
   const touchHandlers = onSwipeClose
     ? {
         onTouchStart: (e: React.TouchEvent) => {
-          startY.current = canDrag(e.target) ? (e.touches[0]?.clientY ?? null) : null;
+          startY.current =
+            isMobileSheet() && canDrag(e.target) ? (e.touches[0]?.clientY ?? null) : null;
         },
         onTouchMove: (e: React.TouchEvent) => {
           if (startY.current === null) return;
