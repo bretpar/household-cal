@@ -47,8 +47,16 @@ export const createEvent = createServerFn({ method: "POST" })
     const familyId = await resolveWritableFamily(db, context.userId);
     const sourceId = data.calendar_source_id ?? (await defaultEventSource(db, familyId));
     const id = await insertEvent(db, familyId, { ...data, calendar_source_id: sourceId });
+    // The Google push must never hold the user's save open: a slow or hung
+    // Google API call would otherwise leave the Add Event dialog spinning
+    // after the event already exists. Bound it; the reconciliation pass
+    // repairs anything a cut-off push misses (pushToGoogle already swallows
+    // errors for the same reason).
     const { pushToGoogle } = await import("@/lib/google/push.server");
-    await pushToGoogle(familyId, id);
+    await Promise.race([
+      pushToGoogle(familyId, id),
+      new Promise<void>((resolve) => setTimeout(resolve, 2500)),
+    ]);
     return { id };
   });
 
