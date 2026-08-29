@@ -426,7 +426,9 @@ export function WeekView({
                       const Icon = eventTypeIcons[o.event.event_type];
                       const blockHeight = heightFor(o);
                       // Height decides which rows are shown — never the font size.
-                      const density = densityForHeight(viewScale, blockHeight);
+                      // On desktop/tablet there is enough room to keep title + time
+                      // for events ~30 min and up; mobile keeps the compact rules.
+                      const density = timedEventDensity(viewScale, blockHeight, isMobile);
                       const compact = density === "tiny" || density === "short";
                       return (
                         <div
