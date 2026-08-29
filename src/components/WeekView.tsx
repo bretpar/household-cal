@@ -349,10 +349,8 @@ export function WeekView({
                   {withLanes(visible).map(({ occurrence: o, lane, laneCount }) => {
                     const Icon = eventTypeIcons[o.event.event_type];
                     const blockHeight = heightFor(o);
-                    // Content density follows the rendered height so a short
-                    // event never looks longer than it is.
-                    const density =
-                      blockHeight < 34 ? "tiny" : blockHeight < 62 ? "compact" : "full";
+                    // Height decides which rows are shown — never the font size.
+                    const density = densityForHeight(viewScale, blockHeight);
                     return (
                       <div
                         key={o.key}
