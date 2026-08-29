@@ -109,20 +109,22 @@ export function AppShell({
 
 
       {/* Phone bottom navigation */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border-soft bg-surface/95 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur md:hidden">
-        <div className="grid h-16 min-h-[3.5rem] grid-cols-4 items-stretch">
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border-soft bg-surface/95 backdrop-blur md:hidden">
+        <div className="grid h-14 min-h-[3.5rem] grid-cols-4 items-stretch">
           {NAV.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}
               to={to}
               className="flex h-full min-h-12 w-full flex-col items-center justify-center gap-2 text-xs font-semibold text-muted-foreground active:bg-secondary/50"
-              activeProps={{ className: "text-primary" }}
+              activeProps={{ className: "bg-secondary text-primary" }}
             >
               <Icon className="h-6 w-6" aria-hidden />
               <span className="leading-none">{label}</span>
             </Link>
           ))}
         </div>
+        <div className="pointer-events-none h-3" aria-hidden="true" />
+        <div className="pointer-events-none h-[env(safe-area-inset-bottom)]" aria-hidden="true" />
       </nav>
     </div>
   );
