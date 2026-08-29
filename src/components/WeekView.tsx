@@ -45,14 +45,8 @@ function hourLabel(hour: number) {
   return `${h} ${hour < 12 ? "AM" : "PM"}`;
 }
 
-/** "8–5" style compact range for the babysitter coverage label. */
-function compactRange(start: Date, end: Date) {
-  const part = (d: Date) => {
-    const h = d.getHours() % 12 === 0 ? 12 : d.getHours() % 12;
-    return d.getMinutes() === 0 ? `${h}` : `${h}:${String(d.getMinutes()).padStart(2, "0")}`;
-  };
-  return `${part(start)}–${part(end)}`;
-}
+
+
 
 interface Placed {
   occurrence: Occurrence;
@@ -191,13 +185,13 @@ export function WeekView({
 
         <div />
         {columns.map((day) => (
-          <div key={day.toISOString()} className="py-2 text-center">
-            <p className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+          <div key={day.toISOString()} className="px-1 py-1 text-center">
+            <p className="text-[10px] leading-none font-bold tracking-wide text-muted-foreground uppercase">
               {format(day, "EEE")}
             </p>
             <p
               className={cn(
-                "mx-auto mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold",
+                "mx-auto mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-[13px] leading-none font-bold",
                 isSameDay(day, new Date()) && "bg-primary text-primary-foreground",
               )}
             >
@@ -306,7 +300,7 @@ export function WeekView({
                     The shaded body is inert (long-press there creates a normal event, like
                     blank calendar space); only the small header label is interactive. */}
                 {coverage.map((o) => {
-                  const label = `${careLabel(o)} · ${compactRange(o.start, o.end)}`;
+                  const label = `${careLabel(o)} · ${formatTimeRange(o.start, o.end, false)}`;
                   const moving = draggingKey === o.key || ghost?.occurrence?.key === o.key;
                   return (
                     <div
@@ -329,13 +323,13 @@ export function WeekView({
                           <button
                             type="button"
                             onClick={() => openOccurrence(o)}
-                            className="touch-hit-44 min-w-0 max-w-full truncate rounded-br-md px-1.5 py-0.5 text-left text-[9px] leading-tight font-semibold text-coverage-foreground"
+                            className="touch-hit-44 min-w-0 max-w-full truncate rounded-br-md px-1.5 py-1 text-left text-[11px] leading-tight font-semibold text-coverage-foreground"
                           >
                             {label}
                           </button>
                         </div>
                       ) : (
-                        <span className="block truncate px-1.5 pt-0.5 text-[9px] leading-tight font-semibold text-coverage-foreground">
+                        <span className="block truncate px-1.5 py-1 text-[11px] leading-tight font-semibold text-coverage-foreground">
                           {label}
                         </span>
                       )}
@@ -349,7 +343,11 @@ export function WeekView({
                 <div className="pointer-events-none absolute inset-y-0 right-1 left-3 sm:left-4">
                   {withLanes(visible).map(({ occurrence: o, lane, laneCount }) => {
                     const Icon = eventTypeIcons[o.event.event_type];
-                    const compact = heightFor(o) < 44;
+                    const blockHeight = heightFor(o);
+                    // Content density follows the rendered height so a short
+                    // event never looks longer than it is.
+                    const density =
+                      blockHeight < 34 ? "tiny" : blockHeight < 62 ? "compact" : "full";
                     return (
                       <div
                         key={o.key}
@@ -363,40 +361,86 @@ export function WeekView({
                         )}
                         style={{
                           top: topFor(o.start),
-                          height: heightFor(o),
+                          height: blockHeight,
                           left: `calc(${(lane / laneCount) * 100}% + 1px)`,
                           width: `calc(${100 / laneCount}% - 2px)`,
                         }}
                       >
                         <div
                           className={cn(
-                            "absolute inset-0 overflow-hidden rounded-xl border border-border-soft px-1.5 py-1 shadow-soft",
+                            "absolute inset-0 overflow-hidden rounded-xl border border-border-soft shadow-soft",
+                            density === "full" ? "px-1.5 py-1" : "px-1.5 py-0.5",
                             eventTintClass(categoryAppearanceFor(o.event)),
                           )}
                         >
-                          {/* Tap target is the wording/time label only. */}
-                          <button
-                            type="button"
-                            onClick={() => openOccurrence(o)}
-                            className="block w-full text-left"
-                          >
-                            <span className="flex items-center gap-1">
-                              <Icon className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
-                              <span className="min-w-0 flex-1 truncate text-[11px] font-bold">
+                          {density === "tiny" ? (
+                            // Single line: title → time → attendee.
+                            <button
+                              type="button"
+                              onClick={() => openOccurrence(o)}
+                              className="flex w-full items-center gap-1 text-left"
+                            >
+                              <span className="min-w-0 flex-1 truncate text-[11px] leading-tight font-bold">
                                 {o.event.title}
                               </span>
-                            </span>
-                            {compact ? null : (
-                              <span className="mt-0.5 block truncate text-[9px] font-semibold text-muted-foreground">
+                              <span className="shrink-0 truncate text-[10px] leading-tight font-semibold text-muted-foreground">
                                 {formatTimeRange(o.start, o.end, false)}
                               </span>
-                            )}
-                          </button>
-                          <MemberBadgeRow
-                            ids={o.member_ids}
-                            size="xs"
-                            className="pointer-events-none mt-0.5"
-                          />
+                              <MemberBadgeRow
+                                ids={o.member_ids}
+                                size="xs"
+                                className="pointer-events-none shrink-0"
+                              />
+                            </button>
+                          ) : density === "compact" ? (
+                            // Two tight lines with badges pushed to the side.
+                            <div className="flex h-full min-w-0 items-start gap-1">
+                              <button
+                                type="button"
+                                onClick={() => openOccurrence(o)}
+                                className="block min-w-0 flex-1 text-left"
+                              >
+                                <span className="block truncate text-[11px] leading-tight font-bold">
+                                  {o.event.title}
+                                </span>
+                                <span className="block truncate text-[10px] leading-tight font-semibold text-muted-foreground">
+                                  {formatTimeRange(o.start, o.end, false)}
+                                </span>
+                              </button>
+                              <MemberBadgeRow
+                                ids={o.member_ids}
+                                size="xs"
+                                className="pointer-events-none shrink-0"
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              {/* Tap target is the wording/time label only. */}
+                              <button
+                                type="button"
+                                onClick={() => openOccurrence(o)}
+                                className="block w-full text-left"
+                              >
+                                <span className="flex items-center gap-1">
+                                  <Icon
+                                    className="h-3 w-3 shrink-0 text-muted-foreground"
+                                    aria-hidden
+                                  />
+                                  <span className="min-w-0 flex-1 truncate text-[11px] font-bold">
+                                    {o.event.title}
+                                  </span>
+                                </span>
+                                <span className="mt-0.5 block truncate text-[10px] font-semibold text-muted-foreground">
+                                  {formatTimeRange(o.start, o.end, false)}
+                                </span>
+                              </button>
+                              <MemberBadgeRow
+                                ids={o.member_ids}
+                                size="xs"
+                                className="pointer-events-none mt-0.5"
+                              />
+                            </>
+                          )}
                         </div>
                       </div>
                     );
