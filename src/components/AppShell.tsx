@@ -123,6 +123,9 @@ export function AppShell({
             <Link
               key={to}
               to={to}
+              preload="intent"
+              onTouchStart={() => prefetch(to)}
+              onPointerDown={() => prefetch(to)}
               className="flex h-full min-h-12 w-full flex-col items-center justify-center gap-2 text-xs font-semibold text-muted-foreground active:bg-secondary/50"
               activeProps={{ className: "bg-secondary text-primary" }}
             >
