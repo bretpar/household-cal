@@ -50,8 +50,11 @@ export function CalendarEventContent({
 
   const wrapperClass = cn("h-full min-w-0", scale.padding[density], className);
 
-  // Single truncated line: "Little Gym · 9:00–9:45" + initials on the right.
+  // Compact rows: the title always wins. The written time is dropped before the
+  // title is truncated, because the block's vertical position already says when
+  // the event happens. Month pills keep the time (no timeline to read it from).
   if (density === "tiny" || density === "short") {
+    const showTime = view === "month" || (view === "day" && density === "short");
     return (
       <div className={cn(wrapperClass, "flex items-center gap-1.5")}>
         <button
@@ -60,13 +63,16 @@ export function CalendarEventContent({
           disabled={!onOpen}
           className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
         >
-          <span className={cn("min-w-0 truncate", scale.title)}>{label}</span>
-          <span className={cn("shrink-0 truncate", scale.time, timeTone)}>{time}</span>
+          <span className={cn("min-w-0 flex-1 truncate", scale.title)}>{label}</span>
+          {showTime ? (
+            <span className={cn("shrink-0 truncate", scale.time, timeTone)}>{time}</span>
+          ) : null}
         </button>
         {badges}
       </div>
     );
   }
+
 
   // Medium: title + time, no icon/metadata decoration.
   if (density === "medium") {

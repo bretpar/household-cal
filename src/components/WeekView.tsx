@@ -349,13 +349,15 @@ export function WeekView({
                       const blockHeight = heightFor(o);
                       // Height decides which rows are shown — never the font size.
                       const density = densityForHeight(viewScale, blockHeight);
+                      const compact = density === "tiny" || density === "short";
                       return (
                         <div
                           key={o.key}
                           data-occurrence-key={o.key}
                           {...dragProps(o)}
                           className={cn(
-                            "pointer-events-auto touch-hit-44 absolute rounded-xl text-left",
+                            "pointer-events-auto touch-hit-44 absolute text-left",
+                            compact ? "rounded-md" : "rounded-xl",
                             draggingKey === o.key && "opacity-40",
                             ghost?.occurrence?.key === o.key && "ring-2 ring-primary/70 ring-inset",
                           )}
@@ -368,7 +370,8 @@ export function WeekView({
                         >
                           <div
                             className={cn(
-                              "absolute inset-0 overflow-hidden rounded-xl border border-border-soft shadow-soft",
+                              "absolute inset-0 overflow-hidden border border-border-soft shadow-soft",
+                              compact ? "rounded-md" : "rounded-xl",
                               eventTintClass(categoryAppearanceFor(o.event)),
                             )}
                           >
