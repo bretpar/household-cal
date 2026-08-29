@@ -36,10 +36,12 @@ function AuthPage() {
     if (redirect) window.location.assign(redirect);
     else navigate({ to: "/today", replace: true });
   };
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -96,6 +98,25 @@ function AuthPage() {
     }
   };
 
+  const sendReset = async () => {
+    if (!email.trim()) {
+      toast.error("Enter your email");
+      return;
+    }
+    setBusy(true);
+    try {
+      await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: "https://ourfamilycalendar.com/reset-password",
+      });
+    } catch {
+      // Never reveal whether the address exists.
+    } finally {
+      setBusy(false);
+      setResetSent(true);
+    }
+  };
+
+
   const googleSignIn = async () => {
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: redirect
@@ -109,6 +130,56 @@ function AuthPage() {
     if (result.redirected) return;
     goHome();
   };
+
+  if (mode === "forgot") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+        <div className="w-full max-w-sm rounded-3xl border border-border-soft bg-card p-6 shadow-soft">
+          <h1 className="font-display text-2xl font-bold">Reset your password</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {resetSent
+              ? "If an account exists for that email, we sent a password reset link."
+              : "Enter your email and we'll send you a reset link."}
+          </p>
+
+          {!resetSent ? (
+            <div className="mt-5 space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="reset-email">Email</Label>
+                <Input
+                  id="reset-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-11 rounded-xl"
+                />
+              </div>
+              <Button
+                className="h-11 w-full rounded-full font-bold"
+                onClick={sendReset}
+                disabled={busy}
+                type="button"
+              >
+                Send reset link
+              </Button>
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            className="mt-5 w-full text-sm font-semibold text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              setResetSent(false);
+              setMode("signin");
+            }}
+          >
+            Back to sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
@@ -149,6 +220,18 @@ function AuthPage() {
               <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>
             ) : null}
           </div>
+          {mode === "signin" ? (
+            <button
+              type="button"
+              className="w-full text-right text-xs font-semibold text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                setResetSent(false);
+                setMode("forgot");
+              }}
+            >
+              Forgot password?
+            </button>
+          ) : null}
           <Button
             className="h-11 w-full rounded-full font-bold"
             onClick={submit}
@@ -184,4 +267,5 @@ function AuthPage() {
       </div>
     </div>
   );
+
 }
