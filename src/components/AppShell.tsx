@@ -1,12 +1,10 @@
-import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Home, LogOut, Sparkles, Users } from "lucide-react";
+import { Link, useRouter } from "@tanstack/react-router";
+import { CalendarDays, Home, Sparkles, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
 import logoAsset from "@/assets/logo.png.asset.json";
 import { LegalFooter } from "@/components/LegalFooter";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
-import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 
@@ -29,8 +27,6 @@ export function AppShell({
   children: ReactNode;
   fitViewport?: boolean;
 }) {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const router = useRouter();
 
   /** Warm the route (code + loader data) as soon as a finger/pointer lands. */
@@ -38,14 +34,8 @@ export function AppShell({
     void router.preloadRoute({ to }).catch(() => {});
   };
 
-  const signOut = async () => {
-    await queryClient.cancelQueries();
-    queryClient.clear();
-    await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
-  };
-
   return (
+
     <div
       className={cn(
         "bg-background",
