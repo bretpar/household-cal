@@ -131,8 +131,8 @@ export function WeekView({
     const rect = e.currentTarget.getBoundingClientRect();
     const minutesFromTop = ((e.clientY - rect.top) / HOUR_PX) * 60;
     const total = Math.max(
-      DAY_START * 60,
-      Math.min(DAY_END * 60 - SNAP_MINUTES, DAY_START * 60 + minutesFromTop),
+      0,
+      Math.min(DAY_END * 60 - SNAP_MINUTES, minutesFromTop),
     );
     const snapped = Math.round(total / SNAP_MINUTES) * SNAP_MINUTES;
     const next = new Date(day);
