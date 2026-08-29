@@ -1,4 +1,5 @@
 import type { DragEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addDays, format, isSameDay } from "date-fns";
 
 import { cn } from "@/lib/utils";
@@ -21,8 +22,9 @@ import {
   type Occurrence,
 } from "@/lib/family-data";
 
-const DAY_START = 7;
-const DAY_END = 22;
+/** Full 24-hour timeline so overnight and early-morning events are visible. */
+const DAY_START = 0;
+const DAY_END = 24;
 const HOUR_PX = 60;
 /** Drops snap to a friendly grid rather than to the exact pixel. */
 const SNAP_MINUTES = 15;
@@ -44,6 +46,10 @@ function isDayBlock(o: Occurrence): boolean {
 function hourLabel(hour: number) {
   const h = hour % 12 === 0 ? 12 : hour % 12;
   return `${h} ${hour < 12 ? "AM" : "PM"}`;
+}
+
+function minutesFromTop(px: number) {
+  return (px / HOUR_PX) * 60;
 }
 
 interface Placed {
@@ -125,8 +131,8 @@ export function WeekView({
     const rect = e.currentTarget.getBoundingClientRect();
     const minutesFromTop = ((e.clientY - rect.top) / HOUR_PX) * 60;
     const total = Math.max(
-      DAY_START * 60,
-      Math.min(DAY_END * 60 - SNAP_MINUTES, DAY_START * 60 + minutesFromTop),
+      0,
+      Math.min(DAY_END * 60 - SNAP_MINUTES, minutesFromTop),
     );
     const snapped = Math.round(total / SNAP_MINUTES) * SNAP_MINUTES;
     const next = new Date(day);
@@ -164,6 +170,30 @@ export function WeekView({
     next.setHours(occurrence.start.getHours(), occurrence.start.getMinutes(), 0, 0);
     return next;
   };
+
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    setNow(new Date());
+    const interval = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // On first load and when the user presses Today, land ~1 hour before now.
+  // Manual date changes keep their existing scroll position unless the new
+  // date is today, in which case we gently snap to the current moment.
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const today = new Date();
+    if (!isSameDay(anchor, today)) return;
+    const targetTop = topFor(today) - HOUR_PX;
+    const maxScroll = scrollRef.current.scrollHeight - scrollRef.current.clientHeight;
+    scrollRef.current.scrollTo({ top: Math.max(0, Math.min(maxScroll, targetTop)), behavior: "auto" });
+  }, [anchor]);
+
+  const todayColumnIndex = columns.findIndex((day) => isSameDay(day, now));
+  const nowTop = topFor(now);
 
   return (
     <>
@@ -248,6 +278,7 @@ export function WeekView({
         </div>
 
         <div
+          ref={scrollRef}
           className={cn(
             "overflow-y-auto overscroll-contain",
             fill ? "min-h-0 flex-1" : "max-h-[70vh]",
@@ -268,6 +299,16 @@ export function WeekView({
                   <span className="relative -top-1.5">{hourLabel(hour)}</span>
                 </div>
               ))}
+              {todayColumnIndex !== -1 && (
+                <div
+                  className="absolute right-0 z-20 flex -translate-y-1/2 items-center pr-1"
+                  style={{ top: nowTop }}
+                >
+                  <span className="rounded bg-brand-coral px-1 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                    {format(now, "h:mm a")}
+                  </span>
+                </div>
+              )}
             </div>
 
             {columns.map((day) => {
@@ -293,6 +334,18 @@ export function WeekView({
                       className="border-b border-border-soft/60"
                     />
                   ))}
+
+                  {/* Live current-time indicator for today only. */}
+                  {isSameDay(day, now) && (
+                    <div
+                      className="pointer-events-none absolute inset-x-0 z-10"
+                      style={{ top: nowTop }}
+                      aria-hidden
+                    >
+                      <div className="absolute -left-[3px] top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-brand-coral ring-2 ring-surface" />
+                      <div className="h-px w-full bg-brand-coral" />
+                    </div>
+                  )}
 
                   {/* Babysitter coverage: warm neutral shading across the whole scheduled range.
                     The shaded body is inert (long-press there creates a normal event, like

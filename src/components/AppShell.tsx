@@ -87,20 +87,20 @@ export function AppShell({
             : "px-4 pt-5 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-12 lg:px-8",
         )}
       >
-
         {children}
-        {fitViewport ? (
-          <div className="hidden md:block">
-            <LegalFooter />
-          </div>
-        ) : (
-          <LegalFooter />
-        )}
       </main>
+
+      {fitViewport ? (
+        <div className="hidden md:block">
+          <LegalFooter />
+        </div>
+      ) : (
+        <LegalFooter />
+      )}
 
 
       {/* Phone bottom navigation */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border-soft bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border-soft bg-surface/95 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur md:hidden">
         <div className="grid h-auto grid-cols-4">
           {NAV.map(({ to, label, icon: Icon }) => (
             <Link
@@ -110,7 +110,7 @@ export function AppShell({
               onTouchStart={() => prefetch(to)}
               onPointerDown={() => prefetch(to)}
               className={cn(
-                "relative flex h-[calc(3.5rem+env(safe-area-inset-bottom))] min-h-[calc(3.5rem+env(safe-area-inset-bottom))] flex-col items-center justify-start gap-2 pt-2.5 text-xs font-semibold text-muted-foreground",
+                "relative flex h-14 min-h-14 flex-col items-center justify-start gap-2 pt-2.5 text-xs font-semibold text-muted-foreground",
                 "transition-all duration-150 ease-out",
                 "active:scale-95 active:bg-secondary/60 active:text-foreground",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40",
@@ -118,7 +118,7 @@ export function AppShell({
               activeProps={{
                 className: cn(
                   "bg-secondary text-primary",
-                  "after:absolute after:top-1 after:h-1 after:w-1 after:rounded-full after:bg-primary",
+                  "after:absolute after:top-1.5 after:h-1 after:w-1 after:rounded-full after:bg-primary",
                 ),
               }}
             >
