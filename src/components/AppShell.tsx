@@ -31,6 +31,12 @@ export function AppShell({
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const router = useRouter();
+
+  /** Warm the route (code + loader data) as soon as a finger/pointer lands. */
+  const prefetch = (to: string) => {
+    void router.preloadRoute({ to }).catch(() => {});
+  };
 
   const signOut = async () => {
     await queryClient.cancelQueries();
