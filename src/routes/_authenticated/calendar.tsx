@@ -118,11 +118,11 @@ function CalendarPage() {
     sensitivity: mode,
   });
 
-  // Full week columns honor the week-start preference; the 3-day phone layout
-  // stays rolling from the anchor so it keeps looking forward from today.
+  // Week view is a rolling day strip anchored on the selected date, so a swipe
+  // advances a single day and every date can be reached.
   const weekDays = isMobile ? 3 : 7;
-  const weekAnchorFor = (at: Date) =>
-    weekDays === 7 ? startOfWeek(at, { weekStartsOn: weekStart }) : at;
+  const weekAnchorFor = (at: Date) => at;
+
 
   // Week label always shows the 7-day week the visible days sit in, so it only
   // changes when the rolling window crosses into the next/previous week.
