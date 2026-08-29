@@ -120,7 +120,7 @@ function LandingPage() {
           <div className="mt-6 flex flex-wrap gap-3">
             <Link to="/auth">
               <Button size="lg" className="h-12 rounded-full px-6 font-bold">
-                {checking ? "Get started" : "Get started"}
+                Get started
               </Button>
             </Link>
           </div>
