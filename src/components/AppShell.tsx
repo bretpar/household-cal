@@ -74,16 +74,8 @@ export function AppShell({
                 </Link>
               ))}
             </nav>
-            <button
-              type="button"
-              onClick={signOut}
-              aria-label="Sign out"
-              className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary"
-            >
-              <LogOut className="h-4 w-4" aria-hidden />
-              <span className="hidden lg:inline">Sign out</span>
-            </button>
           </div>
+
         </div>
       </header>
 
