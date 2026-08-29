@@ -47,10 +47,20 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 function FamilyPage() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { members, sources, family, role } = useCalendar();
   const caregivers = members.filter((m) => m.role === "caregiver");
 
+  const signOut = async () => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  };
+
   return (
+
     <AppShell>
       <div className="space-y-6">
         <header>
