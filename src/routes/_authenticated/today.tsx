@@ -61,7 +61,6 @@ function TodayPage() {
 
 
         <MemberFilter />
-        <CategoryFilter />
         <AgendaView
           anchor={today}
           events={visibleEvents}
