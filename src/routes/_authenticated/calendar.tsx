@@ -340,43 +340,51 @@ function CalendarPage() {
         </p>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft md:block">
         <div
-          {...swipeProps}
+          ref={carousel.containerRef}
           className="relative flex min-h-0 flex-1 flex-col touch-pan-y overflow-hidden md:block"
         >
-          {slide.outgoing ? (
-            <div
-              aria-hidden
-              className={cn(
-                "pointer-events-none absolute inset-x-0 top-0 bottom-0 flex flex-col overflow-hidden md:bottom-auto md:block",
-                outgoingClass,
-              )}
-            >
-              {renderPeriod(slide.outgoing.value)}
-            </div>
-          ) : null}
           <div
-            ref={periodRef}
-            tabIndex={-1}
-            role="group"
-            aria-label={`${CALENDAR_VIEW_LABEL[mode]} view: ${label}`}
-            className={cn(
-              "flex min-h-0 flex-1 flex-col outline-none md:block",
-              incomingClass,
-            )}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowLeft") {
-                e.preventDefault();
-                step(-1, { focus: true });
-              } else if (e.key === "ArrowRight") {
-                e.preventDefault();
-                step(1, { focus: true });
-              }
-            }}
+            className="relative flex min-h-0 flex-1 flex-col will-change-transform md:block"
+            style={trackStyle}
           >
-            {renderPeriod(anchor)}
+            {showNeighbours ? (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 right-full flex w-full flex-col overflow-hidden md:block"
+              >
+                {renderPeriod(shift(anchor, -1))}
+              </div>
+            ) : null}
+            <div
+              ref={periodRef}
+              tabIndex={-1}
+              role="group"
+              aria-label={`${viewLabel(mode)} view: ${label}`}
+              className="flex min-h-0 flex-1 flex-col outline-none md:block"
+              onKeyDown={(e) => {
+                if (e.key === "ArrowLeft") {
+                  e.preventDefault();
+                  step(-1, { focus: true });
+                } else if (e.key === "ArrowRight") {
+                  e.preventDefault();
+                  step(1, { focus: true });
+                }
+              }}
+            >
+              {renderPeriod(anchor)}
+            </div>
+            {showNeighbours ? (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 left-full flex w-full flex-col overflow-hidden md:block"
+              >
+                {renderPeriod(shift(anchor, 1))}
+              </div>
+            ) : null}
           </div>
         </div>
         </div>
+
 
 
       </div>
