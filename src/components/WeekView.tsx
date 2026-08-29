@@ -171,6 +171,30 @@ export function WeekView({
     return next;
   };
 
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    setNow(new Date());
+    const interval = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // On first load and when the user presses Today, land ~1 hour before now.
+  // Manual date changes keep their existing scroll position unless the new
+  // date is today, in which case we gently snap to the current moment.
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const today = new Date();
+    if (!isSameDay(anchor, today)) return;
+    const targetTop = topFor(today) - HOUR_PX;
+    const maxScroll = scrollRef.current.scrollHeight - scrollRef.current.clientHeight;
+    scrollRef.current.scrollTo({ top: Math.max(0, Math.min(maxScroll, targetTop)), behavior: "auto" });
+  }, [anchor]);
+
+  const todayColumnIndex = columns.findIndex((day) => isSameDay(day, now));
+  const nowTop = topFor(now);
+
   return (
     <>
       {dialog}
