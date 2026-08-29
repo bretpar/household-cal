@@ -193,8 +193,8 @@ function CalendarPage() {
               variant="ghost"
               size="icon"
               className="h-10 w-10 rounded-full"
-              aria-label="Previous"
-              onClick={() => step(-1)}
+              aria-label={`Previous ${CALENDAR_VIEW_LABEL[mode].toLowerCase()}`}
+              onClick={() => step(-1, { focus: true })}
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>

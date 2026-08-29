@@ -98,7 +98,6 @@ export function useHorizontalSwipe({
     if (Math.abs(dx) < tuning.minDistance) return;
     if (Math.abs(dy) > Math.abs(dx) * tuning.maxVerticalRatio) return;
     if (Math.abs(dx) / elapsed < tuning.minVelocity) return;
-    haptic();
     if (dx < 0) onSwipeLeft();
     else onSwipeRight();
   };
