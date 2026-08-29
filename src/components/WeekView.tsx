@@ -372,78 +372,16 @@ export function WeekView({
                         <div
                           className={cn(
                             "absolute inset-0 overflow-hidden rounded-xl border border-border-soft shadow-soft",
-                            density === "full" ? "px-1.5 py-1" : "px-1.5 py-0.5",
                             eventTintClass(categoryAppearanceFor(o.event)),
                           )}
                         >
-                          {density === "tiny" ? (
-                            // Single line: title → time → attendee.
-                            <button
-                              type="button"
-                              onClick={() => openOccurrence(o)}
-                              className="flex w-full items-center gap-1 text-left"
-                            >
-                              <span className="min-w-0 flex-1 truncate text-[11px] leading-tight font-bold">
-                                {o.event.title}
-                              </span>
-                              <span className="shrink-0 truncate text-[10px] leading-tight font-semibold text-muted-foreground">
-                                {formatTimeRange(o.start, o.end, false)}
-                              </span>
-                              <MemberBadgeRow
-                                ids={o.member_ids}
-                                size="xs"
-                                className="pointer-events-none shrink-0"
-                              />
-                            </button>
-                          ) : density === "compact" ? (
-                            // Two tight lines with badges pushed to the side.
-                            <div className="flex h-full min-w-0 items-start gap-1">
-                              <button
-                                type="button"
-                                onClick={() => openOccurrence(o)}
-                                className="block min-w-0 flex-1 text-left"
-                              >
-                                <span className="block truncate text-[11px] leading-tight font-bold">
-                                  {o.event.title}
-                                </span>
-                                <span className="block truncate text-[10px] leading-tight font-semibold text-muted-foreground">
-                                  {formatTimeRange(o.start, o.end, false)}
-                                </span>
-                              </button>
-                              <MemberBadgeRow
-                                ids={o.member_ids}
-                                size="xs"
-                                className="pointer-events-none shrink-0"
-                              />
-                            </div>
-                          ) : (
-                            <>
-                              {/* Tap target is the wording/time label only. */}
-                              <button
-                                type="button"
-                                onClick={() => openOccurrence(o)}
-                                className="block w-full text-left"
-                              >
-                                <span className="flex items-center gap-1">
-                                  <Icon
-                                    className="h-3 w-3 shrink-0 text-muted-foreground"
-                                    aria-hidden
-                                  />
-                                  <span className="min-w-0 flex-1 truncate text-[11px] font-bold">
-                                    {o.event.title}
-                                  </span>
-                                </span>
-                                <span className="mt-0.5 block truncate text-[10px] font-semibold text-muted-foreground">
-                                  {formatTimeRange(o.start, o.end, false)}
-                                </span>
-                              </button>
-                              <MemberBadgeRow
-                                ids={o.member_ids}
-                                size="xs"
-                                className="pointer-events-none mt-0.5"
-                              />
-                            </>
-                          )}
+                          <CalendarEventContent
+                            occurrence={o}
+                            view={viewScale}
+                            density={density}
+                            icon={Icon}
+                            onOpen={() => openOccurrence(o)}
+                          />
                         </div>
                       </div>
                     );
