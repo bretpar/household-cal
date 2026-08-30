@@ -350,33 +350,40 @@ async function assertSelectableCalendars(
 
 export async function saveRecipient(
   db: Db,
+  admin: AdminDb,
   userId: string,
   input: {
     id?: string | null;
     schedule_id: string;
-    name: string;
-    email: unknown;
-    family_member_id?: string | null;
+    user_id: string;
     calendar_source_ids?: string[];
     weekdays?: string[] | null;
     resubscribe?: boolean;
   },
 ): Promise<{ id: string }> {
   const familyId = await ownerFamily(db, userId);
-  const name = String(input.name ?? "").trim();
-  if (!name) throw new Error("Add a name for this recipient");
-  const email = normalizeEmailAddress(input.email);
   const sourceIds = [...new Set(input.calendar_source_ids ?? [])];
   await assertSelectableCalendars(db, familyId, sourceIds);
+
+  // Recipients must be people who already have access to this household.
+  const options = await loadHouseholdRecipientOptions(db, admin, familyId);
+  const person = options.find((o) => o.user_id === input.user_id);
+  if (!person) {
+    throw new Error("Pick someone who has access to this household");
+  }
+  const name = person.name;
+  const email = normalizeEmailAddress(person.email);
 
   let recipientId = input.id ?? null;
   const patch = {
     name,
     email,
-    family_member_id: input.family_member_id ?? null,
+    user_id: person.user_id,
+    family_member_id: person.family_member_id,
     weekdays: normalizeWeekdays(input.weekdays),
     ...(input.resubscribe ? { unsubscribed_at: null } : {}),
   };
+
   if (recipientId) {
     const { error } = await db
       .from("email_schedule_recipients")
