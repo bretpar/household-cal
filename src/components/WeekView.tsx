@@ -584,7 +584,9 @@ export function WeekView({
             })}
           </div>
         </div>
+        </div>
       </div>
     </>
+
   );
 }
