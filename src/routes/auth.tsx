@@ -71,7 +71,7 @@ function AuthPage() {
       return;
     }
     if (mode === "signup") {
-      const problem = validatePassword(password);
+      const problem = validatePassword(passwordValue);
       if (problem) {
         toast.error(problem);
         return;
@@ -81,22 +81,22 @@ function AuthPage() {
     try {
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
+          email: emailValue.trim(),
+          password: passwordValue,
         });
         if (error) throw error;
         if (!data.session) {
           // No email confirmation step: sign straight in so onboarding continues.
           const { error: signInError } = await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password,
+            email: emailValue.trim(),
+            password: passwordValue,
           });
           if (signInError) throw signInError;
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
+          email: emailValue.trim(),
+          password: passwordValue,
         });
         if (error) throw error;
       }
@@ -108,13 +108,14 @@ function AuthPage() {
   };
 
   const sendReset = async () => {
-    if (!email.trim()) {
+    const emailValue = currentEmail();
+    if (!emailValue.trim()) {
       toast.error("Enter your email");
       return;
     }
     setBusy(true);
     try {
-      await supabase.auth.resetPasswordForEmail(email.trim(), {
+      await supabase.auth.resetPasswordForEmail(emailValue.trim(), {
         redirectTo: "https://ourfamilycalendar.com/reset-password",
       });
     } catch {
