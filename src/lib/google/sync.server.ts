@@ -1057,7 +1057,7 @@ export async function reconcileHousehold(
     const { timeMin, timeMax } = syncWindow(new Date(), false);
     const { data: candidates } = await admin
       .from("events")
-      .select("id, start_at, recurrence_rule")
+      .select("id, start_at, recurrence_rule, all_day")
       .eq("family_id", familyId)
       .lte("start_at", timeMax);
     const { data: linked } = await admin
@@ -1067,7 +1067,12 @@ export async function reconcileHousehold(
     const linkedIds = new Set((linked ?? []).map((l: { event_id: string }) => l.event_id));
 
     let repaired = 0;
-    for (const candidate of (candidates ?? []) as { id: string; start_at: string; recurrence_rule: string | null }[]) {
+    for (const candidate of (candidates ?? []) as {
+      id: string;
+      start_at: string;
+      recurrence_rule: string | null;
+      all_day: boolean;
+    }[]) {
       if (!candidate.recurrence_rule && candidate.start_at < timeMin) continue;
       if (linkedIds.has(candidate.id)) {
         const { pruned } = await pruneStaleLinks(
@@ -1077,9 +1082,13 @@ export async function reconcileHousehold(
           sources,
           candidate.id,
         );
-        // nothing stale: every branch still points at a live Google event
-        if (pruned === 0) continue;
+        // nothing stale: every branch still points at a live Google event.
+        // One exception: recurring timed series written before the DST fix still
+        // carry UTC recurrence metadata, so patch those in place exactly once.
+        if (pruned === 0 && !(await needsBodyRepatch(admin, familyId, candidate, candidate.id)))
+          continue;
       }
+
       await pushEvent(admin, familyId, candidate.id);
       repaired += 1;
     }
