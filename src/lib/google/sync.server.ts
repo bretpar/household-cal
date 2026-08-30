@@ -367,9 +367,11 @@ export async function pushEvent(
       .eq("event_id", eventId);
     const links = (linkRows ?? []) as LinkRow[];
 
+    const timeZone = await householdTimeZone(admin, familyId);
     let pushed = 0;
     for (const branch of branches) {
-      const body = branchBody(event, branch, initials);
+      const body = branchBody(event, branch, initials, timeZone);
+
       const link = links.find((l) => l.branch_key === branch.key);
       let saved: GoogleEvent;
 
