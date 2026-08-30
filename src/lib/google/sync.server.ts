@@ -254,6 +254,36 @@ async function recordPushDiagnostic(
   }
 }
 
+/**
+ * Version of the body we send to Google. Bumped when the generated recurrence
+ * metadata itself changes, so a one-time repatch can find pre-fix series.
+ *
+ * 2 = timed events carry household-local wall-clock times + IANA zone (DST-safe).
+ */
+export const SYNC_BODY_VERSION = 2;
+
+/**
+ * True when a healthy recurring timed event still carries pre-DST-fix Google
+ * recurrence metadata and must be patched in place once.
+ */
+async function needsBodyRepatch(
+  admin: Admin,
+  familyId: string,
+  event: { recurrence_rule: string | null; all_day: boolean },
+  eventId: string,
+): Promise<boolean> {
+  if (!event.recurrence_rule || event.all_day) return false;
+  const { data } = await admin
+    .from("event_sync_links")
+    .select("app_version")
+    .eq("family_id", familyId)
+    .eq("event_id", eventId)
+    .lt("app_version", SYNC_BODY_VERSION);
+  return ((data ?? []) as unknown[]).length > 0;
+}
+
+
+
 
 /** Wraps sync work so an expired/revoked Google grant degrades gracefully. */
 async function guard<T>(
