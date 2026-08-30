@@ -187,6 +187,8 @@ export function usePeriodCarousel({
       if (isBlockedRef.current?.()) {
         active = false;
         axis = "undecided";
+        draggingX.current = false;
+        clearDragShift();
         restoreSnap();
         return;
       }
@@ -200,6 +202,7 @@ export function usePeriodCarousel({
         axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
         if (axis === "x") {
           node.style.scrollSnapType = "none";
+          draggingX.current = true;
           busyRef.current = true;
           setBusy(true);
         }
@@ -207,20 +210,11 @@ export function usePeriodCarousel({
       if (axis !== "x") return;
       // Stop the native vertical timeline scroll; we own this gesture now.
       if (e.cancelable) e.preventDefault();
-      node.scrollLeft = startScrollLeft - dx;
+      // Immediate 1:1 movement with the finger; animation only on release.
+      applyIntended(startScrollLeft - dx);
     };
 
-    const onTouchEnd = () => {
-      if (!active || axis !== "x") {
-        active = false;
-        axis = "undecided";
-        return;
-      }
-      active = false;
-      axis = "undecided";
-      restoreSnap();
-      // Settle to the nearest period boundary; the scroll/scrollend handlers
-      // above commit the anchor once the snap animation has finished.
+    const settleToNearestPage = () => {
       const width = node.clientWidth || 1;
       const page = Math.round(node.scrollLeft / width);
       const target = Math.max(0, Math.min(2, page)) * width;
@@ -232,15 +226,65 @@ export function usePeriodCarousel({
       settleTimer.current = setTimeout(finishSnap, SETTLE_FALLBACK_MS);
     };
 
+    const onTouchEnd = () => {
+      if (!active || axis !== "x") {
+        active = false;
+        axis = "undecided";
+        return;
+      }
+      active = false;
+      axis = "undecided";
+      draggingX.current = false;
+      // Land exactly where the finger left the track (touch-end writes are
+      // honored even on iOS), then clear the visual compensation in the same
+      // frame so there is no flicker.
+      if (lastIntended.current != null) node.scrollLeft = lastIntended.current;
+      clearDragShift();
+      restoreSnap();
+      // Settle to the nearest period boundary; the scroll/scrollend handlers
+      // above commit the anchor once the snap animation has finished.
+      settleToNearestPage();
+    };
+
+    // Desktop trackpads: horizontal wheel over the grid pans the calendar.
+    // Consuming the gesture (preventDefault) also blocks the browser's
+    // swipe-between-history-pages navigation. Events outside this node never
+    // reach this listener.
+    let wheelSettle: ReturnType<typeof setTimeout> | null = null;
+    const onWheel = (e: WheelEvent) => {
+      if (isBlockedRef.current?.() || overlayOpen()) return;
+      const unit = e.deltaMode === 1 ? 16 : 1;
+      const dx = e.deltaX * unit;
+      const dy = e.deltaY * unit;
+      if (Math.abs(dx) <= Math.abs(dy) || Math.abs(dx) < 1) return;
+      e.preventDefault();
+      if (node.style.scrollSnapType !== "none") node.style.scrollSnapType = "none";
+      busyRef.current = true;
+      setBusy(true);
+      const max = Math.max(0, node.scrollWidth - node.clientWidth);
+      node.scrollLeft = Math.max(0, Math.min(max, node.scrollLeft + dx));
+      if (wheelSettle) clearTimeout(wheelSettle);
+      wheelSettle = setTimeout(() => {
+        wheelSettle = null;
+        restoreSnap();
+        settleToNearestPage();
+      }, 140);
+    };
+
     node.addEventListener("touchstart", onTouchStart, { passive: true });
     node.addEventListener("touchmove", onTouchMove, { passive: false });
     node.addEventListener("touchend", onTouchEnd);
     node.addEventListener("touchcancel", onTouchEnd);
+    node.addEventListener("wheel", onWheel, { passive: false });
     return () => {
+      if (wheelSettle) clearTimeout(wheelSettle);
+      draggingX.current = false;
+      clearDragShift();
       node.removeEventListener("touchstart", onTouchStart);
       node.removeEventListener("touchmove", onTouchMove);
       node.removeEventListener("touchend", onTouchEnd);
       node.removeEventListener("touchcancel", onTouchEnd);
+      node.removeEventListener("wheel", onWheel);
     };
   }, [clearSettleTimer, finishSnap]);
 
