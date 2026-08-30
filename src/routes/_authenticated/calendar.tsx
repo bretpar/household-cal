@@ -447,7 +447,9 @@ function CalendarPage() {
             {renderPeriod(shift(anchor, 1))}
           </div>
         </div>
+        )}
         </div>
+
 
 
 
