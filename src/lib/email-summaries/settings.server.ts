@@ -7,6 +7,7 @@
  */
 
 import type { Db } from "@/lib/calendar-ops";
+import type { AdminDb } from "@/lib/household.server";
 import { requireOwner, resolveCurrentFamily } from "@/lib/household.server";
 
 import { DEFAULT_TIMEZONE } from "./dispatch.server";
@@ -17,10 +18,20 @@ export interface RecipientView {
   id: string;
   name: string;
   email: string;
+  user_id: string | null;
   family_member_id: string | null;
   unsubscribed_at: string | null;
   calendar_source_ids: string[];
   weekdays: string[];
+}
+
+/** Household users (owners / editors / viewers) that may receive summaries. */
+export interface HouseholdRecipientOption {
+  user_id: string;
+  name: string;
+  email: string;
+  role: string;
+  family_member_id: string | null;
 }
 
 export interface ScheduleView {
@@ -38,7 +49,9 @@ export interface EmailSummaryData {
   timezone: string;
   is_owner: boolean;
   schedules: ScheduleView[];
+  household_users: HouseholdRecipientOption[];
 }
+
 
 export function assertFrequency(value: unknown): SummaryFrequency {
   if (value === "daily" || value === "weekly" || value === "monthly") return value;
