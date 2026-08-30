@@ -445,56 +445,52 @@ export function EmailSummarySettings() {
           <DialogHeader>
             <DialogTitle>{recipientDraft?.id ? "Edit recipient" : "Add recipient"}</DialogTitle>
             <DialogDescription>
-              Choose which calendars this person's email includes. Everyone gets their own email.
+              Summaries only go to people who already have access to this household. Choose which
+              calendars and days their email includes.
             </DialogDescription>
           </DialogHeader>
           {recipientDraft && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Household member (optional)</Label>
-                <Select
-                  value={recipientDraft.family_member_id ?? "manual"}
-                  onValueChange={(value) => {
-                    const member = members.find((m) => m.id === value);
-                    setRecipientDraft({
-                      ...recipientDraft,
-                      family_member_id: value === "manual" ? null : value,
-                      name: member?.name ?? recipientDraft.name,
-                    });
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manual">Someone else (name + email)</SelectItem>
-                    {members.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Household member</Label>
+                {householdUsers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No household users with an email yet — invite someone under Household Access
+                    first.
+                  </p>
+                ) : (
+                  <Select
+                    value={recipientDraft.user_id ?? ""}
+                    onValueChange={(value) =>
+                      setRecipientDraft({ ...recipientDraft, user_id: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a household member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {householdUsers.map((person) => (
+                        <SelectItem key={person.user_id} value={person.user_id}>
+                          {person.name} · {ROLE_LABEL[person.role] ?? person.role}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {selectedPerson && (
+                  <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                    <p className="font-semibold text-foreground">{selectedPerson.name}</p>
+                    <p className="truncate">{selectedPerson.email}</p>
+                    <p>{ROLE_LABEL[selectedPerson.role] ?? selectedPerson.role}</p>
+                  </div>
+                )}
+                {!selectedPerson && recipientDraft.user_id && (
+                  <p className="text-xs text-destructive">
+                    That person no longer has household access — pick someone else.
+                  </p>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="recipient-name">Name</Label>
-                <Input
-                  id="recipient-name"
-                  value={recipientDraft.name}
-                  placeholder="Grandma Parker"
-                  onChange={(e) => setRecipientDraft({ ...recipientDraft, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="recipient-email">Email</Label>
-                <Input
-                  id="recipient-email"
-                  type="email"
-                  value={recipientDraft.email}
-                  placeholder="name@example.com"
-                  onChange={(e) => setRecipientDraft({ ...recipientDraft, email: e.target.value })}
-                />
-              </div>
+
               <div className="space-y-2">
                 <Label>Calendars in this email</Label>
                 {selectableSources.length === 0 && (
