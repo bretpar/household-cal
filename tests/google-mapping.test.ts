@@ -511,3 +511,17 @@ describe("Google recurrence edit on a custom-weekday branch (focused)", () => {
     expect(patch).not.toHaveProperty("member_ids");
   });
 });
+
+describe("toGoogleRecurrence BYDAY preservation", () => {
+  it("keeps stored BYDAY when branch has no weekday override", () => {
+    expect(toGoogleRecurrence("FREQ=WEEKLY;BYDAY=MO,WE,TH", null, "2026-09-24")).toEqual([
+      "RRULE:FREQ=WEEKLY;BYDAY=MO,WE,TH;UNTIL=20260924T235959Z",
+    ]);
+  });
+
+  it("branch weekdays still override stored BYDAY", () => {
+    expect(toGoogleRecurrence("FREQ=WEEKLY;BYDAY=MO,WE,TH", ["MO"], null)).toEqual([
+      "RRULE:FREQ=WEEKLY;BYDAY=MO",
+    ]);
+  });
+});
