@@ -10,8 +10,10 @@ import { encryptConnectionKey, decryptConnectionKey } from "@/lib/google/crypto.
 import {
   createCalendar,
   getAccountEmail,
+  getCalendar,
   renameCalendar as renameGoogleCalendar,
 } from "@/lib/google/api.server";
+import { normalizeTimeZone } from "@/lib/google/timezone";
 import { getConnection, pullHousehold } from "@/lib/google/sync.server";
 
 type Client = { from: (table: string) => any };
@@ -104,13 +106,35 @@ export async function attachCalendar(
   let calendarId = input.external_calendar_id ?? null;
   let name = (input.name ?? "").trim();
 
+  // The household IANA zone is the source of truth for timed sync, so new
+  // calendars are created in it and existing ones only get read.
+  const { data: family } = await supabaseAdmin
+    .from("families")
+    .select("timezone")
+    .eq("id", familyId)
+    .maybeSingle();
+  const householdTimeZone = normalizeTimeZone(family?.timezone as string | null);
+  let appManaged = false;
+  let googleTimeZone: string | null = null;
+
   if (input.mode === "create") {
     if (!name) throw new Error("Give the new calendar a name");
-    const created = await createCalendar(conn.connectionKey, name);
+    const created = await createCalendar(conn.connectionKey, name, householdTimeZone);
     calendarId = created.id;
+    appManaged = true;
+    googleTimeZone = created.timeZone ?? householdTimeZone;
   }
   if (!calendarId) throw new Error("Choose a Google calendar");
   if (!name) name = calendarId;
+
+  if (!appManaged) {
+    try {
+      const remote = await getCalendar(conn.connectionKey, calendarId);
+      googleTimeZone = remote.timeZone ?? null;
+    } catch (error) {
+      console.error("[google-sync] could not read calendar timezone", error);
+    }
+  }
 
   if (input.replace_source_id) {
     // Only ever reached from an explicit owner choice — the app never switches
@@ -127,6 +151,8 @@ export async function attachCalendar(
         sync_paused_at: null,
         external_calendar_id: calendarId,
         provider: "google",
+        app_managed_calendar: appManaged,
+        google_time_zone: googleTimeZone,
         google_sync_token: null,
         google_channel_id: null,
         google_channel_resource_id: null,
@@ -161,6 +187,8 @@ export async function attachCalendar(
       provider: "google",
       external_calendar_id: calendarId,
       display_mode: "events",
+      app_managed_calendar: appManaged,
+      google_time_zone: googleTimeZone,
       active: true,
       is_main: !mainExists,
       sort_order: (count ?? 0) + 1,

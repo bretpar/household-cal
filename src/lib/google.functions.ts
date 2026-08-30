@@ -21,6 +21,10 @@ export interface CalendarSlot {
   last_synced_at: string | null;
   sync_status: string;
   sync_error: string | null;
+  /** IANA timezone Google reports for this calendar, when known. */
+  google_time_zone: string | null;
+  /** True when this calendar was created by the app and is safe to auto-fix. */
+  app_managed_calendar: boolean;
 }
 
 export interface SyncSettings {
@@ -33,6 +37,8 @@ export interface SyncSettings {
   } | null;
   calendars: CalendarSlot[];
   max_calendars: number;
+  /** Household IANA timezone used for all timed Google sync. */
+  household_time_zone: string;
 }
 
 export const getSyncSettings = createServerFn({ method: "GET" })
@@ -41,7 +47,13 @@ export const getSyncSettings = createServerFn({ method: "GET" })
     const { resolveOwnedFamily } = await import("@/lib/google-settings.server");
     const family = await resolveOwnedFamily(context.supabase, context.userId);
     if (!family) {
-      return { is_owner: false, connection: null, calendars: [], max_calendars: 2 };
+      return {
+        is_owner: false,
+        connection: null,
+        calendars: [],
+        max_calendars: 2,
+        household_time_zone: "America/Los_Angeles",
+      };
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: connection } = await supabaseAdmin
@@ -51,15 +63,24 @@ export const getSyncSettings = createServerFn({ method: "GET" })
       .maybeSingle();
     const { data: calendars } = await supabaseAdmin
       .from("calendar_sources")
-      .select("id, name, external_calendar_id, is_main, display_mode, last_synced_at, sync_status, sync_error")
+      .select(
+        "id, name, external_calendar_id, is_main, display_mode, last_synced_at, sync_status, sync_error, google_time_zone, app_managed_calendar",
+      )
       .eq("family_id", family)
       .eq("provider", "google")
       .order("sort_order", { ascending: true });
+    const { normalizeTimeZone } = await import("@/lib/google/timezone");
+    const { data: familyRow } = await supabaseAdmin
+      .from("families")
+      .select("timezone")
+      .eq("id", family)
+      .maybeSingle();
     return {
       is_owner: true,
       connection: connection ?? null,
       calendars: (calendars ?? []) as CalendarSlot[],
       max_calendars: 2,
+      household_time_zone: normalizeTimeZone(familyRow?.timezone as string | null),
     };
   });
 

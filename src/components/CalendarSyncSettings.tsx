@@ -416,6 +416,22 @@ export function CalendarSyncSettings() {
                             {slot.sync_error ? ` · retrying: ${slot.sync_error}` : ""}
                           </p>
                         )}
+                        {slot.google_time_zone &&
+                        slot.google_time_zone !== data.household_time_zone ? (
+                          <p className="flex items-start gap-2 rounded-2xl bg-surface-muted p-3 text-xs font-semibold">
+                            <AlertTriangle
+                              className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
+                              aria-hidden
+                            />
+                            <span>
+                              This Google calendar's timezone is {slot.google_time_zone}, but your
+                              household uses {data.household_time_zone}. Times sync correctly, but
+                              Google will display them in {slot.google_time_zone}. Change this
+                              calendar's timezone in Google to {data.household_time_zone}, or
+                              connect a calendar created by Our Family Calendar.
+                            </span>
+                          </p>
+                        ) : null}
                         <DisplayStyleControl
                           value={slot.display_mode}
                           disabled={displayMutation.isPending}
