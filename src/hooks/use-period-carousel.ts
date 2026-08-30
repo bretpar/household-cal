@@ -134,6 +134,15 @@ export function usePeriodCarousel({
       node.style.scrollSnapType = "";
     };
 
+    // While any dialog/sheet/menu is open, the pager never claims a gesture.
+    // Listeners live only on this scroll node (never window/document), so
+    // events inside portaled overlays never reach them — this guard covers
+    // gestures that land on the calendar surface itself.
+    const overlayOpen = () =>
+      !!document.querySelector(
+        '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
+      );
+
     // iOS Safari ignores programmatic scrollLeft writes while a touch gesture
     // is active, so the track would stay pinned until release. We still write
     // scrollLeft (Chromium honors it and it drives the settle math), then
@@ -146,9 +155,21 @@ export function usePeriodCarousel({
       }
     };
 
+    const applyIntended = (intended: number) => {
+      const max = Math.max(0, node.scrollWidth - node.clientWidth);
+      const clamped = Math.max(0, Math.min(max, intended));
+      lastIntended.current = clamped;
+      node.scrollLeft = clamped;
+      // Compensate whatever the engine refused to apply (Safari mid-gesture).
+      const shift = node.scrollLeft - clamped;
+      for (const child of Array.from(node.children) as HTMLElement[]) {
+        child.style.transform = shift ? `translate3d(${shift}px, 0, 0)` : "";
+      }
+    };
+
     const onTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
-      if (!touch || isBlockedRef.current?.()) {
+      if (!touch || isBlockedRef.current?.() || overlayOpen()) {
         active = false;
         axis = "undecided";
         return;
