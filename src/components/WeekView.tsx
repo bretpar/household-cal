@@ -322,10 +322,13 @@ export function WeekView({
           data-calendar-timeline
           onScroll={(event) => onTimelineScroll?.(event.currentTarget.scrollTop, event.currentTarget)}
           className={cn(
-            "overflow-y-auto overscroll-contain",
+            "overflow-y-auto overflow-x-hidden overscroll-y-contain",
             fill ? "min-h-0 flex-1" : "max-h-[70vh]",
           )}
-          style={dragging ? { touchAction: "none" } : undefined}
+          // Vertical panning belongs to this timeline; horizontal panning must
+          // reach the period carousel instead of being swallowed here.
+          style={{ touchAction: dragging ? "none" : "pan-y" }}
+
         >
           <div
             className="relative grid"
