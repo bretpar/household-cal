@@ -120,10 +120,17 @@ function CalendarPage() {
   });
 
   const step = (direction: 1 | -1, { focus = false }: { focus?: boolean } = {}) => {
+    if (useDayStripLayout) {
+      haptic();
+      if (focus) focusPeriod();
+      setAnchor((prev) => shift(prev, direction));
+      return;
+    }
     if (carousel.busy) return;
     if (focus) focusPeriod();
     carousel.commit(direction);
   };
+
 
   const [todaySignal, setTodaySignal] = useState(0);
   const goToday = () => {
