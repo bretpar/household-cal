@@ -186,6 +186,7 @@ function CalendarPage() {
         active={active}
         onTimelineScroll={syncTimelineScroll}
         onEventDragChange={handleEventDragChange}
+        recenterSignal={todaySignal}
       />
     ) : isMobile ? (
       // Phone day view: only the hourly timeline scrolls, the page stays put.
@@ -200,6 +201,7 @@ function CalendarPage() {
         active={active}
         onTimelineScroll={syncTimelineScroll}
         onEventDragChange={handleEventDragChange}
+        recenterSignal={todaySignal}
       />
     ) : (
       <div>
@@ -213,6 +215,7 @@ function CalendarPage() {
           active={active}
           onTimelineScroll={syncTimelineScroll}
           onEventDragChange={handleEventDragChange}
+          recenterSignal={todaySignal}
         />
         <div className="border-t border-border-soft p-4">
         <AgendaView
