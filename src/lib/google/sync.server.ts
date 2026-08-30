@@ -998,7 +998,9 @@ export async function reconcileHousehold(
       applied += (await pullSource(admin, conn, source, false)).applied;
     }
 
-    // app events inside the forward window with no Google counterpart
+    // app events inside the forward window whose Google counterpart is missing.
+    // A link row alone is not proof of a working sync: it can point at a
+    // calendar that is no longer eligible, or at a Google event that was deleted.
     const { timeMin, timeMax } = syncWindow(new Date(), false);
     const { data: candidates } = await admin
       .from("events")
@@ -1013,11 +1015,22 @@ export async function reconcileHousehold(
 
     let repaired = 0;
     for (const candidate of (candidates ?? []) as { id: string; start_at: string; recurrence_rule: string | null }[]) {
-      if (linkedIds.has(candidate.id)) continue;
       if (!candidate.recurrence_rule && candidate.start_at < timeMin) continue;
+      if (linkedIds.has(candidate.id)) {
+        const { remaining, pruned } = await pruneStaleLinks(
+          admin,
+          conn,
+          familyId,
+          sources,
+          candidate.id,
+        );
+        // still linked to at least one live Google event: leave it alone
+        if (pruned === 0 || remaining > 0) continue;
+      }
       await pushEvent(admin, familyId, candidate.id);
       repaired += 1;
     }
+
 
     await ensureWatchChannels(admin, conn, sources);
     await touchSynced(admin, familyId);
