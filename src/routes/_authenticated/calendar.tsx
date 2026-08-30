@@ -119,11 +119,15 @@ function CalendarPage() {
     carousel.commit(direction);
   };
 
+  const [todaySignal, setTodaySignal] = useState(0);
   const goToday = () => {
     if (carousel.busy) return;
     haptic();
     focusPeriod();
     setAnchor(new Date());
+    // Re-position the timed timeline around the current time, even when the
+    // anchor date was already today (no remount / no anchor change).
+    setTodaySignal((n) => n + 1);
   };
 
   // Desktop/tablet Week snaps to the containing 7-day week; the phone 3-day
@@ -182,6 +186,7 @@ function CalendarPage() {
         active={active}
         onTimelineScroll={syncTimelineScroll}
         onEventDragChange={handleEventDragChange}
+        recenterSignal={todaySignal}
       />
     ) : isMobile ? (
       // Phone day view: only the hourly timeline scrolls, the page stays put.
@@ -196,6 +201,7 @@ function CalendarPage() {
         active={active}
         onTimelineScroll={syncTimelineScroll}
         onEventDragChange={handleEventDragChange}
+        recenterSignal={todaySignal}
       />
     ) : (
       <div>
@@ -209,6 +215,7 @@ function CalendarPage() {
           active={active}
           onTimelineScroll={syncTimelineScroll}
           onEventDragChange={handleEventDragChange}
+          recenterSignal={todaySignal}
         />
         <div className="border-t border-border-soft p-4">
         <AgendaView
