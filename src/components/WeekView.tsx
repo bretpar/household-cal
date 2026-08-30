@@ -1,4 +1,4 @@
-import type { DragEvent } from "react";
+import type { DragEvent, Ref } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, format, isSameDay } from "date-fns";
 
@@ -126,6 +126,9 @@ export function WeekView({
   onTimelineScroll,
   onEventDragChange,
   recenterSignal = 0,
+  dayWidth,
+  scrollHostRef,
+  scaleDays,
 }: {
   anchor: Date;
   events: CalendarEvent[];
@@ -145,7 +148,18 @@ export function WeekView({
   onEventDragChange?: ((dragging: boolean) => void) | undefined;
   /** increment to re-position the timeline around the current time (Today button) */
   recenterSignal?: number | undefined;
+  /**
+   * Continuous day-strip mode: each day column gets this fixed pixel width and
+   * the whole view becomes one horizontally scrollable track of day columns.
+   */
+  dayWidth?: number | undefined;
+  /** the horizontal scroll surface for day-strip mode */
+  scrollHostRef?: Ref<HTMLDivElement> | undefined;
+  /** how many day columns are visible at once (typography scale in strip mode) */
+  scaleDays?: number | undefined;
+
 }) {
+
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, requestMove, dialog } = useReschedule();
   const isMobile = useIsMobile();
@@ -159,7 +173,7 @@ export function WeekView({
     isChildcare(o.event) ? o.event.title : sourceName(o.event.calendar_source_id);
   /** Rolling window: the selected date is always the left-most column. */
   /** One column = Day view, which gets the slightly larger shared type scale. */
-  const viewScale = days === 1 ? "day" : "week";
+  const viewScale = (scaleDays ?? days) === 1 ? "day" : "week";
   const start = anchor;
   const columns: Date[] = Array.from({ length: days }, (_, i) => addDays(start, i));
   const occurrences = expandOccurrences(events, columns[0]!, addDays(columns[days - 1]!, 1));
@@ -253,21 +267,38 @@ export function WeekView({
   const todayColumnIndex = columns.findIndex((day) => isSameDay(day, now));
   const nowTop = topFor(now);
 
+  // Day-strip mode: fixed-width day columns inside one horizontal scroll host.
+  const strip = dayWidth != null && dayWidth > 0;
+  const gridTemplate = strip
+    ? `3.25rem repeat(${days}, ${dayWidth}px)`
+    : `3.25rem repeat(${days}, minmax(0,1fr))`;
+  const trackWidth = strip ? 52 + days * dayWidth! : undefined;
+  const gutterClass = strip ? "sticky left-0 z-30 bg-surface" : "";
+
   return (
     <>
       {dialog}
       <div
+        ref={scrollHostRef}
         className={cn(
-          "calendar-gesture-surface overflow-hidden",
+          "calendar-gesture-surface",
+          strip
+            ? "overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            : "overflow-hidden",
           fill && "flex min-h-0 flex-1 flex-col",
           !bare && "rounded-3xl border border-border-soft bg-surface shadow-soft",
         )}
       >
         <div
-          className="grid shrink-0 border-b border-border-soft bg-surface-muted"
-          style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
+          className={cn(fill && "flex min-h-0 flex-1 flex-col", strip && "shrink-0")}
+          style={trackWidth ? { width: trackWidth } : undefined}
         >
-          <div />
+        <div
+          className="grid shrink-0 border-b border-border-soft bg-surface-muted"
+          style={{ gridTemplateColumns: gridTemplate }}
+        >
+          <div className={cn(gutterClass, strip && "bg-surface-muted")} />
+
           {columns.map((day) => (
             <div key={day.toISOString()} className="px-1 py-1 text-center">
               <p className="text-[10px] leading-none font-bold tracking-wide text-muted-foreground uppercase">
@@ -287,12 +318,18 @@ export function WeekView({
 
         {/* all-day row */}
         <div
-          className="grid shrink-0 border-b border-border-soft"
-          style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
+          className="grid shrink-0 border-b border-border-soft bg-surface"
+          style={{ gridTemplateColumns: gridTemplate }}
         >
-          <div className="py-1.5 pr-1 text-right text-[10px] font-semibold text-muted-foreground">
+          <div
+            className={cn(
+              "py-1.5 pr-1 text-right text-[10px] font-semibold text-muted-foreground",
+              gutterClass,
+            )}
+          >
             Day
           </div>
+
           {columns.map((day) => {
             const allDay = occurrences.filter(
               (o) =>
@@ -355,9 +392,10 @@ export function WeekView({
         >
           <div
             className="relative grid"
-            style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
+            style={{ gridTemplateColumns: gridTemplate }}
           >
-            <div className="relative">
+            <div className={cn("relative", gutterClass)}>
+
               {hours.map((hour) => (
                 <div
                   key={hour}
@@ -550,7 +588,9 @@ export function WeekView({
             })}
           </div>
         </div>
+        </div>
       </div>
     </>
+
   );
 }

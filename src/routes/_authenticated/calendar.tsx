@@ -7,6 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { AddEventDialog } from "@/components/AddEventDialog";
 import { AgendaView } from "@/components/AgendaView";
 import { CalendarFiltersSheet } from "@/components/CalendarFiltersSheet";
+import { DayStripView } from "@/components/DayStripView";
 import { MonthView } from "@/components/MonthView";
 import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
@@ -81,12 +82,18 @@ function CalendarPage() {
   // phones so each column is wide enough to read.
   const weekDays = isMobile ? 3 : 7;
 
+  // Mobile Day / 3-Day is a continuous single-day strip: arrows and swipes both
+  // advance exactly one day, matching the day-column snapping.
+  const useDayStripLayout = isMobile && mode !== "month";
+
   // Arrows / swipes advance exactly one unit of the current view.
   const shift = (from: Date, direction: number) => {
     if (mode === "month") return addMonths(from, direction);
+    if (useDayStripLayout) return addDays(from, direction);
     if (mode === "week") return addDays(from, weekDays * direction);
     return addDays(from, direction);
   };
+
 
   // Subtle tap on any period change; focus returns to the period region so
   // keyboard and screen-reader users land on the newly active date range.
@@ -114,10 +121,17 @@ function CalendarPage() {
   });
 
   const step = (direction: 1 | -1, { focus = false }: { focus?: boolean } = {}) => {
+    if (useDayStripLayout) {
+      haptic();
+      if (focus) focusPeriod();
+      setAnchor((prev) => shift(prev, direction));
+      return;
+    }
     if (carousel.busy) return;
     if (focus) focusPeriod();
     carousel.commit(direction);
   };
+
 
   const [todaySignal, setTodaySignal] = useState(0);
   const goToday = () => {
@@ -363,6 +377,37 @@ function CalendarPage() {
           {label}
         </p>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft md:block">
+        {useDayStripLayout ? (
+          <div
+            ref={periodRef}
+            tabIndex={-1}
+            role="group"
+            aria-label={`${viewLabel(mode)} view: ${label}`}
+            className="flex min-h-0 flex-1 flex-col outline-none"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                step(-1, { focus: true });
+              } else if (e.key === "ArrowRight") {
+                e.preventDefault();
+                step(1, { focus: true });
+              }
+            }}
+          >
+            <DayStripView
+              anchor={anchor}
+              onAnchorChange={setAnchor}
+              visibleDays={mode === "week" ? weekDays : 1}
+              events={visibleEvents}
+              selectedMembers={selectedMembers}
+              onCreateRange={onCreateRange}
+              onEventDragChange={handleEventDragChange}
+              onNavigate={haptic}
+              recenterSignal={todaySignal}
+              isBlocked={() => eventDraggingRef.current}
+            />
+          </div>
+        ) : (
         <div
           ref={carousel.containerRef}
           className={cn(
@@ -371,6 +416,7 @@ function CalendarPage() {
             eventDragging ? "touch-none overflow-x-hidden" : "overflow-x-auto",
           )}
         >
+
           <div
             aria-hidden
             className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col overflow-hidden md:block"
@@ -402,7 +448,9 @@ function CalendarPage() {
             {renderPeriod(shift(anchor, 1))}
           </div>
         </div>
+        )}
         </div>
+
 
 
 
