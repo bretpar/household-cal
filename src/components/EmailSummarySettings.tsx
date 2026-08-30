@@ -51,6 +51,12 @@ const FREQUENCY_HINT: Record<string, string> = {
   monthly: "Sends three days before the month starts, covering the whole month.",
 };
 
+const ROLE_LABEL: Record<string, string> = {
+  owner: "Owner",
+  editor: "Editor",
+  viewer: "Viewer",
+};
+
 const DEFAULT_TIME: Record<string, string> = {
   daily: "18:00",
   weekly: "18:00",
@@ -552,7 +558,7 @@ export function EmailSummarySettings() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All days</SelectItem>
-                    <SelectItem value="selected">Selected days</SelectItem>
+                    <SelectItem value="selected">Specific days</SelectItem>
                   </SelectContent>
                 </Select>
                 {recipientDraft.weekdays.length > 0 && (
@@ -596,7 +602,11 @@ export function EmailSummarySettings() {
             </Button>
             <Button
               onClick={persistRecipient}
-              disabled={busy || (recipientDraft?.calendar_source_ids.length ?? 0) === 0}
+              disabled={
+                busy ||
+                !selectedPerson ||
+                (recipientDraft?.calendar_source_ids.length ?? 0) === 0
+              }
             >
               Save
             </Button>
