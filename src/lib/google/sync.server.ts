@@ -414,7 +414,11 @@ export async function pushEvent(
     await touchSynced(admin, familyId);
     return { pushed };
   });
-  return result as { pushed?: number; skipped?: string };
+  const outcome = result as { pushed?: number; skipped?: string };
+  if (outcome.skipped && outcome.skipped !== "event_not_found") {
+    await recordPushDiagnostic(admin, familyId, eventId, outcome.skipped);
+  }
+  return outcome;
 }
 
 /** Mirrors an app-side delete (whole event or truncated series) onto Google. */
