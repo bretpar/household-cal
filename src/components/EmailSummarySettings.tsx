@@ -319,12 +319,11 @@ export function EmailSummarySettings() {
                         setRecipientDraft({
                           id: recipient.id,
                           schedule_id: schedule.id,
-                          name: recipient.name,
-                          email: recipient.email,
-                          family_member_id: recipient.family_member_id,
+                          user_id: recipient.user_id,
                           calendar_source_ids: recipient.calendar_source_ids,
                           weekdays: recipient.weekdays,
                         })
+
                       }
                     >
                       Edit
