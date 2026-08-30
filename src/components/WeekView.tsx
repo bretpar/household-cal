@@ -126,6 +126,8 @@ export function WeekView({
   onTimelineScroll,
   onEventDragChange,
   recenterSignal = 0,
+  dayWidth,
+  scrollHostRef,
 }: {
   anchor: Date;
   events: CalendarEvent[];
@@ -145,7 +147,15 @@ export function WeekView({
   onEventDragChange?: ((dragging: boolean) => void) | undefined;
   /** increment to re-position the timeline around the current time (Today button) */
   recenterSignal?: number | undefined;
+  /**
+   * Continuous day-strip mode: each day column gets this fixed pixel width and
+   * the whole view becomes one horizontally scrollable track of day columns.
+   */
+  dayWidth?: number | undefined;
+  /** the horizontal scroll surface for day-strip mode */
+  scrollHostRef?: React.Ref<HTMLDivElement> | undefined;
 }) {
+
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, requestMove, dialog } = useReschedule();
   const isMobile = useIsMobile();
