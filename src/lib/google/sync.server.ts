@@ -32,6 +32,7 @@ import {
   syncWindow,
   toGoogleRecurrence,
   toGoogleTimes,
+  type GoogleDateTime,
   type GoogleEvent,
   type SyncBranch,
 } from "@/lib/google/mapping";
