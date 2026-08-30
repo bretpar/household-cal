@@ -456,7 +456,8 @@ export function WeekView({
                             "pointer-events-auto touch-hit-44 absolute text-left",
                             compact ? "rounded-md" : "rounded-xl",
                             draggingKey === o.key && "opacity-40",
-                            ghost?.occurrence?.key === o.key && "ring-2 ring-primary/70 ring-inset",
+                            // Lifted by a long press: fade the original in place.
+                            ghost?.occurrence?.key === o.key && "opacity-30",
                           )}
                           style={{
                             top: topFor(o.start),
@@ -493,10 +494,10 @@ export function WeekView({
                         return (
                           <div
                             className={cn(
-                              "pointer-events-none absolute inset-x-1 z-20 rounded-xl border-2 px-1.5 py-1",
+                              "pointer-events-none absolute inset-x-1 z-30 scale-[1.03] rounded-xl border-2 px-1.5 py-1 shadow-lg ring-2 ring-primary/40 transition-transform",
                               isCare
-                                ? "border-coverage-strong/80 bg-coverage/40"
-                                : "border-primary bg-primary/15 shadow-soft",
+                                ? "border-coverage-strong/80 bg-coverage/70"
+                                : "border-primary bg-primary/25",
                             )}
                             style={{
                               top: (ghost.startMinutes / 60 - DAY_START) * HOUR_PX,
