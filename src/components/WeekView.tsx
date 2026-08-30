@@ -155,6 +155,9 @@ export function WeekView({
   dayWidth?: number | undefined;
   /** the horizontal scroll surface for day-strip mode */
   scrollHostRef?: Ref<HTMLDivElement> | undefined;
+  /** how many day columns are visible at once (typography scale in strip mode) */
+  scaleDays?: number | undefined;
+
 }) {
 
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
