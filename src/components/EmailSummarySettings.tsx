@@ -451,123 +451,70 @@ export function EmailSummarySettings() {
         open={recipientDraft !== null}
         onOpenChange={(open) => !open && setRecipientDraft(null)}
       >
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="max-sm:max-h-[calc(100dvh-2.5rem)]">
+          <DialogHeader className="shrink-0">
             <DialogTitle>{recipientDraft?.id ? "Edit recipient" : "Add recipient"}</DialogTitle>
             <DialogDescription>
               Summaries only go to people who already have access to this household. Choose which
               calendars and days their email includes.
             </DialogDescription>
           </DialogHeader>
-          {recipientDraft && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Household member</Label>
-                {householdUsers.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    No household users with an email yet — invite someone under Household Access
-                    first.
-                  </p>
-                ) : (
-                  <Select
-                    value={recipientDraft.user_id ?? ""}
-                    onValueChange={(value) =>
-                      setRecipientDraft({ ...recipientDraft, user_id: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a household member" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {householdUsers.map((person) => (
-                        <SelectItem key={person.user_id} value={person.user_id}>
-                          {person.name} · {ROLE_LABEL[person.role] ?? person.role}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                {selectedPerson && (
-                  <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                    <p className="font-semibold text-foreground">{selectedPerson.name}</p>
-                    <p className="truncate">{selectedPerson.email}</p>
-                    <p>{ROLE_LABEL[selectedPerson.role] ?? selectedPerson.role}</p>
-                  </div>
-                )}
-                {!selectedPerson && recipientDraft.user_id && (
-                  <p className="text-xs text-destructive">
-                    That person no longer has household access — pick someone else.
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Calendars in this email</Label>
-                {selectableSources.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    No calendars available yet — connect or add a calendar first.
-                  </p>
-                )}
-                <div className="space-y-1.5">
-                  {selectableSources.map((source) => {
-                    const checked = recipientDraft.calendar_source_ids.includes(source.id);
-                    return (
-                      <label
-                        key={source.id}
-                        className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 accent-primary"
-                          checked={checked}
-                          onChange={() =>
-                            setRecipientDraft({
-                              ...recipientDraft,
-                              calendar_source_ids: checked
-                                ? recipientDraft.calendar_source_ids.filter(
-                                    (id) => id !== source.id,
-                                  )
-                                : [...recipientDraft.calendar_source_ids, source.id],
-                            })
-                          }
-                        />
-                        <span className="truncate">{source.name}</span>
-                      </label>
-                    );
-                  })}
+          <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y min-h-0 -mx-4 px-4 sm:-mx-6 sm:px-6">
+            {recipientDraft && (
+              <div className="space-y-4 pb-4">
+                <div className="space-y-2">
+                  <Label>Household member</Label>
+                  {householdUsers.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No household users with an email yet — invite someone under Household Access
+                      first.
+                    </p>
+                  ) : (
+                    <Select
+                      value={recipientDraft.user_id ?? ""}
+                      onValueChange={(value) =>
+                        setRecipientDraft({ ...recipientDraft, user_id: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a household member" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {householdUsers.map((person) => (
+                          <SelectItem key={person.user_id} value={person.user_id}>
+                            {person.name} · {ROLE_LABEL[person.role] ?? person.role}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {selectedPerson && (
+                    <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                      <p className="font-semibold text-foreground">{selectedPerson.name}</p>
+                      <p className="truncate">{selectedPerson.email}</p>
+                      <p>{ROLE_LABEL[selectedPerson.role] ?? selectedPerson.role}</p>
+                    </div>
+                  )}
+                  {!selectedPerson && recipientDraft.user_id && (
+                    <p className="text-xs text-destructive">
+                      That person no longer has household access — pick someone else.
+                    </p>
+                  )}
                 </div>
-                {recipientDraft.calendar_source_ids.length === 0 && (
-                  <p className="text-xs text-destructive">
-                    Pick at least one calendar for this recipient.
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>Days to include</Label>
-                <Select
-                  value={recipientDraft.weekdays.length === 0 ? "all" : "selected"}
-                  onValueChange={(mode) =>
-                    setRecipientDraft({
-                      ...recipientDraft,
-                      weekdays: mode === "all" ? [] : ["MO", "WE", "TH"],
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All days</SelectItem>
-                    <SelectItem value="selected">Specific days</SelectItem>
-                  </SelectContent>
-                </Select>
-                {recipientDraft.weekdays.length > 0 && (
+
+                <div className="space-y-2">
+                  <Label>Calendars in this email</Label>
+                  {selectableSources.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      No calendars available yet — connect or add a calendar first.
+                    </p>
+                  )}
                   <div className="space-y-1.5">
-                    {WEEKDAYS.map((day) => {
-                      const checked = recipientDraft.weekdays.includes(day.code);
+                    {selectableSources.map((source) => {
+                      const checked = recipientDraft.calendar_source_ids.includes(source.id);
                       return (
                         <label
-                          key={day.code}
+                          key={source.id}
                           className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm"
                         >
                           <input
@@ -577,26 +524,81 @@ export function EmailSummarySettings() {
                             onChange={() =>
                               setRecipientDraft({
                                 ...recipientDraft,
-                                weekdays: checked
-                                  ? recipientDraft.weekdays.filter((c) => c !== day.code)
-                                  : [...recipientDraft.weekdays, day.code],
+                                calendar_source_ids: checked
+                                  ? recipientDraft.calendar_source_ids.filter(
+                                      (id) => id !== source.id,
+                                    )
+                                  : [...recipientDraft.calendar_source_ids, source.id],
                               })
                             }
                           />
-                          <span>{day.label}</span>
+                          <span className="truncate">{source.name}</span>
                         </label>
                       );
                     })}
-                    <p className="text-xs text-muted-foreground">
-                      Only these days appear in this person's email. Daily summaries skip days that
-                      aren't selected.
-                    </p>
                   </div>
-                )}
+                  {recipientDraft.calendar_source_ids.length === 0 && (
+                    <p className="text-xs text-destructive">
+                      Pick at least one calendar for this recipient.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Days to include</Label>
+                  <Select
+                    value={recipientDraft.weekdays.length === 0 ? "all" : "selected"}
+                    onValueChange={(mode) =>
+                      setRecipientDraft({
+                        ...recipientDraft,
+                        weekdays: mode === "all" ? [] : ["MO", "WE", "TH"],
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All days</SelectItem>
+                      <SelectItem value="selected">Specific days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {recipientDraft.weekdays.length > 0 && (
+                    <div className="space-y-1.5">
+                      {WEEKDAYS.map((day) => {
+                        const checked = recipientDraft.weekdays.includes(day.code);
+                        return (
+                          <label
+                            key={day.code}
+                            className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 accent-primary"
+                              checked={checked}
+                              onChange={() =>
+                                setRecipientDraft({
+                                  ...recipientDraft,
+                                  weekdays: checked
+                                    ? recipientDraft.weekdays.filter((c) => c !== day.code)
+                                    : [...recipientDraft.weekdays, day.code],
+                                })
+                              }
+                            />
+                            <span>{day.label}</span>
+                          </label>
+                        );
+                      })}
+                      <p className="text-xs text-muted-foreground">
+                        Only these days appear in this person's email. Daily summaries skip days that
+                        aren't selected.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-          <DialogFooter>
+            )}
+          </div>
+          <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={() => setRecipientDraft(null)}>
               Cancel
             </Button>
