@@ -150,6 +150,94 @@ async function googleSources(admin: Admin, familyId: string): Promise<SourceRow[
   return (data ?? []) as SourceRow[];
 }
 
+/**
+ * True when a link still points at an eligible active Google source *and* a
+ * Google event that still exists.
+ *
+ * An unknown/transient answer counts as usable on purpose: keeping a link is
+ * always safer than dropping it, because dropping it lets the push path create a
+ * second copy of an event that was actually still there.
+ */
+async function linkIsUsable(
+  conn: ConnectionContext,
+  sources: SourceRow[],
+  link: { calendar_source_id: string; google_event_id: string },
+): Promise<boolean> {
+  const source = sources.find((s) => s.id === link.calendar_source_id);
+  if (!source?.external_calendar_id) return false;
+  try {
+    const state = await google.getEventState(
+      conn.connectionKey,
+      source.external_calendar_id,
+      link.google_event_id,
+    );
+    return state !== "missing";
+  } catch (error) {
+    if (error instanceof GoogleAuthError) throw error;
+    console.error("[google-sync] link verification failed", link.google_event_id, error);
+    return true;
+  }
+}
+
+/**
+ * Removes the links of one event whose calendar or Google event is gone, so the
+ * normal push path can recreate it in the currently eligible target calendar.
+ * Valid links are left untouched.
+ */
+async function pruneStaleLinks(
+  admin: Admin,
+  conn: ConnectionContext,
+  familyId: string,
+  sources: SourceRow[],
+  eventId: string,
+): Promise<{ remaining: number; pruned: number }> {
+  const { data } = await admin
+    .from("event_sync_links")
+    .select("id, calendar_source_id, google_event_id")
+    .eq("family_id", familyId)
+    .eq("event_id", eventId);
+  const links = (data ?? []) as {
+    id: string;
+    calendar_source_id: string;
+    google_event_id: string;
+  }[];
+  let remaining = 0;
+  let pruned = 0;
+  for (const link of links) {
+    if (await linkIsUsable(conn, sources, link)) {
+      remaining += 1;
+      continue;
+    }
+    await admin.from("event_sync_links").delete().eq("id", link.id);
+    pruned += 1;
+  }
+  return { remaining, pruned };
+}
+
+/**
+ * Leaves a breadcrumb when a push did not reach Google, so a silently unsynced
+ * event is visible instead of invisible. Never throws: diagnostics must not
+ * affect the local save.
+ */
+async function recordPushDiagnostic(
+  admin: Admin,
+  familyId: string,
+  eventId: string,
+  reason: string,
+): Promise<void> {
+  console.warn("[google-sync] push not completed", eventId, reason);
+  try {
+    await admin
+      .from("event_sync_links")
+      .update({ sync_error: reason.slice(0, 500) })
+      .eq("family_id", familyId)
+      .eq("event_id", eventId);
+  } catch (error) {
+    console.error("[google-sync] diagnostic write failed", error);
+  }
+}
+
+
 /** Wraps sync work so an expired/revoked Google grant degrades gracefully. */
 async function guard<T>(
   admin: Admin,
@@ -326,7 +414,11 @@ export async function pushEvent(
     await touchSynced(admin, familyId);
     return { pushed };
   });
-  return result as { pushed?: number; skipped?: string };
+  const outcome = result as { pushed?: number; skipped?: string };
+  if (outcome.skipped && outcome.skipped !== "event_not_found") {
+    await recordPushDiagnostic(admin, familyId, eventId, outcome.skipped);
+  }
+  return outcome;
 }
 
 /** Mirrors an app-side delete (whole event or truncated series) onto Google. */
@@ -906,7 +998,9 @@ export async function reconcileHousehold(
       applied += (await pullSource(admin, conn, source, false)).applied;
     }
 
-    // app events inside the forward window with no Google counterpart
+    // app events inside the forward window whose Google counterpart is missing.
+    // A link row alone is not proof of a working sync: it can point at a
+    // calendar that is no longer eligible, or at a Google event that was deleted.
     const { timeMin, timeMax } = syncWindow(new Date(), false);
     const { data: candidates } = await admin
       .from("events")
@@ -921,11 +1015,22 @@ export async function reconcileHousehold(
 
     let repaired = 0;
     for (const candidate of (candidates ?? []) as { id: string; start_at: string; recurrence_rule: string | null }[]) {
-      if (linkedIds.has(candidate.id)) continue;
       if (!candidate.recurrence_rule && candidate.start_at < timeMin) continue;
+      if (linkedIds.has(candidate.id)) {
+        const { pruned } = await pruneStaleLinks(
+          admin,
+          conn,
+          familyId,
+          sources,
+          candidate.id,
+        );
+        // nothing stale: every branch still points at a live Google event
+        if (pruned === 0) continue;
+      }
       await pushEvent(admin, familyId, candidate.id);
       repaired += 1;
     }
+
 
     await ensureWatchChannels(admin, conn, sources);
     await touchSynced(admin, familyId);
