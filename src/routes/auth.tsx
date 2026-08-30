@@ -148,6 +148,8 @@ function AuthPage() {
                 <Label htmlFor="reset-email">Email</Label>
                 <Input
                   id="reset-email"
+                  name="email"
+                  data-testid="reset-email"
                   type="email"
                   autoComplete="email"
                   value={email}
@@ -198,6 +200,8 @@ function AuthPage() {
             <Label htmlFor="auth-email">Email</Label>
             <Input
               id="auth-email"
+              name="email"
+              data-testid="auth-email"
               type="email"
               autoComplete="email"
               value={email}
@@ -209,6 +213,8 @@ function AuthPage() {
             <Label htmlFor="auth-password">Password</Label>
             <Input
               id="auth-password"
+              name="password"
+              data-testid="auth-password"
               type="password"
               minLength={PASSWORD_MIN_LENGTH}
               autoComplete={mode === "signin" ? "current-password" : "new-password"}
