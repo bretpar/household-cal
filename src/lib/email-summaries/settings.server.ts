@@ -84,10 +84,82 @@ export function normalizeWeekdays(value: unknown): string[] {
   return picked.length === WEEKDAY_CODES.length ? [] : [...picked];
 }
 
-export async function loadEmailSummaries(db: Db, userId: string): Promise<EmailSummaryData> {
+/**
+ * Everyone who currently has household access, with their account email.
+ * This is the only allowed source of email-summary recipients.
+ */
+export async function loadHouseholdRecipientOptions(
+  db: Db,
+  admin: AdminDb,
+  familyId: string,
+): Promise<HouseholdRecipientOption[]> {
+  const { data: rows, error } = await db
+    .from("family_users")
+    .select("user_id, role, family_member_id, created_at")
+    .eq("family_id", familyId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+
+  const userIds: string[] = (rows ?? []).map((r: any) => r.user_id);
+  if (userIds.length === 0) return [];
+
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select("id, display_name")
+    .in("id", userIds);
+  const nameOf = new Map<string, string | null>(
+    (profiles ?? []).map((p: any) => [p.id, p.display_name ?? null]),
+  );
+
+  const memberIds = (rows ?? []).map((r: any) => r.family_member_id).filter(Boolean) as string[];
+  const memberNameOf = new Map<string, string>();
+  if (memberIds.length > 0) {
+    const { data: memberRows } = await db
+      .from("family_members")
+      .select("id, name")
+      .in("id", memberIds);
+    for (const m of (memberRows ?? []) as any[]) memberNameOf.set(m.id, m.name);
+  }
+
+  const options: HouseholdRecipientOption[] = [];
+  for (const row of (rows ?? []) as any[]) {
+    let email: string | null = null;
+    try {
+      const { data } = await admin.auth.admin.getUserById(row.user_id);
+      email = data.user?.email ?? null;
+    } catch {
+      email = null;
+    }
+    if (!email) continue;
+    const name =
+      (row.family_member_id ? memberNameOf.get(row.family_member_id) : null) ??
+      nameOf.get(row.user_id) ??
+      email;
+    options.push({
+      user_id: row.user_id,
+      name,
+      email,
+      role: row.role,
+      family_member_id: row.family_member_id ?? null,
+    });
+  }
+  return options;
+}
+
+export async function loadEmailSummaries(
+  db: Db,
+  admin: AdminDb,
+  userId: string,
+): Promise<EmailSummaryData> {
   const current = await resolveCurrentFamily(db, userId);
   if (!current) {
-    return { family_id: null, timezone: DEFAULT_TIMEZONE, is_owner: false, schedules: [] };
+    return {
+      family_id: null,
+      timezone: DEFAULT_TIMEZONE,
+      is_owner: false,
+      schedules: [],
+      household_users: [],
+    };
   }
   const isOwner = current.role === "owner";
   const { data: familyRow } = await db
@@ -97,13 +169,19 @@ export async function loadEmailSummaries(db: Db, userId: string): Promise<EmailS
     .maybeSingle();
   const timezone = (familyRow?.timezone as string) || DEFAULT_TIMEZONE;
   if (!isOwner) {
-    return { family_id: current.familyId, timezone, is_owner: false, schedules: [] };
+    return {
+      family_id: current.familyId,
+      timezone,
+      is_owner: false,
+      schedules: [],
+      household_users: [],
+    };
   }
 
   const { data, error } = await db
     .from("email_schedules")
     .select(
-      "id, name, frequency, send_time, enabled, email_schedule_recipients(id, name, email, family_member_id, unsubscribed_at, weekdays, email_schedule_recipient_calendars(calendar_source_id))",
+      "id, name, frequency, send_time, enabled, email_schedule_recipients(id, name, email, user_id, family_member_id, unsubscribed_at, weekdays, email_schedule_recipient_calendars(calendar_source_id))",
     )
     .eq("family_id", current.familyId)
     .order("created_at", { ascending: true });
@@ -130,6 +208,7 @@ export async function loadEmailSummaries(db: Db, userId: string): Promise<EmailS
       id: r.id,
       name: r.name,
       email: r.email,
+      user_id: r.user_id ?? null,
       family_member_id: r.family_member_id,
       unsubscribed_at: r.unsubscribed_at,
       calendar_source_ids: (r.email_schedule_recipient_calendars ?? []).map(
@@ -139,7 +218,16 @@ export async function loadEmailSummaries(db: Db, userId: string): Promise<EmailS
     })),
   }));
 
-  return { family_id: current.familyId, timezone, is_owner: true, schedules };
+  const householdUsers = await loadHouseholdRecipientOptions(db, admin, current.familyId);
+
+  return {
+    family_id: current.familyId,
+    timezone,
+    is_owner: true,
+    schedules,
+    household_users: householdUsers,
+  };
+
 }
 
 async function ownerFamily(db: Db, userId: string): Promise<string> {
