@@ -7,6 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { AddEventDialog } from "@/components/AddEventDialog";
 import { AgendaView } from "@/components/AgendaView";
 import { CalendarFiltersSheet } from "@/components/CalendarFiltersSheet";
+import { DayStripView } from "@/components/DayStripView";
 import { MonthView } from "@/components/MonthView";
 import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
