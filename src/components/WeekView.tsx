@@ -125,6 +125,7 @@ export function WeekView({
   active = true,
   onTimelineScroll,
   onEventDragChange,
+  recenterSignal = 0,
 }: {
   anchor: Date;
   events: CalendarEvent[];
@@ -142,6 +143,8 @@ export function WeekView({
   onTimelineScroll?: ((scrollTop: number, source: HTMLDivElement) => void) | undefined;
   /** true while a long-pressed event is being dragged, so the pager stands down */
   onEventDragChange?: ((dragging: boolean) => void) | undefined;
+  /** increment to re-position the timeline around the current time (Today button) */
+  recenterSignal?: number | undefined;
 }) {
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, requestMove, dialog } = useReschedule();
@@ -220,17 +223,32 @@ export function WeekView({
     return () => clearInterval(interval);
   }, []);
 
-  // On first load and when the user presses Today, land ~1 hour before now.
-  // Manual date changes keep their existing scroll position unless the new
-  // date is today, in which case we gently snap to the current moment.
+  // Position the timeline so the first visible time is ~1 hour before the
+  // current local time, clamped to the end of the day (never past 11:59 PM,
+  // never blank space below). Runs once when this view is first entered;
+  // afterwards the user's manual scroll position is preserved across date
+  // changes and horizontal swipes. Pressing Today bumps recenterSignal.
+  const didAutoPosition = useRef(false);
+  const positionNearNow = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    didAutoPosition.current = true;
+    const targetTop = topFor(new Date()) - HOUR_PX;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    el.scrollTo({ top: Math.max(0, Math.min(maxScroll, targetTop)), behavior: "auto" });
+  }, []);
+
+  // Initial open / entering this timed view (any screen size).
   useEffect(() => {
-    if (!active || !scrollRef.current) return;
-    const today = new Date();
-    if (!isSameDay(anchor, today)) return;
-    const targetTop = topFor(today) - HOUR_PX;
-    const maxScroll = scrollRef.current.scrollHeight - scrollRef.current.clientHeight;
-    scrollRef.current.scrollTo({ top: Math.max(0, Math.min(maxScroll, targetTop)), behavior: "auto" });
-  }, [active, anchor]);
+    if (!active || didAutoPosition.current) return;
+    positionNearNow();
+  }, [active, positionNearNow]);
+
+  // Explicit recenter when the user presses Today.
+  useEffect(() => {
+    if (!active || recenterSignal === 0) return;
+    positionNearNow();
+  }, [recenterSignal, active, positionNearNow]);
 
   const todayColumnIndex = columns.findIndex((day) => isSameDay(day, now));
   const nowTop = topFor(now);
