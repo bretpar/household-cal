@@ -211,8 +211,8 @@ export function WeekView({
     return next;
   };
 
-  const scrollRef = useRef<HTMLDivElement | null>(null);
   const [now, setNow] = useState(() => new Date());
+
 
   useEffect(() => {
     setNow(new Date());
