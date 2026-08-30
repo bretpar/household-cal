@@ -38,6 +38,10 @@ export function usePeriodCarousel({
   const pendingRebase = useRef(false);
   const suppressScroll = useRef(false);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** While a finger drag owns the horizontal axis, scroll-settle must not run. */
+  const draggingX = useRef(false);
+  /** Last finger-following scroll position, for engines that defer the write. */
+  const lastIntended = useRef<number | null>(null);
   const [busy, setBusy] = useState(false);
 
   const commitRef = useRef(onCommit);
@@ -90,7 +94,7 @@ export function usePeriodCarousel({
     centerWithoutAnimation();
 
     const scheduleSettle = () => {
-      if (suppressScroll.current || pendingRebase.current) return;
+      if (suppressScroll.current || pendingRebase.current || draggingX.current) return;
       busyRef.current = true;
       setBusy(true);
       clearSettleTimer();
@@ -130,9 +134,42 @@ export function usePeriodCarousel({
       node.style.scrollSnapType = "";
     };
 
+    // While any dialog/sheet/menu is open, the pager never claims a gesture.
+    // Listeners live only on this scroll node (never window/document), so
+    // events inside portaled overlays never reach them — this guard covers
+    // gestures that land on the calendar surface itself.
+    const overlayOpen = () =>
+      !!document.querySelector(
+        '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
+      );
+
+    // iOS Safari ignores programmatic scrollLeft writes while a touch gesture
+    // is active, so the track would stay pinned until release. We still write
+    // scrollLeft (Chromium honors it and it drives the settle math), then
+    // compensate any shortfall with a transform on the page children so the
+    // visible content tracks the finger 1:1 on every engine.
+    const clearDragShift = () => {
+      lastIntended.current = null;
+      for (const child of Array.from(node.children) as HTMLElement[]) {
+        if (child.style.transform) child.style.transform = "";
+      }
+    };
+
+    const applyIntended = (intended: number) => {
+      const max = Math.max(0, node.scrollWidth - node.clientWidth);
+      const clamped = Math.max(0, Math.min(max, intended));
+      lastIntended.current = clamped;
+      node.scrollLeft = clamped;
+      // Compensate whatever the engine refused to apply (Safari mid-gesture).
+      const shift = node.scrollLeft - clamped;
+      for (const child of Array.from(node.children) as HTMLElement[]) {
+        child.style.transform = shift ? `translate3d(${shift}px, 0, 0)` : "";
+      }
+    };
+
     const onTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
-      if (!touch || isBlockedRef.current?.()) {
+      if (!touch || isBlockedRef.current?.() || overlayOpen()) {
         active = false;
         axis = "undecided";
         return;
@@ -150,6 +187,8 @@ export function usePeriodCarousel({
       if (isBlockedRef.current?.()) {
         active = false;
         axis = "undecided";
+        draggingX.current = false;
+        clearDragShift();
         restoreSnap();
         return;
       }
@@ -163,6 +202,7 @@ export function usePeriodCarousel({
         axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
         if (axis === "x") {
           node.style.scrollSnapType = "none";
+          draggingX.current = true;
           busyRef.current = true;
           setBusy(true);
         }
@@ -170,20 +210,11 @@ export function usePeriodCarousel({
       if (axis !== "x") return;
       // Stop the native vertical timeline scroll; we own this gesture now.
       if (e.cancelable) e.preventDefault();
-      node.scrollLeft = startScrollLeft - dx;
+      // Immediate 1:1 movement with the finger; animation only on release.
+      applyIntended(startScrollLeft - dx);
     };
 
-    const onTouchEnd = () => {
-      if (!active || axis !== "x") {
-        active = false;
-        axis = "undecided";
-        return;
-      }
-      active = false;
-      axis = "undecided";
-      restoreSnap();
-      // Settle to the nearest period boundary; the scroll/scrollend handlers
-      // above commit the anchor once the snap animation has finished.
+    const settleToNearestPage = () => {
       const width = node.clientWidth || 1;
       const page = Math.round(node.scrollLeft / width);
       const target = Math.max(0, Math.min(2, page)) * width;
@@ -195,15 +226,65 @@ export function usePeriodCarousel({
       settleTimer.current = setTimeout(finishSnap, SETTLE_FALLBACK_MS);
     };
 
+    const onTouchEnd = () => {
+      if (!active || axis !== "x") {
+        active = false;
+        axis = "undecided";
+        return;
+      }
+      active = false;
+      axis = "undecided";
+      draggingX.current = false;
+      // Land exactly where the finger left the track (touch-end writes are
+      // honored even on iOS), then clear the visual compensation in the same
+      // frame so there is no flicker.
+      if (lastIntended.current != null) node.scrollLeft = lastIntended.current;
+      clearDragShift();
+      restoreSnap();
+      // Settle to the nearest period boundary; the scroll/scrollend handlers
+      // above commit the anchor once the snap animation has finished.
+      settleToNearestPage();
+    };
+
+    // Desktop trackpads: horizontal wheel over the grid pans the calendar.
+    // Consuming the gesture (preventDefault) also blocks the browser's
+    // swipe-between-history-pages navigation. Events outside this node never
+    // reach this listener.
+    let wheelSettle: ReturnType<typeof setTimeout> | null = null;
+    const onWheel = (e: WheelEvent) => {
+      if (isBlockedRef.current?.() || overlayOpen()) return;
+      const unit = e.deltaMode === 1 ? 16 : 1;
+      const dx = e.deltaX * unit;
+      const dy = e.deltaY * unit;
+      if (Math.abs(dx) <= Math.abs(dy) || Math.abs(dx) < 1) return;
+      e.preventDefault();
+      if (node.style.scrollSnapType !== "none") node.style.scrollSnapType = "none";
+      busyRef.current = true;
+      setBusy(true);
+      const max = Math.max(0, node.scrollWidth - node.clientWidth);
+      node.scrollLeft = Math.max(0, Math.min(max, node.scrollLeft + dx));
+      if (wheelSettle) clearTimeout(wheelSettle);
+      wheelSettle = setTimeout(() => {
+        wheelSettle = null;
+        restoreSnap();
+        settleToNearestPage();
+      }, 140);
+    };
+
     node.addEventListener("touchstart", onTouchStart, { passive: true });
     node.addEventListener("touchmove", onTouchMove, { passive: false });
     node.addEventListener("touchend", onTouchEnd);
     node.addEventListener("touchcancel", onTouchEnd);
+    node.addEventListener("wheel", onWheel, { passive: false });
     return () => {
+      if (wheelSettle) clearTimeout(wheelSettle);
+      draggingX.current = false;
+      clearDragShift();
       node.removeEventListener("touchstart", onTouchStart);
       node.removeEventListener("touchmove", onTouchMove);
       node.removeEventListener("touchend", onTouchEnd);
       node.removeEventListener("touchcancel", onTouchEnd);
+      node.removeEventListener("wheel", onWheel);
     };
   }, [clearSettleTimer, finishSnap]);
 
