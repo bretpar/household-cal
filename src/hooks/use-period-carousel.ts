@@ -107,6 +107,106 @@ export function usePeriodCarousel({
     };
   }, [centerWithoutAnimation, clearSettleTimer, finishSnap]);
 
+  // Touch-axis arbitration. The Day/3-Day timeline inside the track scrolls
+  // vertically (touch-action: pan-y), which disables native horizontal panning
+  // for gestures that start on it — so horizontal drags never reach this
+  // carousel natively. We claim horizontal intent in JS and drive scrollLeft
+  // with the finger; vertical intent is left untouched for native scrolling.
+  const isBlockedRef = useRef(isBlocked);
+  isBlockedRef.current = isBlocked;
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+
+    const AXIS_THRESHOLD = 10;
+    let startX = 0;
+    let startY = 0;
+    let startScrollLeft = 0;
+    let axis: "undecided" | "x" | "y" = "undecided";
+    let active = false;
+
+    const restoreSnap = () => {
+      node.style.scrollSnapType = "";
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch || isBlockedRef.current?.()) {
+        active = false;
+        axis = "undecided";
+        return;
+      }
+      active = true;
+      axis = "undecided";
+      startX = touch.clientX;
+      startY = touch.clientY;
+      startScrollLeft = node.scrollLeft;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!active) return;
+      // A long-press event drag may activate mid-gesture; hand control over.
+      if (isBlockedRef.current?.()) {
+        active = false;
+        axis = "undecided";
+        restoreSnap();
+        return;
+      }
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+
+      if (axis === "undecided") {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < AXIS_THRESHOLD) return;
+        axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+        if (axis === "x") {
+          node.style.scrollSnapType = "none";
+          busyRef.current = true;
+          setBusy(true);
+        }
+      }
+      if (axis !== "x") return;
+      // Stop the native vertical timeline scroll; we own this gesture now.
+      if (e.cancelable) e.preventDefault();
+      node.scrollLeft = startScrollLeft - dx;
+    };
+
+    const onTouchEnd = () => {
+      if (!active || axis !== "x") {
+        active = false;
+        axis = "undecided";
+        return;
+      }
+      active = false;
+      axis = "undecided";
+      restoreSnap();
+      // Settle to the nearest period boundary; the scroll/scrollend handlers
+      // above commit the anchor once the snap animation has finished.
+      const width = node.clientWidth || 1;
+      const page = Math.round(node.scrollLeft / width);
+      const target = Math.max(0, Math.min(2, page)) * width;
+      node.scrollTo({
+        left: target,
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      });
+      clearSettleTimer();
+      settleTimer.current = setTimeout(finishSnap, SETTLE_FALLBACK_MS);
+    };
+
+    node.addEventListener("touchstart", onTouchStart, { passive: true });
+    node.addEventListener("touchmove", onTouchMove, { passive: false });
+    node.addEventListener("touchend", onTouchEnd);
+    node.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      node.removeEventListener("touchstart", onTouchStart);
+      node.removeEventListener("touchmove", onTouchMove);
+      node.removeEventListener("touchend", onTouchEnd);
+      node.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [clearSettleTimer, finishSnap]);
+
   // The anchor update replaces only off-screen date data. Re-center before
   // paint so the snapped page remains visually identical throughout rebasing.
   useLayoutEffect(() => {
