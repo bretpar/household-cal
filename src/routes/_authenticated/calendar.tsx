@@ -143,8 +143,6 @@ function CalendarPage() {
   const viewLabel = (v: ViewMode) =>
     v === "week" && isMobile ? "3 Day" : CALENDAR_VIEW_LABEL[v];
 
-  // While an event is being dragged by finger, the horizontal pager stands down.
-  const [eventDragging, setEventDragging] = useState(false);
 
   const syncTimelineScroll = (scrollTop: number, source: HTMLDivElement) => {
     carousel.containerRef.current
