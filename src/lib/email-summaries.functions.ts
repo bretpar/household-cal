@@ -15,9 +15,15 @@ import {
 
 export const getEmailSummarySettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(({ context }) =>
-    loadEmailSummaries(context.supabase as unknown as Db, context.userId),
-  );
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    return loadEmailSummaries(
+      context.supabase as unknown as Db,
+      supabaseAdmin as never,
+      context.userId,
+    );
+  });
+
 
 export const saveEmailSchedule = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -61,17 +67,22 @@ export const saveEmailRecipient = createServerFn({ method: "POST" })
     (data: {
       id?: string | null;
       schedule_id: string;
-      name: string;
-      email: string;
-      family_member_id?: string | null;
+      user_id: string;
       calendar_source_ids?: string[];
       weekdays?: string[] | null;
       resubscribe?: boolean;
     }) => data,
   )
-  .handler(({ data, context }) =>
-    saveRecipient(context.supabase as unknown as Db, context.userId, data),
-  );
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    return saveRecipient(
+      context.supabase as unknown as Db,
+      supabaseAdmin as never,
+      context.userId,
+      data,
+    );
+  });
+
 
 export const deleteEmailRecipient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

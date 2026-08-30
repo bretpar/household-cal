@@ -219,6 +219,7 @@ export type Database = {
           unsubscribe_token: string
           unsubscribed_at: string | null
           updated_at: string
+          user_id: string | null
           weekdays: string[]
         }
         Insert: {
@@ -232,6 +233,7 @@ export type Database = {
           unsubscribe_token?: string
           unsubscribed_at?: string | null
           updated_at?: string
+          user_id?: string | null
           weekdays?: string[]
         }
         Update: {
@@ -245,6 +247,7 @@ export type Database = {
           unsubscribe_token?: string
           unsubscribed_at?: string | null
           updated_at?: string
+          user_id?: string | null
           weekdays?: string[]
         }
         Relationships: [

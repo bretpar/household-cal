@@ -51,6 +51,12 @@ const FREQUENCY_HINT: Record<string, string> = {
   monthly: "Sends three days before the month starts, covering the whole month.",
 };
 
+const ROLE_LABEL: Record<string, string> = {
+  owner: "Owner",
+  editor: "Editor",
+  viewer: "Viewer",
+};
+
 const DEFAULT_TIME: Record<string, string> = {
   daily: "18:00",
   weekly: "18:00",
@@ -60,13 +66,12 @@ const DEFAULT_TIME: Record<string, string> = {
 interface RecipientDraft {
   id?: string | null;
   schedule_id: string;
-  name: string;
-  email: string;
-  family_member_id: string | null;
+  user_id: string | null;
   calendar_source_ids: string[];
   weekdays: string[];
   resubscribe?: boolean;
 }
+
 
 const WEEKDAYS: { code: string; label: string }[] = [
   { code: "MO", label: "Monday" },
@@ -86,7 +91,7 @@ function daysLabel(weekdays: string[]): string {
 }
 
 export function EmailSummarySettings() {
-  const { isOwner, sources, members, family } = useCalendar();
+  const { isOwner, sources, family } = useCalendar();
   const queryClient = useQueryClient();
   const load = useServerFn(getEmailSummarySettings);
   const saveSchedule = useServerFn(saveEmailSchedule);
@@ -116,6 +121,10 @@ export function EmailSummarySettings() {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: SUMMARY_KEY });
   const selectableSources = emailSelectableCalendars(sources as never[]) as typeof sources;
+  const householdUsers = data?.household_users ?? [];
+  const selectedPerson =
+    householdUsers.find((p) => p.user_id === recipientDraft?.user_id) ?? null;
+
 
   if (!isOwner) return null;
 
@@ -320,12 +329,11 @@ export function EmailSummarySettings() {
                         setRecipientDraft({
                           id: recipient.id,
                           schedule_id: schedule.id,
-                          name: recipient.name,
-                          email: recipient.email,
-                          family_member_id: recipient.family_member_id,
+                          user_id: recipient.user_id,
                           calendar_source_ids: recipient.calendar_source_ids,
                           weekdays: recipient.weekdays,
                         })
+
                       }
                     >
                       Edit
@@ -354,12 +362,11 @@ export function EmailSummarySettings() {
                 onClick={() =>
                   setRecipientDraft({
                     schedule_id: schedule.id,
-                    name: "",
-                    email: "",
-                    family_member_id: null,
+                    user_id: null,
                     calendar_source_ids: [],
                     weekdays: [],
                   })
+
                 }
               >
                 <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Add recipient
@@ -448,56 +455,52 @@ export function EmailSummarySettings() {
           <DialogHeader>
             <DialogTitle>{recipientDraft?.id ? "Edit recipient" : "Add recipient"}</DialogTitle>
             <DialogDescription>
-              Choose which calendars this person's email includes. Everyone gets their own email.
+              Summaries only go to people who already have access to this household. Choose which
+              calendars and days their email includes.
             </DialogDescription>
           </DialogHeader>
           {recipientDraft && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Household member (optional)</Label>
-                <Select
-                  value={recipientDraft.family_member_id ?? "manual"}
-                  onValueChange={(value) => {
-                    const member = members.find((m) => m.id === value);
-                    setRecipientDraft({
-                      ...recipientDraft,
-                      family_member_id: value === "manual" ? null : value,
-                      name: member?.name ?? recipientDraft.name,
-                    });
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manual">Someone else (name + email)</SelectItem>
-                    {members.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Household member</Label>
+                {householdUsers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No household users with an email yet — invite someone under Household Access
+                    first.
+                  </p>
+                ) : (
+                  <Select
+                    value={recipientDraft.user_id ?? ""}
+                    onValueChange={(value) =>
+                      setRecipientDraft({ ...recipientDraft, user_id: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a household member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {householdUsers.map((person) => (
+                        <SelectItem key={person.user_id} value={person.user_id}>
+                          {person.name} · {ROLE_LABEL[person.role] ?? person.role}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {selectedPerson && (
+                  <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                    <p className="font-semibold text-foreground">{selectedPerson.name}</p>
+                    <p className="truncate">{selectedPerson.email}</p>
+                    <p>{ROLE_LABEL[selectedPerson.role] ?? selectedPerson.role}</p>
+                  </div>
+                )}
+                {!selectedPerson && recipientDraft.user_id && (
+                  <p className="text-xs text-destructive">
+                    That person no longer has household access — pick someone else.
+                  </p>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="recipient-name">Name</Label>
-                <Input
-                  id="recipient-name"
-                  value={recipientDraft.name}
-                  placeholder="Grandma Parker"
-                  onChange={(e) => setRecipientDraft({ ...recipientDraft, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="recipient-email">Email</Label>
-                <Input
-                  id="recipient-email"
-                  type="email"
-                  value={recipientDraft.email}
-                  placeholder="name@example.com"
-                  onChange={(e) => setRecipientDraft({ ...recipientDraft, email: e.target.value })}
-                />
-              </div>
+
               <div className="space-y-2">
                 <Label>Calendars in this email</Label>
                 {selectableSources.length === 0 && (
@@ -555,7 +558,7 @@ export function EmailSummarySettings() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All days</SelectItem>
-                    <SelectItem value="selected">Selected days</SelectItem>
+                    <SelectItem value="selected">Specific days</SelectItem>
                   </SelectContent>
                 </Select>
                 {recipientDraft.weekdays.length > 0 && (
@@ -599,7 +602,11 @@ export function EmailSummarySettings() {
             </Button>
             <Button
               onClick={persistRecipient}
-              disabled={busy || (recipientDraft?.calendar_source_ids.length ?? 0) === 0}
+              disabled={
+                busy ||
+                !selectedPerson ||
+                (recipientDraft?.calendar_source_ids.length ?? 0) === 0
+              }
             >
               Save
             </Button>
