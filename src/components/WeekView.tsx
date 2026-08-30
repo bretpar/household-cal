@@ -124,6 +124,7 @@ export function WeekView({
   fill = false,
   active = true,
   onTimelineScroll,
+  onEventDragChange,
 }: {
   anchor: Date;
   events: CalendarEvent[];
@@ -139,10 +140,14 @@ export function WeekView({
   active?: boolean;
   /** keeps pre-rendered neighbouring timelines at the same vertical position */
   onTimelineScroll?: ((scrollTop: number, source: HTMLDivElement) => void) | undefined;
+  /** true while a long-pressed event is being dragged, so the pager stands down */
+  onEventDragChange?: ((dragging: boolean) => void) | undefined;
 }) {
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
-  const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
+  const { dragProps, dropProps, draggingKey, requestMove, dialog } = useReschedule();
   const isMobile = useIsMobile();
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
   const sourceName = (id: string | null) => sources.find((s) => s.id === id)?.name ?? "Coverage";
   /** Childcare joins the soft care-coverage layer instead of competing as a card. */
   const isCareLayer = (o: Occurrence) =>
@@ -181,10 +186,14 @@ export function WeekView({
     dayEndHour: DAY_END,
     snapMinutes: SNAP_MINUTES,
     resolveOccurrence: (key) => occurrenceByKey.get(key),
+    scrollContainerRef: scrollRef,
+    onDragStateChange: onEventDragChange,
     // Coverage is now an explicit small label zone, so every type shares one hold timing.
     onCreate: (start, end) => onCreateRange?.(start, end),
-    onMove: (occurrence, start) => openOccurrence(occurrence, { proposedStart: start }),
+    // Releasing commits the new time straight away (recurring events still ask scope).
+    onMove: (occurrence, start) => requestMove(occurrence, start),
   });
+
 
   const ghostTimes = ghost
     ? (() => {
@@ -202,8 +211,8 @@ export function WeekView({
     return next;
   };
 
-  const scrollRef = useRef<HTMLDivElement | null>(null);
   const [now, setNow] = useState(() => new Date());
+
 
   useEffect(() => {
     setNow(new Date());
@@ -447,7 +456,8 @@ export function WeekView({
                             "pointer-events-auto touch-hit-44 absolute text-left",
                             compact ? "rounded-md" : "rounded-xl",
                             draggingKey === o.key && "opacity-40",
-                            ghost?.occurrence?.key === o.key && "ring-2 ring-primary/70 ring-inset",
+                            // Lifted by a long press: fade the original in place.
+                            ghost?.occurrence?.key === o.key && "opacity-30",
                           )}
                           style={{
                             top: topFor(o.start),
@@ -484,10 +494,10 @@ export function WeekView({
                         return (
                           <div
                             className={cn(
-                              "pointer-events-none absolute inset-x-1 z-20 rounded-xl border-2 px-1.5 py-1",
+                              "pointer-events-none absolute inset-x-1 z-30 scale-[1.03] rounded-xl border-2 px-1.5 py-1 shadow-lg ring-2 ring-primary/40 transition-transform",
                               isCare
-                                ? "border-coverage-strong/80 bg-coverage/40"
-                                : "border-primary bg-primary/15 shadow-soft",
+                                ? "border-coverage-strong/80 bg-coverage/70"
+                                : "border-primary bg-primary/25",
                             )}
                             style={{
                               top: (ghost.startMinutes / 60 - DAY_START) * HOUR_PX,
