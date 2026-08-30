@@ -106,6 +106,11 @@ function makeAdmin(tables: Record<string, Row[]>) {
           filters.push((r) => r[col] <= val);
           return builder;
         },
+        lt: (col: string, val: number | string) => {
+          filters.push((r) => r[col] !== undefined && r[col] < val);
+          return builder;
+        },
+
         order: () => builder,
         maybeSingle: async () => ({ data: matching()[0] ?? null, error: null }),
         delete: () => {
