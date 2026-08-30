@@ -96,12 +96,21 @@ function CalendarPage() {
     requestAnimationFrame(() => periodRef.current?.focus({ preventScroll: true }));
   };
 
+  // While an event is being dragged by finger, the horizontal pager stands down.
+  const [eventDragging, setEventDragging] = useState(false);
+  const eventDraggingRef = useRef(false);
+  const handleEventDragChange = useCallback((dragging: boolean) => {
+    eventDraggingRef.current = dragging;
+    setEventDragging(dragging);
+  }, []);
+
   // Finger-following paging: the track moves with the drag and snaps on release.
   const carousel = usePeriodCarousel({
     sensitivity: mode,
     onNavigate: haptic,
     onCommit: (direction) => setAnchor((prev) => shift(prev, direction)),
     rebaseKey: `${mode}:${anchor.getTime()}:${weekDays}`,
+    isBlocked: () => eventDraggingRef.current,
   });
 
   const step = (direction: 1 | -1, { focus = false }: { focus?: boolean } = {}) => {
