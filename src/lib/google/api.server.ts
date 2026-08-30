@@ -71,6 +71,8 @@ export interface GoogleCalendarSummary {
   summary: string;
   primary?: boolean;
   accessRole?: string;
+  /** IANA display timezone Google reports for this calendar. */
+  timeZone?: string;
 }
 
 export async function getAccountEmail(connectionAPIKey: string): Promise<string | null> {
