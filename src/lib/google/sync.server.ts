@@ -42,7 +42,24 @@ import type { WeekdayCode } from "@/lib/family-data";
 
 type Admin = { from: (table: string) => any };
 
-const TIME_ZONE = "UTC";
+const FALLBACK_TIME_ZONE = "America/Los_Angeles";
+
+/** Household IANA timezone: recurring Google series are anchored to local time. */
+async function householdTimeZone(admin: Admin, familyId: string): Promise<string> {
+  const { data } = await admin
+    .from("families")
+    .select("timezone")
+    .eq("id", familyId)
+    .maybeSingle();
+  const tz = (data?.timezone as string | null) || FALLBACK_TIME_ZONE;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return tz;
+  } catch {
+    return FALLBACK_TIME_ZONE;
+  }
+}
+
 
 export interface ConnectionContext {
   connectionId: string;
@@ -284,11 +301,13 @@ function branchBody(
   event: EventRow,
   branch: SyncBranch,
   initials: Map<string, string>,
+  timeZone: string,
 ): Record<string, unknown> {
   // each branch is anchored to its own first matching weekday so Google does
   // not also emit it on the shared series' start weekday
   const anchored = branchAnchoredTimes(event.start_at, event.end_at, branch.weekdays);
-  const times = toGoogleTimes(anchored.startAt, anchored.endAt, event.all_day, TIME_ZONE);
+  const times = toGoogleTimes(anchored.startAt, anchored.endAt, event.all_day, timeZone);
+
   const recurrence = toGoogleRecurrence(
     event.recurrence_rule,
     branch.weekdays,
@@ -348,9 +367,11 @@ export async function pushEvent(
       .eq("event_id", eventId);
     const links = (linkRows ?? []) as LinkRow[];
 
+    const timeZone = await householdTimeZone(admin, familyId);
     let pushed = 0;
     for (const branch of branches) {
-      const body = branchBody(event, branch, initials);
+      const body = branchBody(event, branch, initials, timeZone);
+
       const link = links.find((l) => l.branch_key === branch.key);
       let saved: GoogleEvent;
 
