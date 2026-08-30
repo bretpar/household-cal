@@ -85,7 +85,7 @@ function daysLabel(weekdays: string[]): string {
 }
 
 export function EmailSummarySettings() {
-  const { isOwner, sources, members, family } = useCalendar();
+  const { isOwner, sources, family } = useCalendar();
   const queryClient = useQueryClient();
   const load = useServerFn(getEmailSummarySettings);
   const saveSchedule = useServerFn(saveEmailSchedule);
