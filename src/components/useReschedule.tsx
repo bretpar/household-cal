@@ -66,6 +66,14 @@ export function useReschedule() {
 
 
 
+  /** Commit a new start time from a touch drag (recurring events ask scope first). */
+  const requestMove = (occurrence: Occurrence, start: Date) => {
+    if (!canEdit) return;
+    if (start.getTime() === occurrence.start.getTime()) return;
+    if (isRecurring(occurrence)) setPending({ occurrence, start });
+    else void apply(occurrence, start, "series");
+  };
+
   const dragProps = (occurrence: Occurrence) =>
     canEdit
       ? {
@@ -159,5 +167,5 @@ export function useReschedule() {
     </Dialog>
   ) : null;
 
-  return { canDrag: canEdit, dragProps, dropProps, draggingKey, dialog };
+  return { canDrag: canEdit, dragProps, dropProps, draggingKey, requestMove, dialog };
 }

@@ -134,6 +134,9 @@ function CalendarPage() {
   const viewLabel = (v: ViewMode) =>
     v === "week" && isMobile ? "3 Day" : CALENDAR_VIEW_LABEL[v];
 
+  // While an event is being dragged by finger, the horizontal pager stands down.
+  const [eventDragging, setEventDragging] = useState(false);
+
   const syncTimelineScroll = (scrollTop: number, source: HTMLDivElement) => {
     carousel.containerRef.current
       ?.querySelectorAll<HTMLDivElement>("[data-calendar-timeline]")
@@ -171,6 +174,7 @@ function CalendarPage() {
         fill={isMobile}
         active={active}
         onTimelineScroll={syncTimelineScroll}
+        onEventDragChange={setEventDragging}
       />
     ) : isMobile ? (
       // Phone day view: only the hourly timeline scrolls, the page stays put.
@@ -184,6 +188,7 @@ function CalendarPage() {
         fill
         active={active}
         onTimelineScroll={syncTimelineScroll}
+        onEventDragChange={setEventDragging}
       />
     ) : (
       <div>
@@ -196,6 +201,7 @@ function CalendarPage() {
           bare
           active={active}
           onTimelineScroll={syncTimelineScroll}
+          onEventDragChange={setEventDragging}
         />
         <div className="border-t border-border-soft p-4">
         <AgendaView
@@ -345,11 +351,15 @@ function CalendarPage() {
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft md:block">
         <div
           ref={carousel.containerRef}
-          className="relative flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className={cn(
+            "relative flex min-h-0 flex-1 snap-x snap-mandatory overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            // Event dragging owns the gesture: no day/week paging while it runs.
+            eventDragging ? "touch-none overflow-x-hidden" : "overflow-x-auto",
+          )}
         >
           <div
             aria-hidden
-            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center flex-col overflow-hidden md:block"
+            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col overflow-hidden md:block"
           >
             {renderPeriod(shift(anchor, -1))}
           </div>
@@ -358,7 +368,7 @@ function CalendarPage() {
             tabIndex={-1}
             role="group"
             aria-label={`${viewLabel(mode)} view: ${label}`}
-            className="flex min-h-0 w-full shrink-0 snap-center flex-col outline-none md:block"
+            className="flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col outline-none md:block"
             onKeyDown={(e) => {
               if (e.key === "ArrowLeft") {
                 e.preventDefault();
@@ -373,7 +383,7 @@ function CalendarPage() {
           </div>
           <div
             aria-hidden
-            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center flex-col overflow-hidden md:block"
+            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col overflow-hidden md:block"
           >
             {renderPeriod(shift(anchor, 1))}
           </div>
