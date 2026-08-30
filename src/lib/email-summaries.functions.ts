@@ -15,9 +15,15 @@ import {
 
 export const getEmailSummarySettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(({ context }) =>
-    loadEmailSummaries(context.supabase as unknown as Db, context.userId),
-  );
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    return loadEmailSummaries(
+      context.supabase as unknown as Db,
+      supabaseAdmin as never,
+      context.userId,
+    );
+  });
+
 
 export const saveEmailSchedule = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
