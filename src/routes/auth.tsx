@@ -152,7 +152,7 @@ function AuthPage() {
                   data-testid="reset-email"
                   type="email"
                   autoComplete="email"
-                  value={email}
+                  defaultValue={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="h-11 rounded-xl"
                 />
@@ -204,7 +204,7 @@ function AuthPage() {
               data-testid="auth-email"
               type="email"
               autoComplete="email"
-              value={email}
+              defaultValue={email}
               onChange={(e) => setEmail(e.target.value)}
               className="h-11 rounded-xl"
             />
@@ -218,7 +218,7 @@ function AuthPage() {
               type="password"
               minLength={PASSWORD_MIN_LENGTH}
               autoComplete={mode === "signin" ? "current-password" : "new-password"}
-              value={password}
+              defaultValue={password}
               onChange={(e) => setPassword(e.target.value)}
               className="h-11 rounded-xl"
             />
