@@ -219,6 +219,30 @@ export function fromGoogleRecurrence(lines: string[] | null | undefined): Parsed
   return { rule: keep.length > 0 ? keep.join(";") : null, weekdays, until, excludedDates };
 }
 
+/**
+ * Wall-clock string (`yyyy-MM-ddTHH:mm:ss`) for an instant in an IANA zone.
+ *
+ * Google interprets a floating dateTime plus `timeZone` as a local wall-clock
+ * time, so recurring series keep their clock time across DST transitions.
+ */
+export function localWallClock(instant: string, timeZone: string): string {
+  const date = new Date(instant);
+  if (Number.isNaN(date.getTime())) return instant;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+  const hour = get("hour") === "24" ? "00" : get("hour");
+  return `${get("year")}-${get("month")}-${get("day")}T${hour}:${get("minute")}:${get("second")}`;
+}
+
 /** ISO instant / all-day date pair for a Google event body. */
 export function toGoogleTimes(
   startAt: string,
@@ -233,11 +257,14 @@ export function toGoogleTimes(
     const exclusive = endDay <= start ? addOneDay(start) : addOneDay(endDay);
     return { start: { date: start }, end: { date: exclusive } };
   }
+  // floating local time + IANA zone: Google re-applies the zone's offset for
+  // every occurrence, so 9:00 AM stays 9:00 AM after a DST change
   return {
-    start: { dateTime: new Date(startAt).toISOString(), timeZone },
-    end: { dateTime: new Date(endAt).toISOString(), timeZone },
+    start: { dateTime: localWallClock(startAt, timeZone), timeZone },
+    end: { dateTime: localWallClock(endAt, timeZone), timeZone },
   };
 }
+
 
 const DTSTART_DAY_CODES: WeekdayCode[] = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
