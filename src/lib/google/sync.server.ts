@@ -406,8 +406,8 @@ export async function pushEvent(
 
       // Temporary diagnostic: verify DST Clean Test sends 09:00 + America/Los_Angeles
       if (event.recurrence_rule && !event.all_day) {
-        const start = (body.start ?? {}) as GoogleDateTime;
-        const end = (body.end ?? {}) as GoogleDateTime;
+        const start = (body["start"] ?? {}) as GoogleDateTime;
+        const end = (body["end"] ?? {}) as GoogleDateTime;
         console.log("[google-sync-diag] recurring timed push", {
           action: link ? "PATCH" : "INSERT",
           eventId,
@@ -418,7 +418,7 @@ export async function pushEvent(
           startTimeZone: start.timeZone ?? null,
           endDateTime: end.dateTime ?? null,
           endTimeZone: end.timeZone ?? null,
-          recurrence: body.recurrence ?? null,
+          recurrence: body["recurrence"] ?? null,
         });
       }
       let saved: GoogleEvent;
