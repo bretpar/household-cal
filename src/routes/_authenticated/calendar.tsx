@@ -101,6 +101,7 @@ function CalendarPage() {
     sensitivity: mode,
     onNavigate: haptic,
     onCommit: (direction) => setAnchor((prev) => shift(prev, direction)),
+    rebaseKey: `${mode}:${anchor.getTime()}:${weekDays}`,
   });
 
   const step = (direction: 1 | -1, { focus = false }: { focus?: boolean } = {}) => {
@@ -133,7 +134,17 @@ function CalendarPage() {
   const viewLabel = (v: ViewMode) =>
     v === "week" && isMobile ? "3 Day" : CALENDAR_VIEW_LABEL[v];
 
-  const renderPeriod = (at: Date) =>
+  const syncTimelineScroll = (scrollTop: number, source: HTMLDivElement) => {
+    carousel.containerRef.current
+      ?.querySelectorAll<HTMLDivElement>("[data-calendar-timeline]")
+      .forEach((timeline) => {
+        if (timeline !== source && Math.abs(timeline.scrollTop - scrollTop) > 1) {
+          timeline.scrollTop = scrollTop;
+        }
+      });
+  };
+
+  const renderPeriod = (at: Date, active = false) =>
     mode === "month" ? (
       <MonthView
         month={at}
@@ -158,6 +169,8 @@ function CalendarPage() {
         onCreateRange={onCreateRange}
         bare
         fill={isMobile}
+        active={active}
+        onTimelineScroll={syncTimelineScroll}
       />
     ) : isMobile ? (
       // Phone day view: only the hourly timeline scrolls, the page stays put.
@@ -169,6 +182,8 @@ function CalendarPage() {
         onCreateRange={onCreateRange}
         bare
         fill
+        active={active}
+        onTimelineScroll={syncTimelineScroll}
       />
     ) : (
       <div>
@@ -179,6 +194,8 @@ function CalendarPage() {
           days={1}
           onCreateRange={onCreateRange}
           bare
+          active={active}
+          onTimelineScroll={syncTimelineScroll}
         />
         <div className="border-t border-border-soft p-4">
         <AgendaView
@@ -190,18 +207,6 @@ function CalendarPage() {
         </div>
       </div>
     );
-
-  // Neighbours mount only while a gesture/transition is in flight so idle
-  // rendering cost stays the same as before.
-  const showNeighbours = carousel.dragging || carousel.animating;
-  const trackStyle = {
-    transform: `translate3d(${carousel.offset}px, 0, 0)`,
-    transition: carousel.dragging
-      ? "none"
-      : `transform ${carousel.duration}ms cubic-bezier(0.32, 0.72, 0, 1)`,
-  } as const;
-
-
 
   return (
     <AppShell fitViewport>
@@ -340,46 +345,37 @@ function CalendarPage() {
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft md:block">
         <div
           ref={carousel.containerRef}
-          className="relative flex min-h-0 flex-1 flex-col touch-pan-y overflow-hidden md:block"
+          className="relative flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           <div
-            className="relative flex min-h-0 flex-1 flex-col will-change-transform md:block"
-            style={trackStyle}
+            aria-hidden
+            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center flex-col overflow-hidden md:block"
           >
-            {showNeighbours ? (
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-y-0 right-full flex w-full flex-col overflow-hidden md:block"
-              >
-                {renderPeriod(shift(anchor, -1))}
-              </div>
-            ) : null}
-            <div
-              ref={periodRef}
-              tabIndex={-1}
-              role="group"
-              aria-label={`${viewLabel(mode)} view: ${label}`}
-              className="flex min-h-0 flex-1 flex-col outline-none md:block"
-              onKeyDown={(e) => {
-                if (e.key === "ArrowLeft") {
-                  e.preventDefault();
-                  step(-1, { focus: true });
-                } else if (e.key === "ArrowRight") {
-                  e.preventDefault();
-                  step(1, { focus: true });
-                }
-              }}
-            >
-              {renderPeriod(anchor)}
-            </div>
-            {showNeighbours ? (
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-y-0 left-full flex w-full flex-col overflow-hidden md:block"
-              >
-                {renderPeriod(shift(anchor, 1))}
-              </div>
-            ) : null}
+            {renderPeriod(shift(anchor, -1))}
+          </div>
+          <div
+            ref={periodRef}
+            tabIndex={-1}
+            role="group"
+            aria-label={`${viewLabel(mode)} view: ${label}`}
+            className="flex min-h-0 w-full shrink-0 snap-center flex-col outline-none md:block"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                step(-1, { focus: true });
+              } else if (e.key === "ArrowRight") {
+                e.preventDefault();
+                step(1, { focus: true });
+              }
+            }}
+          >
+            {renderPeriod(anchor, true)}
+          </div>
+          <div
+            aria-hidden
+            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center flex-col overflow-hidden md:block"
+          >
+            {renderPeriod(shift(anchor, 1))}
           </div>
         </div>
         </div>

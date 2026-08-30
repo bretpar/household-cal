@@ -122,6 +122,8 @@ export function WeekView({
   onCreateRange,
   bare = false,
   fill = false,
+  active = true,
+  onTimelineScroll,
 }: {
   anchor: Date;
   events: CalendarEvent[];
@@ -133,6 +135,10 @@ export function WeekView({
   bare?: boolean;
   /** fill the parent's height; only the hourly timeline scrolls */
   fill?: boolean;
+  /** only the visible page may choose an automatic initial hour */
+  active?: boolean;
+  /** keeps pre-rendered neighbouring timelines at the same vertical position */
+  onTimelineScroll?: ((scrollTop: number, source: HTMLDivElement) => void) | undefined;
 }) {
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
@@ -209,13 +215,13 @@ export function WeekView({
   // Manual date changes keep their existing scroll position unless the new
   // date is today, in which case we gently snap to the current moment.
   useEffect(() => {
-    if (!scrollRef.current) return;
+    if (!active || !scrollRef.current) return;
     const today = new Date();
     if (!isSameDay(anchor, today)) return;
     const targetTop = topFor(today) - HOUR_PX;
     const maxScroll = scrollRef.current.scrollHeight - scrollRef.current.clientHeight;
     scrollRef.current.scrollTo({ top: Math.max(0, Math.min(maxScroll, targetTop)), behavior: "auto" });
-  }, [anchor]);
+  }, [active, anchor]);
 
   const todayColumnIndex = columns.findIndex((day) => isSameDay(day, now));
   const nowTop = topFor(now);
@@ -304,6 +310,8 @@ export function WeekView({
 
         <div
           ref={scrollRef}
+          data-calendar-timeline
+          onScroll={(event) => onTimelineScroll?.(event.currentTarget.scrollTop, event.currentTarget)}
           className={cn(
             "overflow-y-auto overscroll-contain",
             fill ? "min-h-0 flex-1" : "max-h-[70vh]",
