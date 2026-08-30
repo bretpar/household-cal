@@ -60,13 +60,12 @@ const DEFAULT_TIME: Record<string, string> = {
 interface RecipientDraft {
   id?: string | null;
   schedule_id: string;
-  name: string;
-  email: string;
-  family_member_id: string | null;
+  user_id: string | null;
   calendar_source_ids: string[];
   weekdays: string[];
   resubscribe?: boolean;
 }
+
 
 const WEEKDAYS: { code: string; label: string }[] = [
   { code: "MO", label: "Monday" },
