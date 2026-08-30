@@ -304,3 +304,46 @@ describe("reconcileHousehold stale-link repair", () => {
     expect(googleState.inserted).toHaveLength(0);
   });
 });
+
+describe("reconcileHousehold one-time DST repatch", () => {
+  it("patches a healthy pre-fix recurring timed series in place, once", async () => {
+    const tables = baseTables();
+    tables["event_sync_links"]!.push(linkRow({ google_event_id: "g-live", app_version: 1 }));
+    googleState.eventStates.set("g-live", "ok");
+
+    const admin = makeAdmin(tables);
+    expect(await reconcileHousehold(admin, FAMILY)).toMatchObject({ repaired: 1 });
+
+    // same Google series identity, patched not recreated
+    expect(googleState.inserted).toHaveLength(0);
+    expect(googleState.patched).toEqual([{ calendarId: "gcal-1", eventId: "g-live" }]);
+    expect(tables["event_sync_links"]).toHaveLength(1);
+    expect(tables["event_sync_links"]![0]).toMatchObject({
+      google_event_id: "g-live",
+      app_version: 2,
+    });
+
+    // marker prevents repatching forever
+    expect(await reconcileHousehold(admin, FAMILY)).toMatchObject({ repaired: 0 });
+    expect(googleState.patched).toHaveLength(1);
+  });
+
+  it("leaves healthy non-recurring and all-day events alone", async () => {
+    const tables = baseTables();
+    tables["events"]![0]!.all_day = true;
+    tables["event_sync_links"]!.push(linkRow({ google_event_id: "g-live", app_version: 1 }));
+    googleState.eventStates.set("g-live", "ok");
+
+    const admin = makeAdmin(tables);
+    expect(await reconcileHousehold(admin, FAMILY)).toMatchObject({ repaired: 0 });
+    expect(googleState.patched).toHaveLength(0);
+    expect(googleState.inserted).toHaveLength(0);
+
+    const plain = baseTables();
+    plain["events"]![0]!.recurrence_rule = null;
+    plain["event_sync_links"]!.push(linkRow({ google_event_id: "g-live", app_version: 1 }));
+    googleState.eventStates.set("g-live", "ok");
+    expect(await reconcileHousehold(makeAdmin(plain), FAMILY)).toMatchObject({ repaired: 0 });
+    expect(googleState.patched).toHaveLength(0);
+  });
+});
