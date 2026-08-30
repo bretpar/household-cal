@@ -296,7 +296,17 @@ export async function linkMembers(
   if (error) throw error;
 }
 
+/**
+ * Rows an event update must push to Google: the edited event plus any row the
+ * scope split off (the detached one-off from "This event only"). Deduped so a
+ * retry of the same operation never pushes the same row twice.
+ */
+export function pushTargetsForUpdate(eventId: string, createdId: string | null): string[] {
+  return createdId && createdId !== eventId ? [eventId, createdId] : [eventId];
+}
+
 /** Returns the id of a newly created event when the scope split the series. */
+
 export async function applyEventUpdate(
   db: Db,
   eventId: string,
