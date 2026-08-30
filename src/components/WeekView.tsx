@@ -338,7 +338,12 @@ export function WeekView({
         <div
           ref={scrollRef}
           data-calendar-timeline
-          onScroll={(event) => onTimelineScroll?.(event.currentTarget.scrollTop, event.currentTarget)}
+          onScroll={(event) => {
+            // Any scroll (manual or synced from a neighbouring timeline) means
+            // this timeline's position is established — don't auto-position later.
+            didAutoPosition.current = true;
+            onTimelineScroll?.(event.currentTarget.scrollTop, event.currentTarget);
+          }}
           className={cn(
             "overflow-y-auto overflow-x-hidden overscroll-y-contain",
             fill ? "min-h-0 flex-1" : "max-h-[70vh]",
