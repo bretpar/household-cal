@@ -401,7 +401,7 @@ export async function applyEventDelete(
         .eq("id", eventId)
         .single();
       if (readError) throw readError;
-      current = ((check?.excluded_dates ?? []) as string[]) ?? [];
+      current = (check?.excluded_dates ?? []) as string[];
       if (current.includes(occurrenceDay)) return;
       // A concurrent writer overwrote our append — merge against the fresh
       // value and try again.
