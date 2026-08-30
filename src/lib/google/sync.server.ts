@@ -43,21 +43,49 @@ import type { WeekdayCode } from "@/lib/family-data";
 
 type Admin = { from: (table: string) => any };
 
-const FALLBACK_TIME_ZONE = "America/Los_Angeles";
-
-/** Household IANA timezone: recurring Google series are anchored to local time. */
+/**
+ * Household IANA timezone: recurring Google series are anchored to local time,
+ * never to the Google account's display timezone.
+ */
 async function householdTimeZone(admin: Admin, familyId: string): Promise<string> {
   const { data } = await admin
     .from("families")
     .select("timezone")
     .eq("id", familyId)
     .maybeSingle();
-  const tz = (data?.timezone as string | null) || FALLBACK_TIME_ZONE;
+  return normalizeTimeZone(data?.timezone as string | null);
+}
+
+/**
+ * Keeps a connected calendar's Google timezone in step with the household.
+ * App-created calendars are corrected in place; calendars the household does not
+ * manage are only recorded so Settings can warn about the mismatch.
+ */
+async function reconcileSourceTimeZone(
+  admin: Admin,
+  conn: ConnectionContext,
+  source: SourceRow,
+  remote: { timeZone?: string | undefined },
+): Promise<string | null> {
+  const household = await householdTimeZone(admin, source.family_id);
+  const action = timeZoneAction({
+    householdTimeZone: household,
+    googleTimeZone: remote.timeZone,
+    appManaged: source.app_managed_calendar === true,
+  });
+  if (action.kind === "ok") return remote.timeZone ?? null;
+  if (action.kind === "warn") return action.googleTimeZone;
   try {
-    new Intl.DateTimeFormat("en-US", { timeZone: tz });
-    return tz;
-  } catch {
-    return FALLBACK_TIME_ZONE;
+    await google.setCalendarTimeZone(
+      conn.connectionKey,
+      source.external_calendar_id!,
+      action.timeZone,
+    );
+    return action.timeZone;
+  } catch (error) {
+    if (error instanceof GoogleAuthError) throw error;
+    console.error("[google-sync] could not align calendar timezone", source.id, error);
+    return remote.timeZone ?? null;
   }
 }
 
