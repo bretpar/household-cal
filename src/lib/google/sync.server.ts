@@ -1017,7 +1017,7 @@ export async function reconcileHousehold(
     for (const candidate of (candidates ?? []) as { id: string; start_at: string; recurrence_rule: string | null }[]) {
       if (!candidate.recurrence_rule && candidate.start_at < timeMin) continue;
       if (linkedIds.has(candidate.id)) {
-        const { remaining, pruned } = await pruneStaleLinks(
+        const { pruned } = await pruneStaleLinks(
           admin,
           conn,
           familyId,
