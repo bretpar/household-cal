@@ -155,8 +155,6 @@ function CalendarPage() {
         weekStartsOn={weekStart}
         bare
         fill={isMobile}
-        active={active}
-        onTimelineScroll={syncTimelineScroll}
         onSelectDay={(day) => {
           setAnchor(day);
           setView("day");
@@ -171,6 +169,8 @@ function CalendarPage() {
         onCreateRange={onCreateRange}
         bare
         fill={isMobile}
+        active={active}
+        onTimelineScroll={syncTimelineScroll}
       />
     ) : isMobile ? (
       // Phone day view: only the hourly timeline scrolls, the page stays put.
