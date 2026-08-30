@@ -42,7 +42,24 @@ import type { WeekdayCode } from "@/lib/family-data";
 
 type Admin = { from: (table: string) => any };
 
-const TIME_ZONE = "UTC";
+const FALLBACK_TIME_ZONE = "America/Los_Angeles";
+
+/** Household IANA timezone: recurring Google series are anchored to local time. */
+async function householdTimeZone(admin: Admin, familyId: string): Promise<string> {
+  const { data } = await admin
+    .from("families")
+    .select("timezone")
+    .eq("id", familyId)
+    .maybeSingle();
+  const tz = (data?.timezone as string | null) || FALLBACK_TIME_ZONE;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return tz;
+  } catch {
+    return FALLBACK_TIME_ZONE;
+  }
+}
+
 
 export interface ConnectionContext {
   connectionId: string;
