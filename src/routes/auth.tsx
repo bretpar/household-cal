@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,13 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  // Read live DOM values at submit so autofill/password managers are honored
+  // even if no change event reached React.
+  const currentEmail = () => emailRef.current?.value ?? email;
+  const currentPassword = () => passwordRef.current?.value ?? password;
+
 
 
   useEffect(() => {
@@ -57,12 +64,14 @@ function AuthPage() {
   }, [navigate, redirect]);
 
   const submit = async () => {
-    if (!email.trim() || !password) {
+    const emailValue = currentEmail();
+    const passwordValue = currentPassword();
+    if (!emailValue.trim() || !passwordValue) {
       toast.error("Enter your email and password");
       return;
     }
     if (mode === "signup") {
-      const problem = validatePassword(password);
+      const problem = validatePassword(passwordValue);
       if (problem) {
         toast.error(problem);
         return;
@@ -72,22 +81,22 @@ function AuthPage() {
     try {
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
+          email: emailValue.trim(),
+          password: passwordValue,
         });
         if (error) throw error;
         if (!data.session) {
           // No email confirmation step: sign straight in so onboarding continues.
           const { error: signInError } = await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password,
+            email: emailValue.trim(),
+            password: passwordValue,
           });
           if (signInError) throw signInError;
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
+          email: emailValue.trim(),
+          password: passwordValue,
         });
         if (error) throw error;
       }
@@ -99,13 +108,14 @@ function AuthPage() {
   };
 
   const sendReset = async () => {
-    if (!email.trim()) {
+    const emailValue = currentEmail();
+    if (!emailValue.trim()) {
       toast.error("Enter your email");
       return;
     }
     setBusy(true);
     try {
-      await supabase.auth.resetPasswordForEmail(email.trim(), {
+      await supabase.auth.resetPasswordForEmail(emailValue.trim(), {
         redirectTo: "https://ourfamilycalendar.com/reset-password",
       });
     } catch {
@@ -147,12 +157,13 @@ function AuthPage() {
               <div className="space-y-1.5">
                 <Label htmlFor="reset-email">Email</Label>
                 <Input
+                  ref={emailRef}
                   id="reset-email"
                   name="email"
                   data-testid="reset-email"
                   type="email"
                   autoComplete="email"
-                  value={email}
+                  defaultValue={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="h-11 rounded-xl"
                 />
@@ -199,12 +210,13 @@ function AuthPage() {
           <div className="space-y-1.5">
             <Label htmlFor="auth-email">Email</Label>
             <Input
+              ref={emailRef}
               id="auth-email"
               name="email"
               data-testid="auth-email"
               type="email"
               autoComplete="email"
-              value={email}
+              defaultValue={email}
               onChange={(e) => setEmail(e.target.value)}
               className="h-11 rounded-xl"
             />
@@ -212,13 +224,14 @@ function AuthPage() {
           <div className="space-y-1.5">
             <Label htmlFor="auth-password">Password</Label>
             <Input
+              ref={passwordRef}
               id="auth-password"
               name="password"
               data-testid="auth-password"
               type="password"
               minLength={PASSWORD_MIN_LENGTH}
               autoComplete={mode === "signin" ? "current-password" : "new-password"}
-              value={password}
+              defaultValue={password}
               onChange={(e) => setPassword(e.target.value)}
               className="h-11 rounded-xl"
             />
