@@ -1,4 +1,4 @@
-import type { DragEvent } from "react";
+import type { DragEvent, Ref } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, format, isSameDay } from "date-fns";
 
@@ -153,7 +153,7 @@ export function WeekView({
    */
   dayWidth?: number | undefined;
   /** the horizontal scroll surface for day-strip mode */
-  scrollHostRef?: React.Ref<HTMLDivElement> | undefined;
+  scrollHostRef?: Ref<HTMLDivElement> | undefined;
 }) {
 
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
