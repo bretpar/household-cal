@@ -37,6 +37,7 @@ import {
   type SyncBranch,
 } from "@/lib/google/mapping";
 import { decryptConnectionKey } from "@/lib/google/crypto.server";
+import { normalizeTimeZone, timeZoneAction } from "@/lib/google/timezone";
 import * as google from "@/lib/google/api.server";
 import { GoogleAuthError } from "@/lib/google/api.server";
 import type { WeekdayCode } from "@/lib/family-data";
@@ -108,6 +109,7 @@ interface SourceRow {
   google_channel_resource_id: string | null;
   sync_status?: string;
   sync_failure_count?: number;
+  app_managed_calendar?: boolean;
 }
 
 interface EventRow {
@@ -186,7 +188,7 @@ async function googleSources(admin: Admin, familyId: string): Promise<SourceRow[
   const { data } = await admin
     .from("calendar_sources")
     .select(
-      "id, family_id, name, external_calendar_id, is_main, google_sync_token, google_channel_id, google_channel_resource_id, sync_status, sync_failure_count",
+      "id, family_id, name, external_calendar_id, is_main, google_sync_token, google_channel_id, google_channel_resource_id, sync_status, sync_failure_count, app_managed_calendar",
     )
     .eq("family_id", familyId)
     .eq("provider", "google")
@@ -967,6 +969,9 @@ export async function pullSource(
     // the local label, it never creates a new connection.
     const remote = await google.getCalendar(conn.connectionKey, source.external_calendar_id!);
     const renamed = calendarNameChange(source.name, remote.summary);
+    // Timezone housekeeping happens here so users never have to touch Google's
+    // own calendar settings after connecting.
+    const googleTimeZone = await reconcileSourceTimeZone(admin, conn, source, remote);
 
     const initials = await initialsFor(admin, source.family_id);
     const window = syncWindow(new Date(), initial);
@@ -988,6 +993,7 @@ export async function pullSource(
         google_sync_token: res.nextSyncToken ?? source.google_sync_token,
         last_synced_at: now,
         ...(renamed ? { name: renamed } : {}),
+        ...(googleTimeZone ? { google_time_zone: googleTimeZone } : {}),
         ...sourceSyncPatch({ outcome: "ok", failureCount: 0, now }),
       })
       .eq("id", source.id);
