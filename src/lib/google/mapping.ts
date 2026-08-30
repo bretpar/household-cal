@@ -144,12 +144,24 @@ function untilStamp(untilDay: string): string {
   return `${untilDay.replace(/-/g, "")}T235959Z`;
 }
 
+/**
+ * Timed series need DATE-TIME exclusions: Google ignores a date-only EXDATE
+ * against a timed DTSTART, so the occurrence keeps rendering. `timed` carries
+ * the series start instant and household zone used to rebuild each occurrence's
+ * local wall-clock time. All-day series keep date-only EXDATE.
+ */
+export interface TimedExdateContext {
+  startAt: string;
+  timeZone: string;
+}
+
 /** App rule + branch weekdays -> Google RRULE/EXDATE lines. */
 export function toGoogleRecurrence(
   rule: string | null,
   branchWeekdays: WeekdayCode[] | null,
   recurrenceUntil: string | null,
   excludedDates: string[] = [],
+  timed: TimedExdateContext | null = null,
 ): string[] | null {
   if (!rule) return null;
   const parts = rule
