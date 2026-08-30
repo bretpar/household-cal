@@ -403,6 +403,24 @@ export async function pushEvent(
     for (const branch of branches) {
       const body = branchBody(event, branch, initials, timeZone);
 
+      // Temporary diagnostic: verify DST Clean Test sends 09:00 + America/Los_Angeles
+      if (event.recurrence_rule && !event.all_day) {
+        const start = (body.start ?? {}) as GoogleDateTime;
+        const end = (body.end ?? {}) as GoogleDateTime;
+        console.log("[google-sync-diag] recurring timed push", {
+          action: link ? "PATCH" : "INSERT",
+          eventId,
+          googleEventId: link?.google_event_id ?? null,
+          calendarSourceId: target.id,
+          timeZone,
+          startDateTime: start.dateTime ?? null,
+          startTimeZone: start.timeZone ?? null,
+          endDateTime: end.dateTime ?? null,
+          endTimeZone: end.timeZone ?? null,
+          recurrence: body.recurrence ?? null,
+        });
+      }
+
       const link = links.find((l) => l.branch_key === branch.key);
       let saved: GoogleEvent;
 
