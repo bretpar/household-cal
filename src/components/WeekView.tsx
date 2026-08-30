@@ -186,10 +186,14 @@ export function WeekView({
     dayEndHour: DAY_END,
     snapMinutes: SNAP_MINUTES,
     resolveOccurrence: (key) => occurrenceByKey.get(key),
+    scrollContainerRef: scrollRef,
+    onDragStateChange: onEventDragChange,
     // Coverage is now an explicit small label zone, so every type shares one hold timing.
     onCreate: (start, end) => onCreateRange?.(start, end),
-    onMove: (occurrence, start) => openOccurrence(occurrence, { proposedStart: start }),
+    // Releasing commits the new time straight away (recurring events still ask scope).
+    onMove: (occurrence, start) => requestMove(occurrence, start),
   });
+
 
   const ghostTimes = ghost
     ? (() => {
