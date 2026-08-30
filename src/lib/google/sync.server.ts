@@ -1024,8 +1024,8 @@ export async function reconcileHousehold(
           sources,
           candidate.id,
         );
-        // still linked to at least one live Google event: leave it alone
-        if (pruned === 0 || remaining > 0) continue;
+        // nothing stale: every branch still points at a live Google event
+        if (pruned === 0) continue;
       }
       await pushEvent(admin, familyId, candidate.id);
       repaired += 1;
