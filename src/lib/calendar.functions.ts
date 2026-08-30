@@ -8,8 +8,10 @@ import {
   defaultEventSource,
   insertEvent,
   loadFamilyBundle,
+  pushTargetsForUpdate,
   resolveMembership,
   resolveWritableFamily,
+
   type Db,
   type FamilyBundle,
   type RecurrenceScope,
