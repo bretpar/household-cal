@@ -102,10 +102,26 @@ export async function getCalendar(
 export async function createCalendar(
   connectionAPIKey: string,
   summary: string,
+  timeZone?: string,
 ): Promise<GoogleCalendarSummary> {
   return call<GoogleCalendarSummary>(connectionAPIKey, "/calendar/v3/calendars", {
     method: "POST",
-    ...json({ summary }),
+    ...json(timeZone ? { summary, timeZone } : { summary }),
+  });
+}
+
+/**
+ * Aligns a calendar we own with the household IANA timezone. Callers must only
+ * use this for app-created/managed calendars.
+ */
+export async function setCalendarTimeZone(
+  connectionAPIKey: string,
+  calendarId: string,
+  timeZone: string,
+): Promise<void> {
+  await call(connectionAPIKey, `/calendar/v3/calendars/${encodeURIComponent(calendarId)}`, {
+    method: "PATCH",
+    ...json({ timeZone }),
   });
 }
 
