@@ -157,6 +157,7 @@ function AuthPage() {
               <div className="space-y-1.5">
                 <Label htmlFor="reset-email">Email</Label>
                 <Input
+                  ref={emailRef}
                   id="reset-email"
                   name="email"
                   data-testid="reset-email"
@@ -209,6 +210,7 @@ function AuthPage() {
           <div className="space-y-1.5">
             <Label htmlFor="auth-email">Email</Label>
             <Input
+              ref={emailRef}
               id="auth-email"
               name="email"
               data-testid="auth-email"
@@ -222,6 +224,7 @@ function AuthPage() {
           <div className="space-y-1.5">
             <Label htmlFor="auth-password">Password</Label>
             <Input
+              ref={passwordRef}
               id="auth-password"
               name="password"
               data-testid="auth-password"
