@@ -263,21 +263,38 @@ export function WeekView({
   const todayColumnIndex = columns.findIndex((day) => isSameDay(day, now));
   const nowTop = topFor(now);
 
+  // Day-strip mode: fixed-width day columns inside one horizontal scroll host.
+  const strip = dayWidth != null && dayWidth > 0;
+  const gridTemplate = strip
+    ? `3.25rem repeat(${days}, ${dayWidth}px)`
+    : `3.25rem repeat(${days}, minmax(0,1fr))`;
+  const trackWidth = strip ? 52 + days * dayWidth! : undefined;
+  const gutterClass = strip ? "sticky left-0 z-30 bg-surface" : "";
+
   return (
     <>
       {dialog}
       <div
+        ref={scrollHostRef}
         className={cn(
-          "calendar-gesture-surface overflow-hidden",
+          "calendar-gesture-surface",
+          strip
+            ? "overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            : "overflow-hidden",
           fill && "flex min-h-0 flex-1 flex-col",
           !bare && "rounded-3xl border border-border-soft bg-surface shadow-soft",
         )}
       >
         <div
-          className="grid shrink-0 border-b border-border-soft bg-surface-muted"
-          style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
+          className={cn(fill && "flex min-h-0 flex-1 flex-col", strip && "shrink-0")}
+          style={trackWidth ? { width: trackWidth } : undefined}
         >
-          <div />
+        <div
+          className="grid shrink-0 border-b border-border-soft bg-surface-muted"
+          style={{ gridTemplateColumns: gridTemplate }}
+        >
+          <div className={cn(gutterClass, strip && "bg-surface-muted")} />
+
           {columns.map((day) => (
             <div key={day.toISOString()} className="px-1 py-1 text-center">
               <p className="text-[10px] leading-none font-bold tracking-wide text-muted-foreground uppercase">
