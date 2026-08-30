@@ -382,13 +382,31 @@ export async function applyEventDelete(
   }
 
   if (scope === "this") {
-    const excluded = [...(existing.excluded_dates ?? []), occurrenceDay];
-    const { error: exError } = await db
-      .from("events")
-      .update({ excluded_dates: excluded })
-      .eq("id", eventId);
-    if (exError) throw exError;
-    return;
+    // Exclude exactly this occurrence from the recurring parent. The merge
+    // re-reads the parent and verifies the day landed: two quick
+    // "This event only" deletions used to race read–modify–write, and the
+    // later write clobbered the earlier one, silently un-deleting an
+    // occurrence. The includes() guard keeps repeated deletes idempotent.
+    let current = (existing.excluded_dates ?? []) as string[];
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (current.includes(occurrenceDay)) return;
+      const { error: exError } = await db
+        .from("events")
+        .update({ excluded_dates: [...current, occurrenceDay] })
+        .eq("id", eventId);
+      if (exError) throw exError;
+      const { data: check, error: readError } = await db
+        .from("events")
+        .select("excluded_dates")
+        .eq("id", eventId)
+        .single();
+      if (readError) throw readError;
+      current = (check?.excluded_dates ?? []) as string[];
+      if (current.includes(occurrenceDay)) return;
+      // A concurrent writer overwrote our append — merge against the fresh
+      // value and try again.
+    }
+    throw new Error("Could not persist the excluded occurrence date.");
   }
 
   const { error: untilError } = await db
