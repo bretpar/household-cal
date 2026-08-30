@@ -219,6 +219,25 @@ function combine(date: string, time: string) {
   return new Date(`${date}T${time || "00:00"}`).toISOString();
 }
 
+/**
+ * Whole-series edits must keep the parent series' original start date: the
+ * form prefills the clicked occurrence's date, and saving that verbatim would
+ * re-anchor (and effectively truncate) the series. Only a date the user
+ * explicitly changed (different from the occurrence's day) becomes the new
+ * series anchor. Times, title, etc. still come from the form.
+ */
+export function stateForSeriesScope(
+  state: EventFormState,
+  occurrence: Occurrence,
+): EventFormState {
+  if (!occurrence.event.recurrence_rule) return state;
+  const occurrenceDay = format(occurrence.start, "yyyy-MM-dd");
+  // A date different from the occurrence's own day is an explicit series-start change.
+  if (state.date !== occurrenceDay) return state;
+  const parentDay = format(new Date(occurrence.event.start_at), "yyyy-MM-dd");
+  return parentDay === occurrenceDay ? state : { ...state, date: parentDay };
+}
+
 function formattedPickerValue(type: "date" | "time", value: string): string {
   if (!value) return type === "date" ? "Choose date" : "Choose time";
   if (type === "date") {

@@ -18,6 +18,7 @@ import {
   EventFormFields,
   draftFromFormState,
   formStateFromOccurrence,
+  stateForSeriesScope,
   validateFormState,
   type EventFormState,
 } from "@/components/EventForm";
@@ -148,7 +149,16 @@ export function EventDetailsDialog() {
       busy,
       setBusy,
       perform: () =>
-        updateEvent(occurrence, draftFromFormState(state, event.calendar_source_id), scope),
+        updateEvent(
+          occurrence,
+          // Whole-series edits keep the parent's original start date; only an
+          // explicitly changed date re-anchors the series.
+          draftFromFormState(
+            scope === "series" ? stateForSeriesScope(state, occurrence) : state,
+            event.calendar_source_id,
+          ),
+          scope,
+        ),
       onSuccess: () => {
         toast.success(`${state.title.trim()} updated`);
         closeOccurrence();
