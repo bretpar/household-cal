@@ -24,11 +24,14 @@ export function usePeriodCarousel({
   sensitivity: _sensitivity = "month",
   onNavigate,
   rebaseKey,
+  isBlocked,
 }: {
   onCommit: (direction: 1 | -1) => void;
   sensitivity?: SwipeSensitivity;
   onNavigate?: () => void;
   rebaseKey: string | number;
+  /** While true (e.g. an event long-press drag), the pager never claims a gesture. */
+  isBlocked?: () => boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const busyRef = useRef(false);
