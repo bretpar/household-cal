@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { addDays, addMonths, format, startOfWeek } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -96,12 +96,21 @@ function CalendarPage() {
     requestAnimationFrame(() => periodRef.current?.focus({ preventScroll: true }));
   };
 
+  // While an event is being dragged by finger, the horizontal pager stands down.
+  const [eventDragging, setEventDragging] = useState(false);
+  const eventDraggingRef = useRef(false);
+  const handleEventDragChange = useCallback((dragging: boolean) => {
+    eventDraggingRef.current = dragging;
+    setEventDragging(dragging);
+  }, []);
+
   // Finger-following paging: the track moves with the drag and snaps on release.
   const carousel = usePeriodCarousel({
     sensitivity: mode,
     onNavigate: haptic,
     onCommit: (direction) => setAnchor((prev) => shift(prev, direction)),
     rebaseKey: `${mode}:${anchor.getTime()}:${weekDays}`,
+    isBlocked: () => eventDraggingRef.current,
   });
 
   const step = (direction: 1 | -1, { focus = false }: { focus?: boolean } = {}) => {
@@ -134,8 +143,6 @@ function CalendarPage() {
   const viewLabel = (v: ViewMode) =>
     v === "week" && isMobile ? "3 Day" : CALENDAR_VIEW_LABEL[v];
 
-  // While an event is being dragged by finger, the horizontal pager stands down.
-  const [eventDragging, setEventDragging] = useState(false);
 
   const syncTimelineScroll = (scrollTop: number, source: HTMLDivElement) => {
     carousel.containerRef.current
@@ -174,7 +181,7 @@ function CalendarPage() {
         fill={isMobile}
         active={active}
         onTimelineScroll={syncTimelineScroll}
-        onEventDragChange={setEventDragging}
+        onEventDragChange={handleEventDragChange}
       />
     ) : isMobile ? (
       // Phone day view: only the hourly timeline scrolls, the page stays put.
@@ -188,7 +195,7 @@ function CalendarPage() {
         fill
         active={active}
         onTimelineScroll={syncTimelineScroll}
-        onEventDragChange={setEventDragging}
+        onEventDragChange={handleEventDragChange}
       />
     ) : (
       <div>
@@ -201,7 +208,7 @@ function CalendarPage() {
           bare
           active={active}
           onTimelineScroll={syncTimelineScroll}
-          onEventDragChange={setEventDragging}
+          onEventDragChange={handleEventDragChange}
         />
         <div className="border-t border-border-soft p-4">
         <AgendaView
