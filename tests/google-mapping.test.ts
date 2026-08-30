@@ -525,3 +525,55 @@ describe("toGoogleRecurrence BYDAY preservation", () => {
     ]);
   });
 });
+
+describe("timed EXDATE encoding", () => {
+  // 7:30 AM America/Los_Angeles on 2026-09-07 (PDT, UTC-7)
+  const timed = { startAt: "2026-09-07T14:30:00.000Z", timeZone: "America/Los_Angeles" };
+
+  it("emits a timed EXDATE at the series local start time", () => {
+    const lines = toGoogleRecurrence(
+      "FREQ=WEEKLY;BYDAY=MO,WE,TH",
+      null,
+      null,
+      ["2026-09-09"],
+      timed,
+    );
+    expect(lines?.[0]).toBe("RRULE:FREQ=WEEKLY;BYDAY=MO,WE,TH");
+    expect(lines?.[1]).toBe("EXDATE;TZID=America/Los_Angeles:20260909T073000");
+  });
+
+  it("keeps every excluded date in the outbound payload", () => {
+    const lines = toGoogleRecurrence(
+      "FREQ=WEEKLY;BYDAY=MO,WE,TH",
+      null,
+      null,
+      ["2026-09-09", "2026-09-10", "2026-09-17", "2026-09-23", "2026-09-24"],
+      timed,
+    );
+    const exdate = lines?.find((l) => l.startsWith("EXDATE"))!;
+    for (const d of ["20260909", "20260910", "20260917", "20260923", "20260924"]) {
+      expect(exdate).toContain(`${d}T073000`);
+    }
+    expect(fromGoogleRecurrence(lines).excludedDates).toEqual([
+      "2026-09-09",
+      "2026-09-10",
+      "2026-09-17",
+      "2026-09-23",
+      "2026-09-24",
+    ]);
+  });
+
+  it("uses the local clock time and zone across the DST boundary", () => {
+    // series starts in PDT; excluded date falls after the Nov 1 2026 switch
+    const lines = toGoogleRecurrence("FREQ=WEEKLY;BYDAY=MO", null, null, ["2026-11-09"], {
+      startAt: "2026-10-26T16:00:00.000Z", // 9:00 AM PDT
+      timeZone: "America/Los_Angeles",
+    });
+    expect(lines?.[1]).toBe("EXDATE;TZID=America/Los_Angeles:20261109T090000");
+  });
+
+  it("keeps date-only exclusions for all-day recurrence", () => {
+    const lines = toGoogleRecurrence("FREQ=WEEKLY;BYDAY=MO", null, null, ["2026-09-09"], null);
+    expect(lines?.[1]).toBe("EXDATE;VALUE=DATE:20260909");
+  });
+});

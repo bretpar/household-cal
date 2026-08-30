@@ -144,12 +144,24 @@ function untilStamp(untilDay: string): string {
   return `${untilDay.replace(/-/g, "")}T235959Z`;
 }
 
+/**
+ * Timed series need DATE-TIME exclusions: Google ignores a date-only EXDATE
+ * against a timed DTSTART, so the occurrence keeps rendering. `timed` carries
+ * the series start instant and household zone used to rebuild each occurrence's
+ * local wall-clock time. All-day series keep date-only EXDATE.
+ */
+export interface TimedExdateContext {
+  startAt: string;
+  timeZone: string;
+}
+
 /** App rule + branch weekdays -> Google RRULE/EXDATE lines. */
 export function toGoogleRecurrence(
   rule: string | null,
   branchWeekdays: WeekdayCode[] | null,
   recurrenceUntil: string | null,
   excludedDates: string[] = [],
+  timed: TimedExdateContext | null = null,
 ): string[] | null {
   if (!rule) return null;
   const parts = rule
@@ -166,7 +178,15 @@ export function toGoogleRecurrence(
   if (recurrenceUntil) parts.push(`UNTIL=${untilStamp(recurrenceUntil)}`);
   const lines = [`RRULE:${parts.join(";")}`];
   if (excludedDates.length > 0) {
-    lines.push(`EXDATE;VALUE=DATE:${excludedDates.map((d) => d.replace(/-/g, "")).join(",")}`);
+    if (timed) {
+      // TZID-qualified local DATE-TIME: the excluded day at the series' local
+      // clock time, so DST shifts are handled by the zone itself.
+      const clock = localWallClock(timed.startAt, timed.timeZone).slice(11).replace(/:/g, "");
+      const values = excludedDates.map((d) => `${d.replace(/-/g, "")}T${clock}`).join(",");
+      lines.push(`EXDATE;TZID=${timed.timeZone}:${values}`);
+    } else {
+      lines.push(`EXDATE;VALUE=DATE:${excludedDates.map((d) => d.replace(/-/g, "")).join(",")}`);
+    }
   }
   return lines;
 }
