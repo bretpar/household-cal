@@ -124,6 +124,7 @@ export function WeekView({
   fill = false,
   active = true,
   onTimelineScroll,
+  onEventDragChange,
 }: {
   anchor: Date;
   events: CalendarEvent[];
@@ -139,10 +140,14 @@ export function WeekView({
   active?: boolean;
   /** keeps pre-rendered neighbouring timelines at the same vertical position */
   onTimelineScroll?: ((scrollTop: number, source: HTMLDivElement) => void) | undefined;
+  /** true while a long-pressed event is being dragged, so the pager stands down */
+  onEventDragChange?: ((dragging: boolean) => void) | undefined;
 }) {
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
-  const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
+  const { dragProps, dropProps, draggingKey, requestMove, dialog } = useReschedule();
   const isMobile = useIsMobile();
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
   const sourceName = (id: string | null) => sources.find((s) => s.id === id)?.name ?? "Coverage";
   /** Childcare joins the soft care-coverage layer instead of competing as a card. */
   const isCareLayer = (o: Occurrence) =>
