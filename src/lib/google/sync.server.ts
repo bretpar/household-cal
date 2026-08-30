@@ -402,6 +402,7 @@ export async function pushEvent(
     let pushed = 0;
     for (const branch of branches) {
       const body = branchBody(event, branch, initials, timeZone);
+      const link = links.find((l) => l.branch_key === branch.key);
 
       // Temporary diagnostic: verify DST Clean Test sends 09:00 + America/Los_Angeles
       if (event.recurrence_rule && !event.all_day) {
@@ -420,8 +421,6 @@ export async function pushEvent(
           recurrence: body.recurrence ?? null,
         });
       }
-
-      const link = links.find((l) => l.branch_key === branch.key);
       let saved: GoogleEvent;
 
       if (link) {
