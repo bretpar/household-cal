@@ -81,12 +81,18 @@ function CalendarPage() {
   // phones so each column is wide enough to read.
   const weekDays = isMobile ? 3 : 7;
 
+  // Mobile Day / 3-Day is a continuous single-day strip: arrows and swipes both
+  // advance exactly one day, matching the day-column snapping.
+  const useDayStripLayout = isMobile && mode !== "month";
+
   // Arrows / swipes advance exactly one unit of the current view.
   const shift = (from: Date, direction: number) => {
     if (mode === "month") return addMonths(from, direction);
+    if (useDayStripLayout) return addDays(from, direction);
     if (mode === "week") return addDays(from, weekDays * direction);
     return addDays(from, direction);
   };
+
 
   // Subtle tap on any period change; focus returns to the period region so
   // keyboard and screen-reader users land on the newly active date range.
