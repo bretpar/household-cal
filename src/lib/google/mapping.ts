@@ -178,7 +178,15 @@ export function toGoogleRecurrence(
   if (recurrenceUntil) parts.push(`UNTIL=${untilStamp(recurrenceUntil)}`);
   const lines = [`RRULE:${parts.join(";")}`];
   if (excludedDates.length > 0) {
-    lines.push(`EXDATE;VALUE=DATE:${excludedDates.map((d) => d.replace(/-/g, "")).join(",")}`);
+    if (timed) {
+      // TZID-qualified local DATE-TIME: the excluded day at the series' local
+      // clock time, so DST shifts are handled by the zone itself.
+      const clock = localWallClock(timed.startAt, timed.timeZone).slice(11).replace(/:/g, "");
+      const values = excludedDates.map((d) => `${d.replace(/-/g, "")}T${clock}`).join(",");
+      lines.push(`EXDATE;TZID=${timed.timeZone}:${values}`);
+    } else {
+      lines.push(`EXDATE;VALUE=DATE:${excludedDates.map((d) => d.replace(/-/g, "")).join(",")}`);
+    }
   }
   return lines;
 }
