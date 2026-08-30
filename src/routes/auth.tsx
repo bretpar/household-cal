@@ -41,6 +41,13 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  // Read live DOM values at submit so autofill/password managers are honored
+  // even if no change event reached React.
+  const currentEmail = () => emailRef.current?.value ?? email;
+  const currentPassword = () => passwordRef.current?.value ?? password;
+
 
 
   useEffect(() => {
@@ -57,7 +64,9 @@ function AuthPage() {
   }, [navigate, redirect]);
 
   const submit = async () => {
-    if (!email.trim() || !password) {
+    const emailValue = currentEmail();
+    const passwordValue = currentPassword();
+    if (!emailValue.trim() || !passwordValue) {
       toast.error("Enter your email and password");
       return;
     }
