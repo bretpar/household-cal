@@ -352,12 +352,11 @@ export function EmailSummarySettings() {
                 onClick={() =>
                   setRecipientDraft({
                     schedule_id: schedule.id,
-                    name: "",
-                    email: "",
-                    family_member_id: null,
+                    user_id: null,
                     calendar_source_ids: [],
                     weekdays: [],
                   })
+
                 }
               >
                 <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Add recipient
