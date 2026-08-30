@@ -374,6 +374,7 @@ function branchBody(
     branch.weekdays,
     event.recurrence_until,
     event.excluded_dates ?? [],
+    event.all_day ? null : { startAt: anchored.startAt, timeZone },
   );
   return {
     summary: googleTitle(event.title, branchInitials(branch, initials)),
