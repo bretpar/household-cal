@@ -451,7 +451,7 @@ export function EmailSummarySettings() {
         open={recipientDraft !== null}
         onOpenChange={(open) => !open && setRecipientDraft(null)}
       >
-        <DialogContent className="max-sm:max-h-[calc(100dvh-2.5rem)]">
+        <DialogContent>
           <DialogHeader className="shrink-0">
             <DialogTitle>{recipientDraft?.id ? "Edit recipient" : "Add recipient"}</DialogTitle>
             <DialogDescription>
