@@ -102,6 +102,7 @@ export function DayStripView({
           days={totalDays}
           dayWidth={columnWidth}
           scrollHostRef={hostRef}
+          scaleDays={visibleDays}
           onCreateRange={onCreateRange}
           onEventDragChange={onEventDragChange}
           recenterSignal={recenterSignal}
