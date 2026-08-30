@@ -130,6 +130,18 @@ export function usePeriodCarousel({
       node.style.scrollSnapType = "";
     };
 
+    // iOS Safari ignores programmatic scrollLeft writes while a touch gesture
+    // is active, so the track would stay pinned until release. We still write
+    // scrollLeft (Chromium honors it and it drives the settle math), then
+    // compensate any shortfall with a transform on the page children so the
+    // visible content tracks the finger 1:1 on every engine.
+    const clearDragShift = () => {
+      lastIntended.current = null;
+      for (const child of Array.from(node.children) as HTMLElement[]) {
+        if (child.style.transform) child.style.transform = "";
+      }
+    };
+
     const onTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
       if (!touch || isBlockedRef.current?.()) {
