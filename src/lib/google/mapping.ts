@@ -156,7 +156,13 @@ export function toGoogleRecurrence(
     .split(";")
     .map((p) => p.trim())
     .filter((p) => p && !/^BYDAY=/i.test(p) && !/^UNTIL=/i.test(p));
-  if (branchWeekdays && branchWeekdays.length > 0) parts.push(`BYDAY=${branchWeekdays.join(",")}`);
+  // Branch-specific weekdays override the stored BYDAY; otherwise preserve it.
+  if (branchWeekdays && branchWeekdays.length > 0) {
+    parts.push(`BYDAY=${branchWeekdays.join(",")}`);
+  } else {
+    const storedByday = rule.split(";").map((p) => p.trim()).find((p) => /^BYDAY=/i.test(p));
+    if (storedByday) parts.push(storedByday);
+  }
   if (recurrenceUntil) parts.push(`UNTIL=${untilStamp(recurrenceUntil)}`);
   const lines = [`RRULE:${parts.join(";")}`];
   if (excludedDates.length > 0) {
