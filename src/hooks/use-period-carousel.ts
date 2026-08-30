@@ -38,6 +38,10 @@ export function usePeriodCarousel({
   const pendingRebase = useRef(false);
   const suppressScroll = useRef(false);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** While a finger drag owns the horizontal axis, scroll-settle must not run. */
+  const draggingX = useRef(false);
+  /** Last finger-following scroll position, for engines that defer the write. */
+  const lastIntended = useRef<number | null>(null);
   const [busy, setBusy] = useState(false);
 
   const commitRef = useRef(onCommit);
@@ -90,7 +94,7 @@ export function usePeriodCarousel({
     centerWithoutAnimation();
 
     const scheduleSettle = () => {
-      if (suppressScroll.current || pendingRebase.current) return;
+      if (suppressScroll.current || pendingRebase.current || draggingX.current) return;
       busyRef.current = true;
       setBusy(true);
       clearSettleTimer();
