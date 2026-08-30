@@ -441,7 +441,9 @@ export async function pushEvent(
           google_updated_at: saved.updated ?? null,
           last_source: "app",
           last_pushed_at: new Date().toISOString(),
+          app_version: SYNC_BODY_VERSION,
           sync_error: null,
+
         },
         { onConflict: "event_id,branch_key" },
       );
