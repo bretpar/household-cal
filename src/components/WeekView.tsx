@@ -274,25 +274,40 @@ export function WeekView({
     : `3.25rem repeat(${days}, minmax(0,1fr))`;
   const trackWidth = strip ? 52 + days * dayWidth! : undefined;
   const gutterClass = strip ? "sticky left-0 z-30 bg-surface" : "";
+  // In strip mode a single element scrolls both axes, so the sticky hour gutter
+  // and sticky day headers stay pinned to the viewport instead of the wide track.
+  const setStripHost = (node: HTMLDivElement | null) => {
+    scrollRef.current = strip ? node : scrollRef.current;
+    if (typeof scrollHostRef === "function") scrollHostRef(node);
+    else if (scrollHostRef && typeof scrollHostRef === "object")
+      (scrollHostRef as { current: HTMLDivElement | null }).current = node;
+  };
+  const trackScroll = (event: { currentTarget: HTMLDivElement }) => {
+    didAutoPosition.current = true;
+    onTimelineScroll?.(event.currentTarget.scrollTop, event.currentTarget);
+  };
 
   return (
     <>
       {dialog}
       <div
-        ref={scrollHostRef}
+        ref={strip ? setStripHost : scrollHostRef}
+        onScroll={strip ? trackScroll : undefined}
+        style={strip ? { touchAction: dragging ? "none" : "pan-y" } : undefined}
         className={cn(
           "calendar-gesture-surface",
           strip
-            ? "overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            ? "min-h-0 flex-1 overflow-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             : "overflow-hidden",
           fill && "flex min-h-0 flex-1 flex-col",
           !bare && "rounded-3xl border border-border-soft bg-surface shadow-soft",
         )}
       >
         <div
-          className={cn(fill && "flex min-h-0 flex-1 flex-col", strip && "shrink-0")}
+          className={cn(!strip && fill && "flex min-h-0 flex-1 flex-col")}
           style={trackWidth ? { width: trackWidth } : undefined}
         >
+        <div className={cn(strip && "sticky top-0 z-40 bg-surface")}>
         <div
           className="grid shrink-0 border-b border-border-soft bg-surface-muted"
           style={{ gridTemplateColumns: gridTemplate }}
@@ -371,23 +386,23 @@ export function WeekView({
             );
           })}
         </div>
+        </div>
 
         <div
-          ref={scrollRef}
-          data-calendar-timeline
-          onScroll={(event) => {
-            // Any scroll (manual or synced from a neighbouring timeline) means
-            // this timeline's position is established — don't auto-position later.
-            didAutoPosition.current = true;
-            onTimelineScroll?.(event.currentTarget.scrollTop, event.currentTarget);
-          }}
+          ref={strip ? undefined : scrollRef}
+          data-calendar-timeline={strip ? undefined : ""}
+          onScroll={strip ? undefined : trackScroll}
           className={cn(
-            "overflow-y-auto overflow-x-hidden overscroll-y-contain",
-            fill ? "min-h-0 flex-1" : "max-h-[70vh]",
+            strip
+              ? "relative"
+              : cn(
+                  "overflow-y-auto overflow-x-hidden overscroll-y-contain",
+                  fill ? "min-h-0 flex-1" : "max-h-[70vh]",
+                ),
           )}
           // Vertical panning belongs to this timeline; horizontal panning must
           // reach the period carousel instead of being swallowed here.
-          style={{ touchAction: dragging ? "none" : "pan-y" }}
+          style={strip ? undefined : { touchAction: dragging ? "none" : "pan-y" }}
 
         >
           <div
