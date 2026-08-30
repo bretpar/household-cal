@@ -376,6 +376,37 @@ function CalendarPage() {
           {label}
         </p>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft md:block">
+        {useDayStripLayout ? (
+          <div
+            ref={periodRef}
+            tabIndex={-1}
+            role="group"
+            aria-label={`${viewLabel(mode)} view: ${label}`}
+            className="flex min-h-0 flex-1 flex-col outline-none"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                step(-1, { focus: true });
+              } else if (e.key === "ArrowRight") {
+                e.preventDefault();
+                step(1, { focus: true });
+              }
+            }}
+          >
+            <DayStripView
+              anchor={anchor}
+              onAnchorChange={setAnchor}
+              visibleDays={mode === "week" ? weekDays : 1}
+              events={visibleEvents}
+              selectedMembers={selectedMembers}
+              onCreateRange={onCreateRange}
+              onEventDragChange={handleEventDragChange}
+              onNavigate={haptic}
+              recenterSignal={todaySignal}
+              isBlocked={() => eventDraggingRef.current}
+            />
+          </div>
+        ) : (
         <div
           ref={carousel.containerRef}
           className={cn(
@@ -384,6 +415,7 @@ function CalendarPage() {
             eventDragging ? "touch-none overflow-x-hidden" : "overflow-x-auto",
           )}
         >
+
           <div
             aria-hidden
             className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col overflow-hidden md:block"
