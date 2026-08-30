@@ -95,7 +95,10 @@ export function AppShell({
           <LegalFooter />
         </div>
       ) : (
-        <LegalFooter />
+        // Padding clears the fixed phone bottom nav (h-14 + 0.75rem + safe-area).
+        <div className="pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:pb-0">
+          <LegalFooter />
+        </div>
       )}
 
 
