@@ -8,8 +8,10 @@ import {
   defaultEventSource,
   insertEvent,
   loadFamilyBundle,
+  pushTargetsForUpdate,
   resolveMembership,
   resolveWritableFamily,
+
   type Db,
   type FamilyBundle,
   type RecurrenceScope,
@@ -85,13 +87,22 @@ export const updateEventFn = createServerFn({ method: "POST" })
       await db.from("events").update({ needs_family_assignment: false }).eq("id", data.event_id);
     }
     const { pushToGoogle } = await import("@/lib/google/push.server");
-    await Promise.race([
-      (async () => {
-        await pushToGoogle(familyId, data.event_id);
-        if (created && created !== data.event_id) await pushToGoogle(familyId, created);
-      })(),
-      new Promise<void>((resolve) => setTimeout(resolve, 2500)),
-    ]);
+    // A "This event only" time edit touches two rows: the recurring parent
+    // (gains an EXDATE) and the detached one-off replacement. Push them in
+    // parallel with independent budgets — running them in sequence inside one
+    // shared 2.5s race meant the parent's push consumed the whole budget and
+    // the detached one-off never reached Google (no event_sync_links row).
+    // pushToGoogle is link-keyed, so a retried operation patches instead of
+    // creating a duplicate.
+    await Promise.all(
+      pushTargetsForUpdate(data.event_id, created).map((id) =>
+        Promise.race([
+          pushToGoogle(familyId, id),
+          new Promise<void>((resolve) => setTimeout(resolve, 2500)),
+        ]),
+      ),
+    );
+
     return { ok: true };
   });
 
