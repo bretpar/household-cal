@@ -197,9 +197,11 @@ function linkRow(overrides: Row = {}): Row {
     calendar_source_id: SOURCE,
     google_event_id: "g-live",
     branch_key: "",
+    app_version: 2,
     ...overrides,
   };
 }
+
 
 beforeEach(() => {
   googleState.reset();
