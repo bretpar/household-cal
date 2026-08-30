@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { addDays, addMonths, format, startOfWeek } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
