@@ -150,6 +150,94 @@ async function googleSources(admin: Admin, familyId: string): Promise<SourceRow[
   return (data ?? []) as SourceRow[];
 }
 
+/**
+ * True when a link still points at an eligible active Google source *and* a
+ * Google event that still exists.
+ *
+ * An unknown/transient answer counts as usable on purpose: keeping a link is
+ * always safer than dropping it, because dropping it lets the push path create a
+ * second copy of an event that was actually still there.
+ */
+async function linkIsUsable(
+  conn: ConnectionContext,
+  sources: SourceRow[],
+  link: { calendar_source_id: string; google_event_id: string },
+): Promise<boolean> {
+  const source = sources.find((s) => s.id === link.calendar_source_id);
+  if (!source?.external_calendar_id) return false;
+  try {
+    const state = await google.getEventState(
+      conn.connectionKey,
+      source.external_calendar_id,
+      link.google_event_id,
+    );
+    return state !== "missing";
+  } catch (error) {
+    if (error instanceof GoogleAuthError) throw error;
+    console.error("[google-sync] link verification failed", link.google_event_id, error);
+    return true;
+  }
+}
+
+/**
+ * Removes the links of one event whose calendar or Google event is gone, so the
+ * normal push path can recreate it in the currently eligible target calendar.
+ * Valid links are left untouched.
+ */
+async function pruneStaleLinks(
+  admin: Admin,
+  conn: ConnectionContext,
+  familyId: string,
+  sources: SourceRow[],
+  eventId: string,
+): Promise<{ remaining: number; pruned: number }> {
+  const { data } = await admin
+    .from("event_sync_links")
+    .select("id, calendar_source_id, google_event_id")
+    .eq("family_id", familyId)
+    .eq("event_id", eventId);
+  const links = (data ?? []) as {
+    id: string;
+    calendar_source_id: string;
+    google_event_id: string;
+  }[];
+  let remaining = 0;
+  let pruned = 0;
+  for (const link of links) {
+    if (await linkIsUsable(conn, sources, link)) {
+      remaining += 1;
+      continue;
+    }
+    await admin.from("event_sync_links").delete().eq("id", link.id);
+    pruned += 1;
+  }
+  return { remaining, pruned };
+}
+
+/**
+ * Leaves a breadcrumb when a push did not reach Google, so a silently unsynced
+ * event is visible instead of invisible. Never throws: diagnostics must not
+ * affect the local save.
+ */
+async function recordPushDiagnostic(
+  admin: Admin,
+  familyId: string,
+  eventId: string,
+  reason: string,
+): Promise<void> {
+  console.warn("[google-sync] push not completed", eventId, reason);
+  try {
+    await admin
+      .from("event_sync_links")
+      .update({ sync_error: reason.slice(0, 500) })
+      .eq("family_id", familyId)
+      .eq("event_id", eventId);
+  } catch (error) {
+    console.error("[google-sync] diagnostic write failed", error);
+  }
+}
+
+
 /** Wraps sync work so an expired/revoked Google grant degrades gracefully. */
 async function guard<T>(
   admin: Admin,
