@@ -16,8 +16,9 @@ export interface EmailSelectableSource {
 export function isEmailSelectableCalendar(source: EmailSelectableSource | null | undefined): boolean {
   if (!source) return false;
   if (source.active !== true) return false;
-  if (source.display_mode === "coverage_background") return false;
+  // display_mode controls calendar rendering only — never email eligibility.
   return source.selectable_in_email === true;
+
 }
 
 export function emailSelectableCalendars<T extends EmailSelectableSource>(sources: T[]): T[] {

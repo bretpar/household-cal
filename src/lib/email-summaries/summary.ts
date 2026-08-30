@@ -134,13 +134,17 @@ export function eventsForSelection(
 ): SummaryEvent[] {
   const allowed = new Set(selection.sourceIds);
   return events.filter((event) => {
-    if (event.display_mode === "coverage_background") return false;
-    if (allowed.size === 0) return true;
-    if (event.calendar_source_id) return allowed.has(event.calendar_source_id);
-    // events stored without a calendar belong to the household's main calendar
-    return selection.mainSourceId ? allowed.has(selection.mainSourceId) : false;
+    if (allowed.size > 0) {
+      // An explicitly selected calendar is included whatever its display style.
+      if (event.calendar_source_id) return allowed.has(event.calendar_source_id);
+      // events stored without a calendar belong to the household's main calendar
+      return selection.mainSourceId ? allowed.has(selection.mainSourceId) : false;
+    }
+    // No explicit selection: keep the previous default of skipping coverage layers.
+    return event.display_mode !== "coverage_background";
   });
 }
+
 
 function clockLabel(hour: number, minute: number): string {
   const h = ((hour % 24) + 24) % 24;
