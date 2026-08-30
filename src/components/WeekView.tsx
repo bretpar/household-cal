@@ -388,9 +388,10 @@ export function WeekView({
         >
           <div
             className="relative grid"
-            style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
+            style={{ gridTemplateColumns: gridTemplate }}
           >
-            <div className="relative">
+            <div className={cn("relative", gutterClass)}>
+
               {hours.map((hour) => (
                 <div
                   key={hour}
