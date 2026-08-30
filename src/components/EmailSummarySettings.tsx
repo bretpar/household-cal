@@ -115,6 +115,10 @@ export function EmailSummarySettings() {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: SUMMARY_KEY });
   const selectableSources = emailSelectableCalendars(sources as never[]) as typeof sources;
+  const householdUsers = data?.household_users ?? [];
+  const selectedPerson =
+    householdUsers.find((p) => p.user_id === recipientDraft?.user_id) ?? null;
+
 
   if (!isOwner) return null;
 
