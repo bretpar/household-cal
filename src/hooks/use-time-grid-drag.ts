@@ -45,15 +45,15 @@ interface Options {
    * The scrolling timeline. Used for edge auto-scroll while dragging so an
    * event can be moved beyond the currently visible hours.
    */
-  scrollContainerRef?: RefObject<HTMLElement | null>;
+  scrollContainerRef?: RefObject<HTMLElement | null> | undefined;
   /** Notifies the calendar shell so it can stand down its own gestures. */
-  onDragStateChange?: (dragging: boolean) => void;
+  onDragStateChange?: ((dragging: boolean) => void) | undefined;
   /**
    * Identifies coverage/childcare occurrences whose bands are large touch
    * surfaces. Presses starting on these use a longer hold threshold so quick
    * taps reliably open the event instead of entering move/drag mode.
    */
-  isCoverageLayer?: (occurrence: Occurrence) => boolean;
+  isCoverageLayer?: ((occurrence: Occurrence) => boolean) | undefined;
   onCreate: (start: Date, end: Date) => void;
   onMove: (occurrence: Occurrence, start: Date) => void;
 }
