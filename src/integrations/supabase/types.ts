@@ -97,6 +97,7 @@ export type Database = {
       calendar_sources: {
         Row: {
           active: boolean
+          app_managed_calendar: boolean
           created_at: string
           display_mode: Database["public"]["Enums"]["calendar_display_mode"]
           external_calendar_id: string | null
@@ -105,6 +106,7 @@ export type Database = {
           google_channel_id: string | null
           google_channel_resource_id: string | null
           google_sync_token: string | null
+          google_time_zone: string | null
           id: string
           is_main: boolean
           last_synced_at: string | null
@@ -120,6 +122,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          app_managed_calendar?: boolean
           created_at?: string
           display_mode?: Database["public"]["Enums"]["calendar_display_mode"]
           external_calendar_id?: string | null
@@ -128,6 +131,7 @@ export type Database = {
           google_channel_id?: string | null
           google_channel_resource_id?: string | null
           google_sync_token?: string | null
+          google_time_zone?: string | null
           id?: string
           is_main?: boolean
           last_synced_at?: string | null
@@ -143,6 +147,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          app_managed_calendar?: boolean
           created_at?: string
           display_mode?: Database["public"]["Enums"]["calendar_display_mode"]
           external_calendar_id?: string | null
@@ -151,6 +156,7 @@ export type Database = {
           google_channel_id?: string | null
           google_channel_resource_id?: string | null
           google_sync_token?: string | null
+          google_time_zone?: string | null
           id?: string
           is_main?: boolean
           last_synced_at?: string | null
