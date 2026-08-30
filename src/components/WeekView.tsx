@@ -314,12 +314,18 @@ export function WeekView({
 
         {/* all-day row */}
         <div
-          className="grid shrink-0 border-b border-border-soft"
-          style={{ gridTemplateColumns: `3.25rem repeat(${days}, minmax(0,1fr))` }}
+          className="grid shrink-0 border-b border-border-soft bg-surface"
+          style={{ gridTemplateColumns: gridTemplate }}
         >
-          <div className="py-1.5 pr-1 text-right text-[10px] font-semibold text-muted-foreground">
+          <div
+            className={cn(
+              "py-1.5 pr-1 text-right text-[10px] font-semibold text-muted-foreground",
+              gutterClass,
+            )}
+          >
             Day
           </div>
+
           {columns.map((day) => {
             const allDay = occurrences.filter(
               (o) =>
