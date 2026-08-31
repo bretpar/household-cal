@@ -30,9 +30,23 @@ export async function authenticateSchedulerRequest(request: Request): Promise<Re
       const { data, error } = await supabaseAdmin.rpc("verify_scheduler_token" as never, {
         _token: token,
       } as never);
+
+      // Valid Vault-backed scheduler token.
       if (!error && data === true) return null;
+
+      // Token was rejected by the Vault verifier; this is a genuine auth failure.
+      if (!error && data === false) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      // Vault RPC returned an error. Do not treat this as an invalid token
+      // and do not fall through to the legacy cron-secret fallback.
+      console.error("[scheduler-auth] Vault scheduler token verification failed");
+      return new Response("Scheduler authentication unavailable", { status: 500 });
     } catch {
-      // Fall through to the platform cron secret below.
+      // Network/config or other unexpected failure during Vault verification.
+      console.error("[scheduler-auth] Vault scheduler token verification threw");
+      return new Response("Scheduler authentication unavailable", { status: 500 });
     }
   }
 
