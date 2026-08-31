@@ -16,18 +16,9 @@ export const Route = createFileRoute("/api/public/email-summaries/dispatch")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const schedulerToken = process.env["GOOGLE_SYNC_SCHEDULER_TOKEN"];
-        const bearer = /^Bearer ([^\s,]+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
-        let authorized = false;
-        if (schedulerToken && bearer) {
-          const { createHash, timingSafeEqual } = await import("node:crypto");
-          const digest = (value: string) => createHash("sha256").update(value, "utf8").digest();
-          authorized = timingSafeEqual(digest(bearer), digest(schedulerToken));
-        }
-        if (!authorized) {
-          const denied = await authenticateCronRequest(request);
-          if (denied) return denied;
-        }
+        const denied = await authenticateSchedulerRequest(request);
+        if (denied) return denied;
+
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { dispatchDueSummaries } = await import("@/lib/email-summaries/dispatch.server");
