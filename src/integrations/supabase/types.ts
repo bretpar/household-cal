@@ -988,6 +988,7 @@ export type Database = {
       }
       has_family_access: { Args: { _family_id: string }; Returns: boolean }
       is_family_owner: { Args: { _family_id: string }; Returns: boolean }
+      verify_scheduler_token: { Args: { _token: string }; Returns: boolean }
     }
     Enums: {
       calendar_display_mode: "events" | "coverage_background"
