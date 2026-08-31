@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { authenticateSchedulerRequest } from "@/lib/scheduler-auth.server";
+import { runScheduledJob } from "@/lib/scheduler-auth.server";
 
 /**
  * Scheduled sender for email summaries.
@@ -15,16 +15,12 @@ import { authenticateSchedulerRequest } from "@/lib/scheduler-auth.server";
 export const Route = createFileRoute("/api/public/email-summaries/dispatch")({
   server: {
     handlers: {
-      POST: async ({ request }) => {
-        const denied = await authenticateSchedulerRequest(request);
-        if (denied) return denied;
-
-
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { dispatchDueSummaries } = await import("@/lib/email-summaries/dispatch.server");
-        const result = await dispatchDueSummaries(supabaseAdmin, new Date());
-        return Response.json(result);
-      },
+      POST: async ({ request }) =>
+        runScheduledJob("email-summaries-dispatch", request, async () => {
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { dispatchDueSummaries } = await import("@/lib/email-summaries/dispatch.server");
+          return dispatchDueSummaries(supabaseAdmin, new Date());
+        }),
     },
   },
 });

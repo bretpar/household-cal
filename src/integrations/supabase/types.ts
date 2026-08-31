@@ -952,6 +952,48 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduler_credentials: {
+        Row: {
+          name: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          name: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      scheduler_runs: {
+        Row: {
+          detail: string | null
+          id: string
+          job_name: string
+          ran_at: string
+          status: string
+        }
+        Insert: {
+          detail?: string | null
+          id?: string
+          job_name: string
+          ran_at?: string
+          status: string
+        }
+        Update: {
+          detail?: string | null
+          id?: string
+          job_name?: string
+          ran_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       user_preferences: {
         Row: {
           created_at: string
@@ -988,7 +1030,6 @@ export type Database = {
       }
       has_family_access: { Args: { _family_id: string }; Returns: boolean }
       is_family_owner: { Args: { _family_id: string }; Returns: boolean }
-      verify_scheduler_token: { Args: { _token: string }; Returns: boolean }
     }
     Enums: {
       calendar_display_mode: "events" | "coverage_background"
