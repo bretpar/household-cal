@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
+import { authenticateSchedulerRequest } from "@/lib/scheduler-auth.server";
 
 /**
  * Periodic reconciliation safety net.
