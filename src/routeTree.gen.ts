@@ -24,6 +24,7 @@ import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as UnsubscribeTokenRouteImport } from './routes/unsubscribe.$token'
 import { Route as OauthGoogleCalendarReturnRouteImport } from './routes/oauth/google-calendar/return'
+import { Route as ApiPublicDebugSupabaseProjectRouteImport } from './routes/api/public/debug/supabase-project'
 import { Route as ApiPublicEmailSummariesDispatchRouteImport } from './routes/api/public/email-summaries/dispatch'
 import { Route as ApiPublicGoogleCalendarNotifyRouteImport } from './routes/api/public/google-calendar/notify'
 import { Route as ApiPublicGoogleCalendarReconcileRouteImport } from './routes/api/public/google-calendar/reconcile'
@@ -105,6 +106,12 @@ const OauthGoogleCalendarReturnRoute =
     path: '/oauth/google-calendar/return',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicDebugSupabaseProjectRoute =
+  ApiPublicDebugSupabaseProjectRouteImport.update({
+    id: '/api/public/debug/supabase-project',
+    path: '/api/public/debug/supabase-project',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicEmailSummariesDispatchRoute =
   ApiPublicEmailSummariesDispatchRouteImport.update({
     id: '/api/public/email-summaries/dispatch',
@@ -145,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/api/public/debug/supabase-project': typeof ApiPublicDebugSupabaseProjectRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
   '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
@@ -165,6 +173,7 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/api/public/debug/supabase-project': typeof ApiPublicDebugSupabaseProjectRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
   '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
@@ -187,6 +196,7 @@ export interface FileRoutesById {
   '/invite/$token': typeof InviteTokenRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/api/public/debug/supabase-project': typeof ApiPublicDebugSupabaseProjectRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
   '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
@@ -209,6 +219,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/unsubscribe/$token'
     | '/oauth/google-calendar/return'
+    | '/api/public/debug/supabase-project'
     | '/api/public/email-summaries/dispatch'
     | '/api/public/google-calendar/notify'
     | '/api/public/google-calendar/reconcile'
@@ -229,6 +240,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/unsubscribe/$token'
     | '/oauth/google-calendar/return'
+    | '/api/public/debug/supabase-project'
     | '/api/public/email-summaries/dispatch'
     | '/api/public/google-calendar/notify'
     | '/api/public/google-calendar/reconcile'
@@ -250,6 +262,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/unsubscribe/$token'
     | '/oauth/google-calendar/return'
+    | '/api/public/debug/supabase-project'
     | '/api/public/email-summaries/dispatch'
     | '/api/public/google-calendar/notify'
     | '/api/public/google-calendar/reconcile'
@@ -266,6 +279,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   UnsubscribeTokenRoute: typeof UnsubscribeTokenRoute
   OauthGoogleCalendarReturnRoute: typeof OauthGoogleCalendarReturnRoute
+  ApiPublicDebugSupabaseProjectRoute: typeof ApiPublicDebugSupabaseProjectRoute
   ApiPublicEmailSummariesDispatchRoute: typeof ApiPublicEmailSummariesDispatchRoute
   ApiPublicGoogleCalendarNotifyRoute: typeof ApiPublicGoogleCalendarNotifyRoute
   ApiPublicGoogleCalendarReconcileRoute: typeof ApiPublicGoogleCalendarReconcileRoute
@@ -379,6 +393,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OauthGoogleCalendarReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/debug/supabase-project': {
+      id: '/api/public/debug/supabase-project'
+      path: '/api/public/debug/supabase-project'
+      fullPath: '/api/public/debug/supabase-project'
+      preLoaderRoute: typeof ApiPublicDebugSupabaseProjectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/email-summaries/dispatch': {
       id: '/api/public/email-summaries/dispatch'
       path: '/api/public/email-summaries/dispatch'
@@ -441,6 +462,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   UnsubscribeTokenRoute: UnsubscribeTokenRoute,
   OauthGoogleCalendarReturnRoute: OauthGoogleCalendarReturnRoute,
+  ApiPublicDebugSupabaseProjectRoute: ApiPublicDebugSupabaseProjectRoute,
   ApiPublicEmailSummariesDispatchRoute: ApiPublicEmailSummariesDispatchRoute,
   ApiPublicGoogleCalendarNotifyRoute: ApiPublicGoogleCalendarNotifyRoute,
   ApiPublicGoogleCalendarReconcileRoute: ApiPublicGoogleCalendarReconcileRoute,
