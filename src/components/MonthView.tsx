@@ -160,6 +160,9 @@ export function MonthView({
               role="button"
               tabIndex={0}
               aria-label={format(day, "EEEE, MMMM d")}
+              {...(rowContainsFirst
+                ? { "data-month-start": format(month, "yyyy-MM") }
+                : {})}
               onClick={() => onSelectDay(day)}
               {...dropProps((_e, o) => sameTimeOn(day, o))}
               {...longPressProps}
