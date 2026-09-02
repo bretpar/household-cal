@@ -9,6 +9,7 @@ import { AgendaView } from "@/components/AgendaView";
 import { CalendarFiltersSheet } from "@/components/CalendarFiltersSheet";
 import { DayStripView } from "@/components/DayStripView";
 import { MonthView } from "@/components/MonthView";
+import { MonthScrollView, type MonthScrollHandle } from "@/components/MonthScrollView";
 import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
@@ -121,7 +122,17 @@ function CalendarPage() {
     isBlocked: () => eventDraggingRef.current,
   });
 
+  // Month view is one long vertical calendar: arrows and Today scroll it
+  // instead of swapping a month page.
+  const monthScrollRef = useRef<MonthScrollHandle | null>(null);
+
   const step = (direction: 1 | -1, { focus = false }: { focus?: boolean } = {}) => {
+    if (mode === "month") {
+      haptic();
+      const from = monthScrollRef.current?.currentMonth() ?? anchor;
+      monthScrollRef.current?.scrollToMonth(addMonths(from, direction));
+      return;
+    }
     if (useDayStripLayout) {
       haptic();
       if (focus) focusPeriod();
@@ -136,6 +147,11 @@ function CalendarPage() {
 
   const [todaySignal, setTodaySignal] = useState(0);
   const goToday = () => {
+    if (mode === "month") {
+      haptic();
+      monthScrollRef.current?.scrollToToday();
+      return;
+    }
     if (carousel.busy) return;
     haptic();
     focusPeriod();
@@ -396,11 +412,44 @@ function CalendarPage() {
         <div
           className={cn(
             "flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft",
-            // Desktop day-strip needs a bounded height so only the timeline scrolls.
-            useDayStripLayout ? "md:h-[70vh]" : "md:block",
+            // Desktop day-strip and the vertical month surface need a bounded
+            // height so only their inner content scrolls.
+            useDayStripLayout ? "md:h-[70vh]" : mode === "month" ? "md:h-[78vh]" : "md:block",
           )}
         >
-        {useDayStripLayout ? (
+        {mode === "month" ? (
+          <div
+            ref={periodRef}
+            tabIndex={-1}
+            role="group"
+            aria-label={`Month view: ${label}`}
+            className="flex min-h-0 flex-1 flex-col outline-none"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                step(-1);
+              } else if (e.key === "ArrowRight") {
+                e.preventDefault();
+                step(1);
+              }
+            }}
+          >
+            <MonthScrollView
+              ref={monthScrollRef}
+              anchor={anchor}
+              events={visibleEvents}
+              selectedMembers={selectedMembers}
+              onPaste={onPaste}
+              onCreateAt={onCreateAt}
+              weekStartsOn={weekStart}
+              onVisibleMonthChange={setVisibleDate}
+              onSelectDay={(day) => {
+                setAnchor(day);
+                setView("day");
+              }}
+            />
+          </div>
+        ) : useDayStripLayout ? (
           <div
             ref={periodRef}
             tabIndex={-1}
