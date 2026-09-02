@@ -128,25 +128,62 @@ function GoogleInboundDiagnostic({ calendars }: { calendars: CalendarOption[] })
 
   // continuation point of the bounded instance pass, per calendar; kept internal
   const cursors = useRef<Record<string, string | null>>({});
-  const backfill = useMutation({
-    mutationFn: () =>
-      backfillFn({ data: { source_id: selected, cursor: cursors.current[selected] ?? null } }),
-    onSuccess: (summary) => {
-      if (summary.skippedReason) {
-        toast.info(`Backfill skipped (${summary.skippedReason})`);
-        return;
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+
+  /**
+   * One click drives the whole resumable repair: keeps calling the bounded
+   * server action while it reports remaining work, accumulating counts.
+   */
+  async function runBackfill() {
+    if (!selected || running) return;
+    setRunning(true);
+    const totals = { examined: 0, created: 0, updated: 0, unchanged: 0, skipped: 0, errored: 0 };
+    let pass = 0;
+    try {
+      // hard safety bound on passes; each request stays bounded server-side
+      for (let i = 0; i < 50; i += 1) {
+        pass += 1;
+        setProgress(
+          `Repairing Google calendar… Pass ${pass} · ${totals.examined} checked · ${totals.created} restored`,
+        );
+        const summary = await backfillFn({
+          data: { source_id: selected, cursor: cursors.current[selected] ?? null },
+        });
+        if (summary.skippedReason) {
+          toast.info(`Backfill skipped (${summary.skippedReason})`);
+          setProgress(null);
+          setRunning(false);
+          return;
+        }
+        totals.examined += summary.examined;
+        totals.created += summary.created;
+        totals.updated += summary.updated;
+        totals.unchanged += summary.unchanged;
+        totals.skipped += summary.skipped;
+        totals.errored += summary.errored;
+        cursors.current[selected] = summary.hasMore ? (summary.cursor ?? null) : null;
+        setProgress(
+          `Repairing Google calendar… Pass ${pass} · ${totals.examined} checked · ${totals.created} restored`,
+        );
+        if (!summary.hasMore) break;
       }
-      cursors.current[selected] = summary.hasMore ? (summary.cursor ?? null) : null;
       toast.success(
-        `Backfill · examined ${summary.examined} · created ${summary.created} · updated ${summary.updated} · unchanged ${summary.unchanged} · skipped ${summary.skipped} · errored ${summary.errored}${summary.hasMore ? " · more remaining, run again" : ""}`,
+        `Calendar repair complete · ${totals.created} missing events restored · ${totals.errored} errors`,
       );
+      setProgress(null);
       // refresh calendar data afterwards; never block the summary on this
       void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
       void queryClient.invalidateQueries({ queryKey: ["google-sync-settings"] });
-    },
-    onError: (error: unknown) =>
-      toast.error(error instanceof Error ? error.message : "Backfill failed"),
-  });
+    } catch (error) {
+      // cursor progress stays as-is so retry resumes where this run stopped
+      toast.error(error instanceof Error ? error.message : "Backfill failed");
+      setProgress("Repair paused — Try again");
+    } finally {
+      setRunning(false);
+    }
+  }
+
 
 
   const report = run.data && !("skipped" in run.data) ? run.data : null;
