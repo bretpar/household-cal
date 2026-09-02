@@ -128,15 +128,17 @@ function GoogleInboundDiagnostic({ calendars }: { calendars: CalendarOption[] })
 
   const backfill = useMutation({
     mutationFn: () => backfillFn({ data: { source_id: selected } }),
-    onSuccess: async (summary) => {
-      await queryClient.invalidateQueries();
+    onSuccess: (summary) => {
       if (summary.skippedReason) {
         toast.info(`Backfill skipped (${summary.skippedReason})`);
         return;
       }
       toast.success(
-        `Backfill · examined ${summary.examined} · created ${summary.created} · updated ${summary.updated} · unchanged ${summary.unchanged} · skipped ${summary.skipped} · errored ${summary.errored}`,
+        `Backfill · examined ${summary.examined} · created ${summary.created} · updated ${summary.updated} · unchanged ${summary.unchanged} · skipped ${summary.skipped} · errored ${summary.errored}${summary.hasMore ? " · more remaining, run again" : ""}`,
       );
+      // refresh calendar data afterwards; never block the summary on this
+      void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
+      void queryClient.invalidateQueries({ queryKey: ["google-sync-settings"] });
     },
     onError: (error: unknown) =>
       toast.error(error instanceof Error ? error.message : "Backfill failed"),
