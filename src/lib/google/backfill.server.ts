@@ -52,8 +52,14 @@ export interface BackfillSummary {
   skipped: number;
   errored: number;
   skippedReason?: string;
-  /** true when the bounded instance pass stopped early and more work remains */
+  /** true only when the instance pass stopped before the end of the window */
   hasMore?: boolean;
+  /**
+   * Opaque continuation point for the expanded instance pass: "<startIso>|<googleEventId>"
+   * of the last instance considered. Passing it back resumes after that instance
+   * instead of rescanning the same prefix. Present only when hasMore is true.
+   */
+  cursor?: string;
 }
 
 const EMPTY: BackfillSummary = {
@@ -68,6 +74,7 @@ const EMPTY: BackfillSummary = {
 /** Per-request budget for the expanded instance pass. */
 const MAX_INSTANCE_MATERIALIZATIONS = 15;
 const INSTANCE_PASS_BUDGET_MS = 12_000;
+
 
 async function sourceById(
   admin: Admin,
