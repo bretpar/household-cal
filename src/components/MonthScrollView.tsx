@@ -121,14 +121,26 @@ export const MonthScrollView = forwardRef<
 
     const evaluate = () => {
       frame = 0;
-      const top = container.scrollTop + 2;
-      let active: Date | null = null;
-      for (const month of months) {
-        const anchorEl = anchorRefs.current.get(key(month));
-        if (!anchorEl) continue;
-        if (anchorEl.offsetTop <= top) active = month;
-        else break;
-      }
+      // Measure every mounted week-of-the-1st row against the container's top
+      // edge in one pass; rects are immune to variable row heights and to any
+      // offsetParent differences.
+      const containerTop = container.getBoundingClientRect().top;
+      const rows = Array.from(
+        container.querySelectorAll<HTMLElement>("[data-month-start]"),
+      );
+      const measured = rows
+        .map((row) => ({
+          id: row.dataset["monthStart"] ?? "",
+          offset: row.getBoundingClientRect().top - containerTop,
+        }))
+        .filter((row) => row.id)
+        .sort((a, b) => a.offset - b.offset);
+
+      // Latest anchor at or above the top boundary (1.5px subpixel tolerance);
+      // scrolling back up naturally falls through to the previous anchor.
+      const crossed = measured.filter((row) => row.offset <= 1.5).pop();
+      const activeId = crossed?.id ?? measured[0]?.id ?? null;
+      let active = activeId ? months.find((m) => key(m) === activeId) ?? null : null;
       if (!active) active = months[0] ?? null;
       if (!active) return;
       const id = key(active);
