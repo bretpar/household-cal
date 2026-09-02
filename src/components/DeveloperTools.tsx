@@ -225,6 +225,23 @@ function GoogleInboundDiagnostic() {
         </Button>
       </div>
 
+      <div className="space-y-2 rounded-2xl border border-border bg-background p-3">
+        <p className="text-sm text-muted-foreground">
+          Backfill re-reads the selected calendar over a bounded window (30 days back through 12
+          months ahead) without using the incremental sync token, so previously missed Google events
+          get imported. Idempotent; never deletes events.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 rounded-full font-bold"
+          disabled={!selected || backfill.isPending}
+          onClick={() => backfill.mutate()}
+        >
+          {backfill.isPending ? "Backfilling…" : "Backfill Google events"}
+        </Button>
+      </div>
+
       {skipped ? <p className="text-sm text-muted-foreground">Skipped: {skipped}</p> : null}
 
       {report ? (
