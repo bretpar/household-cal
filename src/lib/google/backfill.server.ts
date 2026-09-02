@@ -205,6 +205,15 @@ async function householdTimeZone(admin: Admin, familyId: string): Promise<string
   return normalizeTimeZone((data?.timezone as string | null) ?? null);
 }
 
+/** Stable continuation key for one expanded Google instance. */
+function instanceKey(item: {
+  id?: string | null;
+  start?: { dateTime?: string; date?: string };
+}): string {
+  const start = item.start?.dateTime ?? item.start?.date ?? "";
+  return `${start}|${item.id ?? ""}`;
+}
+
 async function backfillInstances(
   admin: Admin,
   conn: Awaited<ReturnType<typeof getConnection>> & object,
@@ -213,6 +222,7 @@ async function backfillInstances(
   initials: Map<string, string>,
   summary: BackfillSummary,
   deadline: number,
+  cursor: string | null = null,
 ): Promise<void> {
   const familyId = source.family_id;
   const timeZone = await householdTimeZone(admin, familyId);
@@ -223,13 +233,26 @@ async function backfillInstances(
     range.timeMax,
   );
 
+  // Resume after the instance the previous request stopped on. Google orders this
+  // listing by startTime, so the key is stable across runs; an unknown cursor
+  // (calendar changed underneath us) simply falls back to a full scan.
+  let startIndex = 0;
+  if (cursor) {
+    const found = instances.findIndex((i) => instanceKey(i) === cursor);
+    if (found >= 0) startIndex = found + 1;
+  }
+
   let materialized = 0;
-  for (const item of instances) {
-    // bounded per request: stop early and let the next run continue (idempotent)
+  for (let index = startIndex; index < instances.length; index += 1) {
+    const item = instances[index]!;
+    // bounded per request: stop early and hand back a continuation point so the
+    // next run resumes here instead of rescanning the already-checked prefix
     if (materialized >= MAX_INSTANCE_MATERIALIZATIONS || Date.now() >= deadline) {
       summary.hasMore = true;
+      summary.cursor = instanceKey(instances[index - 1] ?? item);
       return;
     }
+
     if (!item.id || !item.recurringEventId) continue;
     // cancellations stay the job of normal sync
     if (item.status === "cancelled") continue;
