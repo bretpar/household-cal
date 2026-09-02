@@ -170,7 +170,15 @@ export async function backfillSource(
   // weekday the local rule lost) is invisible to it. Expanding the same window
   // exposes those instances; anything the linked local series already renders is
   // left completely untouched, so this stays idempotent.
-  await backfillInstances(admin, conn, source, range, initials, summary);
+  await backfillInstances(
+    admin,
+    conn,
+    source,
+    range,
+    initials,
+    summary,
+    Date.now() + INSTANCE_PASS_BUDGET_MS,
+  );
 
   // Intentionally no calendar_sources update: the existing sync token and
   // status must stay exactly as normal sync left them.
@@ -193,6 +201,7 @@ async function backfillInstances(
   range: { timeMin: string; timeMax: string },
   initials: Map<string, string>,
   summary: BackfillSummary,
+  deadline: number,
 ): Promise<void> {
   const familyId = source.family_id;
   const timeZone = await householdTimeZone(admin, familyId);
@@ -203,7 +212,13 @@ async function backfillInstances(
     range.timeMax,
   );
 
+  let materialized = 0;
   for (const item of instances) {
+    // bounded per request: stop early and let the next run continue (idempotent)
+    if (materialized >= MAX_INSTANCE_MATERIALIZATIONS || Date.now() >= deadline) {
+      summary.hasMore = true;
+      return;
+    }
     if (!item.id || !item.recurringEventId) continue;
     // cancellations stay the job of normal sync
     if (item.status === "cancelled") continue;
@@ -267,8 +282,10 @@ async function backfillInstances(
       // a detached one-off event carrying recurringEventId / originalStartTime
       await applyGoogleEvent(admin, conn, source, item, initials);
       const after = await linkSnapshot(admin, familyId, item.id);
-      if (after) summary.created += 1;
-      else summary.skipped += 1;
+      if (after) {
+        summary.created += 1;
+        materialized += 1;
+      } else summary.skipped += 1;
     } catch (error) {
       summary.errored += 1;
       console.error(
