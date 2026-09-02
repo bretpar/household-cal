@@ -208,11 +208,12 @@ async function householdTimeZone(admin: Admin, familyId: string): Promise<string
 /** Stable continuation key for one expanded Google instance. */
 function instanceKey(item: {
   id?: string | null;
-  start?: { dateTime?: string; date?: string };
+  start?: { dateTime?: string | null; date?: string | null } | null;
 }): string {
   const start = item.start?.dateTime ?? item.start?.date ?? "";
   return `${start}|${item.id ?? ""}`;
 }
+
 
 async function backfillInstances(
   admin: Admin,
