@@ -137,7 +137,7 @@ function GoogleInboundDiagnostic({ calendars }: { calendars: CalendarOption[] })
         `Backfill · examined ${summary.examined} · created ${summary.created} · updated ${summary.updated} · unchanged ${summary.unchanged} · skipped ${summary.skipped} · errored ${summary.errored}${summary.hasMore ? " · more remaining, run again" : ""}`,
       );
       // refresh calendar data afterwards; never block the summary on this
-      void queryClient.invalidateQueries({ queryKey: ["events"] });
+      void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
       void queryClient.invalidateQueries({ queryKey: ["google-sync-settings"] });
     },
     onError: (error: unknown) =>
