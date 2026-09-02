@@ -99,7 +99,7 @@ export interface ConnectionContext {
   accountEmail: string;
 }
 
-interface SourceRow {
+export interface SourceRow {
   id: string;
   family_id: string;
   name: string;
@@ -346,7 +346,7 @@ async function loadEvent(admin: Admin, eventId: string): Promise<EventRow | null
   return (data as EventRow) ?? null;
 }
 
-async function initialsFor(admin: Admin, familyId: string): Promise<Map<string, string>> {
+export async function initialsFor(admin: Admin, familyId: string): Promise<Map<string, string>> {
   const { data } = await admin
     .from("family_members")
     .select("id, initial, sort_order")
@@ -594,7 +594,7 @@ async function addExcludedDate(admin: Admin, eventId: string, day: string): Prom
  * series + a detached one-off event), exactly like the app's own
  * "this event only" edit. Series-level changes update the matching branch only.
  */
-async function applyGoogleEvent(
+export async function applyGoogleEvent(
   admin: Admin,
   conn: ConnectionContext,
   source: SourceRow,
