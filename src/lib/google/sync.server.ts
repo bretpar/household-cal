@@ -1230,23 +1230,33 @@ export async function familyForChannel(
  *
  * Safe by construction:
  *  - only touches events that have Google sync links (never local-only events);
- *  - only single-branch links (branch_key ""), so per-person weekday branches
- *    can never be flattened;
+ *  - all links of an event must resolve to the SAME Google recurring master;
+ *    conflicting masters (per-person weekday branches) are skipped, never guessed;
  *  - the authoritative recurrence comes from Google, never guessed from local
  *    dates, and is mapped by the same `fromGoogleRecurrence` /
  *    `localRuleFromGoogle` helpers that live sync uses;
  *  - idempotent: a row whose rule already matches Google is left alone.
  */
+export interface RecurrenceRepairSummary {
+  examined?: number;
+  repaired?: number;
+  unchanged?: number;
+  skipped?: number;
+  errored?: number;
+  details?: string[];
+  skippedReason?: string;
+}
+
 export async function repairGoogleRecurrenceRules(
   admin: Admin,
   familyId: string,
   eventIds: string[] | null = null,
-): Promise<{ examined?: number; repaired?: number; details?: string[]; skipped?: string }> {
+): Promise<RecurrenceRepairSummary> {
   const result = await guard(admin, familyId, async () => {
     const conn = await getConnection(admin, familyId);
-    if (!conn) return { skipped: "not_connected" };
+    if (!conn) return { skippedReason: "not_connected" };
     const sources = await googleSources(admin, familyId);
-    if (sources.length === 0) return { skipped: "no_google_calendar" };
+    if (sources.length === 0) return { skippedReason: "no_google_calendar" };
 
     let query = admin
       .from("events")
@@ -1262,9 +1272,19 @@ export async function repairGoogleRecurrenceRules(
 
     let examined = 0;
     let repaired = 0;
+    let unchanged = 0;
+    let skipped = 0;
+    let errored = 0;
     const details: string[] = [];
 
+    const skip = (eventId: string, reason: string) => {
+      skipped += 1;
+      details.push(`skipped ${eventId}: ${reason}`);
+      console.warn("[google-sync] recurrence repair skipped", eventId, reason);
+    };
+
     for (const event of events) {
+      examined += 1;
       const { data: linkRows } = await admin
         .from("event_sync_links")
         .select("calendar_source_id, google_event_id, google_recurring_event_id, branch_key")
@@ -1276,24 +1296,51 @@ export async function repairGoogleRecurrenceRules(
         google_recurring_event_id: string | null;
         branch_key: string;
       }[];
-      // per-person branches keep their own Google series; repairing from one
-      // branch would drop the other branch's weekdays
-      if (links.length !== 1 || links[0]!.branch_key !== "") continue;
-      const link = links[0]!;
-      const source = sources.find((s) => s.id === link.calendar_source_id);
-      if (!source?.external_calendar_id) continue;
+      if (links.length === 0) {
+        skip(event.id, "no_google_links");
+        continue;
+      }
 
-      examined += 1;
+      // only links pointing at a currently active/eligible Google calendar
+      const usable = links
+        .map((l) => ({ link: l, source: sources.find((s) => s.id === l.calendar_source_id) }))
+        .filter((x) => Boolean(x.source?.external_calendar_id));
+      if (usable.length === 0) {
+        skip(event.id, "no_active_google_calendar_for_links");
+        continue;
+      }
+
+      // every usable link must agree on one Google recurring master
+      const masters = new Set(
+        usable.map((x) => x.link.google_recurring_event_id ?? x.link.google_event_id),
+      );
+      if (masters.size !== 1) {
+        skip(event.id, `ambiguous_google_masters(${masters.size})`);
+        continue;
+      }
+      const chosen = usable[0]!;
+      const masterId = [...masters][0]!;
+
       try {
         const master = await google.getEvent(
           conn.connectionKey,
-          source.external_calendar_id,
-          link.google_recurring_event_id ?? link.google_event_id,
+          chosen.source!.external_calendar_id!,
+          masterId,
         );
-        if (!master.recurrence || master.recurrence.length === 0) continue;
+        if (!master.recurrence || master.recurrence.length === 0) {
+          skip(event.id, "google_master_not_recurring");
+          continue;
+        }
         const rec = fromGoogleRecurrence(master.recurrence);
         const rule = localRuleFromGoogle(rec);
-        if (!rule || rule === event.recurrence_rule) continue;
+        if (!rule) {
+          skip(event.id, "unmappable_google_recurrence");
+          continue;
+        }
+        if (rule === event.recurrence_rule) {
+          unchanged += 1;
+          continue;
+        }
         const { error } = await admin
           .from("events")
           .update({ recurrence_rule: rule, last_change_source: "google" })
@@ -1304,11 +1351,19 @@ export async function repairGoogleRecurrenceRules(
         details.push(`${event.title}: ${event.recurrence_rule} -> ${rule}`);
       } catch (error) {
         if (error instanceof GoogleAuthError) throw error;
+        errored += 1;
+        details.push(
+          `errored ${event.id}: ${error instanceof Error ? error.message : "unknown_error"}`,
+        );
         console.error("[google-sync] recurrence repair failed", event.id, error);
       }
     }
 
-    return { examined, repaired, details };
+    return { examined, repaired, unchanged, skipped, errored, details };
   });
-  return result as { examined?: number; repaired?: number; details?: string[]; skipped?: string };
+  if (result && typeof (result as { skipped?: unknown }).skipped === "string") {
+    return { skippedReason: (result as { skipped: string }).skipped };
+  }
+  return result as RecurrenceRepairSummary;
 }
+
