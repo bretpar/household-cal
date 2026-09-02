@@ -122,7 +122,17 @@ function CalendarPage() {
     isBlocked: () => eventDraggingRef.current,
   });
 
+  // Month view is one long vertical calendar: arrows and Today scroll it
+  // instead of swapping a month page.
+  const monthScrollRef = useRef<MonthScrollHandle | null>(null);
+
   const step = (direction: 1 | -1, { focus = false }: { focus?: boolean } = {}) => {
+    if (mode === "month") {
+      haptic();
+      const from = monthScrollRef.current?.currentMonth() ?? anchor;
+      monthScrollRef.current?.scrollToMonth(addMonths(from, direction));
+      return;
+    }
     if (useDayStripLayout) {
       haptic();
       if (focus) focusPeriod();
@@ -137,6 +147,11 @@ function CalendarPage() {
 
   const [todaySignal, setTodaySignal] = useState(0);
   const goToday = () => {
+    if (mode === "month") {
+      haptic();
+      monthScrollRef.current?.scrollToToday();
+      return;
+    }
     if (carousel.busy) return;
     haptic();
     focusPeriod();
