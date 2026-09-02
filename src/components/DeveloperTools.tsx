@@ -92,6 +92,7 @@ export function DeveloperTools() {
           </Button>
         </div>
       </div>
+      <GoogleInboundDiagnostic />
       <div className="space-y-3 rounded-3xl border border-dashed border-border bg-card p-4">
         <div>
           <h3 className="text-base font-bold">Repair Google recurrence rules</h3>
