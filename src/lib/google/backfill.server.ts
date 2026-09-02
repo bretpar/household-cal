@@ -19,6 +19,8 @@
  * Server-only.
  */
 import * as google from "@/lib/google/api.server";
+import { localDateKey, seriesCoversDate } from "@/lib/google/occurrence";
+import { normalizeTimeZone } from "@/lib/google/timezone";
 import {
   applyGoogleEvent,
   getConnection,
@@ -156,7 +158,120 @@ export async function backfillSource(
     }
   }
 
+  // Second pass: confirmed *instances* of already-linked series. `listEvents`
+  // above uses singleEvents=false, so Google only returns masters and modified
+  // exceptions there — an ordinary instance the app never materialised (e.g. a
+  // weekday the local rule lost) is invisible to it. Expanding the same window
+  // exposes those instances; anything the linked local series already renders is
+  // left completely untouched, so this stays idempotent.
+  await backfillInstances(admin, conn, source, range, initials, summary);
+
   // Intentionally no calendar_sources update: the existing sync token and
   // status must stay exactly as normal sync left them.
   return summary;
 }
+
+async function householdTimeZone(admin: Admin, familyId: string): Promise<string> {
+  const { data } = await admin
+    .from("families")
+    .select("timezone")
+    .eq("id", familyId)
+    .maybeSingle();
+  return normalizeTimeZone((data?.timezone as string | null) ?? null);
+}
+
+async function backfillInstances(
+  admin: Admin,
+  conn: Awaited<ReturnType<typeof getConnection>> & object,
+  source: SourceRow,
+  range: { timeMin: string; timeMax: string },
+  initials: Map<string, string>,
+  summary: BackfillSummary,
+): Promise<void> {
+  const familyId = source.family_id;
+  const timeZone = await householdTimeZone(admin, familyId);
+  const instances = await google.listEventsInRange(
+    conn.connectionKey,
+    source.external_calendar_id!,
+    range.timeMin,
+    range.timeMax,
+  );
+
+  for (const item of instances) {
+    if (!item.id || !item.recurringEventId) continue;
+    // cancellations stay the job of normal sync
+    if (item.status === "cancelled") continue;
+
+    // already materialised locally (master exception or detached one-off)?
+    const { data: ownLink } = await admin
+      .from("event_sync_links")
+      .select("id")
+      .eq("family_id", familyId)
+      .eq("google_event_id", item.id)
+      .maybeSingle();
+    if (ownLink) continue;
+
+    const { data: seriesLinks } = await admin
+      .from("event_sync_links")
+      .select("event_id, calendar_source_id")
+      .eq("family_id", familyId)
+      .eq("google_event_id", item.recurringEventId);
+    const candidates = (seriesLinks ?? []) as { event_id: string; calendar_source_id: string }[];
+    const seriesLink =
+      candidates.find((l) => l.calendar_source_id === source.id) ?? candidates[0] ?? null;
+    // no parent link: the first pass owns importing that master
+    if (!seriesLink) continue;
+
+    const startIso = item.start?.dateTime ?? item.start?.date ?? null;
+    const originIso = item.originalStartTime?.dateTime ?? item.originalStartTime?.date ?? null;
+    const dateKey = localDateKey(originIso ?? startIso ?? "", timeZone);
+    if (!dateKey) {
+      summary.skipped += 1;
+      continue;
+    }
+
+    summary.examined += 1;
+
+    const { data: parent } = await admin
+      .from("events")
+      .select("start_at, recurrence_rule, recurrence_until, excluded_dates")
+      .eq("id", seriesLink.event_id)
+      .maybeSingle();
+    if (!parent) {
+      summary.skipped += 1;
+      continue;
+    }
+    const covered = seriesCoversDate(
+      {
+        startAt: parent.start_at as string,
+        recurrenceRule: (parent.recurrence_rule as string | null) ?? null,
+        recurrenceUntil: (parent.recurrence_until as string | null) ?? null,
+        excludedDates: (parent.excluded_dates as string[] | null) ?? null,
+        timeZone,
+      },
+      dateKey,
+    );
+    if (covered) {
+      summary.unchanged += 1;
+      continue;
+    }
+
+    try {
+      // reuses the live inbound exception path: excluded date on the parent plus
+      // a detached one-off event carrying recurringEventId / originalStartTime
+      await applyGoogleEvent(admin, conn, source, item, initials);
+      const after = await linkSnapshot(admin, familyId, item.id);
+      if (after) summary.created += 1;
+      else summary.skipped += 1;
+    } catch (error) {
+      summary.errored += 1;
+      console.error(
+        "[google-backfill] failed to materialise Google instance",
+        source.id,
+        item.id,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+}
+
