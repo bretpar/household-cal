@@ -255,18 +255,23 @@ export function useDayStrip({
     let wheelTimer: ReturnType<typeof setTimeout> | null = null;
     const onWheel = (e: WheelEvent) => {
       if (isBlockedRef.current?.() || overlayOpen()) return;
-      const unit = e.deltaMode === 1 ? 16 : 1;
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1;
       const dx = e.deltaX * unit;
-      if (Math.abs(dx) <= Math.abs(e.deltaY * unit) || Math.abs(dx) < 1) return;
+      const dy = e.deltaY * unit;
+      // Vertical-dominant gestures belong to the timeline.
+      if (Math.abs(dx) <= Math.abs(dy) || Math.abs(dx) < 1) return;
       e.preventDefault();
       cancelAnimation();
+      settling.current = false;
       node.scrollLeft = Math.max(0, Math.min(maxScroll(), node.scrollLeft + dx));
+      onVisibleIndexChangeRef.current?.(Math.round(node.scrollLeft / columnWidth));
       if (wheelTimer) clearTimeout(wheelTimer);
+      // Let the momentum stream finish before easing to the nearest column.
       wheelTimer = setTimeout(() => {
         wheelTimer = null;
-        const nearest = Math.round(node.scrollLeft / columnWidth);
-        settleTo(nearest, 0);
-      }, 140);
+        if (isBlockedRef.current?.()) return;
+        settleTo(Math.round(node.scrollLeft / columnWidth), 0);
+      }, 160);
     };
 
     // Desktop: let the browser own the pan and its momentum. We only watch the
@@ -282,18 +287,23 @@ export function useDayStrip({
       settleTimer = setTimeout(() => {
         settleTimer = null;
         if (isBlockedRef.current?.()) return;
+        if (wheelTimer) return; // a wheel stream is still running; it owns the settle
         settleTo(Math.round(node.scrollLeft / columnWidth), 0);
       }, 130);
     };
 
     if (native) {
       node.addEventListener("scroll", onScroll, { passive: true });
+      node.addEventListener("wheel", onWheel, { passive: false });
       return () => {
         if (settleTimer) clearTimeout(settleTimer);
+        if (wheelTimer) clearTimeout(wheelTimer);
         cancelAnimation();
         node.removeEventListener("scroll", onScroll);
+        node.removeEventListener("wheel", onWheel);
       };
     }
+
 
     node.addEventListener("touchstart", onTouchStart, { passive: true });
     node.addEventListener("touchmove", onTouchMove, { passive: false });
