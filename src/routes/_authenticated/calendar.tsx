@@ -82,17 +82,18 @@ function CalendarPage() {
   // phones so each column is wide enough to read.
   const weekDays = isMobile ? 3 : 7;
 
-  // Mobile Day / 3-Day is a continuous single-day strip: arrows and swipes both
-  // advance exactly one day, matching the day-column snapping.
-  const useDayStripLayout = isMobile && mode !== "month";
+  // Continuous single-day strip: mobile Day / 3-Day and desktop Week are all one
+  // long horizontal sequence of day columns behind a fixed hour rail.
+  const useDayStripLayout = mode !== "month" && (isMobile || mode === "week");
 
-  // Arrows / swipes advance exactly one unit of the current view.
+  // Arrows advance a whole week on desktop Week, otherwise one unit of the view.
   const shift = (from: Date, direction: number) => {
     if (mode === "month") return addMonths(from, direction);
+    if (mode === "week") return addDays(from, (isMobile ? 1 : weekDays) * direction);
     if (useDayStripLayout) return addDays(from, direction);
-    if (mode === "week") return addDays(from, weekDays * direction);
     return addDays(from, direction);
   };
+
 
 
   // Subtle tap on any period change; focus returns to the period region so
@@ -138,25 +139,41 @@ function CalendarPage() {
     if (carousel.busy) return;
     haptic();
     focusPeriod();
-    setAnchor(new Date());
+    setAnchor(weekStartAnchor(new Date()));
     // Re-position the timed timeline around the current time, even when the
     // anchor date was already today (no remount / no anchor change).
     setTodaySignal((n) => n + 1);
   };
 
-  // Desktop/tablet Week snaps to the containing 7-day week; the phone 3-day
-  // view starts on the anchored date itself.
-  const weekAnchorFor = (at: Date) =>
-    isMobile ? at : startOfWeek(at, { weekStartsOn: weekStart });
+  // Desktop/tablet Week opens on the containing 7-day week; from there scrolling
+  // moves the strip one day at a time. The phone 3-day view starts on the
+  // anchored date itself.
+  function weekStartAnchor(at: Date) {
+    if (mode !== "week" || isMobile) return at;
+    return startOfWeek(at, { weekStartsOn: weekStart });
+  }
+
+  // Entering Week view lands on a whole week boundary (once per switch).
+  useEffect(() => {
+    if (mode !== "week" || isMobile) return;
+    setAnchor((prev) => startOfWeek(prev, { weekStartsOn: weekStart }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, isMobile]);
+
+  // The heading follows the visible scroll position; it never drives the strip.
+  const [visibleDate, setVisibleDate] = useState<Date | null>(null);
+  useEffect(() => {
+    setVisibleDate(null);
+  }, [mode, anchor]);
 
   const labelFor = (at: Date) => {
     if (mode === "month") return format(at, "MMMM yyyy");
     if (mode !== "week") return format(at, "EEEE, MMM d");
-    const from = weekAnchorFor(at);
-    const to = addDays(from, weekDays - 1);
-    return `${format(from, "MMM d")} – ${format(to, "MMM d")}`;
+    const to = addDays(at, weekDays - 1);
+    return `${format(at, "MMM d")} – ${format(to, "MMM d")}`;
   };
-  const label = labelFor(anchor);
+  const label = labelFor(visibleDate ?? anchor);
+
 
   const viewLabel = (v: ViewMode) =>
     v === "week" && isMobile ? "3 Day" : CALENDAR_VIEW_LABEL[v];
@@ -190,7 +207,7 @@ function CalendarPage() {
       />
     ) : mode === "week" ? (
       <WeekView
-        anchor={weekAnchorFor(at)}
+        anchor={at}
         events={visibleEvents}
         selectedMembers={selectedMembers}
         days={weekDays}
@@ -376,7 +393,13 @@ function CalendarPage() {
         <p aria-live="polite" className="sr-only">
           {label}
         </p>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft md:block">
+        <div
+          className={cn(
+            "flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft",
+            // Desktop day-strip needs a bounded height so only the timeline scrolls.
+            useDayStripLayout ? "md:h-[70vh]" : "md:block",
+          )}
+        >
         {useDayStripLayout ? (
           <div
             ref={periodRef}
@@ -405,9 +428,12 @@ function CalendarPage() {
               onNavigate={haptic}
               recenterSignal={todaySignal}
               isBlocked={() => eventDraggingRef.current}
+              native={!isMobile}
+              onVisibleDateChange={setVisibleDate}
             />
           </div>
         ) : (
+
         <div
           ref={carousel.containerRef}
           className={cn(

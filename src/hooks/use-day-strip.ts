@@ -16,6 +16,8 @@ export function useDayStrip({
   onNavigate,
   isBlocked,
   alignKey,
+  native = false,
+  onVisibleIndexChange,
 }: {
   /** width of one day column in px (0 while measuring) */
   columnWidth: number;
@@ -29,6 +31,10 @@ export function useDayStrip({
   isBlocked?: (() => boolean) | undefined;
   /** changing this re-aligns the strip instantly (window rebase, Today, view change) */
   alignKey: string | number;
+  /** desktop: use native scrolling + soft settle instead of touch gesture handling */
+  native?: boolean;
+  /** live left-most visible day index while scrolling (header only; never repositions) */
+  onVisibleIndexChange?: ((index: number) => void) | undefined;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const indexRef = useRef(index);
@@ -42,6 +48,9 @@ export function useDayStrip({
   onNavigateRef.current = onNavigate;
   const isBlockedRef = useRef(isBlocked);
   isBlockedRef.current = isBlocked;
+  const onVisibleIndexChangeRef = useRef(onVisibleIndexChange);
+  onVisibleIndexChangeRef.current = onVisibleIndexChange;
+
 
   const cancelAnimation = useCallback(() => {
     if (animation.current == null) return;
@@ -260,6 +269,32 @@ export function useDayStrip({
       }, 140);
     };
 
+    // Desktop: let the browser own the pan and its momentum. We only watch the
+    // resulting scroll position — reporting the visible day as it moves and
+    // gently aligning to the nearest column once movement stops. No delta
+    // thresholds, no page swaps, and no cap on days travelled per gesture.
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    const onScroll = () => {
+      if (settling.current) return;
+      const visible = Math.round(node.scrollLeft / columnWidth);
+      onVisibleIndexChangeRef.current?.(visible);
+      if (settleTimer) clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => {
+        settleTimer = null;
+        if (isBlockedRef.current?.()) return;
+        settleTo(Math.round(node.scrollLeft / columnWidth), 0);
+      }, 130);
+    };
+
+    if (native) {
+      node.addEventListener("scroll", onScroll, { passive: true });
+      return () => {
+        if (settleTimer) clearTimeout(settleTimer);
+        cancelAnimation();
+        node.removeEventListener("scroll", onScroll);
+      };
+    }
+
     node.addEventListener("touchstart", onTouchStart, { passive: true });
     node.addEventListener("touchmove", onTouchMove, { passive: false });
     node.addEventListener("touchend", onTouchEnd);
@@ -275,7 +310,8 @@ export function useDayStrip({
       node.removeEventListener("touchcancel", onTouchEnd);
       node.removeEventListener("wheel", onWheel);
     };
-  }, [cancelAnimation, columnWidth]);
+  }, [cancelAnimation, columnWidth, native]);
+
 
   return { hostRef, align };
 }

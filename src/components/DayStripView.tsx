@@ -32,6 +32,8 @@ export function DayStripView({
   onNavigate,
   recenterSignal,
   isBlocked,
+  native = false,
+  onVisibleDateChange,
 }: {
   anchor: Date;
   onAnchorChange: (date: Date) => void;
@@ -43,6 +45,10 @@ export function DayStripView({
   onNavigate?: (() => void) | undefined;
   recenterSignal?: number | undefined;
   isBlocked?: (() => boolean) | undefined;
+  /** desktop: native trackpad scrolling with a soft settle instead of touch paging */
+  native?: boolean;
+  /** live left-most visible day while scrolling, for the heading only */
+  onVisibleDateChange?: ((date: Date) => void) | undefined;
 }) {
   const totalDays = BUFFER * 2 + visibleDays;
   const [windowStart, setWindowStart] = useState(() => addDays(startOfDay(anchor), -BUFFER));
@@ -57,6 +63,13 @@ export function DayStripView({
     [onAnchorChange, windowStart],
   );
 
+  const handleVisibleIndexChange = useCallback(
+    (next: number) => {
+      onVisibleDateChange?.(addDays(windowStart, next));
+    },
+    [onVisibleDateChange, windowStart],
+  );
+
   const { hostRef, align } = useDayStrip({
     columnWidth,
     index,
@@ -64,7 +77,10 @@ export function DayStripView({
     onNavigate,
     isBlocked,
     alignKey: `${windowStart.getTime()}:${visibleDays}`,
+    native,
+    onVisibleIndexChange: handleVisibleIndexChange,
   });
+
 
   // Measure the strip so each day column is exactly viewport / visibleDays wide.
   useLayoutEffect(() => {
