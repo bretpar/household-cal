@@ -9,6 +9,7 @@ import { AgendaView } from "@/components/AgendaView";
 import { CalendarFiltersSheet } from "@/components/CalendarFiltersSheet";
 import { DayStripView } from "@/components/DayStripView";
 import { MonthView } from "@/components/MonthView";
+import { MonthScrollView, type MonthScrollHandle } from "@/components/MonthScrollView";
 import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
