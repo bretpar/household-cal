@@ -340,3 +340,24 @@ export const reapplyGoogleInboundEvent = createServerFn({ method: "POST" })
     const { reapplyGoogleEvent } = await import("@/lib/google/diagnostics.server");
     return reapplyGoogleEvent(supabaseAdmin, family, data.source_id, data.google_event_id);
   });
+
+/**
+ * Developer/owner-only backfill: full-window (no sync token) reconciliation of
+ * one Google calendar so previously missed future events get imported. Never
+ * resets the incremental sync token and never deletes local events.
+ */
+export const backfillGoogleSource = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { source_id: string }) => {
+    const sourceId = String(input?.source_id ?? "").trim();
+    if (!sourceId) throw new Error("Pick a Google calendar to backfill");
+    return { source_id: sourceId };
+  })
+  .handler(async ({ data, context }) => {
+    const { resolveOwnedFamily } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can backfill calendars");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { backfillSource } = await import("@/lib/google/backfill.server");
+    return backfillSource(supabaseAdmin, family, data.source_id);
+  });

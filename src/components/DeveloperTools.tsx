@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  backfillGoogleSource,
   diagnoseGoogleInbound,
   getSyncSettings,
   reapplyGoogleInboundEvent,
@@ -157,6 +158,23 @@ function GoogleInboundDiagnostic() {
       toast.error(error instanceof Error ? error.message : "Re-apply failed"),
   });
 
+  const backfillFn = useServerFn(backfillGoogleSource);
+  const backfill = useMutation({
+    mutationFn: () => backfillFn({ data: { source_id: selected } }),
+    onSuccess: async (summary) => {
+      await queryClient.invalidateQueries();
+      if (summary.skippedReason) {
+        toast.info(`Backfill skipped (${summary.skippedReason})`);
+        return;
+      }
+      toast.success(
+        `Backfill · examined ${summary.examined} · created ${summary.created} · updated ${summary.updated} · unchanged ${summary.unchanged} · skipped ${summary.skipped} · errored ${summary.errored}`,
+      );
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Backfill failed"),
+  });
+
   const report = run.data && !("skipped" in run.data) ? run.data : null;
   const skipped = run.data && "skipped" in run.data ? run.data.skipped : null;
 
@@ -204,6 +222,23 @@ function GoogleInboundDiagnostic() {
           onClick={() => run.mutate()}
         >
           {run.isPending ? "Inspecting…" : "Inspect day"}
+        </Button>
+      </div>
+
+      <div className="space-y-2 rounded-2xl border border-border bg-background p-3">
+        <p className="text-sm text-muted-foreground">
+          Backfill re-reads the selected calendar over a bounded window (30 days back through 12
+          months ahead) without using the incremental sync token, so previously missed Google events
+          get imported. Idempotent; never deletes events.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 rounded-full font-bold"
+          disabled={!selected || backfill.isPending}
+          onClick={() => backfill.mutate()}
+        >
+          {backfill.isPending ? "Backfilling…" : "Backfill Google events"}
         </Button>
       </div>
 
