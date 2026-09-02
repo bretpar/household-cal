@@ -1361,8 +1361,9 @@ export async function repairGoogleRecurrenceRules(
 
     return { examined, repaired, unchanged, skipped, errored, details };
   });
+  if (result && typeof (result as { skipped?: unknown }).skipped === "string") {
+    return { skippedReason: (result as { skipped: string }).skipped };
+  }
   return result as RecurrenceRepairSummary;
-
-  });
-  return result as { examined?: number; repaired?: number; details?: string[]; skipped?: string };
 }
+
