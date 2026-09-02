@@ -22,6 +22,7 @@ import {
   computeBranches,
   exceptionEventFields,
   fromGoogleRecurrence,
+  localRuleFromGoogle,
   fromGoogleTimes,
 
   googleTitle,
@@ -930,7 +931,9 @@ async function createLocalEvent(
   detachedFrom: string | null,
 ): Promise<string> {
   const times = fromGoogleTimes(g);
-  const rec = detachedFrom ? { rule: null, until: null, excludedDates: [] } : fromGoogleRecurrence(g.recurrence);
+  const rec = detachedFrom
+    ? { rule: null, weekdays: null, until: null, excludedDates: [] }
+    : fromGoogleRecurrence(g.recurrence);
   const { data, error } = await admin
     .from("events")
     .insert({
@@ -943,7 +946,7 @@ async function createLocalEvent(
       location: g.location ?? null,
       notes: g.description ?? null,
       event_type: "other",
-      recurrence_rule: rec.rule,
+      recurrence_rule: localRuleFromGoogle(rec),
       recurrence_until: rec.until,
       excluded_dates: rec.excludedDates,
       external_event_id: g.id,
