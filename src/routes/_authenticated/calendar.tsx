@@ -207,7 +207,7 @@ function CalendarPage() {
       />
     ) : mode === "week" ? (
       <WeekView
-        anchor={weekAnchorFor(at)}
+        anchor={at}
         events={visibleEvents}
         selectedMembers={selectedMembers}
         days={weekDays}
