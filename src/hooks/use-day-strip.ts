@@ -16,6 +16,8 @@ export function useDayStrip({
   onNavigate,
   isBlocked,
   alignKey,
+  native = false,
+  onVisibleIndexChange,
 }: {
   /** width of one day column in px (0 while measuring) */
   columnWidth: number;
@@ -29,6 +31,10 @@ export function useDayStrip({
   isBlocked?: (() => boolean) | undefined;
   /** changing this re-aligns the strip instantly (window rebase, Today, view change) */
   alignKey: string | number;
+  /** desktop: use native scrolling + soft settle instead of touch gesture handling */
+  native?: boolean;
+  /** live left-most visible day index while scrolling (header only; never repositions) */
+  onVisibleIndexChange?: ((index: number) => void) | undefined;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const indexRef = useRef(index);
@@ -42,6 +48,9 @@ export function useDayStrip({
   onNavigateRef.current = onNavigate;
   const isBlockedRef = useRef(isBlocked);
   isBlockedRef.current = isBlocked;
+  const onVisibleIndexChangeRef = useRef(onVisibleIndexChange);
+  onVisibleIndexChangeRef.current = onVisibleIndexChange;
+
 
   const cancelAnimation = useCallback(() => {
     if (animation.current == null) return;
