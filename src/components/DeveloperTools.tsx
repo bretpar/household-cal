@@ -158,6 +158,23 @@ function GoogleInboundDiagnostic() {
       toast.error(error instanceof Error ? error.message : "Re-apply failed"),
   });
 
+  const backfillFn = useServerFn(backfillGoogleSource);
+  const backfill = useMutation({
+    mutationFn: () => backfillFn({ data: { source_id: selected } }),
+    onSuccess: async (summary) => {
+      await queryClient.invalidateQueries();
+      if (summary.skippedReason) {
+        toast.info(`Backfill skipped (${summary.skippedReason})`);
+        return;
+      }
+      toast.success(
+        `Backfill · examined ${summary.examined} · created ${summary.created} · updated ${summary.updated} · unchanged ${summary.unchanged} · skipped ${summary.skipped} · errored ${summary.errored}`,
+      );
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Backfill failed"),
+  });
+
   const report = run.data && !("skipped" in run.data) ? run.data : null;
   const skipped = run.data && "skipped" in run.data ? run.data.skipped : null;
 
