@@ -52,8 +52,14 @@ export interface BackfillSummary {
   skipped: number;
   errored: number;
   skippedReason?: string;
-  /** true when the bounded instance pass stopped early and more work remains */
+  /** true only when the instance pass stopped before the end of the window */
   hasMore?: boolean;
+  /**
+   * Opaque continuation point for the expanded instance pass: "<startIso>|<googleEventId>"
+   * of the last instance considered. Passing it back resumes after that instance
+   * instead of rescanning the same prefix. Present only when hasMore is true.
+   */
+  cursor?: string;
 }
 
 const EMPTY: BackfillSummary = {
@@ -68,6 +74,7 @@ const EMPTY: BackfillSummary = {
 /** Per-request budget for the expanded instance pass. */
 const MAX_INSTANCE_MATERIALIZATIONS = 15;
 const INSTANCE_PASS_BUDGET_MS = 12_000;
+
 
 async function sourceById(
   admin: Admin,
@@ -113,7 +120,9 @@ export async function backfillSource(
   familyId: string,
   sourceId: string,
   now = new Date(),
+  cursor: string | null = null,
 ): Promise<BackfillSummary> {
+
   const conn = await getConnection(admin, familyId);
   if (!conn) return { ...EMPTY, skippedReason: "not_connected" };
   const source = await sourceById(admin, familyId, sourceId);
@@ -178,7 +187,9 @@ export async function backfillSource(
     initials,
     summary,
     Date.now() + INSTANCE_PASS_BUDGET_MS,
+    cursor,
   );
+
 
   // Intentionally no calendar_sources update: the existing sync token and
   // status must stay exactly as normal sync left them.
@@ -194,6 +205,16 @@ async function householdTimeZone(admin: Admin, familyId: string): Promise<string
   return normalizeTimeZone((data?.timezone as string | null) ?? null);
 }
 
+/** Stable continuation key for one expanded Google instance. */
+function instanceKey(item: {
+  id?: string | null;
+  start?: { dateTime?: string | null; date?: string | null } | null;
+}): string {
+  const start = item.start?.dateTime ?? item.start?.date ?? "";
+  return `${start}|${item.id ?? ""}`;
+}
+
+
 async function backfillInstances(
   admin: Admin,
   conn: Awaited<ReturnType<typeof getConnection>> & object,
@@ -202,6 +223,7 @@ async function backfillInstances(
   initials: Map<string, string>,
   summary: BackfillSummary,
   deadline: number,
+  cursor: string | null = null,
 ): Promise<void> {
   const familyId = source.family_id;
   const timeZone = await householdTimeZone(admin, familyId);
@@ -212,13 +234,26 @@ async function backfillInstances(
     range.timeMax,
   );
 
+  // Resume after the instance the previous request stopped on. Google orders this
+  // listing by startTime, so the key is stable across runs; an unknown cursor
+  // (calendar changed underneath us) simply falls back to a full scan.
+  let startIndex = 0;
+  if (cursor) {
+    const found = instances.findIndex((i) => instanceKey(i) === cursor);
+    if (found >= 0) startIndex = found + 1;
+  }
+
   let materialized = 0;
-  for (const item of instances) {
-    // bounded per request: stop early and let the next run continue (idempotent)
+  for (let index = startIndex; index < instances.length; index += 1) {
+    const item = instances[index]!;
+    // bounded per request: stop early and hand back a continuation point so the
+    // next run resumes here instead of rescanning the already-checked prefix
     if (materialized >= MAX_INSTANCE_MATERIALIZATIONS || Date.now() >= deadline) {
       summary.hasMore = true;
+      summary.cursor = instanceKey(instances[index - 1] ?? item);
       return;
     }
+
     if (!item.id || !item.recurringEventId) continue;
     // cancellations stay the job of normal sync
     if (item.status === "cancelled") continue;

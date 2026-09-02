@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -126,13 +126,17 @@ function GoogleInboundDiagnostic({ calendars }: { calendars: CalendarOption[] })
       toast.error(error instanceof Error ? error.message : "Re-apply failed"),
   });
 
+  // continuation point of the bounded instance pass, per calendar; kept internal
+  const cursors = useRef<Record<string, string | null>>({});
   const backfill = useMutation({
-    mutationFn: () => backfillFn({ data: { source_id: selected } }),
+    mutationFn: () =>
+      backfillFn({ data: { source_id: selected, cursor: cursors.current[selected] ?? null } }),
     onSuccess: (summary) => {
       if (summary.skippedReason) {
         toast.info(`Backfill skipped (${summary.skippedReason})`);
         return;
       }
+      cursors.current[selected] = summary.hasMore ? (summary.cursor ?? null) : null;
       toast.success(
         `Backfill · examined ${summary.examined} · created ${summary.created} · updated ${summary.updated} · unchanged ${summary.unchanged} · skipped ${summary.skipped} · errored ${summary.errored}${summary.hasMore ? " · more remaining, run again" : ""}`,
       );
@@ -143,6 +147,7 @@ function GoogleInboundDiagnostic({ calendars }: { calendars: CalendarOption[] })
     onError: (error: unknown) =>
       toast.error(error instanceof Error ? error.message : "Backfill failed"),
   });
+
 
   const report = run.data && !("skipped" in run.data) ? run.data : null;
   const skipped = run.data && "skipped" in run.data ? run.data.skipped : null;

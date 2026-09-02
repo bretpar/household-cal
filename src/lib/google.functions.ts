@@ -348,10 +348,11 @@ export const reapplyGoogleInboundEvent = createServerFn({ method: "POST" })
  */
 export const backfillGoogleSource = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { source_id: string }) => {
+  .inputValidator((input: { source_id: string; cursor?: string | null }) => {
     const sourceId = String(input?.source_id ?? "").trim();
     if (!sourceId) throw new Error("Pick a Google calendar to backfill");
-    return { source_id: sourceId };
+    const cursor = input?.cursor ? String(input.cursor) : null;
+    return { source_id: sourceId, cursor };
   })
   .handler(async ({ data, context }) => {
     const { resolveOwnedFamily } = await import("@/lib/google-settings.server");
@@ -359,5 +360,6 @@ export const backfillGoogleSource = createServerFn({ method: "POST" })
     if (!family) throw new Error("Only household owners can backfill calendars");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { backfillSource } = await import("@/lib/google/backfill.server");
-    return backfillSource(supabaseAdmin, family, data.source_id);
+    return backfillSource(supabaseAdmin, family, data.source_id, new Date(), data.cursor);
   });
+
