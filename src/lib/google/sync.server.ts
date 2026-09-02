@@ -22,6 +22,7 @@ import {
   computeBranches,
   exceptionEventFields,
   fromGoogleRecurrence,
+  localRuleFromGoogle,
   fromGoogleTimes,
 
   googleTitle,
@@ -945,7 +946,7 @@ async function createLocalEvent(
       location: g.location ?? null,
       notes: g.description ?? null,
       event_type: "other",
-      recurrence_rule: rec.rule,
+      recurrence_rule: localRuleFromGoogle(rec),
       recurrence_until: rec.until,
       excluded_dates: rec.excludedDates,
       external_event_id: g.id,
