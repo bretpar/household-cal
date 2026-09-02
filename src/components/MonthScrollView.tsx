@@ -82,12 +82,24 @@ export const MonthScrollView = forwardRef<
 
   const key = (month: Date) => format(month, "yyyy-MM");
 
+  /** Top offset of a month's week-of-the-1st row, in scroll coordinates. */
+  const anchorTop = (container: HTMLDivElement, id: string) => {
+    const row = container.querySelector<HTMLElement>(`[data-month-start="${id}"]`);
+    if (!row) return null;
+    return (
+      row.getBoundingClientRect().top -
+      container.getBoundingClientRect().top +
+      container.scrollTop
+    );
+  };
+
   const scrollToMonth = useCallback((month: Date, behavior: ScrollBehavior = "smooth") => {
     const container = scrollRef.current;
-    const anchorEl = anchorRefs.current.get(format(startOfMonth(month), "yyyy-MM"));
-    if (!container || !anchorEl) return;
+    if (!container) return;
+    const top = anchorTop(container, format(startOfMonth(month), "yyyy-MM"));
+    if (top == null) return;
     container.scrollTo({
-      top: anchorEl.offsetTop,
+      top,
       behavior: prefersReducedMotion() ? "auto" : behavior,
     });
   }, []);
