@@ -260,6 +260,32 @@ export function useDayStrip({
       }, 140);
     };
 
+    // Desktop: let the browser own the pan and its momentum. We only watch the
+    // resulting scroll position — reporting the visible day as it moves and
+    // gently aligning to the nearest column once movement stops. No delta
+    // thresholds, no page swaps, and no cap on days travelled per gesture.
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    const onScroll = () => {
+      if (settling.current) return;
+      const visible = Math.round(node.scrollLeft / columnWidth);
+      onVisibleIndexChangeRef.current?.(visible);
+      if (settleTimer) clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => {
+        settleTimer = null;
+        if (isBlockedRef.current?.()) return;
+        settleTo(Math.round(node.scrollLeft / columnWidth), 0);
+      }, 130);
+    };
+
+    if (native) {
+      node.addEventListener("scroll", onScroll, { passive: true });
+      return () => {
+        if (settleTimer) clearTimeout(settleTimer);
+        cancelAnimation();
+        node.removeEventListener("scroll", onScroll);
+      };
+    }
+
     node.addEventListener("touchstart", onTouchStart, { passive: true });
     node.addEventListener("touchmove", onTouchMove, { passive: false });
     node.addEventListener("touchend", onTouchEnd);
@@ -275,7 +301,8 @@ export function useDayStrip({
       node.removeEventListener("touchcancel", onTouchEnd);
       node.removeEventListener("wheel", onWheel);
     };
-  }, [cancelAnimation, columnWidth]);
+  }, [cancelAnimation, columnWidth, native]);
+
 
   return { hostRef, align };
 }
