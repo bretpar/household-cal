@@ -187,7 +187,9 @@ export async function backfillSource(
     initials,
     summary,
     Date.now() + INSTANCE_PASS_BUDGET_MS,
+    cursor,
   );
+
 
   // Intentionally no calendar_sources update: the existing sync token and
   // status must stay exactly as normal sync left them.
