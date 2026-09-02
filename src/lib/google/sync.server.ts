@@ -930,7 +930,9 @@ async function createLocalEvent(
   detachedFrom: string | null,
 ): Promise<string> {
   const times = fromGoogleTimes(g);
-  const rec = detachedFrom ? { rule: null, until: null, excludedDates: [] } : fromGoogleRecurrence(g.recurrence);
+  const rec = detachedFrom
+    ? { rule: null, weekdays: null, until: null, excludedDates: [] }
+    : fromGoogleRecurrence(g.recurrence);
   const { data, error } = await admin
     .from("events")
     .insert({
