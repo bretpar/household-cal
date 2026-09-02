@@ -158,15 +158,7 @@ export const MonthScrollView = forwardRef<
       className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
     >
       {months.map((month) => (
-        <div
-          key={key(month)}
-          ref={(node) => {
-            if (node) sectionRefs.current.set(key(month), node);
-            else sectionRefs.current.delete(key(month));
-          }}
-          data-month={key(month)}
-          className="scroll-mt-0"
-        >
+        <div key={key(month)} data-month={key(month)} className="scroll-mt-0">
           <div className="flex items-baseline gap-2 px-3 pt-4 pb-1.5 sm:px-4">
             <h2
               className={cn(
@@ -180,18 +172,27 @@ export const MonthScrollView = forwardRef<
               {format(month, "yyyy")}
             </span>
           </div>
-          <MonthView
-            month={month}
-            events={events}
-            selectedMembers={selectedMembers}
-            onSelectDay={onSelectDay}
-            onPaste={onPaste}
-            onCreateAt={onCreateAt}
-            weekStartsOn={weekStartsOn}
-            bare
-          />
+          <div
+            ref={(node) => {
+              if (node) anchorRefs.current.set(key(month), node);
+              else anchorRefs.current.delete(key(month));
+            }}
+            data-month-anchor={key(month)}
+          >
+            <MonthView
+              month={month}
+              events={events}
+              selectedMembers={selectedMembers}
+              onSelectDay={onSelectDay}
+              onPaste={onPaste}
+              onCreateAt={onCreateAt}
+              weekStartsOn={weekStartsOn}
+              bare
+            />
+          </div>
         </div>
       ))}
+
     </div>
   );
 });
