@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { repairGoogleRecurrence } from "@/lib/google.functions";
 import { getQaAccess, runQaReset } from "@/lib/qa.functions";
 
 /**
@@ -20,6 +21,23 @@ export function DeveloperTools() {
   const [confirm, setConfirm] = useState("");
 
   const access = useQuery({ queryKey: ["qa-access"], queryFn: () => fetchAccess() });
+
+  const repair = useServerFn(repairGoogleRecurrence);
+  const repairMutation = useMutation({
+    mutationFn: () => repair({ data: {} }),
+    onSuccess: async (summary) => {
+      await queryClient.invalidateQueries();
+      if (summary.skipped) {
+        toast.info(`Recurrence repair skipped (${summary.skipped})`);
+        return;
+      }
+      toast.success(
+        `Recurrence repair complete · ${summary.repaired ?? 0} of ${summary.examined ?? 0} series updated`,
+      );
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Recurrence repair failed"),
+  });
 
   const resetMutation = useMutation({
     mutationFn: () => reset({ data: { confirm } }),
@@ -72,6 +90,24 @@ export function DeveloperTools() {
             {resetMutation.isPending ? "Resetting…" : "Reset QA Household"}
           </Button>
         </div>
+      </div>
+      <div className="space-y-3 rounded-3xl border border-dashed border-border bg-card p-4">
+        <div>
+          <h3 className="text-base font-bold">Repair Google recurrence rules</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Re-reads repeat rules from Google for linked recurring events and restores weekdays lost
+            by older imports. Safe to run more than once.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 rounded-full font-bold"
+          disabled={repairMutation.isPending}
+          onClick={() => repairMutation.mutate()}
+        >
+          {repairMutation.isPending ? "Repairing…" : "Repair recurrence rules"}
+        </Button>
       </div>
     </section>
   );
