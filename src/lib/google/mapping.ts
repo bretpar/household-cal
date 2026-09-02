@@ -246,6 +246,30 @@ export function fromGoogleRecurrence(lines: string[] | null | undefined): Parsed
 }
 
 /**
+ * Canonical local `recurrence_rule` for an imported Google series.
+ *
+ * Google's BYDAY selection is part of the schedule, not decoration: dropping it
+ * makes local expansion fall back to the start weekday only, so a WE,TH series
+ * would render Wednesdays alone. Kept in one helper so both a brand-new import
+ * and an update of an existing series serialize the rule identically.
+ */
+export function localRuleFromGoogle(
+  rec: Pick<ParsedGoogleRecurrence, "rule" | "weekdays">,
+): string | null {
+  if (!rec.rule) return null;
+  const parts = rec.rule
+    .replace(/^RRULE:/i, "")
+    .split(";")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const hasByday = parts.some((p) => /^BYDAY=/i.test(p));
+  if (!hasByday && rec.weekdays && rec.weekdays.length > 0) {
+    parts.push(`BYDAY=${rec.weekdays.join(",")}`);
+  }
+  return parts.length > 0 ? parts.join(";") : null;
+}
+
+/**
  * Wall-clock string (`yyyy-MM-ddTHH:mm:ss`) for an instant in an IANA zone.
  *
  * Google interprets a floating dateTime plus `timeZone` as a local wall-clock
