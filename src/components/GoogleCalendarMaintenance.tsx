@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -12,31 +12,136 @@ import {
   getSyncSettings,
   reapplyGoogleInboundEvent,
   repairGoogleRecurrence,
+  unlockCalendarMaintenance,
 } from "@/lib/google.functions";
 
+/** Unlock lasts for one session only, and no longer than this. */
+const UNLOCK_DURATION_MS = 30 * 60 * 1000;
+
 /**
- * Owner-only Google Calendar maintenance.
+ * Owner-only Google Calendar maintenance, hidden behind a support code.
  *
  * Exposes only the safe, non-destructive tools: read-only inbound diagnostic,
  * recurrence repair and bounded backfill. Every action is additionally
  * authorized server-side against the caller's owned household, and the calendar
- * list comes from that same household's connected Google sources.
+ * list comes from that same household's connected Google sources. The unlock
+ * lives in component state only, so it disappears on sign-out or reload and
+ * auto-locks after 30 minutes.
  *
  * No QA/reset/destructive tooling belongs here.
  */
 export function GoogleCalendarMaintenance() {
   const loadSettings = useServerFn(getSyncSettings);
   const settings = useQuery({ queryKey: ["google-sync-settings"], queryFn: () => loadSettings() });
+  const unlockFn = useServerFn(unlockCalendarMaintenance);
+
+  const [open, setOpen] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+  const [code, setCode] = useState("");
+
+  useEffect(() => {
+    if (!unlocked) return;
+    const timer = setTimeout(() => {
+      setUnlocked(false);
+      setOpen(false);
+    }, UNLOCK_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, [unlocked]);
+
+  const unlock = useMutation({
+    mutationFn: () => unlockFn({ data: { code } }),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error("That code isn’t right");
+        return;
+      }
+      setCode("");
+      setUnlocked(true);
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Could not open maintenance"),
+  });
 
   if (!settings.data?.is_owner) return null;
 
   const calendars = (settings.data.calendars ?? []).filter((c) => c.external_calendar_id);
 
+  if (!unlocked) {
+    return (
+      <div className="rounded-3xl border border-border-soft bg-card p-4">
+        {!open ? (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="text-sm font-bold text-muted-foreground hover:text-foreground"
+          >
+            Maintenance
+          </button>
+        ) : (
+          <form
+            className="space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (code.trim()) unlock.mutate();
+            }}
+          >
+            <Label htmlFor="maintenance-code">Maintenance code</Label>
+            <p className="text-xs text-muted-foreground">
+              Enter the support code to open Calendar Maintenance.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Input
+                id="maintenance-code"
+                type="password"
+                autoComplete="off"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="h-11 max-w-56 rounded-xl"
+              />
+              <Button
+                type="submit"
+                variant="outline"
+                className="h-11 rounded-full font-bold"
+                disabled={!code.trim() || unlock.isPending}
+              >
+                {unlock.isPending ? "Checking…" : "Unlock"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-11 rounded-full font-bold"
+                onClick={() => {
+                  setOpen(false);
+                  setCode("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-base font-bold">Calendar Maintenance</h3>
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-9 rounded-full font-bold"
+          onClick={() => {
+            setUnlocked(false);
+            setOpen(false);
+          }}
+        >
+          Lock
+        </Button>
+      </div>
       <p className="text-sm text-muted-foreground">
-        Safe repair tools for this household&rsquo;s connected Google calendars. Available to
-        household owners only.
+        Safe repair tools for this household&rsquo;s connected Google calendars.
       </p>
       <RecurrenceRepair />
       <GoogleInboundDiagnostic calendars={calendars} />
