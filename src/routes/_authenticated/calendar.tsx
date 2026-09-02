@@ -412,11 +412,44 @@ function CalendarPage() {
         <div
           className={cn(
             "flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft",
-            // Desktop day-strip needs a bounded height so only the timeline scrolls.
-            useDayStripLayout ? "md:h-[70vh]" : "md:block",
+            // Desktop day-strip and the vertical month surface need a bounded
+            // height so only their inner content scrolls.
+            useDayStripLayout ? "md:h-[70vh]" : mode === "month" ? "md:h-[78vh]" : "md:block",
           )}
         >
-        {useDayStripLayout ? (
+        {mode === "month" ? (
+          <div
+            ref={periodRef}
+            tabIndex={-1}
+            role="group"
+            aria-label={`Month view: ${label}`}
+            className="flex min-h-0 flex-1 flex-col outline-none"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                step(-1);
+              } else if (e.key === "ArrowRight") {
+                e.preventDefault();
+                step(1);
+              }
+            }}
+          >
+            <MonthScrollView
+              ref={monthScrollRef}
+              anchor={anchor}
+              events={visibleEvents}
+              selectedMembers={selectedMembers}
+              onPaste={onPaste}
+              onCreateAt={onCreateAt}
+              weekStartsOn={weekStart}
+              onVisibleMonthChange={setVisibleDate}
+              onSelectDay={(day) => {
+                setAnchor(day);
+                setView("day");
+              }}
+            />
+          </div>
+        ) : useDayStripLayout ? (
           <div
             ref={periodRef}
             tabIndex={-1}
