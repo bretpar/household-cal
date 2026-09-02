@@ -6,6 +6,7 @@ import { AppShell } from "@/components/AppShell";
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
 import { CalendarSyncSettings } from "@/components/CalendarSyncSettings";
 import { DeveloperTools } from "@/components/DeveloperTools";
+import { GoogleCalendarMaintenance } from "@/components/GoogleCalendarMaintenance";
 import { EmailSummarySettings } from "@/components/EmailSummarySettings";
 import { EventCategorySettings } from "@/components/EventCategorySettings";
 import { FamilyMemberSettings } from "@/components/FamilyMemberSettings";
@@ -168,6 +169,9 @@ function FamilyPage() {
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
             </Link>
+          </div>
+          <div className="mt-4">
+            <GoogleCalendarMaintenance />
           </div>
         </SettingsSection>
 
