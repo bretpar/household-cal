@@ -246,11 +246,12 @@ function GoogleInboundDiagnostic({ calendars }: { calendars: CalendarOption[] })
           type="button"
           variant="outline"
           className="h-11 rounded-full font-bold"
-          disabled={!selected || backfill.isPending}
-          onClick={() => backfill.mutate()}
+          disabled={!selected || running}
+          onClick={() => void runBackfill()}
         >
-          {backfill.isPending ? "Backfilling…" : "Backfill Google events"}
+          {running ? "Repairing…" : "Backfill Google events"}
         </Button>
+        {progress ? <p className="text-sm text-muted-foreground">{progress}</p> : null}
       </div>
 
       {skipped ? <p className="text-sm text-muted-foreground">Skipped: {skipped}</p> : null}
