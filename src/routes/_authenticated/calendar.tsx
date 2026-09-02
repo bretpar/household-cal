@@ -295,7 +295,12 @@ function CalendarPage() {
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <span className="min-w-0 flex-1 truncate text-center text-sm font-bold">{label}</span>
+          <span className="min-w-0 flex-1 truncate text-center text-sm font-bold">
+            {/* Keyed so the text crossfades on handoff; layout never moves. */}
+            <span key={label} className="inline-block animate-fade-in">
+              {label}
+            </span>
+          </span>
           <Button
             variant="ghost"
             size="icon"
@@ -328,7 +333,9 @@ function CalendarPage() {
             </Button>
             {/* The header stays put: only the grid content animates. */}
             <span className="min-w-0 flex-1 truncate text-base font-bold sm:text-lg">
-              {label}
+              <span key={label} className="inline-block animate-fade-in">
+                {label}
+              </span>
             </span>
             <Button
               variant="ghost"

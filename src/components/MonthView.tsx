@@ -135,7 +135,15 @@ export function MonthView({
         className={cn("grid grid-cols-7", fill && "min-h-0 flex-1")}
         style={fill ? { gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))` } : undefined}
       >
-        {days.map((day) => {
+        {days.map((day, dayIndex) => {
+          // Mark the first cell of the week row that contains the 1st of this
+          // month; the vertical Month scroller uses it as the header anchor.
+          const rowStart = dayIndex % 7 === 0;
+          const rowContainsFirst =
+            rowStart &&
+            days
+              .slice(dayIndex, dayIndex + 7)
+              .some((d) => d.getDate() === 1 && isSameMonth(d, month));
           const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
           const coverage = dayOccurrences.filter((o) => isCoverage(o.event));
           const visible = dayOccurrences.filter(
@@ -152,6 +160,9 @@ export function MonthView({
               role="button"
               tabIndex={0}
               aria-label={format(day, "EEEE, MMMM d")}
+              {...(rowContainsFirst
+                ? { "data-month-start": format(month, "yyyy-MM") }
+                : {})}
               onClick={() => onSelectDay(day)}
               {...dropProps((_e, o) => sameTimeOn(day, o))}
               {...longPressProps}
