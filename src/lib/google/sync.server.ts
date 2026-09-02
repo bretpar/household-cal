@@ -1221,3 +1221,94 @@ export async function familyForChannel(
     .maybeSingle();
   return data ? { familyId: data.family_id } : null;
 }
+
+/* ------------------------------------------------- one-time recurrence repair */
+
+/**
+ * One-time repair for Google-originated recurring series that were imported
+ * before the recurrence fix and lost their `BYDAY` weekdays.
+ *
+ * Safe by construction:
+ *  - only touches events that have Google sync links (never local-only events);
+ *  - only single-branch links (branch_key ""), so per-person weekday branches
+ *    can never be flattened;
+ *  - the authoritative recurrence comes from Google, never guessed from local
+ *    dates, and is mapped by the same `fromGoogleRecurrence` /
+ *    `localRuleFromGoogle` helpers that live sync uses;
+ *  - idempotent: a row whose rule already matches Google is left alone.
+ */
+export async function repairGoogleRecurrenceRules(
+  admin: Admin,
+  familyId: string,
+  eventIds: string[] | null = null,
+): Promise<{ examined?: number; repaired?: number; details?: string[]; skipped?: string }> {
+  const result = await guard(admin, familyId, async () => {
+    const conn = await getConnection(admin, familyId);
+    if (!conn) return { skipped: "not_connected" };
+    const sources = await googleSources(admin, familyId);
+    if (sources.length === 0) return { skipped: "no_google_calendar" };
+
+    let query = admin
+      .from("events")
+      .select("id, title, recurrence_rule, recurrence_until, excluded_dates")
+      .eq("family_id", familyId)
+      .not("recurrence_rule", "is", null);
+    if (eventIds && eventIds.length > 0) query = query.in("id", eventIds);
+    const events = ((await query).data ?? []) as {
+      id: string;
+      title: string;
+      recurrence_rule: string | null;
+    }[];
+
+    let examined = 0;
+    let repaired = 0;
+    const details: string[] = [];
+
+    for (const event of events) {
+      const { data: linkRows } = await admin
+        .from("event_sync_links")
+        .select("calendar_source_id, google_event_id, google_recurring_event_id, branch_key")
+        .eq("family_id", familyId)
+        .eq("event_id", event.id);
+      const links = (linkRows ?? []) as {
+        calendar_source_id: string;
+        google_event_id: string;
+        google_recurring_event_id: string | null;
+        branch_key: string;
+      }[];
+      // per-person branches keep their own Google series; repairing from one
+      // branch would drop the other branch's weekdays
+      if (links.length !== 1 || links[0]!.branch_key !== "") continue;
+      const link = links[0]!;
+      const source = sources.find((s) => s.id === link.calendar_source_id);
+      if (!source?.external_calendar_id) continue;
+
+      examined += 1;
+      try {
+        const master = await google.getEvent(
+          conn.connectionKey,
+          source.external_calendar_id,
+          link.google_recurring_event_id ?? link.google_event_id,
+        );
+        if (!master.recurrence || master.recurrence.length === 0) continue;
+        const rec = fromGoogleRecurrence(master.recurrence);
+        const rule = localRuleFromGoogle(rec);
+        if (!rule || rule === event.recurrence_rule) continue;
+        const { error } = await admin
+          .from("events")
+          .update({ recurrence_rule: rule, last_change_source: "google" })
+          .eq("id", event.id)
+          .eq("family_id", familyId);
+        if (error) throw error;
+        repaired += 1;
+        details.push(`${event.title}: ${event.recurrence_rule} -> ${rule}`);
+      } catch (error) {
+        if (error instanceof GoogleAuthError) throw error;
+        console.error("[google-sync] recurrence repair failed", event.id, error);
+      }
+    }
+
+    return { examined, repaired, details };
+  });
+  return result as { examined?: number; repaired?: number; details?: string[]; skipped?: string };
+}

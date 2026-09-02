@@ -275,3 +275,24 @@ export const refreshHouseholdCalendar = createServerFn({ method: "POST" })
     const { pullHousehold } = await import("@/lib/google/sync.server");
     return pullHousehold(supabaseAdmin, family, false);
   });
+
+/**
+ * Narrow owner-only repair action: re-reads the authoritative recurrence of
+ * Google-linked recurring series and rewrites local rules that lost BYDAY
+ * before the recurrence fix. Idempotent and safe to run repeatedly.
+ */
+export const repairGoogleRecurrence = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { event_ids?: string[] } | undefined) => input ?? {})
+  .handler(async ({ data, context }) => {
+    const { resolveOwnedFamily } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can repair calendar recurrence");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { repairGoogleRecurrenceRules } = await import("@/lib/google/sync.server");
+    return repairGoogleRecurrenceRules(
+      supabaseAdmin,
+      family,
+      data.event_ids && data.event_ids.length > 0 ? data.event_ids : null,
+    );
+  });
