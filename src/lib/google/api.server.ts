@@ -280,6 +280,39 @@ export async function listEvents(
   return nextSyncToken ? { items, nextSyncToken } : { items };
 }
 
+/**
+ * Read-only listing of everything Google has in one explicit time range,
+ * expanded to individual instances. Used by the developer inbound-sync
+ * diagnostic; it never touches sync tokens so it cannot disturb live sync.
+ */
+export async function listEventsInRange(
+  connectionAPIKey: string,
+  calendarId: string,
+  timeMin: string,
+  timeMax: string,
+): Promise<GoogleEvent[]> {
+  const items: GoogleEvent[] = [];
+  let pageToken: string | undefined;
+  do {
+    const params = new URLSearchParams({
+      maxResults: "250",
+      showDeleted: "true",
+      singleEvents: "true",
+      timeMin,
+      timeMax,
+      orderBy: "startTime",
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+    const body = await call<{ items?: GoogleEvent[]; nextPageToken?: string }>(
+      connectionAPIKey,
+      `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params.toString()}`,
+    );
+    items.push(...(body.items ?? []));
+    pageToken = body.nextPageToken;
+  } while (pageToken);
+  return items;
+}
+
 export interface WatchResult {
   id: string;
   resourceId: string;
