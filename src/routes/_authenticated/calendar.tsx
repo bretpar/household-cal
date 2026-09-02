@@ -393,7 +393,13 @@ function CalendarPage() {
         <p aria-live="polite" className="sr-only">
           {label}
         </p>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft md:block">
+        <div
+          className={cn(
+            "flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft",
+            // Desktop day-strip needs a bounded height so only the timeline scrolls.
+            useDayStripLayout ? "md:h-[70vh]" : "md:block",
+          )}
+        >
         {useDayStripLayout ? (
           <div
             ref={periodRef}
@@ -422,9 +428,12 @@ function CalendarPage() {
               onNavigate={haptic}
               recenterSignal={todaySignal}
               isBlocked={() => eventDraggingRef.current}
+              native={!isMobile}
+              onVisibleDateChange={setVisibleDate}
             />
           </div>
         ) : (
+
         <div
           ref={carousel.containerRef}
           className={cn(
