@@ -27,13 +27,14 @@ export function DeveloperTools() {
     mutationFn: () => repair({ data: {} }),
     onSuccess: async (summary) => {
       await queryClient.invalidateQueries();
-      if (summary.skipped) {
-        toast.info(`Recurrence repair skipped (${summary.skipped})`);
+      if (summary.skippedReason) {
+        toast.info(`Recurrence repair skipped (${summary.skippedReason})`);
         return;
       }
       toast.success(
-        `Recurrence repair complete · ${summary.repaired ?? 0} of ${summary.examined ?? 0} series updated`,
+        `Recurrence repair · examined ${summary.examined ?? 0} · repaired ${summary.repaired ?? 0} · unchanged ${summary.unchanged ?? 0} · skipped ${summary.skipped ?? 0} · errored ${summary.errored ?? 0}`,
       );
+
     },
     onError: (error: unknown) =>
       toast.error(error instanceof Error ? error.message : "Recurrence repair failed"),
