@@ -296,3 +296,47 @@ export const repairGoogleRecurrence = createServerFn({ method: "POST" })
       data.event_ids && data.event_ids.length > 0 ? data.event_ids : null,
     );
   });
+
+/**
+ * Developer/owner-only read-only inbound-sync diagnostic: what does Google hold
+ * for one calendar on one day, and what would normal sync do with each item.
+ * Mutates nothing.
+ */
+export const diagnoseGoogleInbound = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { source_id: string; date: string }) => {
+    const sourceId = String(input?.source_id ?? "").trim();
+    const date = String(input?.date ?? "").trim();
+    if (!sourceId) throw new Error("Pick a Google calendar to inspect");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Pick a date (YYYY-MM-DD)");
+    return { source_id: sourceId, date };
+  })
+  .handler(async ({ data, context }) => {
+    const { resolveOwnedFamily } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can run sync diagnostics");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { diagnoseGoogleDay } = await import("@/lib/google/diagnostics.server");
+    return diagnoseGoogleDay(supabaseAdmin, family, data.source_id, data.date);
+  });
+
+/**
+ * Targeted repair: pushes one selected Google event through the existing
+ * inbound pipeline. Idempotent, keeps existing linkage, touches nothing else.
+ */
+export const reapplyGoogleInboundEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { source_id: string; google_event_id: string }) => {
+    const sourceId = String(input?.source_id ?? "").trim();
+    const googleEventId = String(input?.google_event_id ?? "").trim();
+    if (!sourceId || !googleEventId) throw new Error("A calendar and Google event id are required");
+    return { source_id: sourceId, google_event_id: googleEventId };
+  })
+  .handler(async ({ data, context }) => {
+    const { resolveOwnedFamily } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can repair calendar events");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { reapplyGoogleEvent } = await import("@/lib/google/diagnostics.server");
+    return reapplyGoogleEvent(supabaseAdmin, family, data.source_id, data.google_event_id);
+  });
