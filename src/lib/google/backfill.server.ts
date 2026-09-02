@@ -52,6 +52,8 @@ export interface BackfillSummary {
   skipped: number;
   errored: number;
   skippedReason?: string;
+  /** true when the bounded instance pass stopped early and more work remains */
+  hasMore?: boolean;
 }
 
 const EMPTY: BackfillSummary = {
@@ -62,6 +64,10 @@ const EMPTY: BackfillSummary = {
   skipped: 0,
   errored: 0,
 };
+
+/** Per-request budget for the expanded instance pass. */
+const MAX_INSTANCE_MATERIALIZATIONS = 15;
+const INSTANCE_PASS_BUDGET_MS = 12_000;
 
 async function sourceById(
   admin: Admin,
