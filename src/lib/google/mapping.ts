@@ -517,7 +517,7 @@ export function seriesPatchFromGoogle(input: {
   // for the other branches of the same logical event
   if (local.branchKey === "") {
     const rec = fromGoogleRecurrence(google.recurrence);
-    patch["recurrence_rule"] = rec.rule;
+    patch["recurrence_rule"] = localRuleFromGoogle(rec);
     patch["recurrence_until"] = rec.until;
     if (rec.excludedDates.length > 0) patch["excluded_dates"] = rec.excludedDates;
   }
