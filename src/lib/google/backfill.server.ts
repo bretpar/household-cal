@@ -120,7 +120,9 @@ export async function backfillSource(
   familyId: string,
   sourceId: string,
   now = new Date(),
+  cursor: string | null = null,
 ): Promise<BackfillSummary> {
+
   const conn = await getConnection(admin, familyId);
   if (!conn) return { ...EMPTY, skippedReason: "not_connected" };
   const source = await sourceById(admin, familyId, sourceId);
