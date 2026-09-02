@@ -363,3 +363,28 @@ export const backfillGoogleSource = createServerFn({ method: "POST" })
     return backfillSource(supabaseAdmin, family, data.source_id, new Date(), data.cursor);
   });
 
+
+/**
+ * Owner-only unlock for the Calendar Maintenance tools.
+ *
+ * The expected code lives only in the server environment (MAINTENANCE_CODE) and
+ * is compared with a timing-safe digest check, so it is never present in client
+ * code. Unlocking grants no server privileges by itself: every maintenance
+ * action still re-authorizes the caller as a household owner.
+ */
+export const unlockCalendarMaintenance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { code: string }) => ({ code: String(input?.code ?? "") }))
+  .handler(async ({ data, context }) => {
+    const { resolveOwnedFamily } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can open calendar maintenance");
+
+    const expected = process.env["MAINTENANCE_CODE"];
+    if (!expected) throw new Error("Maintenance is not configured");
+
+    const { createHash, timingSafeEqual } = await import("node:crypto");
+    const digest = (value: string) => createHash("sha256").update(value, "utf8").digest();
+    const ok = timingSafeEqual(digest(data.code.trim()), digest(expected.trim()));
+    return { ok };
+  });
