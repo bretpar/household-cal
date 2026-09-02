@@ -172,7 +172,7 @@ function RecurrenceRepair() {
   return (
     <div className="space-y-3 rounded-3xl border border-border-soft bg-card p-4">
       <div>
-        <h3 className="text-base font-bold">Repair Google recurrence rules</h3>
+        <h3 className="text-base font-bold">Repair recurrence rules</h3>
         <p className="mt-1 text-sm text-muted-foreground">
           Re-reads repeat rules from Google for linked recurring events and restores weekdays lost by
           older imports. Safe to run more than once.
@@ -297,7 +297,7 @@ function GoogleInboundDiagnostic({ calendars }: { calendars: CalendarOption[] })
   return (
     <div className="space-y-3 rounded-3xl border border-border-soft bg-card p-4">
       <div>
-        <h3 className="text-base font-bold">Google inbound sync diagnostic</h3>
+        <h3 className="text-base font-bold">Inspect Google sync</h3>
         <p className="mt-1 text-sm text-muted-foreground">
           Lists exactly what Google returns for one calendar and date, and what inbound sync would do
           with each item. Read-only.
@@ -354,7 +354,7 @@ function GoogleInboundDiagnostic({ calendars }: { calendars: CalendarOption[] })
           disabled={!selected || running}
           onClick={() => void runBackfill()}
         >
-          {running ? "Repairing…" : "Backfill Google events"}
+          {running ? "Repairing…" : "Repair missing Google events"}
         </Button>
         {progress ? <p className="text-sm text-muted-foreground">{progress}</p> : null}
       </div>
