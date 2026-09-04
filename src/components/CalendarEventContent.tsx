@@ -55,17 +55,26 @@ export function CalendarEventContent({
   // the event happens. Month pills keep the time (no timeline to read it from).
   if (density === "tiny" || density === "short") {
     const showTime = view === "month" || (view === "day" && density === "short");
+    const showDesktopStackedTime =
+      !showTime && density === "short" && !occurrence.event.all_day;
     return (
       <div className={cn(wrapperClass, "flex items-center gap-1.5")}>
         <button
           type="button"
           onClick={onOpen}
           disabled={!onOpen}
-          className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+          className={cn(
+            "min-w-0 flex-1 text-left",
+            showDesktopStackedTime ? "md:block" : "flex items-center gap-1.5",
+          )}
         >
-          <span className={cn("min-w-0 flex-1 truncate", scale.title)}>{label}</span>
+          <span className={cn("min-w-0 truncate", scale.title)}>{label}</span>
           {showTime ? (
             <span className={cn("shrink-0 truncate", scale.time, timeTone)}>{time}</span>
+          ) : showDesktopStackedTime ? (
+            <span className={cn("hidden truncate md:mt-0.5 md:block", scale.time, timeTone)}>
+              {time}
+            </span>
           ) : null}
         </button>
         {badges}
