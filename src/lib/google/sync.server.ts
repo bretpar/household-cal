@@ -128,8 +128,12 @@ interface EventRow {
   recurrence_until: string | null;
   excluded_dates: string[] | null;
   updated_at: string;
+  external_event_id?: string | null;
+  external_recurring_event_id?: string | null;
+  last_change_source?: string | null;
   event_members?: { family_member_id: string; weekdays: WeekdayCode[] | null }[];
 }
+
 
 interface LinkRow {
   id: string;
@@ -405,6 +409,21 @@ export async function pushEvent(
 
     const event = await loadEvent(admin, eventId);
     if (!event || event.family_id !== familyId) return { skipped: "event_not_found" };
+
+    // A detached instance that came *from* Google already exists there as an
+    // exception of its parent series. Creating it again would produce a second,
+    // standalone Google event for the same occurrence, so an untouched
+    // Google-origin exception is never pushed outbound. A genuine later local
+    // edit flips last_change_source back to "app" and pushes normally.
+    if (event.external_recurring_event_id && (event.last_change_source ?? "app") === "google") {
+      const { data: ownLinks } = await admin
+        .from("event_sync_links")
+        .select("id")
+        .eq("family_id", familyId)
+        .eq("event_id", eventId);
+      if ((ownLinks ?? []).length === 0) return { skipped: "google_owned_exception" };
+    }
+
 
     const sources = await googleSources(admin, familyId);
     if (sources.length === 0) return { skipped: "no_google_calendar" };
