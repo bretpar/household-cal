@@ -766,20 +766,34 @@ export async function applyGoogleEvent(
 
   /* ---------- brand new Google event ---------- */
   if (!link) {
-    const newId = await createLocalEvent(admin, source, g, initials, null);
-    await admin.from("event_sync_links").insert({
-      family_id: familyId,
-      event_id: newId,
-      calendar_source_id: source.id,
-      google_event_id: g.id,
-      google_recurring_event_id: g.recurringEventId ?? null,
-      branch_key: "",
-      google_etag: g.etag ?? null,
-      google_updated_at: g.updated ?? null,
-      last_source: "google",
-    });
+    // reuse an existing local row for this Google id when its link row is gone,
+    // so a pruned link never produces a duplicate local copy
+    const { data: existingLocal } = await admin
+      .from("events")
+      .select("id")
+      .eq("family_id", familyId)
+      .eq("external_event_id", g.id)
+      .maybeSingle();
+    const newId =
+      (existingLocal?.id as string | undefined) ??
+      (await createLocalEvent(admin, source, g, initials, null));
+    await admin.from("event_sync_links").upsert(
+      {
+        family_id: familyId,
+        event_id: newId,
+        calendar_source_id: source.id,
+        google_event_id: g.id,
+        google_recurring_event_id: g.recurringEventId ?? null,
+        branch_key: "",
+        google_etag: g.etag ?? null,
+        google_updated_at: g.updated ?? null,
+        last_source: "google",
+      },
+      { onConflict: "event_id,branch_key" },
+    );
     return;
   }
+
 
   /* ---------- update of a linked event ---------- */
   const { data: event } = await admin
