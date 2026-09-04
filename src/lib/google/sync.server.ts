@@ -128,8 +128,12 @@ interface EventRow {
   recurrence_until: string | null;
   excluded_dates: string[] | null;
   updated_at: string;
+  external_event_id?: string | null;
+  external_recurring_event_id?: string | null;
+  last_change_source?: string | null;
   event_members?: { family_member_id: string; weekdays: WeekdayCode[] | null }[];
 }
+
 
 interface LinkRow {
   id: string;
