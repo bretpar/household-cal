@@ -912,6 +912,56 @@ async function removeBranchParticipation(admin: Admin, link: LinkRow): Promise<v
 }
 
 /**
+ * Finds the local detached exception that already represents this exact Google
+ * instance, using the strongest identity available and never widening beyond
+ * the household. Read-only: it only decides whether a new row is needed.
+ */
+async function findDetachedException(
+  admin: Admin,
+  familyId: string,
+  g: GoogleEvent,
+): Promise<string | null> {
+  // 1. an existing link row for this exact Google instance
+  const { data: linkRows } = await admin
+    .from("event_sync_links")
+    .select("event_id")
+    .eq("family_id", familyId)
+    .eq("google_event_id", g.id)
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const linked = (linkRows ?? [])[0]?.event_id as string | undefined;
+  if (linked) return linked;
+
+  // 2. a local event already stamped with this Google instance id
+  const { data: byInstance } = await admin
+    .from("events")
+    .select("id")
+    .eq("family_id", familyId)
+    .eq("external_event_id", g.id)
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const stamped = (byInstance ?? [])[0]?.id as string | undefined;
+  if (stamped) return stamped;
+
+  // 3. an orphan one-off of the same Google series on the same occurrence day
+  const day = dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime);
+  if (!g.recurringEventId || !day) return null;
+  const { data: orphans } = await admin
+    .from("events")
+    .select("id, start_at")
+    .eq("family_id", familyId)
+    .eq("external_recurring_event_id", g.recurringEventId)
+    .is("recurrence_rule", null)
+    .order("created_at", { ascending: true });
+  for (const row of (orphans ?? []) as { id: string; start_at: string }[]) {
+    if (dayOf(row.start_at) === day) return row.id;
+  }
+  return null;
+}
+
+
+
+/**
  * Creates the detached local event for a Google-edited single occurrence of an
  * app-created series.
  *
