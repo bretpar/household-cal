@@ -490,6 +490,9 @@ export function exceptionEventFields(input: {
  * Google-owned fields. `event_members`, per-person weekdays, event type and the
  * review flag are app-owned and are deliberately absent from the patch, which
  * means an external time or title change can never clear the assignments.
+ *
+ * `omitTimes` is set by the caller when a branch-specific time edit arrived:
+ * the branches share one local start/end, so the time must stay untouched.
  */
 export function seriesPatchFromGoogle(input: {
   local: {
@@ -499,20 +502,23 @@ export function seriesPatchFromGoogle(input: {
   };
   branchInitials: string[];
   google: GoogleEvent;
+  omitTimes?: boolean;
 }): Record<string, unknown> {
-  const { local, branchInitials, google } = input;
+  const { local, branchInitials, google, omitTimes = false } = input;
   const times = fromGoogleTimes(google);
   const raw = google.summary ?? local.title;
   const title = stripGeneratedSuffix(raw, branchInitials) || local.title;
   const patch: Record<string, unknown> = {
     title,
-    start_at: times.start_at,
-    end_at: times.end_at,
-    all_day: times.all_day,
     location: google.location ?? null,
     notes: google.description ?? null,
     last_change_source: "google",
   };
+  if (!omitTimes) {
+    patch["start_at"] = times.start_at;
+    patch["end_at"] = times.end_at;
+    patch["all_day"] = times.all_day;
+  }
   // a branch only owns its own weekdays, so it must not rewrite the shared rule
   // for the other branches of the same logical event
   if (local.branchKey === "") {
@@ -525,6 +531,47 @@ export function seriesPatchFromGoogle(input: {
   if (local.memberCount > 0) patch["needs_family_assignment"] = false;
   return patch;
 }
+
+/**
+ * Wording shown on the affected link when one branch's series time was edited
+ * directly in Google.
+ */
+export const BRANCH_TIME_REVIEW_MESSAGE =
+  "Branch-specific series time edits made in Google are not supported for events with per-person day schedules. The local time was left unchanged — please edit it in the app.";
+
+/** Time-of-day + duration fingerprint, ignoring the branch's anchor date. */
+function clockSignature(startAt: string, endAt: string, allDay: boolean): string | null {
+  if (allDay) return "all-day";
+  const start = new Date(startAt);
+  const end = new Date(endAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  return `${start.toISOString().slice(11, 19)}|${end.getTime() - start.getTime()}`;
+}
+
+/**
+ * A whole-series time edit made in Google on one branch of a per-person weekday
+ * series cannot be mapped back: every branch reads the same local start/end, so
+ * applying Mom's 5–6 PM would also move Dad's Mondays.
+ *
+ * Returns the review wording when such an edit arrived, otherwise null. Purely
+ * comparative — it never mutates anything and stays stable across re-syncs.
+ */
+export function branchTimeReview(input: {
+  local: { branchKey: string; start_at: string; end_at: string; all_day: boolean };
+  google: GoogleEvent;
+}): string | null {
+  const { local, google } = input;
+  if (!local.branchKey) return null;
+  // single-occurrence exceptions are detached and keep their own time
+  if (google.recurringEventId) return null;
+  const incoming = fromGoogleTimes(google);
+  if (incoming.all_day !== local.all_day) return BRANCH_TIME_REVIEW_MESSAGE;
+  const localSig = clockSignature(local.start_at, local.end_at, local.all_day);
+  const incomingSig = clockSignature(incoming.start_at, incoming.end_at, incoming.all_day);
+  if (!localSig || !incomingSig || localSig === incomingSig) return null;
+  return BRANCH_TIME_REVIEW_MESSAGE;
+}
+
 
 /** Frequency/interval part of a rule, ignoring the per-branch BYDAY selection. */
 function sharedRuleShape(rule: string | null | undefined): string {
