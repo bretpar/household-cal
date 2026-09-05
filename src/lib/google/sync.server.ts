@@ -16,6 +16,7 @@
 
 import {
   branchAnchoredTimes,
+  branchPushWeekdays,
   branchRecurrenceReview,
   branchTimeReview,
   calendarNameChange,
@@ -372,12 +373,15 @@ function branchBody(
 ): Record<string, unknown> {
   // each branch is anchored to its own first matching weekday so Google does
   // not also emit it on the shared series' start weekday
-  const anchored = branchAnchoredTimes(event.start_at, event.end_at, branch.weekdays);
+  // a shared branch inherits the rule's own BYDAY, so a start weekday that is no
+  // longer active never leaks out as an extra Google occurrence
+  const pushWeekdays = branchPushWeekdays(branch.weekdays, event.recurrence_rule);
+  const anchored = branchAnchoredTimes(event.start_at, event.end_at, pushWeekdays);
   const times = toGoogleTimes(anchored.startAt, anchored.endAt, event.all_day, timeZone);
 
   const recurrence = toGoogleRecurrence(
     event.recurrence_rule,
-    branch.weekdays,
+    pushWeekdays,
     event.recurrence_until,
     event.excluded_dates ?? [],
     event.all_day ? null : { startAt: anchored.startAt, timeZone },

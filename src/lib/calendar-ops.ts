@@ -19,6 +19,7 @@ import type {
   MemberColor,
 } from "@/lib/family-data";
 import type { EventCategory } from "@/lib/event-categories";
+import { canonicalRecurrenceRule } from "@/lib/google/mapping";
 
 /** Minimal shape of the Supabase client surface these helpers need. */
 export type Db = { from: (table: string) => any };
@@ -264,7 +265,7 @@ export async function insertEvent(
       notes: input.notes,
       event_type: input.event_type,
       category_id: input.category_id ?? null,
-      recurrence_rule: input.recurrence_rule,
+      recurrence_rule: canonicalRecurrenceRule(input.recurrence_rule, input.member_weekdays),
       recurrence_until: input.recurrence_rule ? (input.recurrence_until ?? null) : null,
       ...overrides,
     })
@@ -332,7 +333,9 @@ export async function applyEventUpdate(
         notes: input.notes,
         event_type: input.event_type,
         category_id: input.category_id ?? null,
-        recurrence_rule: input.recurrence_rule,
+        // membership/weekday edits decide the weekday set, so stale days from the
+        // previous assignment (typically the original start weekday) are dropped
+        recurrence_rule: canonicalRecurrenceRule(input.recurrence_rule, input.member_weekdays),
         recurrence_until: input.recurrence_rule ? (input.recurrence_until ?? null) : null,
         calendar_source_id: sourceId,
       })
