@@ -302,13 +302,19 @@ export function usesPerPersonDays(state: EventFormState): boolean {
  * placeholder produced no local occurrences and an invalid Google RRULE.
  */
 export function ruleForFormState(state: EventFormState): string | null {
-  if (state.recurrence === "custom") {
+  // per-person days are the source of truth for the weekday set, so a removed or
+  // added person never leaves a weekday nobody attends in the stored rule
+  if (usesPerPersonDays(state)) {
     const union = new Set<WeekdayCode>();
     for (const id of state.members) {
       for (const day of state.memberWeekdays[id] ?? []) union.add(day);
     }
     const days = ORDERED_WEEKDAYS.filter((d) => union.has(d));
-    if (days.length === 0 && state.date) {
+    if (days.length > 0) return `FREQ=WEEKLY;BYDAY=${days.join(",")}`;
+  }
+  if (state.recurrence === "custom") {
+    const days: WeekdayCode[] = [];
+    if (state.date) {
       const code = ORDERED_WEEKDAYS[(new Date(`${state.date}T00:00`).getDay() + 6) % 7];
       if (code) days.push(code);
     }
