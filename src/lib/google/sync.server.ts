@@ -814,6 +814,18 @@ export async function applyGoogleEvent(
   }
 
   const branch = branchForLink(event, link, initials);
+  // per-person weekday branches share one local start/end: a Google time edit on
+  // a single branch is flagged for review instead of moving every branch
+  const timeReview = branchTimeReview({
+    local: {
+      branchKey: link.branch_key ?? "",
+      start_at: event.start_at,
+      end_at: event.end_at,
+      all_day: event.all_day,
+    },
+    google: g,
+  });
+  if (timeReview) console.warn("[google-sync] unsupported branch time edit", link.id, timeReview);
   // Google-owned fields only: event_members, weekdays and event type stay untouched
   const patch = seriesPatchFromGoogle({
     local: {
@@ -823,6 +835,7 @@ export async function applyGoogleEvent(
     },
     branchInitials: branchInitials(branch, initials),
     google: g,
+    omitTimes: Boolean(timeReview),
   });
   await admin.from("events").update(patch).eq("id", link.event_id);
 
@@ -833,7 +846,7 @@ export async function applyGoogleEvent(
 
   // per-person weekday branches share one local rule: a Google recurrence edit
   // on a single branch is flagged for review instead of rewriting that rule
-  const review = branchRecurrenceReview({
+  const recurrenceReview = branchRecurrenceReview({
     local: {
       branchKey: link.branch_key ?? "",
       recurrence_rule: event.recurrence_rule,
@@ -841,7 +854,10 @@ export async function applyGoogleEvent(
     },
     google: g,
   });
-  if (review) console.warn("[google-sync] unsupported branch recurrence edit", link.id, review);
+  if (recurrenceReview) {
+    console.warn("[google-sync] unsupported branch recurrence edit", link.id, recurrenceReview);
+  }
+  const review = [recurrenceReview, timeReview].filter(Boolean).join(" ") || null;
 
   await admin
     .from("event_sync_links")
@@ -855,6 +871,7 @@ export async function applyGoogleEvent(
     })
     .eq("id", link.id);
 }
+
 
 /** The participation branch a link represents, used only for title formatting. */
 function branchForLink(
