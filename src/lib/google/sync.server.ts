@@ -621,13 +621,15 @@ export async function applyGoogleEvent(
   initials: Map<string, string>,
 ): Promise<void> {
   const familyId = source.family_id;
-  const { data: linkRow } = await admin
+  const { data: linkRows } = await admin
     .from("event_sync_links")
     .select("*")
     .eq("google_event_id", g.id)
     .eq("family_id", familyId)
-    .maybeSingle();
-  let link = (linkRow as LinkRow | null) ?? null;
+    .order("created_at", { ascending: true })
+    .limit(1);
+  let link = ((linkRows ?? [])[0] as LinkRow | undefined) ?? null;
+
 
   /* ---------- cancellations ---------- */
   if (g.status === "cancelled") {
