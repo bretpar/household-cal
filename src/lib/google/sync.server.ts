@@ -621,13 +621,15 @@ export async function applyGoogleEvent(
   initials: Map<string, string>,
 ): Promise<void> {
   const familyId = source.family_id;
-  const { data: linkRow } = await admin
+  const { data: linkRows } = await admin
     .from("event_sync_links")
     .select("*")
     .eq("google_event_id", g.id)
     .eq("family_id", familyId)
-    .maybeSingle();
-  let link = (linkRow as LinkRow | null) ?? null;
+    .order("created_at", { ascending: true })
+    .limit(1);
+  let link = ((linkRows ?? [])[0] as LinkRow | undefined) ?? null;
+
 
   /* ---------- cancellations ---------- */
   if (g.status === "cancelled") {
@@ -703,16 +705,11 @@ export async function applyGoogleEvent(
       const day = dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime);
       if (day) await addExcludedDate(admin, seriesLink.event_id, day);
 
-      // Idempotency: a local exception for this exact Google instance may already
-      // exist (earlier inbound pass, or a link row that was pruned). Reuse it
-      // instead of creating a second local event for the same occurrence.
-      const { data: existing } = await admin
-        .from("events")
-        .select("id")
-        .eq("family_id", familyId)
-        .eq("external_event_id", g.id)
-        .maybeSingle();
-      const detached = (existing?.id as string | undefined) ?? null;
+      // Idempotency: a local detached exception for this exact Google instance
+      // may already exist (earlier inbound pass, a pruned link row, or the same
+      // instance seen through another connected calendar). Reuse it instead of
+      // creating a second local card for the same occurrence.
+      const detached = await findDetachedException(admin, familyId, g);
       const eventId =
         detached ??
         (await createExceptionEvent(
@@ -750,17 +747,20 @@ export async function applyGoogleEvent(
       if (!detached) return;
       // an already-known exception falls through to the normal update path so a
       // fresh Google edit of the same occurrence is applied in place
-      const { data: adopted } = await admin
+      const { data: adoptedRows } = await admin
         .from("event_sync_links")
         .select("*")
         .eq("family_id", familyId)
+        .eq("event_id", eventId)
         .eq("google_event_id", g.id)
-        .maybeSingle();
-      link = (adopted as LinkRow | null) ?? null;
+        .order("created_at", { ascending: true })
+        .limit(1);
+      link = ((adoptedRows ?? [])[0] as LinkRow | undefined) ?? null;
       if (!link) return;
 
     }
   }
+
 
 
 
@@ -910,6 +910,56 @@ async function removeBranchParticipation(admin: Admin, link: LinkRow): Promise<v
     }
   }
 }
+
+/**
+ * Finds the local detached exception that already represents this exact Google
+ * instance, using the strongest identity available and never widening beyond
+ * the household. Read-only: it only decides whether a new row is needed.
+ */
+async function findDetachedException(
+  admin: Admin,
+  familyId: string,
+  g: GoogleEvent,
+): Promise<string | null> {
+  // 1. an existing link row for this exact Google instance
+  const { data: linkRows } = await admin
+    .from("event_sync_links")
+    .select("event_id")
+    .eq("family_id", familyId)
+    .eq("google_event_id", g.id)
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const linked = (linkRows ?? [])[0]?.event_id as string | undefined;
+  if (linked) return linked;
+
+  // 2. a local event already stamped with this Google instance id
+  const { data: byInstance } = await admin
+    .from("events")
+    .select("id")
+    .eq("family_id", familyId)
+    .eq("external_event_id", g.id)
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const stamped = (byInstance ?? [])[0]?.id as string | undefined;
+  if (stamped) return stamped;
+
+  // 3. an orphan one-off of the same Google series on the same occurrence day
+  const day = dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime);
+  if (!g.recurringEventId || !day) return null;
+  const { data: orphans } = await admin
+    .from("events")
+    .select("id, start_at")
+    .eq("family_id", familyId)
+    .eq("external_recurring_event_id", g.recurringEventId)
+    .is("recurrence_rule", null)
+    .order("created_at", { ascending: true });
+  for (const row of (orphans ?? []) as { id: string; start_at: string }[]) {
+    if (dayOf(row.start_at) === day) return row.id;
+  }
+  return null;
+}
+
+
 
 /**
  * Creates the detached local event for a Google-edited single occurrence of an

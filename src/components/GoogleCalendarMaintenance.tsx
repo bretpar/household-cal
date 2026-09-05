@@ -10,6 +10,7 @@ import {
   backfillGoogleSource,
   diagnoseGoogleInbound,
   getSyncSettings,
+  inspectOccurrenceRows,
   reapplyGoogleInboundEvent,
   repairGoogleRecurrence,
   unlockCalendarMaintenance,
@@ -145,6 +146,7 @@ export function GoogleCalendarMaintenance() {
       </p>
       <RecurrenceRepair />
       <GoogleInboundDiagnostic calendars={calendars} />
+      <OccurrenceRowInspector />
     </div>
   );
 }
@@ -421,6 +423,111 @@ function Row({ label, value }: { label: string; value: string | null }) {
     <div className="flex gap-1.5">
       <dt className="shrink-0 text-muted-foreground">{label}:</dt>
       <dd className="min-w-0 break-all font-mono">{value}</dd>
+    </div>
+  );
+}
+
+/**
+ * Read-only row inspector for a single Google instance. Shows every local card
+ * that claims the instance (so duplicates are obvious), the parent series,
+ * projection fields, assignments and link bookkeeping. Writes nothing.
+ */
+function OccurrenceRowInspector() {
+  const inspect = useServerFn(inspectOccurrenceRows);
+  const [googleEventId, setGoogleEventId] = useState("");
+  const run = useMutation({
+    mutationFn: () => inspect({ data: { google_event_id: googleEventId.trim() } }),
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Inspection failed"),
+  });
+  const result = run.data ?? null;
+
+  return (
+    <div className="space-y-3 rounded-3xl border border-border-soft bg-card p-4">
+      <div>
+        <h3 className="text-base font-bold">Inspect one occurrence</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Paste a Google event id (from “Inspect Google sync” above) to see the exact stored rows for
+          that occurrence. Read-only.
+        </p>
+      </div>
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (googleEventId.trim()) run.mutate();
+        }}
+      >
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <Label htmlFor="inspect-google-id">Google event id</Label>
+          <Input
+            id="inspect-google-id"
+            value={googleEventId}
+            onChange={(e) => setGoogleEventId(e.target.value)}
+            className="h-11 rounded-xl font-mono text-xs"
+          />
+        </div>
+        <Button
+          type="submit"
+          variant="outline"
+          className="h-11 rounded-full font-bold"
+          disabled={!googleEventId.trim() || run.isPending}
+        >
+          {run.isPending ? "Inspecting…" : "Inspect rows"}
+        </Button>
+      </form>
+
+      {result ? (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            {result.matches.length} local row(s)
+            {result.recurring_event_id ? ` · series ${result.recurring_event_id}` : ""}
+            {result.skipped ? ` · ${result.skipped}` : ""}
+          </p>
+          {result.matches.map((m) => (
+            <div
+              key={m.local_event_id}
+              className="space-y-1 rounded-2xl border border-border-soft bg-background p-3 text-xs"
+            >
+              <div className="text-sm font-bold">{m.title}</div>
+              <dl className="grid gap-x-3 gap-y-0.5 sm:grid-cols-2">
+                <Row label="local event id" value={m.local_event_id} />
+                <Row label="parent/series event id" value={m.parent_event_id} />
+                <Row label="start" value={m.start_at} />
+                <Row label="end" value={m.end_at} />
+                <Row label="all day" value={m.all_day ? "yes" : "no"} />
+                <Row label="external_event_id" value={m.external_event_id} />
+                <Row label="external_recurring_event_id" value={m.external_recurring_event_id} />
+                <Row label="recurrence_rule" value={m.recurrence_rule} />
+                <Row label="recurrence_until" value={m.recurrence_until} />
+                <Row label="excluded_dates" value={m.excluded_dates.join(", ") || null} />
+                <Row label="last_change_source" value={m.last_change_source} />
+                <Row
+                  label="members"
+                  value={
+                    m.members
+                      .map(
+                        (p) =>
+                          `${p.name ?? p.family_member_id}${p.weekdays ? ` [${p.weekdays.join(",")}]` : ""}`,
+                      )
+                      .join(" · ") || null
+                  }
+                />
+              </dl>
+              {m.links.map((l) => (
+                <dl key={l.id} className="mt-1 grid gap-x-3 gap-y-0.5 border-t border-border-soft pt-1 sm:grid-cols-2">
+                  <Row label="link id" value={l.id} />
+                  <Row label="link branch" value={`"${l.branch_key}"`} />
+                  <Row label="link google_event_id" value={l.google_event_id} />
+                  <Row label="link google_recurring_event_id" value={l.google_recurring_event_id} />
+                  <Row label="link last_source" value={l.last_source} />
+                  <Row label="link sync_error" value={l.sync_error} />
+                </dl>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

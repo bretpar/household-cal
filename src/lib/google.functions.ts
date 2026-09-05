@@ -388,3 +388,24 @@ export const unlockCalendarMaintenance = createServerFn({ method: "POST" })
     const ok = timingSafeEqual(digest(data.code.trim()), digest(expected.trim()));
     return { ok };
   });
+
+/**
+ * Owner-only, read-only row inspection for a single Google instance: local rows,
+ * parent series, projection fields, assignments and link bookkeeping. Mutates
+ * nothing; used behind the locked Calendar Maintenance panel.
+ */
+export const inspectOccurrenceRows = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { google_event_id: string }) => {
+    const googleEventId = String(input?.google_event_id ?? "").trim();
+    if (!googleEventId) throw new Error("A Google event id is required");
+    return { google_event_id: googleEventId };
+  })
+  .handler(async ({ data, context }) => {
+    const { resolveOwnedFamily } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can inspect calendar rows");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { inspectOccurrence } = await import("@/lib/google/diagnostics.server");
+    return inspectOccurrence(supabaseAdmin, family, data.google_event_id);
+  });

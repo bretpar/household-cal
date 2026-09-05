@@ -281,3 +281,158 @@ export async function reapplyGoogleEvent(
   await applyGoogleEvent(admin, conn, source, g, initials);
   return { applied: true, status: g.status ?? "confirmed" };
 }
+
+export interface OccurrenceRecord {
+  local_event_id: string;
+  parent_event_id: string | null;
+  title: string;
+  start_at: string;
+  end_at: string;
+  all_day: boolean;
+  external_event_id: string | null;
+  external_recurring_event_id: string | null;
+  recurrence_rule: string | null;
+  recurrence_until: string | null;
+  excluded_dates: string[];
+  last_change_source: string | null;
+  members: { family_member_id: string; name: string | null; weekdays: string[] | null }[];
+  links: {
+    id: string;
+    branch_key: string;
+    google_event_id: string;
+    google_recurring_event_id: string | null;
+    last_source: string;
+    sync_error: string | null;
+    calendar_source_id: string;
+  }[];
+}
+
+export interface OccurrenceInspection {
+  google_event_id: string;
+  recurring_event_id: string | null;
+  matches: OccurrenceRecord[];
+  skipped?: string;
+}
+
+const EVENT_COLUMNS =
+  "id, title, start_at, end_at, all_day, external_event_id, external_recurring_event_id, recurrence_rule, recurrence_until, excluded_dates, last_change_source";
+
+async function recordFor(
+  admin: Admin,
+  familyId: string,
+  eventId: string,
+  parentEventId: string | null,
+): Promise<OccurrenceRecord | null> {
+  const { data: ev } = await admin
+    .from("events")
+    .select(EVENT_COLUMNS)
+    .eq("family_id", familyId)
+    .eq("id", eventId)
+    .maybeSingle();
+  if (!ev) return null;
+  const { data: memberRows } = await admin
+    .from("event_members")
+    .select("family_member_id, weekdays")
+    .eq("event_id", eventId);
+  const members: OccurrenceRecord["members"] = [];
+  for (const m of (memberRows ?? []) as { family_member_id: string; weekdays: string[] | null }[]) {
+    const { data: person } = await admin
+      .from("family_members")
+      .select("name")
+      .eq("id", m.family_member_id)
+      .maybeSingle();
+    members.push({
+      family_member_id: m.family_member_id,
+      name: (person?.name as string | null) ?? null,
+      weekdays: m.weekdays ?? null,
+    });
+  }
+  const { data: linkRows } = await admin
+    .from("event_sync_links")
+    .select(
+      "id, branch_key, google_event_id, google_recurring_event_id, last_source, sync_error, calendar_source_id",
+    )
+    .eq("family_id", familyId)
+    .eq("event_id", eventId);
+  return {
+    local_event_id: eventId,
+    parent_event_id: parentEventId,
+    title: ev.title as string,
+    start_at: ev.start_at as string,
+    end_at: ev.end_at as string,
+    all_day: Boolean(ev.all_day),
+    external_event_id: (ev.external_event_id as string | null) ?? null,
+    external_recurring_event_id: (ev.external_recurring_event_id as string | null) ?? null,
+    recurrence_rule: (ev.recurrence_rule as string | null) ?? null,
+    recurrence_until: (ev.recurrence_until as string | null) ?? null,
+    excluded_dates: (ev.excluded_dates as string[] | null) ?? [],
+    last_change_source: (ev.last_change_source as string | null) ?? null,
+    members,
+    links: (linkRows ?? []) as OccurrenceRecord["links"],
+  };
+}
+
+/**
+ * Read-only row-level inspection of one Google instance: every local event that
+ * claims it (so duplicates are visible), its parent series, projection fields,
+ * assignments and link bookkeeping. Writes nothing.
+ */
+export async function inspectOccurrence(
+  admin: Admin,
+  familyId: string,
+  googleEventId: string,
+): Promise<OccurrenceInspection> {
+  const { data: linkRows } = await admin
+    .from("event_sync_links")
+    .select("event_id, google_recurring_event_id")
+    .eq("family_id", familyId)
+    .eq("google_event_id", googleEventId);
+  const ids = new Set<string>();
+  let recurringId: string | null = null;
+  for (const l of (linkRows ?? []) as { event_id: string; google_recurring_event_id: string | null }[]) {
+    ids.add(l.event_id);
+    recurringId = recurringId ?? l.google_recurring_event_id;
+  }
+
+  const { data: stamped } = await admin
+    .from("events")
+    .select("id, external_recurring_event_id")
+    .eq("family_id", familyId)
+    .eq("external_event_id", googleEventId);
+  for (const e of (stamped ?? []) as { id: string; external_recurring_event_id: string | null }[]) {
+    ids.add(e.id);
+    recurringId = recurringId ?? e.external_recurring_event_id;
+  }
+
+  // sibling one-offs of the same Google series make duplicate cards visible
+  if (recurringId) {
+    const { data: siblings } = await admin
+      .from("events")
+      .select("id")
+      .eq("family_id", familyId)
+      .eq("external_recurring_event_id", recurringId);
+    for (const e of (siblings ?? []) as { id: string }[]) ids.add(e.id);
+  }
+
+  let parentEventId: string | null = null;
+  if (recurringId) {
+    const { data: parentLinks } = await admin
+      .from("event_sync_links")
+      .select("event_id")
+      .eq("family_id", familyId)
+      .eq("google_event_id", recurringId);
+    parentEventId = ((parentLinks ?? [])[0]?.event_id as string | undefined) ?? null;
+    if (parentEventId) ids.add(parentEventId);
+  }
+
+  if (ids.size === 0) {
+    return { google_event_id: googleEventId, recurring_event_id: recurringId, matches: [], skipped: "no_local_rows" };
+  }
+
+  const matches: OccurrenceRecord[] = [];
+  for (const id of ids) {
+    const rec = await recordFor(admin, familyId, id, id === parentEventId ? null : parentEventId);
+    if (rec) matches.push(rec);
+  }
+  return { google_event_id: googleEventId, recurring_event_id: recurringId, matches };
+}
