@@ -122,6 +122,46 @@ export function computeBranches(event: BranchEventLike): SyncBranch[] {
     .sort((a, b) => ORDERED_CODES.indexOf(a.weekdays![0]!) - ORDERED_CODES.indexOf(b.weekdays![0]!));
 }
 
+/**
+ * The canonical weekday set of a per-person recurring event: the union of the
+ * weekdays currently assigned to members.
+ *
+ * Membership edits are the source of truth. Without this, removing or adding a
+ * person leaves the stored BYDAY carrying weekdays nobody attends any more
+ * (typically the original start weekday), which Google then keeps emitting.
+ */
+export function canonicalRecurrenceRule(
+  rule: string | null,
+  memberWeekdays: Record<string, string[] | null | undefined> | null | undefined,
+): string | null {
+  if (!rule) return rule;
+  const union = sortWeekdays(
+    Object.values(memberWeekdays ?? {})
+      .flatMap((days) => (days ?? []) as WeekdayCode[])
+      .filter((code) => ORDERED_CODES.includes(code)),
+  );
+  if (union.length === 0) return rule;
+  const parts = rule
+    .split(";")
+    .map((p) => p.trim())
+    .filter((p) => p && !/^BYDAY=/i.test(p));
+  parts.push(`BYDAY=${union.join(",")}`);
+  return parts.join(";");
+}
+
+/**
+ * Weekdays a branch should be pushed with. A single shared branch inherits the
+ * rule's BYDAY so its Google series is anchored to an active weekday instead of
+ * a stale start weekday that would show up as one extra occurrence.
+ */
+export function branchPushWeekdays(
+  branchWeekdays: WeekdayCode[] | null,
+  rule: string | null,
+): WeekdayCode[] | null {
+  if (branchWeekdays && branchWeekdays.length > 0) return branchWeekdays;
+  return parseRuleWeekdays(rule);
+}
+
 /** "School" + [B, E] -> "School - B & E". Initials come from the household. */
 export function googleTitle(title: string, initials: string[]): string {
   const clean = title.trim();
