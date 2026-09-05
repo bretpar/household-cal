@@ -705,16 +705,11 @@ export async function applyGoogleEvent(
       const day = dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime);
       if (day) await addExcludedDate(admin, seriesLink.event_id, day);
 
-      // Idempotency: a local exception for this exact Google instance may already
-      // exist (earlier inbound pass, or a link row that was pruned). Reuse it
-      // instead of creating a second local event for the same occurrence.
-      const { data: existing } = await admin
-        .from("events")
-        .select("id")
-        .eq("family_id", familyId)
-        .eq("external_event_id", g.id)
-        .maybeSingle();
-      const detached = (existing?.id as string | undefined) ?? null;
+      // Idempotency: a local detached exception for this exact Google instance
+      // may already exist (earlier inbound pass, a pruned link row, or the same
+      // instance seen through another connected calendar). Reuse it instead of
+      // creating a second local card for the same occurrence.
+      const detached = await findDetachedException(admin, familyId, g);
       const eventId =
         detached ??
         (await createExceptionEvent(
@@ -752,17 +747,20 @@ export async function applyGoogleEvent(
       if (!detached) return;
       // an already-known exception falls through to the normal update path so a
       // fresh Google edit of the same occurrence is applied in place
-      const { data: adopted } = await admin
+      const { data: adoptedRows } = await admin
         .from("event_sync_links")
         .select("*")
         .eq("family_id", familyId)
+        .eq("event_id", eventId)
         .eq("google_event_id", g.id)
-        .maybeSingle();
-      link = (adopted as LinkRow | null) ?? null;
+        .order("created_at", { ascending: true })
+        .limit(1);
+      link = ((adoptedRows ?? [])[0] as LinkRow | undefined) ?? null;
       if (!link) return;
 
     }
   }
+
 
 
 
