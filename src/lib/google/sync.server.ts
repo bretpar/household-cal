@@ -838,6 +838,14 @@ export async function applyGoogleEvent(
     google: g,
   });
   if (timeReview) console.warn("[google-sync] unsupported branch time edit", link.id, timeReview);
+  // per-person weekday branches share one local title: a Google rename of a
+  // single branch is flagged for review instead of retitling every branch
+  const titleReview = branchTitleReview({
+    local: { branchKey: link.branch_key ?? "", title: event.title },
+    branchInitials: branchInitials(branch, initials),
+    google: g,
+  });
+  if (titleReview) console.warn("[google-sync] unsupported branch title edit", link.id, titleReview);
   // Google-owned fields only: event_members, weekdays and event type stay untouched
   const patch = seriesPatchFromGoogle({
     local: {
@@ -848,6 +856,7 @@ export async function applyGoogleEvent(
     branchInitials: branchInitials(branch, initials),
     google: g,
     omitTimes: Boolean(timeReview),
+    omitTitle: Boolean(titleReview),
   });
   await admin.from("events").update(patch).eq("id", link.event_id);
 
