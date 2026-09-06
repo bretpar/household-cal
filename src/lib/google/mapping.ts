@@ -358,6 +358,14 @@ export function toGoogleTimes(
 
 const DTSTART_DAY_CODES: WeekdayCode[] = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
+/** Weekday of an instant, read in the given zone (UTC when none is supplied). */
+function weekdayIndexIn(date: Date, timeZone?: string | null): number {
+  if (!timeZone) return date.getUTCDay();
+  const label = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(date);
+  const idx = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(label);
+  return idx === -1 ? date.getUTCDay() : idx;
+}
+
 /**
  * Anchors a per-person weekday branch to its own first occurrence.
  *
@@ -366,18 +374,25 @@ const DTSTART_DAY_CODES: WeekdayCode[] = ["SU", "MO", "TU", "WE", "TH", "FR", "S
  * on the parent's weekday too. This shifts start and end forward by the same
  * whole number of days, so time of day, duration and all-day behaviour are
  * preserved and the shared local series is never modified.
+ *
+ * `timeZone` is the household zone for timed events: the weekday Google sees is
+ * the local one, so anchoring on the UTC weekday would land the series a day
+ * off (an evening event stored as the next UTC day) and emit an occurrence on a
+ * weekday nobody attends. All-day series omit it and stay on UTC dates.
  */
 export function branchAnchoredTimes(
   startAt: string,
   endAt: string,
   branchWeekdays: WeekdayCode[] | null,
+  timeZone?: string | null,
 ): { startAt: string; endAt: string } {
   if (!branchWeekdays || branchWeekdays.length === 0) return { startAt, endAt };
   const start = new Date(startAt);
   if (Number.isNaN(start.getTime())) return { startAt, endAt };
   const allowed = new Set(branchWeekdays);
+  const from = weekdayIndexIn(start, timeZone);
   let shift = 0;
-  while (shift < 7 && !allowed.has(DTSTART_DAY_CODES[(start.getUTCDay() + shift) % 7]!)) shift += 1;
+  while (shift < 7 && !allowed.has(DTSTART_DAY_CODES[(from + shift) % 7]!)) shift += 1;
   if (shift === 0 || shift === 7) return { startAt, endAt };
   const ms = shift * 86400000;
   const end = new Date(endAt);
@@ -386,6 +401,7 @@ export function branchAnchoredTimes(
     endAt: Number.isNaN(end.getTime()) ? endAt : new Date(end.getTime() + ms).toISOString(),
   };
 }
+
 
 
 
