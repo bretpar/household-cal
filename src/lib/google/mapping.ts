@@ -591,6 +591,39 @@ export function seriesPatchFromGoogle(input: {
 }
 
 /**
+ * Wording shown on the affected link when one branch's series title was
+ * renamed directly in Google.
+ */
+export const BRANCH_TITLE_REVIEW_MESSAGE =
+  "Branch-specific series title edits made in Google are not supported for events with per-person day schedules. The local title was left unchanged — please edit it in the app.";
+
+/**
+ * A whole-series title edit made in Google on one branch of a per-person
+ * weekday series cannot be mapped back: every branch reads the same local
+ * `events.title`, so applying Mom's renamed "WE" series would also retitle
+ * Dad's Mondays.
+ *
+ * Returns the review wording when the inbound branch's normalized title (with
+ * the app-generated member-initial suffix stripped) diverges from the shared
+ * local title, otherwise null. Purely comparative — never mutates anything
+ * and stays stable across re-syncs.
+ */
+export function branchTitleReview(input: {
+  local: { branchKey: string; title: string };
+  branchInitials: string[];
+  google: GoogleEvent;
+}): string | null {
+  const { local, branchInitials, google } = input;
+  if (!local.branchKey) return null;
+  // single-occurrence exceptions are detached and keep their own title
+  if (google.recurringEventId) return null;
+  const raw = google.summary ?? local.title;
+  const incoming = stripGeneratedSuffix(raw, branchInitials) || local.title;
+  if (incoming === local.title) return null;
+  return BRANCH_TITLE_REVIEW_MESSAGE;
+}
+
+/**
  * Wording shown on the affected link when one branch's series time was edited
  * directly in Google.
  */
