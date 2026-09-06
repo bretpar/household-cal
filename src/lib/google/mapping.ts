@@ -566,11 +566,12 @@ export function seriesPatchFromGoogle(input: {
   const raw = google.summary ?? local.title;
   const title = stripGeneratedSuffix(raw, branchInitials) || local.title;
   const patch: Record<string, unknown> = {
-    title,
     location: google.location ?? null,
     notes: google.description ?? null,
     last_change_source: "google",
   };
+  // a renamed branch only owns itself, so it must not rewrite the shared title
+  if (!omitTitle) patch["title"] = title;
   if (!omitTimes) {
     patch["start_at"] = times.start_at;
     patch["end_at"] = times.end_at;
