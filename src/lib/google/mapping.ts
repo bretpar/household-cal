@@ -559,8 +559,9 @@ export function seriesPatchFromGoogle(input: {
   branchInitials: string[];
   google: GoogleEvent;
   omitTimes?: boolean;
+  omitTitle?: boolean;
 }): Record<string, unknown> {
-  const { local, branchInitials, google, omitTimes = false } = input;
+  const { local, branchInitials, google, omitTimes = false, omitTitle = false } = input;
   const times = fromGoogleTimes(google);
   const raw = google.summary ?? local.title;
   const title = stripGeneratedSuffix(raw, branchInitials) || local.title;
