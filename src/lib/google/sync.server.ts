@@ -376,7 +376,13 @@ function branchBody(
   // a shared branch inherits the rule's own BYDAY, so a start weekday that is no
   // longer active never leaks out as an extra Google occurrence
   const pushWeekdays = branchPushWeekdays(branch.weekdays, event.recurrence_rule);
-  const anchored = branchAnchoredTimes(event.start_at, event.end_at, pushWeekdays);
+  const anchored = branchAnchoredTimes(
+    event.start_at,
+    event.end_at,
+    pushWeekdays,
+    event.all_day ? null : timeZone,
+  );
+
   const times = toGoogleTimes(anchored.startAt, anchored.endAt, event.all_day, timeZone);
 
   const recurrence = toGoogleRecurrence(
