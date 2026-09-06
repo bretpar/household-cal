@@ -19,6 +19,7 @@ import {
   branchPushWeekdays,
   branchRecurrenceReview,
   branchTimeReview,
+  branchTitleReview,
   calendarNameChange,
   cancellationAction,
   computeBranches,
