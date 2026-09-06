@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { branchAnchoredTimes, branchPushWeekdays, toGoogleRecurrence } from "@/lib/google/mapping";
 import type { WeekdayCode } from "@/lib/family-data";
 
-// QA-T4R-ADD-202801031600: Sunday Jan 3 2028 4 PM Los Angeles == Jan 4 00:00 UTC,
-// so anchoring on the UTC weekday (Tuesday) lands a day late.
+// QA-T4R-ADD-202801031600: Monday Jan 3 2028 4 PM Los Angeles == Jan 4 00:00 UTC,
+// so anchoring on the UTC weekday (Tuesday) used to land Dad on a Sunday and
+// Mom on a Tuesday.
 const TZ = "America/Los_Angeles";
 const START = "2028-01-04T00:00:00.000Z";
 const END = "2028-01-04T01:00:00.000Z";
@@ -28,21 +29,28 @@ function branchPush(weekdays: WeekdayCode[]) {
 }
 
 describe("A. parent start weekday does not match the Dad branch", () => {
-  const dad = branchPush(["MO"]);
+  // Sunday Jan 2 2028 4 PM local
+  const dad = (() => {
+    const push = branchPushWeekdays(["MO"] as WeekdayCode[], RULE);
+    return {
+      anchored: branchAnchoredTimes("2028-01-03T00:00:00.000Z", "2028-01-03T01:00:00.000Z", push, TZ),
+      recurrence: toGoogleRecurrence(RULE, push, null, []),
+    };
+  })();
 
   it("anchors the Dad branch on the first local Monday", () => {
-    expect(localDay(dad.anchored.startAt)).toContain("2028-01-10");
+    expect(localDay(dad.anchored.startAt)).toContain("2028-01-03");
     expect(localDay(dad.anchored.startAt)).toContain("Mon");
   });
 
   it("emits no occurrence on the original non-Monday start date", () => {
-    expect(localDay(dad.anchored.startAt)).not.toContain("2028-01-03");
+    expect(localDay(dad.anchored.startAt)).not.toContain("2028-01-02");
     expect(localDay(dad.anchored.startAt)).not.toContain("Sun");
     expect(dad.recurrence).toEqual(["RRULE:FREQ=WEEKLY;BYDAY=MO"]);
   });
 
   it("keeps the intended wall-clock time and duration", () => {
-    expect(dad.anchored.startAt.slice(11)).toBe(START.slice(11));
+    expect(dad.anchored.startAt.slice(11)).toBe("00:00:00.000Z");
     expect(new Date(dad.anchored.endAt).getTime() - new Date(dad.anchored.startAt).getTime()).toBe(
       3600000,
     );
