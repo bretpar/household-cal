@@ -878,7 +878,7 @@ export async function applyGoogleEvent(
   if (recurrenceReview) {
     console.warn("[google-sync] unsupported branch recurrence edit", link.id, recurrenceReview);
   }
-  const review = [recurrenceReview, timeReview].filter(Boolean).join(" ") || null;
+  const review = [recurrenceReview, timeReview, titleReview].filter(Boolean).join(" ") || null;
 
   await admin
     .from("event_sync_links")
