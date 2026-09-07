@@ -6,7 +6,12 @@
  * browser; callers get plain data back.
  */
 import { callAsAppUser } from "@/integrations/lovable/appUserConnector";
-import { classifyGoogleFailure, type GoogleEvent } from "@/lib/google/mapping";
+import {
+  classifyGoogleFailure,
+  originalStartKey,
+  sameOriginalStart,
+  type GoogleEvent,
+} from "@/lib/google/mapping";
 
 export const GATEWAY_BASE_URL = "https://connector-gateway.lovable.dev";
 export const CONNECTOR_ID = "google_calendar";
@@ -353,4 +358,42 @@ export async function stopChannel(
   if (!res.ok && res.status !== 404) {
     console.error(`Google channel stop failed [${res.status}]: ${await res.text()}`);
   }
+}
+
+/**
+ * Finds the live Google instance of one occurrence of a recurring series,
+ * identified by its original start rather than by a (possibly re-keyed)
+ * instance id. Returns null only when Google says that occurrence is really
+ * cancelled or absent; a missing series answers null as well.
+ */
+export async function findLiveOccurrence(
+  connectionAPIKey: string,
+  calendarId: string,
+  recurringEventId: string,
+  originalStart: string,
+): Promise<GoogleEvent | null> {
+  let pageToken: string | undefined;
+  do {
+    const params = new URLSearchParams({ maxResults: "250", showDeleted: "true" });
+    if (pageToken) params.set("pageToken", pageToken);
+    const res = await callAsAppUser({
+      gatewayBaseUrl: GATEWAY_BASE_URL,
+      connectionAPIKey,
+      connectorId: CONNECTOR_ID,
+      path: `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(recurringEventId)}/instances?${params.toString()}`,
+    });
+    const text = await res.text();
+    if (res.status === 404 || res.status === 410) return null;
+    if (!res.ok) throw googleFailure(res.status, text, "Google occurrence lookup failed");
+    const body = (text ? JSON.parse(text) : {}) as {
+      items?: GoogleEvent[];
+      nextPageToken?: string;
+    };
+    for (const item of body.items ?? []) {
+      if (item.status === "cancelled") continue;
+      if (sameOriginalStart(originalStartKey(item.originalStartTime), originalStart)) return item;
+    }
+    pageToken = body.nextPageToken;
+  } while (pageToken);
+  return null;
 }
