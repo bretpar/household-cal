@@ -732,6 +732,54 @@ export function cancellationAction(input: {
   return "remove";
 }
 
+/* ------------------------------------------- detached recurring exceptions */
+
+/**
+ * Stable identity of one occurrence of a Google recurring series.
+ *
+ * Google's instance id can change (a tombstone, a re-detach, a moved copy), but
+ * the occurrence's *original* start never does, so that is what the app stores
+ * and reconciles on.
+ */
+export function originalStartKey(
+  value: { date?: string | null; dateTime?: string | null } | null | undefined,
+): string | null {
+  const raw = value?.dateTime ?? value?.date ?? null;
+  if (!raw) return null;
+  if (raw.length <= 10) return raw;
+  const ms = Date.parse(raw);
+  return Number.isNaN(ms) ? raw : new Date(ms).toISOString();
+}
+
+/** True when the same occurrence is meant, tolerating date vs date-time form. */
+export function sameOriginalStart(a: string | null, b: string | null): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  return a.slice(0, 10) === b.slice(0, 10) && (a.length <= 10 || b.length <= 10);
+}
+
+/** A link row that represents a detached exception rather than a whole series. */
+export function isExceptionLink(link: {
+  google_recurring_event_id?: string | null;
+  google_original_start?: string | null;
+}): boolean {
+  return Boolean(link.google_recurring_event_id && link.google_original_start);
+}
+
+/**
+ * Whether a cancellation tombstone may remove a *detached* exception.
+ *
+ * Google often reports the original recurring occurrence as cancelled — that is
+ * exactly what detaching means — and can re-key the detached instance. So the
+ * local exception is only removed once Google confirms the detached occurrence
+ * itself is gone; anything else keeps it (and its parent exclusion) intact.
+ */
+export function exceptionCancellationAction(input: {
+  occurrenceState: "live" | "gone" | "unknown";
+}): CancellationAction {
+  return input.occurrenceState === "gone" ? "remove" : "ignore";
+}
+
 /* ------------------------------------------------- sync-target availability */
 
 export type GoogleFailureKind = "auth" | "calendar_unavailable" | "transient";
