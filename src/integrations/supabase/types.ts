@@ -517,6 +517,7 @@ export type Database = {
           family_id: string
           google_etag: string | null
           google_event_id: string
+          google_original_start: string | null
           google_recurring_event_id: string | null
           google_updated_at: string | null
           id: string
@@ -534,6 +535,7 @@ export type Database = {
           family_id: string
           google_etag?: string | null
           google_event_id: string
+          google_original_start?: string | null
           google_recurring_event_id?: string | null
           google_updated_at?: string | null
           id?: string
@@ -551,6 +553,7 @@ export type Database = {
           family_id?: string
           google_etag?: string | null
           google_event_id?: string
+          google_original_start?: string | null
           google_recurring_event_id?: string | null
           google_updated_at?: string | null
           id?: string
