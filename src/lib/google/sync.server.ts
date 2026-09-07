@@ -23,8 +23,12 @@ import {
   calendarNameChange,
   cancellationAction,
   computeBranches,
+  exceptionCancellationAction,
   exceptionEventFields,
   fromGoogleRecurrence,
+  isExceptionLink,
+  originalStartKey,
+  sameOriginalStart,
   localRuleFromGoogle,
   fromGoogleTimes,
 
@@ -144,6 +148,8 @@ interface LinkRow {
   calendar_source_id: string;
   google_event_id: string;
   google_recurring_event_id: string | null;
+  /** Original start of the occurrence, for detached recurring exceptions. */
+  google_original_start?: string | null;
   branch_key: string;
   google_etag: string | null;
   google_updated_at: string | null;
@@ -249,17 +255,26 @@ async function pruneStaleLinks(
 ): Promise<{ remaining: number; pruned: number }> {
   const { data } = await admin
     .from("event_sync_links")
-    .select("id, calendar_source_id, google_event_id")
+    .select("id, calendar_source_id, google_event_id, google_recurring_event_id, google_original_start")
     .eq("family_id", familyId)
     .eq("event_id", eventId);
   const links = (data ?? []) as {
     id: string;
     calendar_source_id: string;
     google_event_id: string;
+    google_recurring_event_id?: string | null;
+    google_original_start?: string | null;
   }[];
   let remaining = 0;
   let pruned = 0;
   for (const link of links) {
+    // A detached recurring exception is anchored by recurring id + original
+    // start, not by its instance id, so a re-keyed instance must never look
+    // stale here: dropping the link would strand or duplicate the occurrence.
+    if (isExceptionLink(link)) {
+      remaining += 1;
+      continue;
+    }
     if (await linkIsUsable(conn, sources, link)) {
       remaining += 1;
       continue;
