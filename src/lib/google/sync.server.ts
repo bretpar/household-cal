@@ -660,6 +660,20 @@ export async function applyGoogleEvent(
 
   /* ---------- cancellations ---------- */
   if (g.status === "cancelled") {
+    if (link && isExceptionLink(link)) {
+      // Detaching an occurrence makes Google report the *original* occurrence as
+      // cancelled, and a later sync can re-key the detached instance. So only a
+      // confirmed deletion of the detached occurrence itself may remove it; the
+      // parent's exclusion is left in place either way.
+      const state = await detachedOccurrenceState(conn, source, link);
+      if (state.status === "live" && state.event && state.event.id !== link.google_event_id) {
+        await adoptOccurrenceIdentity(admin, link, state.event);
+      }
+      if (exceptionCancellationAction({ occurrenceState: state.status }) === "remove") {
+        await admin.from("events").delete().eq("id", link.event_id);
+      }
+      return;
+    }
     if (link) {
       // A tombstone can be stale, or the leftover of a cross-calendar move, so
       // never delete before Google confirms this exact event is really gone.
@@ -698,7 +712,10 @@ export async function applyGoogleEvent(
       }
       return;
     }
-    // cancelled single occurrence of a series we know about
+    // Cancelled single occurrence of a series we know about. A live detached
+    // exception may already represent it (that is what detaching looks like in
+    // Google), so nothing local is deleted here — only the parent exclusion is
+    // (re)asserted, which is exactly the app's own "this event only" semantics.
     if (g.recurringEventId) {
       const { data: seriesLink } = await admin
         .from("event_sync_links")
@@ -736,7 +753,7 @@ export async function applyGoogleEvent(
       // may already exist (earlier inbound pass, a pruned link row, or the same
       // instance seen through another connected calendar). Reuse it instead of
       // creating a second local card for the same occurrence.
-      const detached = await findDetachedException(admin, familyId, g);
+      const detached = await findDetachedException(admin, familyId, source.id, g);
       const eventId =
         detached ??
         (await createExceptionEvent(
@@ -764,6 +781,7 @@ export async function applyGoogleEvent(
           calendar_source_id: source.id,
           google_event_id: g.id,
           google_recurring_event_id: g.recurringEventId,
+          google_original_start: originalStartKey(g.originalStartTime),
           branch_key: "",
           google_etag: g.etag ?? null,
           google_updated_at: g.updated ?? null,
@@ -779,7 +797,6 @@ export async function applyGoogleEvent(
         .select("*")
         .eq("family_id", familyId)
         .eq("event_id", eventId)
-        .eq("google_event_id", g.id)
         .order("created_at", { ascending: true })
         .limit(1);
       link = ((adoptedRows ?? [])[0] as LinkRow | undefined) ?? null;
@@ -964,6 +981,83 @@ async function removeBranchParticipation(admin: Admin, link: LinkRow): Promise<v
   }
 }
 
+
+/**
+ * The link of a detached exception, found by its durable occurrence identity
+ * (household + calendar + recurring series + original start) rather than by the
+ * transient Google instance id.
+ */
+async function findExceptionLinkByOccurrence(
+  admin: Admin,
+  familyId: string,
+  sourceId: string,
+  g: GoogleEvent,
+): Promise<LinkRow | null> {
+  const originalStart = originalStartKey(g.originalStartTime);
+  if (!g.recurringEventId || !originalStart) return null;
+  const { data } = await admin
+    .from("event_sync_links")
+    .select("*")
+    .eq("family_id", familyId)
+    .eq("google_recurring_event_id", g.recurringEventId)
+    .order("created_at", { ascending: true });
+  const rows = (data ?? []) as LinkRow[];
+  const matches = rows.filter(
+    (l) => isExceptionLink(l) && sameOriginalStart(l.google_original_start ?? null, originalStart),
+  );
+  return (
+    matches.find((l) => l.calendar_source_id === sourceId) ?? matches[0] ?? null
+  );
+}
+
+/**
+ * Whether the detached occurrence a link points at still exists in Google.
+ *
+ * Unknown on any lookup failure on purpose: keeping a local exception is always
+ * safer than deleting an occurrence a household actually moved.
+ */
+async function detachedOccurrenceState(
+  conn: ConnectionContext,
+  source: SourceRow,
+  link: LinkRow,
+): Promise<{ status: "live" | "gone" | "unknown"; event?: GoogleEvent }> {
+  if (!source.external_calendar_id || link.calendar_source_id !== source.id) {
+    return { status: "unknown" };
+  }
+  try {
+    const direct = await google.getEventState(
+      conn.connectionKey,
+      source.external_calendar_id,
+      link.google_event_id,
+    );
+    if (direct === "live") return { status: "live" };
+    const occurrence = await google.findLiveOccurrence(
+      conn.connectionKey,
+      source.external_calendar_id,
+      link.google_recurring_event_id!,
+      link.google_original_start!,
+    );
+    return occurrence ? { status: "live", event: occurrence } : { status: "gone" };
+  } catch (error) {
+    if (error instanceof GoogleAuthError) throw error;
+    console.error("[google-sync] occurrence verification failed", link.id, error);
+    return { status: "unknown" };
+  }
+}
+
+/** Re-points a detached exception at the instance id Google now uses. */
+async function adoptOccurrenceIdentity(
+  admin: Admin,
+  link: LinkRow,
+  g: GoogleEvent,
+): Promise<void> {
+  await admin
+    .from("event_sync_links")
+    .update({ google_event_id: g.id, google_etag: g.etag ?? null, google_updated_at: g.updated ?? null })
+    .eq("id", link.id);
+  await admin.from("events").update({ external_event_id: g.id }).eq("id", link.event_id);
+}
+
 /**
  * Finds the local detached exception that already represents this exact Google
  * instance, using the strongest identity available and never widening beyond
@@ -972,6 +1066,7 @@ async function removeBranchParticipation(admin: Admin, link: LinkRow): Promise<v
 async function findDetachedException(
   admin: Admin,
   familyId: string,
+  sourceId: string,
   g: GoogleEvent,
 ): Promise<string | null> {
   // 1. an existing link row for this exact Google instance
@@ -984,6 +1079,11 @@ async function findDetachedException(
     .limit(1);
   const linked = (linkRows ?? [])[0]?.event_id as string | undefined;
   if (linked) return linked;
+
+  // 1b. the durable occurrence identity: recurring series + original start.
+  // Google's instance id is transient, so this is what survives a re-key.
+  const byOccurrence = await findExceptionLinkByOccurrence(admin, familyId, sourceId, g);
+  if (byOccurrence) return byOccurrence.event_id;
 
   // 2. a local event already stamped with this Google instance id
   const { data: byInstance } = await admin
