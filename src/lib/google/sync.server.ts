@@ -1422,9 +1422,14 @@ export async function reconcileHousehold(
           candidate.id,
         );
         // nothing stale: every branch still points at a live Google event.
-        // One exception: recurring timed series written before the DST fix still
-        // carry UTC recurrence metadata, so patch those in place exactly once.
-        if (pruned === 0 && !(await needsBodyRepatch(admin, familyId, candidate, candidate.id)))
+        // Two exceptions: recurring timed series written before the DST fix still
+        // carry UTC recurrence metadata, and a live link can belong to an
+        // obsolete branch representation after a shared <-> per-person switch.
+        if (
+          pruned === 0 &&
+          !(await hasObsoleteBranchLinks(admin, familyId, candidate.id)) &&
+          !(await needsBodyRepatch(admin, familyId, candidate, candidate.id))
+        )
           continue;
       }
 
