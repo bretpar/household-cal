@@ -131,11 +131,6 @@ export async function backfillSource(
   }
 
   const range = backfillWindow(now);
-  // No syncToken on purpose: this is the full-window pass. singleEvents=false is
-  // implied by the client when no token is supplied, so recurring masters arrive
-  // as masters and exceptions as exceptions.
-  const res = await google.listEvents(conn.connectionKey, source.external_calendar_id, range);
-
   const initials = await initialsFor(admin, familyId);
   const summary: BackfillSummary = {
     ...EMPTY,
@@ -143,33 +138,43 @@ export async function backfillSource(
     range,
   };
 
-  for (const item of res.items) {
-    summary.examined += 1;
-    if (!item.id) {
-      summary.skipped += 1;
-      continue;
-    }
-    if (item.status === "cancelled") {
-      // backfill never deletes: cancellations remain the job of normal sync
-      summary.skipped += 1;
-      continue;
-    }
-    try {
-      const before = await linkSnapshot(admin, familyId, item.id);
-      await applyGoogleEvent(admin, conn, source, item, initials);
-      const after = await linkSnapshot(admin, familyId, item.id);
-      if (!before && after) summary.created += 1;
-      else if (before && after && before.updated_at !== after.updated_at) summary.updated += 1;
-      else if (before || after) summary.unchanged += 1;
-      else summary.skipped += 1;
-    } catch (error) {
-      summary.errored += 1;
-      console.error(
-        "[google-backfill] failed to apply Google event",
-        source.id,
-        item.id,
-        error instanceof Error ? error.message : error,
-      );
+  // The master pass is a full-window scan and is only useful once per repair run:
+  // continuation requests (cursor present) skip it so every later pass spends its
+  // whole budget advancing the bounded instance pass instead of rescanning.
+  if (!cursor) {
+    // No syncToken on purpose: this is the full-window pass. singleEvents=false is
+    // implied by the client when no token is supplied, so recurring masters arrive
+    // as masters and exceptions as exceptions.
+    const res = await google.listEvents(conn.connectionKey, source.external_calendar_id, range);
+
+    for (const item of res.items) {
+      summary.examined += 1;
+      if (!item.id) {
+        summary.skipped += 1;
+        continue;
+      }
+      if (item.status === "cancelled") {
+        // backfill never deletes: cancellations remain the job of normal sync
+        summary.skipped += 1;
+        continue;
+      }
+      try {
+        const before = await linkSnapshot(admin, familyId, item.id);
+        await applyGoogleEvent(admin, conn, source, item, initials);
+        const after = await linkSnapshot(admin, familyId, item.id);
+        if (!before && after) summary.created += 1;
+        else if (before && after && before.updated_at !== after.updated_at) summary.updated += 1;
+        else if (before || after) summary.unchanged += 1;
+        else summary.skipped += 1;
+      } catch (error) {
+        summary.errored += 1;
+        console.error(
+          "[google-backfill] failed to apply Google event",
+          source.id,
+          item.id,
+          error instanceof Error ? error.message : error,
+        );
+      }
     }
   }
 
@@ -179,16 +184,8 @@ export async function backfillSource(
   // weekday the local rule lost) is invisible to it. Expanding the same window
   // exposes those instances; anything the linked local series already renders is
   // left completely untouched, so this stays idempotent.
-  await backfillInstances(
-    admin,
-    conn,
-    source,
-    range,
-    initials,
-    summary,
-    Date.now() + INSTANCE_PASS_BUDGET_MS,
-    cursor,
-  );
+  await backfillInstances(admin, conn, source, range, initials, summary, cursor);
+
 
 
   // Intentionally no calendar_sources update: the existing sync token and
@@ -222,7 +219,6 @@ async function backfillInstances(
   range: { timeMin: string; timeMax: string },
   initials: Map<string, string>,
   summary: BackfillSummary,
-  deadline: number,
   cursor: string | null = null,
 ): Promise<void> {
   const familyId = source.family_id;
@@ -233,6 +229,9 @@ async function backfillInstances(
     range.timeMin,
     range.timeMax,
   );
+  // Budget starts once the listings are in hand, so the item loop always gets
+  // its full slice of time rather than inheriting a budget the network spent.
+  const deadline = Date.now() + INSTANCE_PASS_BUDGET_MS;
 
   // Resume after the instance the previous request stopped on. Google orders this
   // listing by startTime, so the key is stable across runs; an unknown cursor
@@ -247,12 +246,18 @@ async function backfillInstances(
   for (let index = startIndex; index < instances.length; index += 1) {
     const item = instances[index]!;
     // bounded per request: stop early and hand back a continuation point so the
-    // next run resumes here instead of rescanning the already-checked prefix
-    if (materialized >= MAX_INSTANCE_MATERIALIZATIONS || Date.now() >= deadline) {
+    // next run resumes here instead of rescanning the already-checked prefix.
+    // At least one instance is always considered, so the cursor strictly advances
+    // and a slow calendar can never loop forever on the same position.
+    if (
+      index > startIndex &&
+      (materialized >= MAX_INSTANCE_MATERIALIZATIONS || Date.now() >= deadline)
+    ) {
       summary.hasMore = true;
       summary.cursor = instanceKey(instances[index - 1] ?? item);
       return;
     }
+
 
     if (!item.id || !item.recurringEventId) continue;
     // cancellations stay the job of normal sync

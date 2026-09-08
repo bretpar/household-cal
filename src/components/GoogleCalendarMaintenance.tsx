@@ -247,6 +247,7 @@ function GoogleInboundDiagnostic({ calendars }: { calendars: CalendarOption[] })
     setRunning(true);
     const totals = { examined: 0, created: 0, updated: 0, unchanged: 0, skipped: 0, errored: 0 };
     let pass = 0;
+    let unfinished = false;
     try {
       // hard safety bound on passes; each request stays bounded server-side
       for (let i = 0; i < 50; i += 1) {
@@ -254,8 +255,9 @@ function GoogleInboundDiagnostic({ calendars }: { calendars: CalendarOption[] })
         setProgress(
           `Repairing Google calendar… Pass ${pass} · ${totals.examined} checked · ${totals.created} restored`,
         );
+        const sentCursor = cursors.current[selected] ?? null;
         const summary = await backfillFn({
-          data: { source_id: selected, cursor: cursors.current[selected] ?? null },
+          data: { source_id: selected, cursor: sentCursor },
         });
         if (summary.skippedReason) {
           toast.info(`Backfill skipped (${summary.skippedReason})`);
@@ -269,16 +271,35 @@ function GoogleInboundDiagnostic({ calendars }: { calendars: CalendarOption[] })
         totals.unchanged += summary.unchanged;
         totals.skipped += summary.skipped;
         totals.errored += summary.errored;
-        cursors.current[selected] = summary.hasMore ? (summary.cursor ?? null) : null;
+        const nextCursor = summary.hasMore ? (summary.cursor ?? null) : null;
         setProgress(
           `Repairing Google calendar… Pass ${pass} · ${totals.examined} checked · ${totals.created} restored`,
         );
-        if (!summary.hasMore) break;
+        if (!summary.hasMore) {
+          cursors.current[selected] = null;
+          break;
+        }
+        // no forward movement: stop instead of repeating the same scan
+        if (nextCursor && nextCursor === sentCursor) {
+          cursors.current[selected] = nextCursor;
+          unfinished = true;
+          break;
+        }
+        cursors.current[selected] = nextCursor;
+        if (i === 49) unfinished = true;
       }
-      toast.success(
-        `Calendar repair complete · ${totals.created} missing events restored · ${totals.errored} errors`,
-      );
-      setProgress(null);
+      if (unfinished) {
+        toast.warning(
+          `Repair paused before finishing · ${totals.created} restored so far · ${totals.errored} errors — run it again to continue`,
+        );
+        setProgress("Repair incomplete — run again to continue");
+      } else {
+        toast.success(
+          `Calendar repair complete · ${totals.created} missing events restored · ${totals.errored} errors`,
+        );
+        setProgress(null);
+      }
+
       // refresh calendar data afterwards; never block the summary on this
       void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
       void queryClient.invalidateQueries({ queryKey: ["google-sync-settings"] });
