@@ -406,6 +406,67 @@ async function hasMissingBranchLinks(
   return missingBranchKeys(branches.map((b) => b.key), links).length > 0;
 }
 
+/**
+ * True when a recurring timed event's live Google master still carries stale
+ * time/recurrence metadata (fixed offsets, wrong timezone) even though its link
+ * looks current. `app_version` alone cannot detect this, so the remote body is
+ * read and compared against what `branchBody()` would send today. Repair is a
+ * PATCH of the same Google event id — the series is never recreated.
+ */
+async function hasStaleRemoteRecurringBody(
+  admin: Admin,
+  conn: ConnectionContext,
+  familyId: string,
+  sources: SourceRow[],
+  eventId: string,
+): Promise<boolean> {
+  const event = await loadEvent(admin, eventId);
+  if (!event || !event.recurrence_rule || event.all_day) return false;
+
+  const participants = (event.event_members ?? []).map((m) => ({
+    member_id: m.family_member_id,
+    weekdays: m.weekdays,
+  }));
+  const branches = computeBranches({
+    recurrence_rule: event.recurrence_rule,
+    participants,
+    member_ids: participants.map((p) => p.member_id),
+  });
+  const { data } = await admin
+    .from("event_sync_links")
+    .select("branch_key, google_event_id, calendar_source_id, google_recurring_event_id, google_original_start")
+    .eq("family_id", familyId)
+    .eq("event_id", eventId);
+  const links = (data ?? []) as LinkRow[];
+  const initials = await initialsFor(admin, familyId);
+  const timeZone = await householdTimeZone(admin, familyId);
+
+  for (const branch of branches) {
+    const link = links.find((l) => l.branch_key === branch.key);
+    if (!link || isExceptionLink(link)) continue;
+    const source = sources.find((s) => s.id === link.calendar_source_id);
+    if (!source?.external_calendar_id) continue;
+    let remote: GoogleEvent;
+    try {
+      remote = await google.getEvent(
+        conn.connectionKey,
+        source.external_calendar_id,
+        link.google_event_id,
+      );
+    } catch {
+      continue; // unreachable master is handled by the stale-link path
+    }
+    const expected = branchBody(event, branch, initials, timeZone) as {
+      start?: GoogleDateTime;
+      end?: GoogleDateTime;
+      recurrence?: string[] | null;
+    };
+    if (remoteRecurringBodyIsStale(expected, remote)) return true;
+  }
+  return false;
+}
+
+
 
 /** Wraps sync work so an expired/revoked Google grant degrades gracefully. */
 async function guard<T>(
