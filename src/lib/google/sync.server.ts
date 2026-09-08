@@ -27,6 +27,7 @@ import {
   exceptionEventFields,
   fromGoogleRecurrence,
   isExceptionLink,
+  obsoleteBranchLinks,
   originalStartKey,
   sameOriginalStart,
   localRuleFromGoogle,
