@@ -786,6 +786,27 @@ export function obsoleteBranchLinks<
 }
 
 /**
+ * Desired branch keys that have no parent (non-exception) link yet.
+ *
+ * A push whose Google write succeeded but whose link upsert never landed leaves
+ * exactly this shape: one healthy branch link and one missing sibling. Inbound
+ * sync would then import the unlinked Google series as a standalone event, so
+ * reconciliation must repair it even though another valid link exists.
+ */
+export function missingBranchKeys<
+  T extends {
+    branch_key: string;
+    google_recurring_event_id?: string | null;
+    google_original_start?: string | null;
+  },
+>(desiredKeys: Iterable<string>, links: T[]): string[] {
+  const present = new Set(
+    links.filter((link) => !isExceptionLink(link)).map((link) => link.branch_key),
+  );
+  return [...new Set(desiredKeys)].filter((key) => !present.has(key));
+}
+
+/**
  * Whether a cancellation tombstone may remove a *detached* exception.
  *
  * Google often reports the original recurring occurrence as cancelled — that is
