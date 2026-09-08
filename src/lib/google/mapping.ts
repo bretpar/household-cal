@@ -900,3 +900,26 @@ export function sourceSyncPatch(input: {
     sync_failure_count: input.failureCount + 1,
   };
 }
+
+/**
+ * True when the live Google master of a recurring timed event no longer matches
+ * what current mapping would generate. Some series written before the DST fix
+ * still carry fixed-offset dateTimes or a non-IANA timezone even though their
+ * link is marked current, so the remote body itself has to be inspected.
+ *
+ * Only the fields that drive DST-safe expansion are compared: start/end
+ * dateTime, start/end timeZone and the recurrence lines.
+ */
+export function remoteRecurringBodyIsStale(
+  expected: { start?: GoogleDateTime; end?: GoogleDateTime; recurrence?: string[] | null },
+  remote: { start?: GoogleDateTime; end?: GoogleDateTime; recurrence?: string[] | null },
+): boolean {
+  const timesDiffer = (a?: GoogleDateTime, b?: GoogleDateTime) =>
+    (a?.dateTime ?? null) !== (b?.dateTime ?? null) ||
+    (a?.timeZone ?? null) !== (b?.timeZone ?? null);
+  if (timesDiffer(expected.start, remote.start)) return true;
+  if (timesDiffer(expected.end, remote.end)) return true;
+  const norm = (lines?: string[] | null) =>
+    [...(lines ?? [])].map((l) => l.trim().toUpperCase()).sort().join("\n");
+  return norm(expected.recurrence) !== norm(remote.recurrence);
+}
