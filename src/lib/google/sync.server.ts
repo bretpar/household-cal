@@ -474,7 +474,29 @@ export async function pushEvent(
       .from("event_sync_links")
       .select("*")
       .eq("event_id", eventId);
-    const links = (linkRows ?? []) as LinkRow[];
+    const allLinks = (linkRows ?? []) as LinkRow[];
+
+    // Obsolete branch series are removed BEFORE the desired ones are written.
+    // The save path is time-limited, so doing it the other way round can leave a
+    // live stale series behind (shared <-> per-person conversions), which later
+    // reconciliation would then treat as healthy.
+    const obsolete = obsoleteBranchLinks(
+      branches.map((b) => b.key),
+      allLinks,
+    );
+    for (const stale of obsolete) {
+      const source = sources.find((s) => s.id === stale.calendar_source_id);
+      if (source?.external_calendar_id) {
+        await google.deleteEvent(
+          conn.connectionKey,
+          source.external_calendar_id,
+          stale.google_event_id,
+        );
+      }
+      await admin.from("event_sync_links").delete().eq("id", stale.id);
+    }
+    const obsoleteIds = new Set(obsolete.map((l) => l.id));
+    const links = allLinks.filter((l) => !obsoleteIds.has(l.id));
 
     const timeZone = await householdTimeZone(admin, familyId);
     let pushed = 0;
