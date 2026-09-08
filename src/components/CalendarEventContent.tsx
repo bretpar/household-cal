@@ -65,10 +65,10 @@ export function CalendarEventContent({
           disabled={!onOpen}
           className={cn(
             "min-w-0 flex-1 text-left",
-            showDesktopStackedTime ? "md:block" : "flex items-center gap-1.5",
+            showDesktopStackedTime ? "block" : "flex items-center gap-1.5",
           )}
         >
-          <span className={cn("min-w-0 truncate", scale.title)}>{label}</span>
+          <span className={cn("block min-w-0 flex-1 truncate", scale.title)}>{label}</span>
           {showTime ? (
             <span className={cn("shrink-0 truncate", scale.time, timeTone)}>{time}</span>
           ) : showDesktopStackedTime ? (
@@ -81,6 +81,7 @@ export function CalendarEventContent({
       </div>
     );
   }
+
 
 
   // Medium: title + time, no icon/metadata decoration.

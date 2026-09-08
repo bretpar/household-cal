@@ -303,15 +303,29 @@ export function usesPerPersonDays(state: EventFormState): boolean {
  */
 export function ruleForFormState(state: EventFormState): string | null {
   // per-person days are the source of truth for the weekday set, so a removed or
-  // added person never leaves a weekday nobody attends in the stored rule
+  // added person never leaves a weekday nobody attends in the stored rule.
+  // The chosen frequency still wins: "Every 2 weeks" stays biweekly and
+  // "Monthly" stays monthly — per-person days only refine weekly patterns.
   if (usesPerPersonDays(state)) {
     const union = new Set<WeekdayCode>();
     for (const id of state.members) {
       for (const day of state.memberWeekdays[id] ?? []) union.add(day);
     }
     const days = ORDERED_WEEKDAYS.filter((d) => union.has(d));
-    if (days.length > 0) return `FREQ=WEEKLY;BYDAY=${days.join(",")}`;
+    if (days.length > 0) {
+      const optionRule = RECURRENCE_OPTIONS.find((r) => r.id === state.recurrence)?.rule ?? null;
+      if (state.recurrence === "custom" || state.recurrence === "weekly" || !optionRule) {
+        return `FREQ=WEEKLY;BYDAY=${days.join(",")}`;
+      }
+      if (optionRule.includes("FREQ=WEEKLY")) {
+        const base = optionRule.replace(/;BYDAY=[^;]*/, "");
+        return `${base};BYDAY=${days.join(",")}`;
+      }
+      // non-weekly frequencies (monthly, yearly, daily) keep their own rule
+      return optionRule;
+    }
   }
+
   if (state.recurrence === "custom") {
     const days: WeekdayCode[] = [];
     if (state.date) {
