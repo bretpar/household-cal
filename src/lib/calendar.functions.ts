@@ -88,19 +88,13 @@ export const updateEventFn = createServerFn({ method: "POST" })
     }
     const { pushToGoogle } = await import("@/lib/google/push.server");
     // A "This event only" time edit touches two rows: the recurring parent
-    // (gains an EXDATE) and the detached one-off replacement. Push them in
-    // parallel with independent budgets — running them in sequence inside one
-    // shared 2.5s race meant the parent's push consumed the whole budget and
-    // the detached one-off never reached Google (no event_sync_links row).
-    // pushToGoogle is link-keyed, so a retried operation patches instead of
-    // creating a duplicate.
+    // (gains an EXDATE) and the detached one-off replacement. They are pushed in
+    // parallel, but never on a timeout: abandoning a push mid-operation could
+    // leave a Google branch series created without its event_sync_links row,
+    // which inbound sync then imports as a standalone duplicate. pushToGoogle is
+    // link-keyed and swallows its own errors, so waiting for it is safe.
     await Promise.all(
-      pushTargetsForUpdate(data.event_id, created).map((id) =>
-        Promise.race([
-          pushToGoogle(familyId, id),
-          new Promise<void>((resolve) => setTimeout(resolve, 2500)),
-        ]),
-      ),
+      pushTargetsForUpdate(data.event_id, created).map((id) => pushToGoogle(familyId, id)),
     );
 
     return { ok: true };
