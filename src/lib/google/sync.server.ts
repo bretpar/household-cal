@@ -568,19 +568,7 @@ export async function pushEvent(
       pushed += 1;
     }
 
-    // branches that no longer exist (e.g. a member's days changed) are removed
-    const keep = new Set(branches.map((b) => b.key));
-    for (const stale of links.filter((l) => !keep.has(l.branch_key))) {
-      const source = sources.find((s) => s.id === stale.calendar_source_id);
-      if (source?.external_calendar_id) {
-        await google.deleteEvent(
-          conn.connectionKey,
-          source.external_calendar_id,
-          stale.google_event_id,
-        );
-      }
-      await admin.from("event_sync_links").delete().eq("id", stale.id);
-    }
+
 
     await touchSynced(admin, familyId);
     return { pushed };
