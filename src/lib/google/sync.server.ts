@@ -337,7 +337,40 @@ async function needsBodyRepatch(
   return ((data ?? []) as unknown[]).length > 0;
 }
 
-
+/**
+ * True when an event still has live links for branch keys the current
+ * representation no longer wants — the signature of an unfinished shared <->
+ * per-person conversion. Those series are alive in Google, so link pruning
+ * alone never sees them.
+ */
+async function hasObsoleteBranchLinks(
+  admin: Admin,
+  familyId: string,
+  eventId: string,
+): Promise<boolean> {
+  const event = await loadEvent(admin, eventId);
+  if (!event) return false;
+  const participants = (event.event_members ?? []).map((m) => ({
+    member_id: m.family_member_id,
+    weekdays: m.weekdays,
+  }));
+  const branches = computeBranches({
+    recurrence_rule: event.recurrence_rule,
+    participants,
+    member_ids: participants.map((p) => p.member_id),
+  });
+  const { data } = await admin
+    .from("event_sync_links")
+    .select("branch_key, google_recurring_event_id, google_original_start")
+    .eq("family_id", familyId)
+    .eq("event_id", eventId);
+  const links = (data ?? []) as {
+    branch_key: string;
+    google_recurring_event_id: string | null;
+    google_original_start: string | null;
+  }[];
+  return obsoleteBranchLinks(branches.map((b) => b.key), links).length > 0;
+}
 
 
 /** Wraps sync work so an expired/revoked Google grant degrades gracefully. */
