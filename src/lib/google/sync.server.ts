@@ -27,6 +27,7 @@ import {
   exceptionEventFields,
   fromGoogleRecurrence,
   isExceptionLink,
+  missingBranchKeys,
   obsoleteBranchLinks,
   originalStartKey,
   sameOriginalStart,
@@ -372,6 +373,39 @@ async function hasObsoleteBranchLinks(
   return obsoleteBranchLinks(branches.map((b) => b.key), links).length > 0;
 }
 
+/**
+ * True when a desired branch has no parent link at all — the signature of a
+ * push whose Google write landed but whose link row never persisted.
+ */
+async function hasMissingBranchLinks(
+  admin: Admin,
+  familyId: string,
+  eventId: string,
+): Promise<boolean> {
+  const event = await loadEvent(admin, eventId);
+  if (!event) return false;
+  const participants = (event.event_members ?? []).map((m) => ({
+    member_id: m.family_member_id,
+    weekdays: m.weekdays,
+  }));
+  const branches = computeBranches({
+    recurrence_rule: event.recurrence_rule,
+    participants,
+    member_ids: participants.map((p) => p.member_id),
+  });
+  const { data } = await admin
+    .from("event_sync_links")
+    .select("branch_key, google_recurring_event_id, google_original_start")
+    .eq("family_id", familyId)
+    .eq("event_id", eventId);
+  const links = (data ?? []) as {
+    branch_key: string;
+    google_recurring_event_id: string | null;
+    google_original_start: string | null;
+  }[];
+  return missingBranchKeys(branches.map((b) => b.key), links).length > 0;
+}
+
 
 /** Wraps sync work so an expired/revoked Google grant degrades gracefully. */
 async function guard<T>(
@@ -581,7 +615,7 @@ export async function pushEvent(
         saved = await google.insertEvent(conn.connectionKey, target.external_calendar_id!, body);
       }
 
-      await admin.from("event_sync_links").upsert(
+      const { error: linkError } = await admin.from("event_sync_links").upsert(
         {
           family_id: familyId,
           event_id: eventId,
@@ -599,6 +633,15 @@ export async function pushEvent(
         },
         { onConflict: "event_id,branch_key" },
       );
+      // A Google write that lands without its link row is the worst outcome:
+      // inbound sync later imports the orphaned series as a standalone event.
+      // Surface it instead of silently reporting a successful push.
+      if (linkError) {
+        console.error("[google-sync] branch link upsert failed", eventId, branch.key, linkError);
+        throw new Error(
+          `event_sync_links upsert failed for branch "${branch.key}": ${linkError.message ?? String(linkError)}`,
+        );
+      }
       pushed += 1;
     }
 
@@ -1461,6 +1504,7 @@ export async function reconcileHousehold(
         if (
           pruned === 0 &&
           !(await hasObsoleteBranchLinks(admin, familyId, candidate.id)) &&
+          !(await hasMissingBranchLinks(admin, familyId, candidate.id)) &&
           !(await needsBodyRepatch(admin, familyId, candidate, candidate.id))
         )
           continue;
