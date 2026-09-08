@@ -29,6 +29,7 @@ import {
   isExceptionLink,
   missingBranchKeys,
   obsoleteBranchLinks,
+  remoteRecurringBodyIsStale,
   originalStartKey,
   sameOriginalStart,
   localRuleFromGoogle,
@@ -1566,7 +1567,8 @@ export async function reconcileHousehold(
           pruned === 0 &&
           !(await hasObsoleteBranchLinks(admin, familyId, candidate.id)) &&
           !(await hasMissingBranchLinks(admin, familyId, candidate.id)) &&
-          !(await needsBodyRepatch(admin, familyId, candidate, candidate.id))
+          !(await needsBodyRepatch(admin, familyId, candidate, candidate.id)) &&
+          !(await hasStaleRemoteRecurringBody(admin, conn, familyId, sources, candidate.id))
         )
           continue;
       }
