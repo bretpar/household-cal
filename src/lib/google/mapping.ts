@@ -767,6 +767,25 @@ export function isExceptionLink(link: {
 }
 
 /**
+ * Series links whose branch key no longer exists in the desired representation.
+ *
+ * Used when an event flips between a shared series ([""]) and per-person
+ * branches (["MO","WE"]): the obsolete Google series must go even though it is
+ * still alive in Google. Detached exception links are never obsolete here —
+ * they are anchored by occurrence identity, not by branch key.
+ */
+export function obsoleteBranchLinks<
+  T extends {
+    branch_key: string;
+    google_recurring_event_id?: string | null;
+    google_original_start?: string | null;
+  },
+>(desiredKeys: Iterable<string>, links: T[]): T[] {
+  const desired = new Set(desiredKeys);
+  return links.filter((link) => !isExceptionLink(link) && !desired.has(link.branch_key));
+}
+
+/**
  * Whether a cancellation tombstone may remove a *detached* exception.
  *
  * Google often reports the original recurring occurrence as cancelled — that is
