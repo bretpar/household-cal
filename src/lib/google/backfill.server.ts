@@ -219,7 +219,6 @@ async function backfillInstances(
   range: { timeMin: string; timeMax: string },
   initials: Map<string, string>,
   summary: BackfillSummary,
-  deadline: number,
   cursor: string | null = null,
 ): Promise<void> {
   const familyId = source.family_id;
@@ -230,6 +229,9 @@ async function backfillInstances(
     range.timeMin,
     range.timeMax,
   );
+  // Budget starts once the listings are in hand, so the item loop always gets
+  // its full slice of time rather than inheriting a budget the network spent.
+  const deadline = Date.now() + INSTANCE_PASS_BUDGET_MS;
 
   // Resume after the instance the previous request stopped on. Google orders this
   // listing by startTime, so the key is stable across runs; an unknown cursor
@@ -244,12 +246,18 @@ async function backfillInstances(
   for (let index = startIndex; index < instances.length; index += 1) {
     const item = instances[index]!;
     // bounded per request: stop early and hand back a continuation point so the
-    // next run resumes here instead of rescanning the already-checked prefix
-    if (materialized >= MAX_INSTANCE_MATERIALIZATIONS || Date.now() >= deadline) {
+    // next run resumes here instead of rescanning the already-checked prefix.
+    // At least one instance is always considered, so the cursor strictly advances
+    // and a slow calendar can never loop forever on the same position.
+    if (
+      index > startIndex &&
+      (materialized >= MAX_INSTANCE_MATERIALIZATIONS || Date.now() >= deadline)
+    ) {
       summary.hasMore = true;
       summary.cursor = instanceKey(instances[index - 1] ?? item);
       return;
     }
+
 
     if (!item.id || !item.recurringEventId) continue;
     // cancellations stay the job of normal sync
