@@ -6,16 +6,28 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
-import { addMonths, format, isSameMonth, startOfMonth } from "date-fns";
+import {
+  addMonths,
+  differenceInCalendarMonths,
+  format,
+  isSameMonth,
+  startOfMonth,
+} from "date-fns";
 
 import { MonthView } from "@/components/MonthView";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent, MemberId } from "@/lib/family-data";
 
-/** Months rendered before / after the anchor month so scrolling never runs out. */
+/** Months rendered before / after the anchor month at first paint. */
 const MONTHS_BEFORE = 6;
 const MONTHS_AFTER = 12;
+/** How many months to add each time scrolling nears an edge. */
+const GROW_STEP = 6;
+/** Distance from an edge (px) that triggers growing the rendered window. */
+const GROW_THRESHOLD = 900;
+
 
 export type MonthScrollHandle = {
   /** Smoothly scroll so the given month's boundary sits at the top. */
