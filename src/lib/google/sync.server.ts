@@ -27,6 +27,7 @@ import {
   exceptionEventFields,
   fromGoogleRecurrence,
   isExceptionLink,
+  obsoleteBranchLinks,
   originalStartKey,
   sameOriginalStart,
   localRuleFromGoogle,
@@ -474,7 +475,29 @@ export async function pushEvent(
       .from("event_sync_links")
       .select("*")
       .eq("event_id", eventId);
-    const links = (linkRows ?? []) as LinkRow[];
+    const allLinks = (linkRows ?? []) as LinkRow[];
+
+    // Obsolete branch series are removed BEFORE the desired ones are written.
+    // The save path is time-limited, so doing it the other way round can leave a
+    // live stale series behind (shared <-> per-person conversions), which later
+    // reconciliation would then treat as healthy.
+    const obsolete = obsoleteBranchLinks(
+      branches.map((b) => b.key),
+      allLinks,
+    );
+    for (const stale of obsolete) {
+      const source = sources.find((s) => s.id === stale.calendar_source_id);
+      if (source?.external_calendar_id) {
+        await google.deleteEvent(
+          conn.connectionKey,
+          source.external_calendar_id,
+          stale.google_event_id,
+        );
+      }
+      await admin.from("event_sync_links").delete().eq("id", stale.id);
+    }
+    const obsoleteIds = new Set(obsolete.map((l) => l.id));
+    const links = allLinks.filter((l) => !obsoleteIds.has(l.id));
 
     const timeZone = await householdTimeZone(admin, familyId);
     let pushed = 0;
@@ -546,19 +569,7 @@ export async function pushEvent(
       pushed += 1;
     }
 
-    // branches that no longer exist (e.g. a member's days changed) are removed
-    const keep = new Set(branches.map((b) => b.key));
-    for (const stale of links.filter((l) => !keep.has(l.branch_key))) {
-      const source = sources.find((s) => s.id === stale.calendar_source_id);
-      if (source?.external_calendar_id) {
-        await google.deleteEvent(
-          conn.connectionKey,
-          source.external_calendar_id,
-          stale.google_event_id,
-        );
-      }
-      await admin.from("event_sync_links").delete().eq("id", stale.id);
-    }
+
 
     await touchSynced(admin, familyId);
     return { pushed };
@@ -1411,9 +1422,14 @@ export async function reconcileHousehold(
           candidate.id,
         );
         // nothing stale: every branch still points at a live Google event.
-        // One exception: recurring timed series written before the DST fix still
-        // carry UTC recurrence metadata, so patch those in place exactly once.
-        if (pruned === 0 && !(await needsBodyRepatch(admin, familyId, candidate, candidate.id)))
+        // Two exceptions: recurring timed series written before the DST fix still
+        // carry UTC recurrence metadata, and a live link can belong to an
+        // obsolete branch representation after a shared <-> per-person switch.
+        if (
+          pruned === 0 &&
+          !(await hasObsoleteBranchLinks(admin, familyId, candidate.id)) &&
+          !(await needsBodyRepatch(admin, familyId, candidate, candidate.id))
+        )
           continue;
       }
 
