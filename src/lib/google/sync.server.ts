@@ -538,11 +538,16 @@ export async function repairStaleRecurringBodies(
 
   for (const branch of stale) {
     try {
-      const saved = await google.patchEvent(
+      const remote = await google.getEventRaw(
         conn.connectionKey,
         branch.calendarId,
         branch.googleEventId,
-        branch.body,
+      );
+      const saved = await google.updateEvent(
+        conn.connectionKey,
+        branch.calendarId,
+        branch.googleEventId,
+        dstFullUpdateBody(remote, branch.body),
       );
       await admin
         .from("event_sync_links")
