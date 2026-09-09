@@ -138,19 +138,35 @@ export function useTimeGridDrag({
    * non-passive listener mid-gesture still applies to the remaining moves of
    * the in-flight touch on iOS, which `touch-action` alone does not.
    */
-  const blockNativeScroll = useRef<((event: TouchEvent) => void) | null>(null);
+  const blockNativeScroll = useRef<{
+    move: (event: TouchEvent) => void;
+    end: () => void;
+    cancel: () => void;
+  } | null>(null);
   const startScrollBlock = () => {
     if (blockNativeScroll.current) return;
-    const handler = (event: TouchEvent) => {
+    const move = (event: TouchEvent) => {
       if (event.cancelable) event.preventDefault();
+      const touch = event.touches[0];
+      if (touch && ghostRef.current) updatePointerRef.current(touch.clientY);
     };
-    blockNativeScroll.current = handler;
-    document.addEventListener("touchmove", handler, { passive: false });
+    const end = () => {
+      if (ghostRef.current) commitRef.current();
+    };
+    const cancel = () => {
+      if (ghostRef.current) resetRef.current();
+    };
+    blockNativeScroll.current = { move, end, cancel };
+    document.addEventListener("touchmove", move, { passive: false });
+    document.addEventListener("touchend", end);
+    document.addEventListener("touchcancel", cancel);
   };
   const stopScrollBlock = () => {
-    const handler = blockNativeScroll.current;
-    if (!handler) return;
-    document.removeEventListener("touchmove", handler);
+    const handlers = blockNativeScroll.current;
+    if (!handlers) return;
+    document.removeEventListener("touchmove", handlers.move);
+    document.removeEventListener("touchend", handlers.end);
+    document.removeEventListener("touchcancel", handlers.cancel);
     blockNativeScroll.current = null;
   };
 
@@ -210,6 +226,7 @@ export function useTimeGridDrag({
     [scrollContainerRef, runAutoScroll, stopAutoScroll],
   );
 
+  const resetRef = useRef<() => void>(() => {});
   const reset = useCallback(() => {
     clearTimer();
     stopAutoScroll();
@@ -219,6 +236,7 @@ export function useTimeGridDrag({
     dragOrigin.current = null;
     setGhostState(null);
   }, [stopAutoScroll]);
+  resetRef.current = reset;
 
   const commitRef = useRef<() => void>(() => {});
   const updatePointerRef = useRef<(clientY: number) => void>(() => {});
@@ -239,6 +257,10 @@ export function useTimeGridDrag({
     };
     const onDocumentPointerCancel = (event: PointerEvent) => {
       if (activePointerId.current !== event.pointerId) return;
+      // Touch streams can emit pointercancel when the original surface began as
+      // pan-y. The non-passive touch stream remains authoritative until the
+      // corresponding touchend/touchcancel arrives.
+      if (event.pointerType === "touch" && blockNativeScroll.current) return;
       reset();
     };
 
