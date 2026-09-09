@@ -263,6 +263,117 @@ export const MonthScrollView = forwardRef<
     };
   }, [months, onVisibleMonthChange]);
 
+  // Horizontal swipe between months. The whole month surface follows the finger
+  // (with resistance), then eases back while the header/scroll position moves to
+  // the neighbouring month. Vertical intent is left entirely to native scrolling.
+  const swipeRef = useRef(onSwipeMonth);
+  swipeRef.current = onSwipeMonth;
+  useEffect(() => {
+    const node = scrollRef.current;
+    const track = trackRef.current;
+    if (!node || !track) return;
+
+    const AXIS_THRESHOLD = 12;
+    const COMMIT_RATIO = 0.22;
+    const FLICK = 0.4; // px per ms
+    let startX = 0;
+    let startY = 0;
+    let lastX = 0;
+    let lastT = 0;
+    let velocity = 0;
+    let axis: "undecided" | "x" | "y" = "undecided";
+    let active = false;
+
+    const overlayOpen = () =>
+      !!document.querySelector(
+        '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
+      );
+
+    const setShift = (value: number) => {
+      track.style.transform = value ? `translate3d(${value}px, 0, 0)` : "";
+    };
+
+    const release = (direction: 0 | 1 | -1) => {
+      track.style.transition = prefersReducedMotion()
+        ? ""
+        : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)";
+      setShift(0);
+      window.setTimeout(() => {
+        track.style.transition = "";
+      }, 240);
+      if (direction) swipeRef.current?.(direction);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch || e.touches.length !== 1 || overlayOpen() || !swipeRef.current) {
+        active = false;
+        axis = "undecided";
+        return;
+      }
+      track.style.transition = "";
+      active = true;
+      axis = "undecided";
+      velocity = 0;
+      startX = lastX = touch.clientX;
+      startY = touch.clientY;
+      lastT = performance.now();
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!active) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (axis === "undecided") {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < AXIS_THRESHOLD) return;
+        axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      }
+      if (axis !== "x") return;
+      if (e.cancelable) e.preventDefault();
+      const now = performance.now();
+      const dt = now - lastT;
+      if (dt > 0) velocity = velocity * 0.4 + ((touch.clientX - lastX) / dt) * 0.6;
+      lastX = touch.clientX;
+      lastT = now;
+      // Light resistance so the surface feels attached rather than free.
+      const limit = node.clientWidth * 0.5;
+      setShift(Math.max(-limit, Math.min(limit, dx * 0.6)));
+    };
+
+    const onTouchEnd = () => {
+      if (!active || axis !== "x") {
+        active = false;
+        axis = "undecided";
+        return;
+      }
+      active = false;
+      axis = "undecided";
+      const dx = lastX - startX;
+      const far = Math.abs(dx) >= node.clientWidth * COMMIT_RATIO;
+      const flick = Math.abs(velocity) >= FLICK;
+      if (!far && !flick) {
+        release(0);
+        return;
+      }
+      // Dragging left moves forward in time.
+      release(dx < 0 ? 1 : -1);
+    };
+
+    node.addEventListener("touchstart", onTouchStart, { passive: true });
+    node.addEventListener("touchmove", onTouchMove, { passive: false });
+    node.addEventListener("touchend", onTouchEnd);
+    node.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      setShift(0);
+      node.removeEventListener("touchstart", onTouchStart);
+      node.removeEventListener("touchmove", onTouchMove);
+      node.removeEventListener("touchend", onTouchEnd);
+      node.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, []);
+
   useImperativeHandle(
     ref,
     () => ({
