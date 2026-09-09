@@ -623,14 +623,22 @@ export function WeekView({
                             />
                             <div
                               className={cn(
-                                "pointer-events-none absolute inset-x-1 z-30 scale-[1.03] rounded-xl border-2 px-1.5 py-1 shadow-lg ring-2 ring-primary/40 transition-transform",
+                                "pointer-events-none absolute z-30 rounded-xl border-2 px-1.5 py-1 shadow-lg ring-2 ring-primary/40",
                                 isCare
                                   ? "border-coverage-strong/80 bg-coverage/70"
                                   : "border-primary bg-primary/25",
+                                // No scale transform when it lands on other
+                                // events: the preview must stay exactly on the
+                                // snapped row it reports.
+                                overlapKeys.size === 0 && "scale-[1.03]",
                               )}
                               style={{
                                 top: ghostTop,
                                 height: (ghost.durationMinutes / 60) * HOUR_PX,
+                                // Sharing the slot: step aside so the events
+                                // underneath stay readable while dragging.
+                                left: overlapKeys.size > 0 ? "38%" : 4,
+                                right: 4,
                               }}
                             >
                               <p
