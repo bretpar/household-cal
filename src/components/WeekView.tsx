@@ -430,6 +430,20 @@ export function WeekView({
                   </span>
                 </div>
               )}
+
+              {/* Drag feedback: the snapped target time follows the finger in the
+                time gutter so the exact landing time is readable at a glance. */}
+              {ghost && ghostTimes && (
+                <div
+                  className="pointer-events-none absolute right-0 z-30 flex -translate-y-1/2 items-center pr-1"
+                  style={{ top: (ghost.startMinutes / 60 - DAY_START) * HOUR_PX }}
+                  aria-hidden
+                >
+                  <span className="animate-scale-in rounded bg-primary px-1 py-0.5 text-[10px] font-bold text-primary-foreground shadow-md">
+                    {format(ghostTimes.start, "h:mm a")}
+                  </span>
+                </div>
+              )}
             </div>
 
             {columns.map((day) => {
