@@ -1989,6 +1989,17 @@ export interface DstRepairDiagnostic {
     link_google_etag: string | null;
     link_app_version: number | null;
     link_sync_error: string | null;
+    /** Result of the most recent real DST repair write, when one happened. */
+    dst_repair: {
+      attempted?: boolean;
+      method?: string;
+      success?: boolean;
+      error?: string | null;
+      updated?: string | null;
+      etag?: string | null;
+      reason?: string;
+      at?: string;
+    } | null;
   } | null;
 }
 
