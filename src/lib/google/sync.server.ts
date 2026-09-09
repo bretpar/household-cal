@@ -2050,13 +2050,14 @@ export async function diagnoseDstRepair(
   const { data: linkRows } = await admin
     .from("event_sync_links")
     .select(
-      "id, event_id, calendar_source_id, google_event_id, google_recurring_event_id, google_original_start, branch_key, google_etag, google_updated_at, last_source, last_pushed_at, app_version, sync_error",
+      "id, event_id, calendar_source_id, google_event_id, google_recurring_event_id, google_original_start, branch_key, google_etag, google_updated_at, last_source, last_pushed_at, app_version, sync_error, dst_repair",
     )
     .eq("family_id", familyId)
     .eq("google_event_id", googleMasterId);
   const links = (linkRows ?? []) as (LinkRow & {
     app_version: number | null;
     sync_error: string | null;
+    dst_repair: NonNullable<DstRepairDiagnostic["last_attempt"]>["dst_repair"];
   })[];
   const link = links[0];
   if (!link) return base;
@@ -2072,6 +2073,7 @@ export async function diagnoseDstRepair(
     link_google_etag: link.google_etag ?? null,
     link_app_version: link.app_version ?? null,
     link_sync_error: link.sync_error ?? null,
+    dst_repair: link.dst_repair ?? null,
   };
 
   if (isExceptionLink(link)) {
