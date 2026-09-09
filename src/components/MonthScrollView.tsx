@@ -222,17 +222,17 @@ export const MonthScrollView = forwardRef<
 
     const evaluate = () => {
       frame = 0;
-      // Measure every mounted week-of-the-1st row against the container's top
-      // edge in one pass; rects are immune to variable row heights and to any
-      // offsetParent differences.
-      const containerTop = container.getBoundingClientRect().top;
+      // Measure every mounted week-of-the-1st row against the top edge of the
+      // visible calendar surface. On phones the page itself may be the scroller,
+      // so the boundary is the container top clamped into the viewport.
+      const boundary = Math.max(container.getBoundingClientRect().top, 0);
       const rows = Array.from(
         container.querySelectorAll<HTMLElement>("[data-month-start]"),
       );
       const measured = rows
         .map((row) => ({
           id: row.dataset["monthStart"] ?? "",
-          offset: row.getBoundingClientRect().top - containerTop,
+          offset: row.getBoundingClientRect().top - boundary,
         }))
         .filter((row) => row.id)
         .sort((a, b) => a.offset - b.offset);
@@ -256,10 +256,16 @@ export const MonthScrollView = forwardRef<
       frame = requestAnimationFrame(evaluate);
     };
 
-    container.addEventListener("scroll", onScroll, { passive: true });
+    // Capture-phase document listener catches the scroll wherever it happens:
+    // this container, an ancestor, or the page. Reporting never touches scroll
+    // position, so the reading position is unaffected by label handoff.
+    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    onScroll();
     return () => {
       if (frame) cancelAnimationFrame(frame);
-      container.removeEventListener("scroll", onScroll);
+      document.removeEventListener("scroll", onScroll, { capture: true } as EventListenerOptions);
+      window.removeEventListener("resize", onScroll);
     };
   }, [months, onVisibleMonthChange]);
 
