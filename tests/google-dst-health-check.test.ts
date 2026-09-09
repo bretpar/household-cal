@@ -93,12 +93,13 @@ describe("midnight and date-boundary wall-clock comparison", () => {
     expect(lateNight.start?.dateTime).toBe("2026-10-26T23:30:00");
   });
 
-  it("is healthy when the rendered offset puts the UTC instant on the next calendar day", () => {
-    // 23:30 PDT = 06:30 UTC the next day; a Phoenix calendar renders 23:30 -07:00
+  it("is healthy when the rendered offset puts the occurrence on the next rendered calendar day", () => {
+    // 23:30 PST (Nov 2) = 07:30 UTC Nov 3; a Phoenix (-07:00) calendar renders
+    // the same instant as 00:30 on Nov 3 — a different rendered date, same LA wall clock.
     expect(
       occurrenceWallClockDrifted(
         lateNight.start?.dateTime,
-        { dateTime: "2026-11-02T23:30:00-07:00", timeZone: TZ },
+        { dateTime: "2026-11-03T00:30:00-07:00", timeZone: TZ },
         TZ,
       ),
     ).toBe(false);
