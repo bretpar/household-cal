@@ -48,6 +48,9 @@ async function resolveGuard(pathname: string) {
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
+  head: () => ({
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
+  }),
   beforeLoad: async ({ location }) => {
     if (typeof window !== "undefined" && !hasMountedOnce) {
       // Initial hydration: match the server shell; the layout effect below
