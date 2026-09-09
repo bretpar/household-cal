@@ -664,6 +664,17 @@ export function WeekView({
                               >
                                 Snapping to {SNAP_MINUTES} min
                               </p>
+                              {overlapKeys.size > 0 ? (
+                                <p
+                                  className={cn(
+                                    "mt-0.5 inline-flex rounded-full bg-surface/85 px-1.5 text-[9px] font-semibold",
+                                    isCare ? "text-coverage-foreground" : "text-primary",
+                                  )}
+                                >
+                                  Overlaps {overlapKeys.size}{" "}
+                                  {overlapKeys.size === 1 ? "event" : "events"}
+                                </p>
+                              ) : null}
                             </div>
                           </>
                         );
