@@ -12,6 +12,7 @@
  */
 
 import { WEEKDAY_CODES, type WeekdayCode } from "@/lib/family-data";
+import { isIanaTimeZone } from "./timezone";
 
 export type SyncSource = "app" | "google";
 
@@ -922,4 +923,48 @@ export function remoteRecurringBodyIsStale(
   const norm = (lines?: string[] | null) =>
     [...(lines ?? [])].map((l) => l.trim().toUpperCase()).sort().join("\n");
   return norm(expected.recurrence) !== norm(remote.recurrence);
+}
+
+/**
+ * True when a live master's own times cannot prove DST health: an offset-bearing
+ * (or UTC) dateTime, or a missing / non-IANA timeZone. Those bodies expand with
+ * fixed-offset semantics even when the strings happen to look right, so the
+ * caller falls back to inspecting one expanded occurrence.
+ */
+export function remoteRecurringTimesAreAmbiguous(remote: {
+  start?: GoogleDateTime;
+  end?: GoogleDateTime;
+}): boolean {
+  const fixedOffset = (v?: GoogleDateTime) => {
+    const dt = (v?.dateTime ?? "").trim();
+    if (!dt) return false;
+    return /(z|[+-]\d{2}:?\d{2})$/i.test(dt);
+  };
+  const badZone = (v?: GoogleDateTime) => !isIanaTimeZone(v?.timeZone ?? null);
+  return (
+    fixedOffset(remote.start) ||
+    fixedOffset(remote.end) ||
+    badZone(remote.start) ||
+    badZone(remote.end)
+  );
+}
+
+/**
+ * True when an expanded occurrence no longer lands on the intended household
+ * wall-clock time (the visible symptom of fixed-offset expansion across DST).
+ * `expectedWallClock` is the floating local string current mapping generates.
+ */
+export function occurrenceWallClockDrifted(
+  expectedWallClock: string | null | undefined,
+  occurrence: GoogleDateTime | undefined,
+  timeZone: string,
+): boolean {
+  const expected = (expectedWallClock ?? "").slice(11, 16);
+  const raw = (occurrence?.dateTime ?? "").trim();
+  if (!expected || !raw) return false;
+  const actual = /(z|[+-]\d{2}:?\d{2})$/i.test(raw)
+    ? localWallClock(new Date(raw).toISOString(), timeZone).slice(11, 16)
+    : raw.slice(11, 16);
+  if (!actual) return false;
+  return actual !== expected;
 }

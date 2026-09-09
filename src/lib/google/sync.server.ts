@@ -29,7 +29,9 @@ import {
   isExceptionLink,
   missingBranchKeys,
   obsoleteBranchLinks,
+  occurrenceWallClockDrifted,
   remoteRecurringBodyIsStale,
+  remoteRecurringTimesAreAmbiguous,
   originalStartKey,
   sameOriginalStart,
   localRuleFromGoogle,
@@ -463,6 +465,31 @@ async function hasStaleRemoteRecurringBody(
       recurrence?: string[] | null;
     };
     if (remoteRecurringBodyIsStale(expected, remote)) return true;
+    // The raw body can look right yet still expand with fixed-offset semantics
+    // (offset-bearing dateTime, missing/non-IANA zone). In that case the truth is
+    // one expanded occurrence after the next DST transition: if its local
+    // wall-clock time drifted, the master is repatched in place.
+    if (remoteRecurringTimesAreAmbiguous(remote)) {
+      try {
+        const probeMin = new Date(Date.now()).toISOString();
+        const probeMax = new Date(Date.now() + 120 * 24 * 60 * 60 * 1000).toISOString();
+        const instances = await google.listInstances(
+          conn.connectionKey,
+          source.external_calendar_id,
+          link.google_event_id,
+          probeMin,
+          probeMax,
+        );
+        for (const instance of instances) {
+          if (instance.status === "cancelled") continue;
+          if (occurrenceWallClockDrifted(expected.start?.dateTime, instance.start, timeZone)) {
+            return true;
+          }
+        }
+      } catch {
+        // probe failures never force a repatch
+      }
+    }
   }
   return false;
 }
@@ -961,15 +988,26 @@ export async function applyGoogleEvent(
   if (!link) {
     // reuse an existing local row for this Google id when its link row is gone,
     // so a pruned link never produces a duplicate local copy
+    // A master this household already knows must never become a second local
+    // card: recover the existing local event by its Google id (link row or the
+    // event's own Google columns) before falling back to creating one.
+    const { data: knownLink } = await admin
+      .from("event_sync_links")
+      .select("event_id")
+      .eq("family_id", familyId)
+      .or(`google_event_id.eq.${g.id},google_recurring_event_id.eq.${g.id}`)
+      .limit(1)
+      .maybeSingle();
     const { data: existingLocal } = await admin
       .from("events")
       .select("id")
       .eq("family_id", familyId)
-      .eq("external_event_id", g.id)
+      .or(`external_event_id.eq.${g.id},external_recurring_event_id.eq.${g.id}`)
+      .limit(1)
       .maybeSingle();
-    const newId =
-      (existingLocal?.id as string | undefined) ??
-      (await createLocalEvent(admin, source, g, initials, null));
+    const recovered =
+      (knownLink?.event_id as string | undefined) ?? (existingLocal?.id as string | undefined);
+    const newId = recovered ?? (await createLocalEvent(admin, source, g, initials, null));
     await admin.from("event_sync_links").upsert(
       {
         family_id: familyId,

@@ -397,3 +397,22 @@ export async function findLiveOccurrence(
   } while (pageToken);
   return null;
 }
+
+/**
+ * Read-only expansion of one recurring master into instances inside a window.
+ * Used purely as a DST health probe: it never touches sync tokens.
+ */
+export async function listInstances(
+  connectionAPIKey: string,
+  calendarId: string,
+  eventId: string,
+  timeMin: string,
+  timeMax: string,
+): Promise<GoogleEvent[]> {
+  const params = new URLSearchParams({ maxResults: "50", timeMin, timeMax });
+  const body = await call<{ items?: GoogleEvent[] }>(
+    connectionAPIKey,
+    `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}/instances?${params.toString()}`,
+  );
+  return body.items ?? [];
+}
