@@ -14,10 +14,6 @@ const COVERAGE_HOLD_MS = 600;
 const MOVE_TOLERANCE_PX = 12;
 const DEFAULT_SNAP_MINUTES = 15;
 const DEFAULT_CREATE_MINUTES = 60;
-/** Distance from the timeline edge that starts auto-scrolling while dragging. */
-const EDGE_PX = 56;
-/** Max auto-scroll speed in px per animation frame. */
-const EDGE_MAX_SPEED = 12;
 
 export interface TimeGridGhost {
   /** "create" = new event preview, "move" = lifted existing occurrence */
@@ -41,10 +37,7 @@ interface Options {
   createMinutes?: number;
   /** maps a `data-occurrence-key` back to its occurrence */
   resolveOccurrence: (key: string) => Occurrence | undefined;
-  /**
-   * The scrolling timeline. Used for edge auto-scroll while dragging so an
-   * event can be moved beyond the currently visible hours.
-   */
+  /** The scrolling timeline, frozen at its current position while dragging. */
   scrollContainerRef?: RefObject<HTMLElement | null> | undefined;
   /** Notifies the calendar shell so it can stand down its own gestures. */
   onDragStateChange?: ((dragging: boolean) => void) | undefined;
@@ -107,7 +100,12 @@ export function useTimeGridDrag({
   const fired = useRef(false);
   const lastClientY = useRef(0);
   const activePointerId = useRef<number | null>(null);
-  const autoScroll = useRef<{ raf: number | null; speed: number }>({ raf: null, speed: 0 });
+  const scrollLock = useRef<{
+    node: HTMLElement;
+    top: number;
+    overflowY: string;
+    overscrollBehaviorY: string;
+  } | null>(null);
   const dragStateRef = useRef(onDragStateChange);
   dragStateRef.current = onDragStateChange;
 
@@ -170,13 +168,34 @@ export function useTimeGridDrag({
     blockNativeScroll.current = null;
   };
 
+  const lockTimelineScroll = () => {
+    const node = scrollContainerRef?.current;
+    if (!node || scrollLock.current) return;
+    scrollLock.current = {
+      node,
+      top: node.scrollTop,
+      overflowY: node.style.overflowY,
+      overscrollBehaviorY: node.style.overscrollBehaviorY,
+    };
+    node.style.setProperty("overflow-y", "hidden", "important");
+    node.style.setProperty("overscroll-behavior-y", "none", "important");
+  };
+
+  const unlockTimelineScroll = () => {
+    const lock = scrollLock.current;
+    if (!lock) return;
+    lock.node.style.overflowY = lock.overflowY;
+    lock.node.style.overscrollBehaviorY = lock.overscrollBehaviorY;
+    lock.node.scrollTop = lock.top;
+    scrollLock.current = null;
+  };
+
   /** Recompute the ghost start from the last finger position + scroll offset. */
   const updateFromPointer = useCallback(() => {
     const active = ghostRef.current;
     const origin = dragOrigin.current;
     if (!active || !origin) return;
-    const scrolled = (scrollContainerRef?.current?.scrollTop ?? origin.scrollTop) - origin.scrollTop;
-    const deltaPx = lastClientY.current - origin.clientY + scrolled;
+    const deltaPx = lastClientY.current - origin.clientY;
     const next = snap(origin.startMinutes + (deltaPx / hourPx) * 60, active.durationMinutes);
     if (next !== active.startMinutes) {
       setGhostState({ ...active, startMinutes: next });
@@ -184,58 +203,16 @@ export function useTimeGridDrag({
     }
   }, [hourPx, snap, scrollContainerRef]);
 
-  const stopAutoScroll = useCallback(() => {
-    if (autoScroll.current.raf !== null) cancelAnimationFrame(autoScroll.current.raf);
-    autoScroll.current = { raf: null, speed: 0 };
-  }, []);
-
-  const runAutoScroll = useCallback(() => {
-    const node = scrollContainerRef?.current;
-    if (!node || !ghostRef.current || autoScroll.current.speed === 0) {
-      stopAutoScroll();
-      return;
-    }
-    const before = node.scrollTop;
-    node.scrollTop = before + autoScroll.current.speed;
-    if (node.scrollTop !== before) updateFromPointer();
-    autoScroll.current.raf = requestAnimationFrame(runAutoScroll);
-  }, [scrollContainerRef, stopAutoScroll, updateFromPointer]);
-
-  /** Near the top/bottom edge of the timeline, keep scrolling under the finger. */
-  const updateAutoScroll = useCallback(
-    (clientY: number) => {
-      const node = scrollContainerRef?.current;
-      if (!node) return;
-      const rect = node.getBoundingClientRect();
-      let speed = 0;
-      if (clientY < rect.top + EDGE_PX) {
-        speed = -Math.min(EDGE_MAX_SPEED, ((rect.top + EDGE_PX - clientY) / EDGE_PX) * EDGE_MAX_SPEED);
-      } else if (clientY > rect.bottom - EDGE_PX) {
-        speed = Math.min(
-          EDGE_MAX_SPEED,
-          ((clientY - (rect.bottom - EDGE_PX)) / EDGE_PX) * EDGE_MAX_SPEED,
-        );
-      }
-      autoScroll.current.speed = speed;
-      if (speed === 0) {
-        stopAutoScroll();
-      } else if (autoScroll.current.raf === null) {
-        autoScroll.current.raf = requestAnimationFrame(runAutoScroll);
-      }
-    },
-    [scrollContainerRef, runAutoScroll, stopAutoScroll],
-  );
-
   const resetRef = useRef<() => void>(() => {});
   const reset = useCallback(() => {
     clearTimer();
-    stopAutoScroll();
     stopScrollBlock();
+    unlockTimelineScroll();
     activePointerId.current = null;
     press.current = null;
     dragOrigin.current = null;
     setGhostState(null);
-  }, [stopAutoScroll]);
+  }, []);
   resetRef.current = reset;
 
   const commitRef = useRef<() => void>(() => {});
@@ -250,6 +227,10 @@ export function useTimeGridDrag({
       if (activePointerId.current !== event.pointerId || !ghostRef.current) return;
       if (event.cancelable) event.preventDefault();
       updatePointerRef.current(event.clientY);
+    };
+    const onWheel = (event: WheelEvent) => {
+      if (!ghostRef.current) return;
+      event.preventDefault();
     };
     const onDocumentPointerUp = (event: PointerEvent) => {
       if (activePointerId.current !== event.pointerId || !ghostRef.current) return;
@@ -267,12 +248,14 @@ export function useTimeGridDrag({
     document.addEventListener("pointermove", onDocumentPointerMove, { passive: false });
     document.addEventListener("pointerup", onDocumentPointerUp);
     document.addEventListener("pointercancel", onDocumentPointerCancel);
+    document.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       stopScrollBlock();
-      if (autoScroll.current.raf !== null) cancelAnimationFrame(autoScroll.current.raf);
+      unlockTimelineScroll();
       document.removeEventListener("pointermove", onDocumentPointerMove);
       document.removeEventListener("pointerup", onDocumentPointerUp);
       document.removeEventListener("pointercancel", onDocumentPointerCancel);
+      document.removeEventListener("wheel", onWheel);
     };
   }, [reset]);
 
@@ -324,6 +307,7 @@ export function useTimeGridDrag({
         };
         activePointerId.current = pointerId;
         // Take over the gesture: no vertical timeline scroll, no horizontal pager.
+        lockTimelineScroll();
         startScrollBlock();
         setGhostState({
           kind: start.occurrence ? "move" : "create",
@@ -363,7 +347,6 @@ export function useTimeGridDrag({
         // Drag mode owns the pointer: move the block, never the calendar.
         event.preventDefault();
         updateFromPointer();
-        updateAutoScroll(event.clientY);
         return;
       }
       const start = press.current;
@@ -376,13 +359,12 @@ export function useTimeGridDrag({
         press.current = null;
       }
     },
-    [updateFromPointer, updateAutoScroll],
+    [updateFromPointer],
   );
 
   updatePointerRef.current = (clientY: number) => {
     lastClientY.current = clientY;
     updateFromPointer();
-    updateAutoScroll(clientY);
   };
 
   const commit = useCallback(() => {
