@@ -14,6 +14,7 @@
 ## Calendar interaction polish
 - [x] Month view: horizontal swipe follows the finger and settles to the next/previous month; vertical scrolling untouched.
 - [x] Arrow steps match the view: month = 1 month, week = 1 week, mobile 3-Day = 3 days, day = 1 day.
+- [x] Day, mobile 3-Day, and Week: long-pressed events follow vertical finger movement on the time scale and save through the existing reschedule flow.
 
 ## Settings organization
 - [x] Group routine settings into consistent collapsed Household, Calendars & Sync, Event Settings, and Account sections.
