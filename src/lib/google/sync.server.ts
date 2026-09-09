@@ -603,7 +603,7 @@ export async function repairStaleRecurringBodies(
           sync_error: null,
           dst_repair: {
             attempted: true,
-            method: "patch",
+            method: "update",
             success: true,
             error: null,
             updated: saved.updated ?? null,
@@ -626,7 +626,7 @@ export async function repairStaleRecurringBodies(
           sync_error: `dst_repair_failed: ${message}`.slice(0, 500),
           dst_repair: {
             attempted: true,
-            method: "patch",
+            method: "update",
             success: false,
             error: message.slice(0, 500),
             updated: null,
