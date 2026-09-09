@@ -454,6 +454,18 @@ export function WeekView({
                   !isCareLayer(o) && !isDayBlock(o) && occurrenceMatchesFilter(o, selectedMembers),
               );
 
+              // Events the lifted block currently lands on. Lanes for existing
+              // events are never recomputed mid-drag, so nothing shifts under
+              // the finger — the overlap is communicated with an outline plus a
+              // narrower, translucent preview that leaves them readable.
+              const overlapKeys = new Set<string>();
+              if (ghost && ghostTimes && isSameDay(ghost.day, day)) {
+                for (const o of visible) {
+                  if (o.key === ghost.occurrence?.key) continue;
+                  if (o.start < ghostTimes.end && o.end > ghostTimes.start) overlapKeys.add(o.key);
+                }
+              }
+
               return (
                 <div
                   key={day.toISOString()}
@@ -551,6 +563,10 @@ export function WeekView({
                             draggingKey === o.key && "opacity-40",
                             // Lifted by a long press: fade the original in place.
                             ghost?.occurrence?.key === o.key && "opacity-30",
+                            // Currently in the landing zone of the lifted block.
+                            overlapKeys.has(o.key) &&
+                              "z-20 ring-2 ring-primary/70 ring-offset-1 ring-offset-surface " +
+                                (compact ? "rounded-md" : "rounded-xl"),
                           )}
                           style={{
                             top: topFor(o.start),
@@ -607,14 +623,22 @@ export function WeekView({
                             />
                             <div
                               className={cn(
-                                "pointer-events-none absolute inset-x-1 z-30 scale-[1.03] rounded-xl border-2 px-1.5 py-1 shadow-lg ring-2 ring-primary/40 transition-transform",
+                                "pointer-events-none absolute z-30 rounded-xl border-2 px-1.5 py-1 shadow-lg ring-2 ring-primary/40",
                                 isCare
                                   ? "border-coverage-strong/80 bg-coverage/70"
                                   : "border-primary bg-primary/25",
+                                // No scale transform when it lands on other
+                                // events: the preview must stay exactly on the
+                                // snapped row it reports.
+                                overlapKeys.size === 0 && "scale-[1.03]",
                               )}
                               style={{
                                 top: ghostTop,
                                 height: (ghost.durationMinutes / 60) * HOUR_PX,
+                                // Sharing the slot: step aside so the events
+                                // underneath stay readable while dragging.
+                                left: overlapKeys.size > 0 ? "38%" : 4,
+                                right: 4,
                               }}
                             >
                               <p
@@ -640,6 +664,17 @@ export function WeekView({
                               >
                                 Snapping to {SNAP_MINUTES} min
                               </p>
+                              {overlapKeys.size > 0 ? (
+                                <p
+                                  className={cn(
+                                    "mt-0.5 inline-flex rounded-full bg-surface/85 px-1.5 text-[9px] font-semibold",
+                                    isCare ? "text-coverage-foreground" : "text-primary",
+                                  )}
+                                >
+                                  Overlaps {overlapKeys.size}{" "}
+                                  {overlapKeys.size === 1 ? "event" : "events"}
+                                </p>
+                              ) : null}
                             </div>
                           </>
                         );
