@@ -1704,10 +1704,21 @@ export async function reconcileHousehold(
           pruned === 0 &&
           !(await hasObsoleteBranchLinks(admin, familyId, candidate.id)) &&
           !(await hasMissingBranchLinks(admin, familyId, candidate.id)) &&
-          !(await needsBodyRepatch(admin, familyId, candidate, candidate.id)) &&
-          !(await hasStaleRemoteRecurringBody(admin, conn, familyId, sources, candidate.id))
-        )
+          !(await needsBodyRepatch(admin, familyId, candidate, candidate.id))
+        ) {
+          // A stale live master is repaired in place: the already-generated body
+          // is PATCHed onto the same Google master, keeping local event, link and
+          // Google ids. A healthy master classifies clean and is not written to.
+          const dst = await repairStaleRecurringBodies(
+            admin,
+            conn,
+            familyId,
+            sources,
+            candidate.id,
+          );
+          if (dst.repaired > 0) repaired += dst.repaired;
           continue;
+        }
       }
 
       await pushEvent(admin, familyId, candidate.id);
