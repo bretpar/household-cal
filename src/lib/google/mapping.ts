@@ -949,20 +949,6 @@ export function remoteRecurringTimesAreAmbiguous(remote: {
   );
 }
 
-/** Zone offset in minutes for an instant, e.g. -480 for LA in November. */
-function zoneOffsetMinutes(instant: Date, timeZone: string): number | null {
-  try {
-    const name = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" })
-      .formatToParts(instant)
-      .find((p) => p.type === "timeZoneName")?.value;
-    const m = /GMT([+-])(\d{1,2})(?::(\d{2}))?/.exec(name ?? "");
-    if (!m) return name === "GMT" ? 0 : null;
-    const sign = m[1] === "-" ? -1 : 1;
-    return sign * (Number(m[2]) * 60 + Number(m[3] ?? 0));
-  } catch {
-    return null;
-  }
-}
 
 /**
  * True when an expanded occurrence no longer lands on the intended household
