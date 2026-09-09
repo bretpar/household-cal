@@ -64,9 +64,10 @@ export function CalendarEventContent({
           onClick={onOpen}
           disabled={!onOpen}
           className={cn(
-            "min-w-0 flex-1 text-left",
+            "min-w-11 flex-1 text-left",
             showDesktopStackedTime ? "block" : "flex items-center gap-1.5",
           )}
+
         >
           <span className={cn("block min-w-0 flex-1 truncate", scale.title)}>{label}</span>
           {showTime ? (
@@ -92,7 +93,8 @@ export function CalendarEventContent({
           type="button"
           onClick={onOpen}
           disabled={!onOpen}
-          className="block min-w-0 flex-1 text-left"
+          className="block min-w-11 flex-1 text-left"
+
         >
           <span className={cn("block truncate", scale.title)}>{label}</span>
           <span className={cn("mt-0.5 block truncate", scale.time, timeTone)}>{time}</span>
