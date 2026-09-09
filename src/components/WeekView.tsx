@@ -80,7 +80,8 @@ function minutesFromTop(px: number) {
  * Smallest width an event card may shrink to. Dense lanes overlap slightly
  * instead of collapsing to an untappable sliver.
  */
-const MIN_EVENT_WIDTH_PX = 44;
+const MIN_HIT_WIDTH = 44;
+
 
 interface Placed {
   occurrence: Occurrence;
@@ -558,13 +559,25 @@ export function WeekView({
                       // for events ~30 min and up; mobile keeps the compact rules.
                       const density = timedEventDensity(viewScale, blockHeight, isMobile);
                       const compact = density === "tiny" || density === "short";
+                      // A tap anywhere on the card opens details; the nested
+                      // opener keeps working and de-duplicates the open.
+                      let opened = false;
+                      const open = () => {
+                        if (opened) return;
+                        opened = true;
+                        openOccurrence(o);
+                        setTimeout(() => {
+                          opened = false;
+                        }, 0);
+                      };
                       return (
                         <div
                           key={o.key}
                           data-occurrence-key={o.key}
                           {...dragProps(o)}
+                          onClick={open}
                           className={cn(
-                            "pointer-events-auto touch-hit-44 absolute text-left",
+                            "pointer-events-auto touch-hit-44 absolute cursor-pointer text-left",
                             compact ? "rounded-md" : "rounded-xl",
                             draggingKey === o.key && "opacity-40",
                             // Lifted by a long press: fade the original in place.
@@ -579,9 +592,11 @@ export function WeekView({
                              height: blockHeight,
                              // Dense clusters compress lanes, but every card keeps a
                              // tappable minimum width and stays inside the column.
-                             left: `min(calc(${(lane / laneCount) * 100}% + 1px), max(0px, calc(100% - ${MIN_EVENT_WIDTH_PX}px)))`,
-                             width: `max(calc(${100 / laneCount}% - 2px), min(100%, ${MIN_EVENT_WIDTH_PX}px))`,
-                             zIndex: (overlapKeys.has(o.key) ? 40 : 10) + lane,
+                             left: `min(calc(${(lane / laneCount) * 100}% + 1px), max(0px, calc(100% - ${MIN_HIT_WIDTH}px)))`,
+                             width: `max(calc(${100 / laneCount}% - 2px), min(100%, ${MIN_HIT_WIDTH}px))`,
+                             minWidth: `min(100%, ${MIN_HIT_WIDTH}px)`,
+                             zIndex:
+                               (overlapKeys.has(o.key) || draggingKey === o.key ? 40 : 10) + lane,
                            }}
                         >
                           <div
@@ -596,11 +611,12 @@ export function WeekView({
                               view={viewScale}
                               density={density}
                               icon={Icon}
-                              onOpen={() => openOccurrence(o)}
+                              onOpen={open}
                             />
                           </div>
                         </div>
                       );
+
                     })}
                   </div>
 
