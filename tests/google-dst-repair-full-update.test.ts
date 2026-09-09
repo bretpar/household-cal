@@ -76,7 +76,7 @@ const staleRemote = {
   updated: "2026-09-01T00:00:00.000Z",
   start: { dateTime: "2026-10-26T16:00:00-07:00", timeZone: "UTC" },
   end: { dateTime: "2026-10-26T17:00:00-07:00", timeZone: "UTC" },
-  recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=MO;UNTIL=20261206T235959Z"],
+  recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=MO"],
 };
 
 /** What Google reports after the corrective full update. */
@@ -169,7 +169,7 @@ describe("DST repair uses a full update on the same Google master", () => {
     // Corrected DST-safe wall clock + IANA zone and recurrence.
     expect(body["start"]).toEqual({ dateTime: "2026-10-26T16:00:00", timeZone: TZ });
     expect(body["end"]).toEqual({ dateTime: "2026-10-26T17:00:00", timeZone: TZ });
-    expect(body["recurrence"]).toEqual(["RRULE:FREQ=WEEKLY;BYDAY=MO;UNTIL=20261206T235959Z"]);
+    expect(body["recurrence"]).toEqual(["RRULE:FREQ=WEEKLY;BYDAY=MO"]);
 
     // Existing writable metadata preserved.
     expect(body["description"]).toBe("babysitter shift");
