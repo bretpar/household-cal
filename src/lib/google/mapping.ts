@@ -949,30 +949,17 @@ export function remoteRecurringTimesAreAmbiguous(remote: {
   );
 }
 
-/** Zone offset in minutes for an instant, e.g. -480 for LA in November. */
-function zoneOffsetMinutes(instant: Date, timeZone: string): number | null {
-  try {
-    const name = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" })
-      .formatToParts(instant)
-      .find((p) => p.type === "timeZoneName")?.value;
-    const m = /GMT([+-])(\d{1,2})(?::(\d{2}))?/.exec(name ?? "");
-    if (!m) return name === "GMT" ? 0 : null;
-    const sign = m[1] === "-" ? -1 : 1;
-    return sign * (Number(m[2]) * 60 + Number(m[3] ?? 0));
-  } catch {
-    return null;
-  }
-}
 
 /**
  * True when an expanded occurrence no longer lands on the intended household
  * wall-clock time (the visible symptom of fixed-offset expansion across DST).
  *
- * Comparison is deliberately wall-clock based, never UTC-instant based:
- * `2026-11-02T17:00:00-07:00` and `2026-11-02T16:00:00-08:00` are the same
- * instant, yet only the second one is the intended 4 PM Los Angeles time. So we
- * read the literal local clock from the string and additionally require the
- * stated offset to be the zone's real offset at that local date.
+ * Health is judged in the household/event zone, not from the offset Google
+ * happens to render with: Google returns expanded instances in the target
+ * calendar's own timezone, so a Los Angeles series on a Phoenix calendar comes
+ * back as `2026-11-02T17:00:00-07:00` — the same instant as 16:00 -08:00, and
+ * therefore the intended 4 PM Los Angeles time. The offset-bearing string is
+ * parsed as an instant and converted into the expected zone before comparing.
  */
 export function occurrenceWallClockDrifted(
   expectedWallClock: string | null | undefined,
@@ -983,28 +970,16 @@ export function occurrenceWallClockDrifted(
   const raw = (occurrence?.dateTime ?? "").trim();
   if (!expected || !raw) return false;
 
-  const offsetMatch = /(z|[+-]\d{2}:?\d{2})$/i.exec(raw);
-  const literal = raw.slice(11, 16);
-  if (!literal) return false;
-
-  if (!offsetMatch) {
-    // floating wall clock: the string itself is the local time
-    return literal !== expected;
+  const hasOffset = /(z|[+-]\d{2}:?\d{2})$/i.test(raw);
+  if (!hasOffset) {
+    // floating wall clock: the string itself is already the local time
+    const literal = raw.slice(11, 16);
+    return literal ? literal !== expected : false;
   }
 
   const instant = new Date(raw);
   if (Number.isNaN(instant.getTime())) return false;
-  const stated =
-    offsetMatch[0].toLowerCase() === "z"
-      ? 0
-      : (() => {
-          const m = /([+-])(\d{2}):?(\d{2})/.exec(offsetMatch[0])!;
-          return (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3]));
-        })();
-  const real = zoneOffsetMinutes(instant, timeZone);
-  // A wrong offset means Google expanded with fixed-offset semantics, even if
-  // the resulting instant coincides with a correct-looking local time.
-  if (real !== null && stated !== real) return true;
-  return literal !== expected;
+  const local = localWallClock(instant.toISOString(), timeZone).slice(11, 16);
+  return local !== expected;
 }
 
