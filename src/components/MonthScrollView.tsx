@@ -61,6 +61,8 @@ export const MonthScrollView = forwardRef<
     weekStartsOn?: 0 | 1;
     /** Called when a different month reaches the top of the scroll viewport. */
     onVisibleMonthChange?: (month: Date) => void;
+    /** Horizontal swipe: +1 = next month, -1 = previous month. */
+    onSwipeMonth?: (direction: 1 | -1) => void;
   }
 >(function MonthScrollView(
   {
@@ -72,10 +74,12 @@ export const MonthScrollView = forwardRef<
     onCreateAt,
     weekStartsOn = 1,
     onVisibleMonthChange,
+    onSwipeMonth,
   },
   ref,
 ) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
   /** Anchor = the week row containing the 1st of each month (the grid start). */
   const anchorRefs = useRef(new Map<string, HTMLDivElement>());
   const reportedRef = useRef<string | null>(null);
