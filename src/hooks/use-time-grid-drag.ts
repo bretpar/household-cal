@@ -106,6 +106,7 @@ export function useTimeGridDrag({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fired = useRef(false);
   const lastClientY = useRef(0);
+  const activePointerId = useRef<number | null>(null);
   const autoScroll = useRef<{ raf: number | null; speed: number }>({ raf: null, speed: 0 });
   const dragStateRef = useRef(onDragStateChange);
   dragStateRef.current = onDragStateChange;
@@ -137,19 +138,35 @@ export function useTimeGridDrag({
    * non-passive listener mid-gesture still applies to the remaining moves of
    * the in-flight touch on iOS, which `touch-action` alone does not.
    */
-  const blockNativeScroll = useRef<((event: TouchEvent) => void) | null>(null);
+  const blockNativeScroll = useRef<{
+    move: (event: TouchEvent) => void;
+    end: () => void;
+    cancel: () => void;
+  } | null>(null);
   const startScrollBlock = () => {
     if (blockNativeScroll.current) return;
-    const handler = (event: TouchEvent) => {
+    const move = (event: TouchEvent) => {
       if (event.cancelable) event.preventDefault();
+      const touch = event.touches[0];
+      if (touch && ghostRef.current) updatePointerRef.current(touch.clientY);
     };
-    blockNativeScroll.current = handler;
-    document.addEventListener("touchmove", handler, { passive: false });
+    const end = () => {
+      if (ghostRef.current) commitRef.current();
+    };
+    const cancel = () => {
+      if (ghostRef.current) resetRef.current();
+    };
+    blockNativeScroll.current = { move, end, cancel };
+    document.addEventListener("touchmove", move, { passive: false });
+    document.addEventListener("touchend", end);
+    document.addEventListener("touchcancel", cancel);
   };
   const stopScrollBlock = () => {
-    const handler = blockNativeScroll.current;
-    if (!handler) return;
-    document.removeEventListener("touchmove", handler);
+    const handlers = blockNativeScroll.current;
+    if (!handlers) return;
+    document.removeEventListener("touchmove", handlers.move);
+    document.removeEventListener("touchend", handlers.end);
+    document.removeEventListener("touchcancel", handlers.cancel);
     blockNativeScroll.current = null;
   };
 
@@ -209,19 +226,55 @@ export function useTimeGridDrag({
     [scrollContainerRef, runAutoScroll, stopAutoScroll],
   );
 
+  const resetRef = useRef<() => void>(() => {});
   const reset = useCallback(() => {
     clearTimer();
     stopAutoScroll();
     stopScrollBlock();
+    activePointerId.current = null;
     press.current = null;
     dragOrigin.current = null;
     setGhostState(null);
   }, [stopAutoScroll]);
+  resetRef.current = reset;
 
-  useEffect(() => () => {
-    stopScrollBlock();
-    if (autoScroll.current.raf !== null) cancelAnimationFrame(autoScroll.current.raf);
-  }, []);
+  const commitRef = useRef<() => void>(() => {});
+  const updatePointerRef = useRef<(clientY: number) => void>(() => {});
+
+  useEffect(() => {
+    // Mobile Safari and Chromium can stop dispatching React pointer moves to a
+    // pan-y surface after a hold. Document-level pointer tracking keeps the
+    // lifted event attached to the finger without disabling normal pre-hold
+    // timeline scrolling.
+    const onDocumentPointerMove = (event: PointerEvent) => {
+      if (activePointerId.current !== event.pointerId || !ghostRef.current) return;
+      if (event.cancelable) event.preventDefault();
+      updatePointerRef.current(event.clientY);
+    };
+    const onDocumentPointerUp = (event: PointerEvent) => {
+      if (activePointerId.current !== event.pointerId || !ghostRef.current) return;
+      commitRef.current();
+    };
+    const onDocumentPointerCancel = (event: PointerEvent) => {
+      if (activePointerId.current !== event.pointerId) return;
+      // Touch streams can emit pointercancel when the original surface began as
+      // pan-y. The non-passive touch stream remains authoritative until the
+      // corresponding touchend/touchcancel arrives.
+      if (event.pointerType === "touch" && blockNativeScroll.current) return;
+      reset();
+    };
+
+    document.addEventListener("pointermove", onDocumentPointerMove, { passive: false });
+    document.addEventListener("pointerup", onDocumentPointerUp);
+    document.addEventListener("pointercancel", onDocumentPointerCancel);
+    return () => {
+      stopScrollBlock();
+      if (autoScroll.current.raf !== null) cancelAnimationFrame(autoScroll.current.raf);
+      document.removeEventListener("pointermove", onDocumentPointerMove);
+      document.removeEventListener("pointerup", onDocumentPointerUp);
+      document.removeEventListener("pointercancel", onDocumentPointerCancel);
+    };
+  }, [reset]);
 
   const onPointerDown = useCallback(
     (day: Date, event: ReactPointerEvent<HTMLElement>) => {
@@ -269,6 +322,7 @@ export function useTimeGridDrag({
           startMinutes,
           scrollTop: scrollContainerRef?.current?.scrollTop ?? 0,
         };
+        activePointerId.current = pointerId;
         // Take over the gesture: no vertical timeline scroll, no horizontal pager.
         startScrollBlock();
         setGhostState({
@@ -325,6 +379,12 @@ export function useTimeGridDrag({
     [updateFromPointer, updateAutoScroll],
   );
 
+  updatePointerRef.current = (clientY: number) => {
+    lastClientY.current = clientY;
+    updateFromPointer();
+    updateAutoScroll(clientY);
+  };
+
   const commit = useCallback(() => {
     const active = ghostRef.current;
     const start = press.current;
@@ -339,6 +399,7 @@ export function useTimeGridDrag({
     }
     onCreate(startAt, new Date(startAt.getTime() + active.durationMinutes * 60000));
   }, [onCreate, onMove, reset]);
+  commitRef.current = commit;
 
   /** Swallow the tap that ends a recognized long press. */
   const onClickCapture = useCallback((event: { stopPropagation: () => void; preventDefault: () => void }) => {
