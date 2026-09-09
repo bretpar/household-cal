@@ -454,6 +454,18 @@ export function WeekView({
                   !isCareLayer(o) && !isDayBlock(o) && occurrenceMatchesFilter(o, selectedMembers),
               );
 
+              // Events the lifted block currently lands on. Lanes for existing
+              // events are never recomputed mid-drag, so nothing shifts under
+              // the finger — the overlap is communicated with an outline plus a
+              // narrower, translucent preview that leaves them readable.
+              const overlapKeys = new Set<string>();
+              if (ghost && ghostTimes && isSameDay(ghost.day, day)) {
+                for (const o of visible) {
+                  if (o.key === ghost.occurrence?.key) continue;
+                  if (o.start < ghostTimes.end && o.end > ghostTimes.start) overlapKeys.add(o.key);
+                }
+              }
+
               return (
                 <div
                   key={day.toISOString()}
