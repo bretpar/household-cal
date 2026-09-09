@@ -181,3 +181,111 @@ describe("midnight and date-boundary wall-clock comparison", () => {
     ).toBe(false);
   });
 });
+
+describe("30- and 45-minute offset difference at date boundaries", () => {
+  it("is healthy for India 23:30 rendered on a Dhaka (+06:00) calendar as 00:00 next day", () => {
+    const tz = "Asia/Kolkata";
+    const local = toGoogleTimes(
+      "2026-11-02T18:00:00.000Z",
+      "2026-11-02T19:00:00.000Z",
+      false,
+      tz,
+    );
+    expect(local.start?.dateTime).toBe("2026-11-02T23:30:00");
+    expect(
+      occurrenceWallClockDrifted(
+        local.start?.dateTime,
+        { dateTime: "2026-11-03T00:00:00+06:00", timeZone: tz },
+        tz,
+      ),
+    ).toBe(false);
+  });
+
+  it("detects drift for a 30-minute difference near midnight", () => {
+    const tz = "Asia/Kolkata";
+    const local = toGoogleTimes(
+      "2026-11-02T18:00:00.000Z",
+      "2026-11-02T19:00:00.000Z",
+      false,
+      tz,
+    );
+    expect(
+      occurrenceWallClockDrifted(
+        local.start?.dateTime,
+        { dateTime: "2026-11-02T23:00:00+06:00", timeZone: tz },
+        tz,
+      ),
+    ).toBe(true);
+  });
+
+  it("is healthy for Dhaka 00:00 rendered on an India (+05:30) calendar as 23:30 previous day", () => {
+    const tz = "Asia/Dhaka";
+    const local = toGoogleTimes(
+      "2026-11-02T18:00:00.000Z",
+      "2026-11-02T19:00:00.000Z",
+      false,
+      tz,
+    );
+    expect(local.start?.dateTime).toBe("2026-11-03T00:00:00");
+    expect(
+      occurrenceWallClockDrifted(
+        local.start?.dateTime,
+        { dateTime: "2026-11-02T23:30:00+05:30", timeZone: tz },
+        tz,
+      ),
+    ).toBe(false);
+  });
+
+  it("is healthy for Pakistan 23:45 rendered on a Kathmandu (+05:45) calendar as 00:30 next day", () => {
+    const tz = "Asia/Karachi";
+    const local = toGoogleTimes(
+      "2026-11-02T18:45:00.000Z",
+      "2026-11-02T19:45:00.000Z",
+      false,
+      tz,
+    );
+    expect(local.start?.dateTime).toBe("2026-11-02T23:45:00");
+    expect(
+      occurrenceWallClockDrifted(
+        local.start?.dateTime,
+        { dateTime: "2026-11-03T00:30:00+05:45", timeZone: tz },
+        tz,
+      ),
+    ).toBe(false);
+  });
+
+  it("detects drift for a 45-minute difference near midnight", () => {
+    const tz = "Asia/Karachi";
+    const local = toGoogleTimes(
+      "2026-11-02T18:45:00.000Z",
+      "2026-11-02T19:45:00.000Z",
+      false,
+      tz,
+    );
+    expect(
+      occurrenceWallClockDrifted(
+        local.start?.dateTime,
+        { dateTime: "2026-11-02T23:30:00+05:45", timeZone: tz },
+        tz,
+      ),
+    ).toBe(true);
+  });
+
+  it("is healthy for Nepal 00:00 rendered on a Pakistan (+05:00) calendar as 23:15 previous day", () => {
+    const tz = "Asia/Kathmandu";
+    const local = toGoogleTimes(
+      "2026-11-03T18:15:00.000Z",
+      "2026-11-03T19:15:00.000Z",
+      false,
+      tz,
+    );
+    expect(local.start?.dateTime).toBe("2026-11-04T00:00:00");
+    expect(
+      occurrenceWallClockDrifted(
+        local.start?.dateTime,
+        { dateTime: "2026-11-03T23:15:00+05:00", timeZone: tz },
+        tz,
+      ),
+    ).toBe(false);
+  });
+});
