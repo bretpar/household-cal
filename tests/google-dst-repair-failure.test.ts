@@ -9,12 +9,15 @@ vi.mock("@/lib/google/api.server", async (importOriginal) => {
     getEvent: vi.fn(),
     listInstances: vi.fn(),
     patchEvent: vi.fn(),
+    updateEvent: vi.fn(),
+    getEventRaw: vi.fn(),
   };
 });
 
 const api = await import("@/lib/google/api.server");
 const getEvent = vi.mocked(api.getEvent);
-const patchEvent = vi.mocked(api.patchEvent);
+const updateEvent = vi.mocked(api.updateEvent);
+const getEventRaw = vi.mocked(api.getEventRaw);
 
 const TZ = "America/Los_Angeles";
 const MASTER_ID = "k36j3eluqfajsjq3s7o8eflae4";
@@ -99,11 +102,12 @@ const conn = {
   accountEmail: "dad@example.com",
 };
 
-describe("DST repair Google patch failure", () => {
+describe("DST repair Google write failure", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getEvent.mockResolvedValue(staleRemote as never);
-    patchEvent.mockRejectedValue(new Error("500 Backend Error"));
+    getEventRaw.mockResolvedValue(staleRemote as never);
+    updateEvent.mockRejectedValue(new Error("500 Backend Error"));
   });
 
   it("surfaces the error and does not mark the repair complete", async () => {
@@ -121,8 +125,8 @@ describe("DST repair Google patch failure", () => {
 
     // The write failed and the failure is surfaced.
     expect(result).toEqual({ repaired: 0, failed: 1 });
-    expect(patchEvent).toHaveBeenCalledTimes(1);
-    expect(patchEvent.mock.calls[0]![2]).toBe(MASTER_ID);
+    expect(updateEvent).toHaveBeenCalledTimes(1);
+    expect(updateEvent.mock.calls[0]![2]).toBe(MASTER_ID);
     expect(spy).toHaveBeenCalledWith(
       "[google-sync] DST repair write failed",
       MASTER_ID,
@@ -136,7 +140,7 @@ describe("DST repair Google patch failure", () => {
     expect(payload.sync_error).toBe("dst_repair_failed: 500 Backend Error");
     expect(payload.dst_repair).toMatchObject({
       attempted: true,
-      method: "patch",
+      method: "update",
       success: false,
       error: "500 Backend Error",
       updated: null,
@@ -156,7 +160,7 @@ describe("DST repair Google patch failure", () => {
       EVENT_ID,
     );
     expect(retry).toEqual({ repaired: 0, failed: 1 });
-    expect(patchEvent).toHaveBeenCalledTimes(2);
+    expect(updateEvent).toHaveBeenCalledTimes(2);
 
     spy.mockRestore();
   });
