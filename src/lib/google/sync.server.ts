@@ -1138,22 +1138,27 @@ export async function applyGoogleEvent(
     // A master this household already knows must never become a second local
     // card: recover the existing local event by its Google id (link row or the
     // event's own Google columns) before falling back to creating one.
+    // Match on the exact Google id only. Matching a recurring-parent id would
+    // adopt a detached exception / materialized occurrence row (those store the
+    // master id in *_recurring_event_id), which would overwrite that one-off
+    // change and leave the series with no local card of its own.
     const { data: knownLink } = await admin
       .from("event_sync_links")
       .select("event_id")
       .eq("family_id", familyId)
-      .or(`google_event_id.eq.${g.id},google_recurring_event_id.eq.${g.id}`)
+      .eq("google_event_id", g.id)
       .limit(1)
       .maybeSingle();
     const { data: existingLocal } = await admin
       .from("events")
       .select("id")
       .eq("family_id", familyId)
-      .or(`external_event_id.eq.${g.id},external_recurring_event_id.eq.${g.id}`)
+      .eq("external_event_id", g.id)
       .limit(1)
       .maybeSingle();
     const recovered =
       (knownLink?.event_id as string | undefined) ?? (existingLocal?.id as string | undefined);
+
     const newId = recovered ?? (await createLocalEvent(admin, source, g, initials, null));
     await admin.from("event_sync_links").upsert(
       {
