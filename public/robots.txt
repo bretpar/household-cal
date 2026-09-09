@@ -1,14 +1,19 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
 Allow: /
+Allow: /privacy
+Allow: /terms
+Disallow: /today
+Disallow: /calendar
+Disallow: /activities
+Disallow: /family
+Disallow: /preferences
+Disallow: /onboarding
+Disallow: /auth
+Disallow: /reset-password
+Disallow: /invite/
+Disallow: /unsubscribe/
+Disallow: /oauth/
+Disallow: /api/
+Disallow: /lovable/
+
+Sitemap: https://ourfamilycalendar.com/sitemap.xml
