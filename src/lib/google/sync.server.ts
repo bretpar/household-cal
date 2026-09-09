@@ -1833,3 +1833,251 @@ export async function repairGoogleRecurrenceRules(
   return result as RecurrenceRepairSummary;
 }
 
+
+/* ------------------------------------------------- read-only DST diagnostic */
+
+export interface DstRepairDiagnostic {
+  google_master_id: string;
+  local_event_id: string | null;
+  link_id: string | null;
+  branch_key: string | null;
+  calendar_source_id: string | null;
+  calendar_name: string | null;
+  time_zone: string | null;
+  /** Dry-run classification of the existing repair path. */
+  classification: "HEALTHY" | "STALE" | "SKIPPED";
+  reason: string;
+  probe_date: string | null;
+  actual_instance_start: string | null;
+  actual_instance_end: string | null;
+  actual_master_start: string | null;
+  actual_master_start_time_zone: string | null;
+  actual_master_end: string | null;
+  actual_master_end_time_zone: string | null;
+  actual_master_recurrence: string[] | null;
+  expected_start_wall_clock: string | null;
+  expected_end_wall_clock: string | null;
+  expected_time_zone: string | null;
+  /** Diagnostics never write: always false / "none". */
+  repair_write_attempted: false;
+  google_write_method: "none";
+  /** Exactly what a repair would PATCH onto the same Google master. */
+  outbound: {
+    start_dateTime: string | null;
+    start_timeZone: string | null;
+    end_dateTime: string | null;
+    end_timeZone: string | null;
+    recurrence: string[] | null;
+  } | null;
+  /** No Google write happens here, so no fresh response exists. */
+  google_response: { success: null; error: null; updated: null; etag: null };
+  /** Bookkeeping left by the most recent real reconcile/repair attempt. */
+  last_attempt: {
+    link_last_source: string | null;
+    link_last_pushed_at: string | null;
+    link_google_updated_at: string | null;
+    link_google_etag: string | null;
+    link_app_version: number | null;
+    link_sync_error: string | null;
+  } | null;
+}
+
+function blankResponse(): DstRepairDiagnostic["google_response"] {
+  return { success: null, error: null, updated: null, etag: null };
+}
+
+/**
+ * Read-only classification of what `hasStaleRemoteRecurringBody()` /
+ * reconcile would decide for ONE linked recurring Google master, plus the exact
+ * outbound body a repair would PATCH. It reuses the same `branchBody()` and the
+ * same staleness helpers as the live repair path and never writes to Google or
+ * to the database.
+ */
+export async function diagnoseDstRepair(
+  admin: Admin,
+  familyId: string,
+  googleMasterId: string,
+): Promise<DstRepairDiagnostic> {
+  const base: DstRepairDiagnostic = {
+    google_master_id: googleMasterId,
+    local_event_id: null,
+    link_id: null,
+    branch_key: null,
+    calendar_source_id: null,
+    calendar_name: null,
+    time_zone: null,
+    classification: "SKIPPED",
+    reason: "no_link_for_master",
+    probe_date: null,
+    actual_instance_start: null,
+    actual_instance_end: null,
+    actual_master_start: null,
+    actual_master_start_time_zone: null,
+    actual_master_end: null,
+    actual_master_end_time_zone: null,
+    actual_master_recurrence: null,
+    expected_start_wall_clock: null,
+    expected_end_wall_clock: null,
+    expected_time_zone: null,
+    repair_write_attempted: false,
+    google_write_method: "none",
+    outbound: null,
+    google_response: blankResponse(),
+    last_attempt: null,
+  };
+
+  const { data: linkRows } = await admin
+    .from("event_sync_links")
+    .select(
+      "id, event_id, calendar_source_id, google_event_id, google_recurring_event_id, google_original_start, branch_key, google_etag, google_updated_at, last_source, last_pushed_at, app_version, sync_error",
+    )
+    .eq("family_id", familyId)
+    .eq("google_event_id", googleMasterId);
+  const links = (linkRows ?? []) as (LinkRow & {
+    app_version: number | null;
+    sync_error: string | null;
+  })[];
+  const link = links[0];
+  if (!link) return base;
+
+  base.link_id = link.id;
+  base.local_event_id = link.event_id;
+  base.branch_key = link.branch_key;
+  base.calendar_source_id = link.calendar_source_id;
+  base.last_attempt = {
+    link_last_source: link.last_source ?? null,
+    link_last_pushed_at: link.last_pushed_at ?? null,
+    link_google_updated_at: link.google_updated_at ?? null,
+    link_google_etag: link.google_etag ?? null,
+    link_app_version: link.app_version ?? null,
+    link_sync_error: link.sync_error ?? null,
+  };
+
+  if (isExceptionLink(link)) {
+    return { ...base, reason: "detached_exception_link_not_dst_repairable" };
+  }
+
+  const conn = await getConnection(admin, familyId);
+  if (!conn) return { ...base, reason: "not_connected" };
+  const sources = await googleSources(admin, familyId);
+  const source = sources.find((s) => s.id === link.calendar_source_id);
+  if (!source?.external_calendar_id) return { ...base, reason: "no_active_google_calendar" };
+  base.calendar_name = source.name;
+
+  const event = await loadEvent(admin, link.event_id);
+  if (!event) return { ...base, reason: "local_event_missing" };
+  if (event.all_day) return { ...base, reason: "all_day_event_not_dst_repairable" };
+  if (!event.recurrence_rule) return { ...base, reason: "not_recurring" };
+
+  const participants = (event.event_members ?? []).map((m) => ({
+    member_id: m.family_member_id,
+    weekdays: m.weekdays,
+  }));
+  const branches = computeBranches({
+    recurrence_rule: event.recurrence_rule,
+    participants,
+    member_ids: participants.map((p) => p.member_id),
+  });
+  const branch = branches.find((b) => b.key === link.branch_key);
+  if (!branch) return { ...base, reason: `no_desired_branch_for_key("${link.branch_key}")` };
+
+  const timeZone = await householdTimeZone(admin, familyId);
+  base.time_zone = timeZone;
+  const initials = await initialsFor(admin, familyId);
+  const expected = branchBody(event, branch, initials, timeZone) as {
+    start?: GoogleDateTime;
+    end?: GoogleDateTime;
+    recurrence?: string[] | null;
+  };
+  base.expected_start_wall_clock = expected.start?.dateTime ?? null;
+  base.expected_end_wall_clock = expected.end?.dateTime ?? null;
+  base.expected_time_zone = expected.start?.timeZone ?? timeZone;
+  base.outbound = {
+    start_dateTime: expected.start?.dateTime ?? null,
+    start_timeZone: expected.start?.timeZone ?? null,
+    end_dateTime: expected.end?.dateTime ?? null,
+    end_timeZone: expected.end?.timeZone ?? null,
+    recurrence: expected.recurrence ?? null,
+  };
+
+  let remote: GoogleEvent;
+  try {
+    remote = await google.getEvent(
+      conn.connectionKey,
+      source.external_calendar_id,
+      link.google_event_id,
+    );
+  } catch (error) {
+    return {
+      ...base,
+      reason: `google_master_unreadable: ${error instanceof Error ? error.message : "unknown_error"}`,
+    };
+  }
+  base.actual_master_start = remote.start?.dateTime ?? remote.start?.date ?? null;
+  base.actual_master_start_time_zone = remote.start?.timeZone ?? null;
+  base.actual_master_end = remote.end?.dateTime ?? remote.end?.date ?? null;
+  base.actual_master_end_time_zone = remote.end?.timeZone ?? null;
+  base.actual_master_recurrence = remote.recurrence ?? null;
+
+  if (remoteRecurringBodyIsStale(expected, remote)) {
+    return {
+      ...base,
+      classification: "STALE",
+      reason: "master_body_differs_from_expected(start/end/timeZone/recurrence)",
+    };
+  }
+
+  if (!remoteRecurringTimesAreAmbiguous(remote)) {
+    return {
+      ...base,
+      classification: "HEALTHY",
+      reason: "master_body_matches_expected_floating_wall_clock_and_iana_zone",
+    };
+  }
+
+  // ambiguous body: the truth is one expanded occurrence, read read-only
+  const probeMin = new Date(Date.now()).toISOString();
+  const probeMax = new Date(Date.now() + 120 * 24 * 60 * 60 * 1000).toISOString();
+  try {
+    const instances = await google.listInstances(
+      conn.connectionKey,
+      source.external_calendar_id,
+      link.google_event_id,
+      probeMin,
+      probeMax,
+    );
+    for (const instance of instances) {
+      if (instance.status === "cancelled") continue;
+      const start = instance.start?.dateTime ?? instance.start?.date ?? null;
+      const drifted = occurrenceWallClockDrifted(
+        expected.start?.dateTime,
+        instance.start,
+        timeZone,
+      );
+      if (drifted) {
+        return {
+          ...base,
+          classification: "STALE",
+          reason: "expanded_occurrence_local_wall_clock_drifted",
+          probe_date: start ? start.slice(0, 10) : null,
+          actual_instance_start: start,
+          actual_instance_end: instance.end?.dateTime ?? instance.end?.date ?? null,
+        };
+      }
+      base.probe_date = start ? start.slice(0, 10) : base.probe_date;
+      base.actual_instance_start = start;
+      base.actual_instance_end = instance.end?.dateTime ?? instance.end?.date ?? null;
+    }
+  } catch (error) {
+    return {
+      ...base,
+      reason: `instance_probe_failed: ${error instanceof Error ? error.message : "unknown_error"}`,
+    };
+  }
+
+  return {
+    ...base,
+    classification: "HEALTHY",
+    reason: "ambiguous_master_body_but_expanded_occurrences_keep_expected_wall_clock",
+  };
+}
