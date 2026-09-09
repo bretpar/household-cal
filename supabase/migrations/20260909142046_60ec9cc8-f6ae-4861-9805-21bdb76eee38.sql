@@ -1,0 +1,1 @@
+ALTER TABLE public.event_sync_links ADD COLUMN IF NOT EXISTS dst_repair jsonb;
