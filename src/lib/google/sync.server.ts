@@ -29,7 +29,9 @@ import {
   isExceptionLink,
   missingBranchKeys,
   obsoleteBranchLinks,
+  occurrenceWallClockDrifted,
   remoteRecurringBodyIsStale,
+  remoteRecurringTimesAreAmbiguous,
   originalStartKey,
   sameOriginalStart,
   localRuleFromGoogle,
@@ -986,15 +988,26 @@ export async function applyGoogleEvent(
   if (!link) {
     // reuse an existing local row for this Google id when its link row is gone,
     // so a pruned link never produces a duplicate local copy
+    // A master this household already knows must never become a second local
+    // card: recover the existing local event by its Google id (link row or the
+    // event's own Google columns) before falling back to creating one.
+    const { data: knownLink } = await admin
+      .from("event_sync_links")
+      .select("event_id")
+      .eq("family_id", familyId)
+      .or(`google_event_id.eq.${g.id},google_recurring_event_id.eq.${g.id}`)
+      .limit(1)
+      .maybeSingle();
     const { data: existingLocal } = await admin
       .from("events")
       .select("id")
       .eq("family_id", familyId)
-      .eq("external_event_id", g.id)
+      .or(`external_event_id.eq.${g.id},external_recurring_event_id.eq.${g.id}`)
+      .limit(1)
       .maybeSingle();
-    const newId =
-      (existingLocal?.id as string | undefined) ??
-      (await createLocalEvent(admin, source, g, initials, null));
+    const recovered =
+      (knownLink?.event_id as string | undefined) ?? (existingLocal?.id as string | undefined);
+    const newId = recovered ?? (await createLocalEvent(admin, source, g, initials, null));
     await admin.from("event_sync_links").upsert(
       {
         family_id: familyId,
