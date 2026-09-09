@@ -450,6 +450,7 @@ function CalendarPage() {
               onCreateAt={onCreateAt}
               weekStartsOn={weekStart}
               onVisibleMonthChange={setVisibleDate}
+              onSwipeMonth={(direction) => step(direction)}
               onSelectDay={(day) => {
                 setAnchor(day);
                 setView("day");
