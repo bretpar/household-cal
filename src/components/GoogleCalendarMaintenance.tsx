@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   backfillGoogleSource,
+  diagnoseGoogleDstRepair,
   diagnoseGoogleInbound,
   getSyncSettings,
   inspectOccurrenceRows,
@@ -147,6 +148,7 @@ export function GoogleCalendarMaintenance() {
       <RecurrenceRepair />
       <GoogleInboundDiagnostic calendars={calendars} />
       <OccurrenceRowInspector />
+      <DstRepairInspector />
     </div>
   );
 }
