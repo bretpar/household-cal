@@ -10,3 +10,7 @@
 - [x] Header month driven solely by the week row containing the 1st (data-month-start), measured against the scroll container's top edge with ~1.5px tolerance.
 - [x] Harden anchor detection against variable row heights (rect-based measurement, sorted anchors, no offsetTop).
 - [x] Subtle crossfade/slide when the fixed month/year text changes; text-only, no scroll or layout change.
+
+## Calendar interaction polish
+- [x] Month view: horizontal swipe follows the finger and settles to the next/previous month; vertical scrolling untouched.
+- [x] Arrow steps match the view: month = 1 month, week = 1 week, mobile 3-Day = 3 days, day = 1 day.
