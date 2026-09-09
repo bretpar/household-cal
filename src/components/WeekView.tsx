@@ -581,7 +581,7 @@ export function WeekView({
                              // tappable minimum width and stays inside the column.
                              left: `min(calc(${(lane / laneCount) * 100}% + 1px), max(0px, calc(100% - ${MIN_EVENT_WIDTH_PX}px)))`,
                              width: `max(calc(${100 / laneCount}% - 2px), min(100%, ${MIN_EVENT_WIDTH_PX}px))`,
-                             zIndex: 10 + lane,
+                             zIndex: (overlapKeys.has(o.key) ? 40 : 10) + lane,
                            }}
                         >
                           <div
