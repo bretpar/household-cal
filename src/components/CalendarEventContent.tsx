@@ -59,46 +59,71 @@ export function CalendarEventContent({
       !showTime && density === "short" && !occurrence.event.all_day;
     return (
       <div className={cn(wrapperClass, "flex items-center gap-1.5")}>
-        <button
-          type="button"
-          onClick={onOpen}
-          disabled={!onOpen}
-          className={cn(
-            "min-w-11 flex-1 text-left",
-            showDesktopStackedTime ? "block" : "flex items-center gap-1.5",
-          )}
-
-        >
-          <span className={cn("block min-w-0 flex-1 truncate", scale.title)}>{label}</span>
-          {showTime ? (
-            <span className={cn("shrink-0 truncate", scale.time, timeTone)}>{time}</span>
-          ) : showDesktopStackedTime ? (
-            <span className={cn("hidden truncate md:mt-0.5 md:block", scale.time, timeTone)}>
-              {time}
-            </span>
-          ) : null}
-        </button>
+        {onOpen ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen();
+            }}
+            className={cn(
+              "min-w-11 flex-1 text-left",
+              showDesktopStackedTime ? "block" : "flex items-center gap-1.5",
+            )}
+          >
+            <span className={cn("block min-w-0 flex-1 truncate", scale.title)}>{label}</span>
+            {showTime ? (
+              <span className={cn("shrink-0 truncate", scale.time, timeTone)}>{time}</span>
+            ) : showDesktopStackedTime ? (
+              <span className={cn("hidden truncate md:mt-0.5 md:block", scale.time, timeTone)}>
+                {time}
+              </span>
+            ) : null}
+          </button>
+        ) : (
+          <div
+            className={cn(
+              "min-w-0 flex-1 text-left",
+              showDesktopStackedTime ? "block" : "flex items-center gap-1.5",
+            )}
+          >
+            <span className={cn("block min-w-0 flex-1 truncate", scale.title)}>{label}</span>
+            {showTime ? (
+              <span className={cn("shrink-0 truncate", scale.time, timeTone)}>{time}</span>
+            ) : showDesktopStackedTime ? (
+              <span className={cn("hidden truncate md:mt-0.5 md:block", scale.time, timeTone)}>
+                {time}
+              </span>
+            ) : null}
+          </div>
+        )}
         {badges}
       </div>
     );
   }
 
-
-
   // Medium: title + time, no icon/metadata decoration.
   if (density === "medium") {
     return (
       <div className={cn(wrapperClass, "flex items-start gap-1.5")}>
-        <button
-          type="button"
-          onClick={onOpen}
-          disabled={!onOpen}
-          className="block min-w-11 flex-1 text-left"
-
-        >
-          <span className={cn("block truncate", scale.title)}>{label}</span>
-          <span className={cn("mt-0.5 block truncate", scale.time, timeTone)}>{time}</span>
-        </button>
+        {onOpen ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen();
+            }}
+            className="block min-w-11 flex-1 text-left"
+          >
+            <span className={cn("block truncate", scale.title)}>{label}</span>
+            <span className={cn("mt-0.5 block truncate", scale.time, timeTone)}>{time}</span>
+          </button>
+        ) : (
+          <div className="block min-w-0 flex-1 text-left">
+            <span className={cn("block truncate", scale.title)}>{label}</span>
+            <span className={cn("mt-0.5 block truncate", scale.time, timeTone)}>{time}</span>
+          </div>
+        )}
         {badges}
       </div>
     );
@@ -107,13 +132,30 @@ export function CalendarEventContent({
   // Full: icon + title, time, badges on their own row.
   return (
     <div className={wrapperClass}>
-      <button type="button" onClick={onOpen} disabled={!onOpen} className="block w-full text-left">
-        <span className="flex items-center gap-1.5">
-          {Icon ? <Icon className={cn("shrink-0", scale.icon, timeTone)} aria-hidden /> : null}
-          <span className={cn("min-w-0 flex-1 truncate", scale.title)}>{label}</span>
-        </span>
-        <span className={cn("mt-0.5 block truncate", scale.time, timeTone)}>{time}</span>
-      </button>
+      {onOpen ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen();
+          }}
+          className="block w-full text-left"
+        >
+          <span className="flex items-center gap-1.5">
+            {Icon ? <Icon className={cn("shrink-0", scale.icon, timeTone)} aria-hidden /> : null}
+            <span className={cn("min-w-0 flex-1 truncate", scale.title)}>{label}</span>
+          </span>
+          <span className={cn("mt-0.5 block truncate", scale.time, timeTone)}>{time}</span>
+        </button>
+      ) : (
+        <div className="w-full text-left">
+          <span className="flex items-center gap-1.5">
+            {Icon ? <Icon className={cn("shrink-0", scale.icon, timeTone)} aria-hidden /> : null}
+            <span className={cn("min-w-0 flex-1 truncate", scale.title)}>{label}</span>
+          </span>
+          <span className={cn("mt-0.5 block truncate", scale.time, timeTone)}>{time}</span>
+        </div>
+      )}
       <div className="mt-1">{badges}</div>
     </div>
   );
