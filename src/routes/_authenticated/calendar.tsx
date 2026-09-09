@@ -87,11 +87,11 @@ function CalendarPage() {
   // long horizontal sequence of day columns behind a fixed hour rail.
   const useDayStripLayout = mode !== "month" && (isMobile || mode === "week");
 
-  // Arrows advance a whole week on desktop Week, otherwise one unit of the view.
+  // Arrows advance one unit of the current view: a month, a full week on
+  // desktop/tablet Week, three days on the phone 3-Day view, one day in Day.
   const shift = (from: Date, direction: number) => {
     if (mode === "month") return addMonths(from, direction);
-    if (mode === "week") return addDays(from, (isMobile ? 1 : weekDays) * direction);
-    if (useDayStripLayout) return addDays(from, direction);
+    if (mode === "week") return addDays(from, weekDays * direction);
     return addDays(from, direction);
   };
 
