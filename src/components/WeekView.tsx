@@ -584,31 +584,64 @@ export function WeekView({
                   {ghost && ghostTimes && isSameDay(ghost.day, day)
                     ? (() => {
                         const isCare = Boolean(ghost.occurrence && isCareLayer(ghost.occurrence));
+                        const ghostTop = (ghost.startMinutes / 60 - DAY_START) * HOUR_PX;
+                        const snapPx = (SNAP_MINUTES / 60) * HOUR_PX;
                         return (
-                          <div
-                            className={cn(
-                              "pointer-events-none absolute inset-x-1 z-30 scale-[1.03] rounded-xl border-2 px-1.5 py-1 shadow-lg ring-2 ring-primary/40 transition-transform",
-                              isCare
-                                ? "border-coverage-strong/80 bg-coverage/70"
-                                : "border-primary bg-primary/25",
-                            )}
-                            style={{
-                              top: (ghost.startMinutes / 60 - DAY_START) * HOUR_PX,
-                              height: (ghost.durationMinutes / 60) * HOUR_PX,
-                            }}
-                          >
-                            <p
+                          <>
+                            {/* Snap ruler: faint line for every increment the block can land on. */}
+                            <div
+                              className="pointer-events-none absolute inset-0 z-20 opacity-70"
+                              style={{
+                                backgroundImage:
+                                  "repeating-linear-gradient(to bottom, hsl(var(--primary) / 0.28) 0px, hsl(var(--primary) / 0.28) 1px, transparent 1px, transparent " +
+                                  snapPx +
+                                  "px)",
+                              }}
+                              aria-hidden
+                            />
+                            {/* Target slot: the single increment the block will snap into. */}
+                            <div
+                              className="pointer-events-none absolute inset-x-0 z-20 border-y-2 border-dashed border-primary/70 bg-primary/10"
+                              style={{ top: ghostTop, height: snapPx }}
+                              aria-hidden
+                            />
+                            <div
                               className={cn(
-                                "inline-flex max-w-full items-center gap-1 truncate rounded-full px-1.5 text-[10px] font-bold",
-                                isCare ? "bg-surface/85 text-coverage-foreground" : "text-primary",
+                                "pointer-events-none absolute inset-x-1 z-30 scale-[1.03] rounded-xl border-2 px-1.5 py-1 shadow-lg ring-2 ring-primary/40 transition-transform",
+                                isCare
+                                  ? "border-coverage-strong/80 bg-coverage/70"
+                                  : "border-primary bg-primary/25",
                               )}
+                              style={{
+                                top: ghostTop,
+                                height: (ghost.durationMinutes / 60) * HOUR_PX,
+                              }}
                             >
-                              {ghost.kind === "move" && ghost.occurrence
-                                ? ghost.occurrence.event.title
-                                : "New event"}
-                              <span className="font-semibold opacity-80">{ghostTimes.label}</span>
-                            </p>
-                          </div>
+                              <p
+                                className={cn(
+                                  "inline-flex max-w-full items-center gap-1 truncate rounded-full px-1.5 text-[10px] font-bold",
+                                  isCare
+                                    ? "bg-surface/85 text-coverage-foreground"
+                                    : "text-primary",
+                                )}
+                              >
+                                {ghost.kind === "move" && ghost.occurrence
+                                  ? ghost.occurrence.event.title
+                                  : "New event"}
+                                <span className="font-semibold opacity-80">
+                                  {ghostTimes.label}
+                                </span>
+                              </p>
+                              <p
+                                className={cn(
+                                  "mt-0.5 inline-flex rounded-full bg-surface/85 px-1.5 text-[9px] font-semibold",
+                                  isCare ? "text-coverage-foreground" : "text-primary",
+                                )}
+                              >
+                                Snapping to {SNAP_MINUTES} min
+                              </p>
+                            </div>
+                          </>
                         );
                       })()
                     : null}
