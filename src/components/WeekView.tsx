@@ -563,6 +563,10 @@ export function WeekView({
                             draggingKey === o.key && "opacity-40",
                             // Lifted by a long press: fade the original in place.
                             ghost?.occurrence?.key === o.key && "opacity-30",
+                            // Currently in the landing zone of the lifted block.
+                            overlapKeys.has(o.key) &&
+                              "z-20 ring-2 ring-primary/70 ring-offset-1 ring-offset-surface " +
+                                (compact ? "rounded-md" : "rounded-xl"),
                           )}
                           style={{
                             top: topFor(o.start),
