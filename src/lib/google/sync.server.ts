@@ -409,22 +409,30 @@ async function hasMissingBranchLinks(
   return missingBranchKeys(branches.map((b) => b.key), links).length > 0;
 }
 
+export interface StaleRecurringBranch {
+  linkId: string;
+  googleEventId: string;
+  calendarId: string;
+  reason: string;
+  body: Record<string, unknown>;
+}
+
 /**
- * True when a recurring timed event's live Google master still carries stale
- * time/recurrence metadata (fixed offsets, wrong timezone) even though its link
- * looks current. `app_version` alone cannot detect this, so the remote body is
- * read and compared against what `branchBody()` would send today. Repair is a
- * PATCH of the same Google event id — the series is never recreated.
+ * Collects the linked recurring timed branches whose live Google master still
+ * carries stale time/recurrence metadata (fixed offsets, wrong timezone) even
+ * though the link looks current. Classification is unchanged: the remote body is
+ * compared against what `branchBody()` would send today, with one expanded
+ * post-DST occurrence as the tie-breaker for an ambiguous body.
  */
-async function hasStaleRemoteRecurringBody(
+async function staleRecurringBranches(
   admin: Admin,
   conn: ConnectionContext,
   familyId: string,
   sources: SourceRow[],
   eventId: string,
-): Promise<boolean> {
+): Promise<StaleRecurringBranch[]> {
   const event = await loadEvent(admin, eventId);
-  if (!event || !event.recurrence_rule || event.all_day) return false;
+  if (!event || !event.recurrence_rule || event.all_day) return [];
 
   const participants = (event.event_members ?? []).map((m) => ({
     member_id: m.family_member_id,
@@ -437,12 +445,15 @@ async function hasStaleRemoteRecurringBody(
   });
   const { data } = await admin
     .from("event_sync_links")
-    .select("branch_key, google_event_id, calendar_source_id, google_recurring_event_id, google_original_start")
+    .select(
+      "id, branch_key, google_event_id, calendar_source_id, google_recurring_event_id, google_original_start",
+    )
     .eq("family_id", familyId)
     .eq("event_id", eventId);
-  const links = (data ?? []) as LinkRow[];
+  const links = (data ?? []) as (LinkRow & { id: string })[];
   const initials = await initialsFor(admin, familyId);
   const timeZone = await householdTimeZone(admin, familyId);
+  const stale: StaleRecurringBranch[] = [];
 
   for (const branch of branches) {
     const link = links.find((l) => l.branch_key === branch.key);
@@ -459,12 +470,25 @@ async function hasStaleRemoteRecurringBody(
     } catch {
       continue; // unreachable master is handled by the stale-link path
     }
-    const expected = branchBody(event, branch, initials, timeZone) as {
+    const body = branchBody(event, branch, initials, timeZone);
+    const expected = body as {
       start?: GoogleDateTime;
       end?: GoogleDateTime;
       recurrence?: string[] | null;
     };
-    if (remoteRecurringBodyIsStale(expected, remote)) return true;
+    const found = (reason: string) =>
+      stale.push({
+        linkId: link.id,
+        googleEventId: link.google_event_id,
+        calendarId: source.external_calendar_id!,
+        reason,
+        body,
+      });
+
+    if (remoteRecurringBodyIsStale(expected, remote)) {
+      found("master_body_differs_from_expected(start/end/timeZone/recurrence)");
+      continue;
+    }
     // The raw body can look right yet still expand with fixed-offset semantics
     // (offset-bearing dateTime, missing/non-IANA zone). In that case the truth is
     // one expanded occurrence after the next DST transition: if its local
@@ -483,7 +507,8 @@ async function hasStaleRemoteRecurringBody(
         for (const instance of instances) {
           if (instance.status === "cancelled") continue;
           if (occurrenceWallClockDrifted(expected.start?.dateTime, instance.start, timeZone)) {
-            return true;
+            found("expanded_occurrence_local_wall_clock_drifted");
+            break;
           }
         }
       } catch {
@@ -491,7 +516,81 @@ async function hasStaleRemoteRecurringBody(
       }
     }
   }
-  return false;
+  return stale;
+}
+
+/**
+ * Executes the already-generated repair body against the SAME Google master for
+ * every stale branch: PATCH on the existing `google_event_id`, so the local
+ * event id, the link id and the Google master id are all preserved and no
+ * replacement series is ever created. A healthy master is never patched again.
+ */
+export async function repairStaleRecurringBodies(
+  admin: Admin,
+  conn: ConnectionContext,
+  familyId: string,
+  sources: SourceRow[],
+  eventId: string,
+): Promise<{ repaired: number; failed: number }> {
+  const stale = await staleRecurringBranches(admin, conn, familyId, sources, eventId);
+  let repaired = 0;
+  let failed = 0;
+
+  for (const branch of stale) {
+    try {
+      const saved = await google.patchEvent(
+        conn.connectionKey,
+        branch.calendarId,
+        branch.googleEventId,
+        branch.body,
+      );
+      await admin
+        .from("event_sync_links")
+        .update({
+          google_etag: saved.etag ?? null,
+          google_updated_at: saved.updated ?? null,
+          last_source: "app",
+          last_pushed_at: new Date().toISOString(),
+          app_version: SYNC_BODY_VERSION,
+          sync_error: null,
+          dst_repair: {
+            attempted: true,
+            method: "patch",
+            success: true,
+            error: null,
+            updated: saved.updated ?? null,
+            etag: saved.etag ?? null,
+            reason: branch.reason,
+            at: new Date().toISOString(),
+          },
+        })
+        .eq("id", branch.linkId);
+      repaired += 1;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown_error";
+      console.error("[google-sync] DST repair write failed", branch.googleEventId, message);
+      failed += 1;
+      // Never mark a failed repair as complete: the link keeps its old version
+      // so the next reconcile classifies it STALE again and retries.
+      await admin
+        .from("event_sync_links")
+        .update({
+          sync_error: `dst_repair_failed: ${message}`.slice(0, 500),
+          dst_repair: {
+            attempted: true,
+            method: "patch",
+            success: false,
+            error: message.slice(0, 500),
+            updated: null,
+            etag: null,
+            reason: branch.reason,
+            at: new Date().toISOString(),
+          },
+        })
+        .eq("id", branch.linkId);
+    }
+  }
+  return { repaired, failed };
 }
 
 
@@ -1605,10 +1704,21 @@ export async function reconcileHousehold(
           pruned === 0 &&
           !(await hasObsoleteBranchLinks(admin, familyId, candidate.id)) &&
           !(await hasMissingBranchLinks(admin, familyId, candidate.id)) &&
-          !(await needsBodyRepatch(admin, familyId, candidate, candidate.id)) &&
-          !(await hasStaleRemoteRecurringBody(admin, conn, familyId, sources, candidate.id))
-        )
+          !(await needsBodyRepatch(admin, familyId, candidate, candidate.id))
+        ) {
+          // A stale live master is repaired in place: the already-generated body
+          // is PATCHed onto the same Google master, keeping local event, link and
+          // Google ids. A healthy master classifies clean and is not written to.
+          const dst = await repairStaleRecurringBodies(
+            admin,
+            conn,
+            familyId,
+            sources,
+            candidate.id,
+          );
+          if (dst.repaired > 0) repaired += dst.repaired;
           continue;
+        }
       }
 
       await pushEvent(admin, familyId, candidate.id);
@@ -1879,6 +1989,17 @@ export interface DstRepairDiagnostic {
     link_google_etag: string | null;
     link_app_version: number | null;
     link_sync_error: string | null;
+    /** Result of the most recent real DST repair write, when one happened. */
+    dst_repair: {
+      attempted?: boolean;
+      method?: string;
+      success?: boolean;
+      error?: string | null;
+      updated?: string | null;
+      etag?: string | null;
+      reason?: string;
+      at?: string;
+    } | null;
   } | null;
 }
 
@@ -1929,13 +2050,14 @@ export async function diagnoseDstRepair(
   const { data: linkRows } = await admin
     .from("event_sync_links")
     .select(
-      "id, event_id, calendar_source_id, google_event_id, google_recurring_event_id, google_original_start, branch_key, google_etag, google_updated_at, last_source, last_pushed_at, app_version, sync_error",
+      "id, event_id, calendar_source_id, google_event_id, google_recurring_event_id, google_original_start, branch_key, google_etag, google_updated_at, last_source, last_pushed_at, app_version, sync_error, dst_repair",
     )
     .eq("family_id", familyId)
     .eq("google_event_id", googleMasterId);
   const links = (linkRows ?? []) as (LinkRow & {
     app_version: number | null;
     sync_error: string | null;
+    dst_repair: NonNullable<DstRepairDiagnostic["last_attempt"]>["dst_repair"];
   })[];
   const link = links[0];
   if (!link) return base;
@@ -1951,6 +2073,7 @@ export async function diagnoseDstRepair(
     link_google_etag: link.google_etag ?? null,
     link_app_version: link.app_version ?? null,
     link_sync_error: link.sync_error ?? null,
+    dst_repair: link.dst_repair ?? null,
   };
 
   if (isExceptionLink(link)) {

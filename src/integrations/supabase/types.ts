@@ -513,6 +513,7 @@ export type Database = {
           branch_key: string
           calendar_source_id: string
           created_at: string
+          dst_repair: Json | null
           event_id: string
           family_id: string
           google_etag: string | null
@@ -531,6 +532,7 @@ export type Database = {
           branch_key?: string
           calendar_source_id: string
           created_at?: string
+          dst_repair?: Json | null
           event_id: string
           family_id: string
           google_etag?: string | null
@@ -549,6 +551,7 @@ export type Database = {
           branch_key?: string
           calendar_source_id?: string
           created_at?: string
+          dst_repair?: Json | null
           event_id?: string
           family_id?: string
           google_etag?: string | null

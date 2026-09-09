@@ -659,6 +659,25 @@ function DstRepairInspector() {
               }
             />
             <Row label="link sync_error" value={d.last_attempt?.link_sync_error ?? null} />
+            <Row
+              label="last repair write attempted"
+              value={d.last_attempt?.dst_repair?.attempted ? "YES" : "NO"}
+            />
+            <Row label="last repair method" value={d.last_attempt?.dst_repair?.method ?? "none"} />
+            <Row
+              label="last repair result"
+              value={
+                d.last_attempt?.dst_repair
+                  ? d.last_attempt.dst_repair.success
+                    ? "success"
+                    : `error: ${d.last_attempt.dst_repair.error ?? "unknown"}`
+                  : null
+              }
+            />
+            <Row label="last repair returned updated" value={d.last_attempt?.dst_repair?.updated ?? null} />
+            <Row label="last repair returned etag" value={d.last_attempt?.dst_repair?.etag ?? null} />
+            <Row label="last repair at" value={d.last_attempt?.dst_repair?.at ?? null} />
+
           </dl>
         </div>
       ) : null}
