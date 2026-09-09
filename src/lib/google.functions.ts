@@ -409,3 +409,25 @@ export const inspectOccurrenceRows = createServerFn({ method: "POST" })
     const { inspectOccurrence } = await import("@/lib/google/diagnostics.server");
     return inspectOccurrence(supabaseAdmin, family, data.google_event_id);
   });
+
+/**
+ * Owner-only, read-only DST repair diagnostic for one linked Google recurring
+ * master. Reports how the existing repair path classifies it (HEALTHY / STALE /
+ * SKIPPED), the probe occurrence, expected vs. actual times and the exact body a
+ * repair would PATCH. Writes nothing to Google or the database.
+ */
+export const diagnoseGoogleDstRepair = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { google_event_id: string }) => {
+    const googleEventId = String(input?.google_event_id ?? "").trim();
+    if (!googleEventId) throw new Error("A Google master event id is required");
+    return { google_event_id: googleEventId };
+  })
+  .handler(async ({ data, context }) => {
+    const { resolveOwnedFamily } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can run sync diagnostics");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { diagnoseDstRepair } = await import("@/lib/google/sync.server");
+    return diagnoseDstRepair(supabaseAdmin, family, data.google_event_id);
+  });
