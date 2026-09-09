@@ -14,3 +14,8 @@
 ## Calendar interaction polish
 - [x] Month view: horizontal swipe follows the finger and settles to the next/previous month; vertical scrolling untouched.
 - [x] Arrow steps match the view: month = 1 month, week = 1 week, mobile 3-Day = 3 days, day = 1 day.
+
+## Settings organization
+- [x] Group routine settings into consistent collapsed Household, Calendars & Sync, Event Settings, and Account sections.
+- [x] Keep all repair, diagnostic, and QA controls inside locked, collapsed Maintenance.
+- [x] Preserve normal sync status, account/calendar controls, and informational timezone mismatch notices.
