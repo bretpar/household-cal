@@ -28,26 +28,15 @@ const eventRow = {
   start_at: "2026-10-26T23:00:00.000Z",
   end_at: "2026-10-27T00:00:00.000Z",
   all_day: false,
-  recurrence_rule: "FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20261206T235959Z",
-  event_members: [
-    { family_member_id: "dad", weekdays: ["MO"] },
-    { family_member_id: "mom", weekdays: ["WE"] },
-  ],
+  recurrence_rule: "FREQ=WEEKLY;BYDAY=MO;UNTIL=20261206T235959Z",
+  event_members: [{ family_member_id: "dad", weekdays: null }],
 };
 
 const links = [
   {
     id: "link-dad",
-    branch_key: "dad",
+    branch_key: "",
     google_event_id: MASTER_ID,
-    calendar_source_id: "src-1",
-    google_recurring_event_id: null,
-    google_original_start: null,
-  },
-  {
-    id: "link-mom",
-    branch_key: "mom",
-    google_event_id: MOM_MASTER_ID,
     calendar_source_id: "src-1",
     google_recurring_event_id: null,
     google_original_start: null,
