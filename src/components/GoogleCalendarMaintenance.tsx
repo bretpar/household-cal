@@ -554,3 +554,114 @@ function OccurrenceRowInspector() {
     </div>
   );
 }
+
+/**
+ * Read-only DST repair diagnostic for one linked Google recurring master. Shows
+ * the classification the existing repair path would reach, the probe occurrence,
+ * expected vs. actual times and the exact body a repair would PATCH. Inspecting
+ * never triggers a Google write.
+ */
+function DstRepairInspector() {
+  const diagnose = useServerFn(diagnoseGoogleDstRepair);
+  const [masterId, setMasterId] = useState("");
+  const run = useMutation({
+    mutationFn: () => diagnose({ data: { google_event_id: masterId.trim() } }),
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "DST diagnostic failed"),
+  });
+  const d = run.data ?? null;
+
+  return (
+    <div className="space-y-3 rounded-3xl border border-border-soft bg-card p-4">
+      <div>
+        <h3 className="text-base font-bold">Inspect DST repair</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Paste a Google recurring master id to see how repair classifies it and exactly what it
+          would send. Read-only — nothing is written to Google.
+        </p>
+      </div>
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (masterId.trim()) run.mutate();
+        }}
+      >
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <Label htmlFor="dst-master-id">Google master event id</Label>
+          <Input
+            id="dst-master-id"
+            value={masterId}
+            onChange={(e) => setMasterId(e.target.value)}
+            className="h-11 rounded-xl font-mono text-xs"
+          />
+        </div>
+        <Button
+          type="submit"
+          variant="outline"
+          className="h-11 rounded-full font-bold"
+          disabled={!masterId.trim() || run.isPending}
+        >
+          {run.isPending ? "Checking…" : "Check DST health"}
+        </Button>
+      </form>
+
+      {d ? (
+        <div className="space-y-1 rounded-2xl border border-border-soft bg-background p-3 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-bold">{d.classification}</span>
+            <span className="rounded-full bg-muted px-2 py-0.5 font-bold">read-only</span>
+          </div>
+          <p className="text-muted-foreground">{d.reason}</p>
+          <dl className="grid gap-x-3 gap-y-0.5 sm:grid-cols-2">
+            <Row label="google master id" value={d.google_master_id} />
+            <Row label="local event id" value={d.local_event_id} />
+            <Row label="link id" value={d.link_id} />
+            <Row label="link branch" value={d.branch_key === null ? null : `"${d.branch_key}"`} />
+            <Row label="calendar" value={d.calendar_name} />
+            <Row label="household timezone" value={d.time_zone} />
+            <Row label="probe date" value={d.probe_date} />
+            <Row label="actual instance start" value={d.actual_instance_start} />
+            <Row label="actual instance end" value={d.actual_instance_end} />
+            <Row label="actual master start" value={d.actual_master_start} />
+            <Row label="actual master start tz" value={d.actual_master_start_time_zone} />
+            <Row label="actual master end" value={d.actual_master_end} />
+            <Row label="actual master end tz" value={d.actual_master_end_time_zone} />
+            <Row
+              label="actual master recurrence"
+              value={d.actual_master_recurrence?.join(" | ") ?? null}
+            />
+            <Row label="expected start (wall clock)" value={d.expected_start_wall_clock} />
+            <Row label="expected end (wall clock)" value={d.expected_end_wall_clock} />
+            <Row label="expected timezone" value={d.expected_time_zone} />
+            <Row label="repair write attempted" value={d.repair_write_attempted ? "yes" : "no"} />
+            <Row label="google write method" value={d.google_write_method} />
+            <Row label="outbound start.dateTime" value={d.outbound?.start_dateTime ?? null} />
+            <Row label="outbound start.timeZone" value={d.outbound?.start_timeZone ?? null} />
+            <Row label="outbound end.dateTime" value={d.outbound?.end_dateTime ?? null} />
+            <Row label="outbound end.timeZone" value={d.outbound?.end_timeZone ?? null} />
+            <Row
+              label="outbound recurrence"
+              value={d.outbound?.recurrence?.join(" | ") ?? null}
+            />
+            <Row label="google response" value="none (dry run)" />
+            <Row label="last last_source" value={d.last_attempt?.link_last_source ?? null} />
+            <Row label="last pushed at" value={d.last_attempt?.link_last_pushed_at ?? null} />
+            <Row label="last google updated" value={d.last_attempt?.link_google_updated_at ?? null} />
+            <Row label="last google etag" value={d.last_attempt?.link_google_etag ?? null} />
+            <Row
+              label="link app_version"
+              value={
+                d.last_attempt?.link_app_version === null ||
+                d.last_attempt?.link_app_version === undefined
+                  ? null
+                  : String(d.last_attempt.link_app_version)
+              }
+            />
+            <Row label="link sync_error" value={d.last_attempt?.link_sync_error ?? null} />
+          </dl>
+        </div>
+      ) : null}
+    </div>
+  );
+}
