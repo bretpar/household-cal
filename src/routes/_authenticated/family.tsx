@@ -1,6 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { CalendarCog, ChevronRight, Eye, LogOut, Palette, RefreshCw, Users } from "lucide-react";
+import {
+  CalendarCog,
+  ChevronRight,
+  Eye,
+  House,
+  LockKeyhole,
+  LogOut,
+  RefreshCw,
+  SlidersHorizontal,
+  UserRound,
+} from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
@@ -10,7 +20,6 @@ import { GoogleCalendarMaintenance } from "@/components/GoogleCalendarMaintenanc
 import { EmailSummarySettings } from "@/components/EmailSummarySettings";
 import { EventCategorySettings } from "@/components/EventCategorySettings";
 import { FamilyMemberSettings } from "@/components/FamilyMemberSettings";
-import { GoogleSyncSummary } from "@/components/GoogleSyncSummary";
 import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { MemberBadge } from "@/components/MemberBadge";
 import { SettingsSection } from "@/components/SettingsSection";
@@ -72,14 +81,10 @@ function FamilyPage() {
           </p>
         </header>
 
-        <GoogleSyncSummary />
-
-        <EmailSummarySettings />
-
         <SettingsSection
-          title="Family Members"
-          description="Manage household members and their colors"
-          icon={<Users className="h-4 w-4" aria-hidden />}
+          title="Household"
+          description="Family members, colors, users, invitations and access"
+          icon={<House className="h-5 w-5" aria-hidden />}
         >
           <FamilyMemberSettings />
 
@@ -108,31 +113,28 @@ function FamilyPage() {
               ))}
             </section>
           ) : null}
+          <HouseholdAccess />
         </SettingsSection>
 
         <SettingsSection
-          title="Event Categories"
-          description="Manage activity categories and calendar colors"
-          icon={<Palette className="h-4 w-4" aria-hidden />}
-        >
-          <EventCategorySettings />
-        </SettingsSection>
-
-        <HouseholdAccess />
-
-        <SettingsSection
-          title="Calendar Sync Details"
-          description="Google account, connected calendars and main calendar"
-          icon={<RefreshCw className="h-4 w-4" aria-hidden />}
+          title="Calendars & Sync"
+          description="Google connection, synced calendars, timezone and schedule summaries"
+          icon={<RefreshCw className="h-5 w-5" aria-hidden />}
         >
           <CalendarSyncSettings />
+          <EmailSummarySettings />
         </SettingsSection>
 
         <SettingsSection
-          title="Calendar Preferences"
-          description="Display options for your month and week views"
-          icon={<CalendarCog className="h-4 w-4" aria-hidden />}
+          title="Event Settings"
+          description="Categories and calendar display preferences"
+          icon={<SlidersHorizontal className="h-5 w-5" aria-hidden />}
         >
+          <EventCategorySettings />
+          <h2 className="flex items-center gap-2 text-sm font-bold tracking-wide text-muted-foreground uppercase">
+            <CalendarCog className="h-4 w-4" aria-hidden />
+            Calendar preferences
+          </h2>
           <div className="divide-y divide-border-soft overflow-hidden rounded-3xl border border-border-soft bg-card">
             <CalendarDefaultViewSetting />
             {sources.map((source) => (
@@ -172,12 +174,17 @@ function FamilyPage() {
           </div>
         </SettingsSection>
 
-
-        <DeveloperTools />
-
-        <GoogleCalendarMaintenance />
-
-        <div className="pt-2">
+        <SettingsSection
+          title="Account"
+          description="Your access level and sign-in controls"
+          icon={<UserRound className="h-5 w-5" aria-hidden />}
+        >
+          <div className="rounded-2xl border border-border-soft bg-card p-4">
+            <p className="text-sm font-bold">Signed-in access</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {role ? ROLE_LABEL[role] ?? role : "Household member"}
+            </p>
+          </div>
           <Button
             type="button"
             variant="destructive"
@@ -187,7 +194,18 @@ function FamilyPage() {
             <LogOut className="h-5 w-5" aria-hidden />
             Sign out
           </Button>
-        </div>
+        </SettingsSection>
+
+        <SettingsSection
+          title="Maintenance"
+          description="Locked diagnostics, repairs and QA tools"
+          icon={<LockKeyhole className="h-5 w-5" aria-hidden />}
+          tone="muted"
+        >
+          <GoogleCalendarMaintenance>
+            <DeveloperTools />
+          </GoogleCalendarMaintenance>
+        </SettingsSection>
       </div>
     </AppShell>
   );

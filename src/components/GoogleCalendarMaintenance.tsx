@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ const UNLOCK_DURATION_MS = 30 * 60 * 1000;
  *
  * No QA/reset/destructive tooling belongs here.
  */
-export function GoogleCalendarMaintenance() {
+export function GoogleCalendarMaintenance({ children }: { children?: ReactNode }) {
   const loadSettings = useServerFn(getSyncSettings);
   const settings = useQuery({ queryKey: ["google-sync-settings"], queryFn: () => loadSettings() });
   const unlockFn = useServerFn(unlockCalendarMaintenance);
@@ -149,6 +149,7 @@ export function GoogleCalendarMaintenance() {
       <GoogleInboundDiagnostic calendars={calendars} />
       <OccurrenceRowInspector />
       <DstRepairInspector />
+      {children}
     </div>
   );
 }
