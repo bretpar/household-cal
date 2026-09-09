@@ -166,6 +166,36 @@ export async function patchEvent(
   );
 }
 
+/**
+ * Full replace of one Google event (PUT). Used only by the DST repair path:
+ * a PATCH of an equivalent first instant can be treated as a no-op by Google,
+ * leaving the stale fixed-offset recurrence in place.
+ */
+export async function updateEvent(
+  connectionAPIKey: string,
+  calendarId: string,
+  eventId: string,
+  body: Record<string, unknown>,
+): Promise<GoogleEvent> {
+  return call<GoogleEvent>(
+    connectionAPIKey,
+    `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    { method: "PUT", ...json(body) },
+  );
+}
+
+/** Raw writable representation of one event, for full-update merges. */
+export async function getEventRaw(
+  connectionAPIKey: string,
+  calendarId: string,
+  eventId: string,
+): Promise<Record<string, unknown>> {
+  return call<Record<string, unknown>>(
+    connectionAPIKey,
+    `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+  );
+}
+
 export async function getEvent(
   connectionAPIKey: string,
   calendarId: string,

@@ -519,11 +519,54 @@ async function staleRecurringBranches(
   return stale;
 }
 
+/** Writable Google event fields carried over verbatim by a DST full update. */
+const DST_PRESERVED_FIELDS = [
+  "summary",
+  "description",
+  "location",
+  "reminders",
+  "visibility",
+  "transparency",
+  "attendees",
+  "extendedProperties",
+  "colorId",
+  "status",
+  "guestsCanInviteOthers",
+  "guestsCanModify",
+  "guestsCanSeeOtherGuests",
+  "anyoneCanAddSelf",
+  "attachments",
+  "conferenceData",
+  "source",
+  "eventType",
+  "sequence",
+] as const;
+
+/**
+ * Builds a full writable event body for the DST repair PUT: existing writable
+ * metadata from the live master is preserved and only start/end/recurrence are
+ * overwritten with the already-generated DST-safe values.
+ */
+export function dstFullUpdateBody(
+  remote: Record<string, unknown>,
+  repair: Record<string, unknown>,
+): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+  for (const field of DST_PRESERVED_FIELDS) {
+    if (remote[field] !== undefined && remote[field] !== null) body[field] = remote[field];
+  }
+  body["start"] = repair["start"];
+  body["end"] = repair["end"];
+  if (repair["recurrence"] !== undefined) body["recurrence"] = repair["recurrence"];
+  return body;
+}
+
 /**
  * Executes the already-generated repair body against the SAME Google master for
- * every stale branch: PATCH on the existing `google_event_id`, so the local
- * event id, the link id and the Google master id are all preserved and no
- * replacement series is ever created. A healthy master is never patched again.
+ * every stale branch: a full PUT update on the existing `google_event_id` (a
+ * PATCH can be a semantic no-op for these equivalent-instant bodies), so the
+ * local event id, the link id and the Google master id are all preserved and no
+ * replacement series is ever created. A healthy master is never repaired again.
  */
 export async function repairStaleRecurringBodies(
   admin: Admin,
@@ -538,11 +581,16 @@ export async function repairStaleRecurringBodies(
 
   for (const branch of stale) {
     try {
-      const saved = await google.patchEvent(
+      const remote = await google.getEventRaw(
         conn.connectionKey,
         branch.calendarId,
         branch.googleEventId,
-        branch.body,
+      );
+      const saved = await google.updateEvent(
+        conn.connectionKey,
+        branch.calendarId,
+        branch.googleEventId,
+        dstFullUpdateBody(remote, branch.body),
       );
       await admin
         .from("event_sync_links")
@@ -555,7 +603,7 @@ export async function repairStaleRecurringBodies(
           sync_error: null,
           dst_repair: {
             attempted: true,
-            method: "patch",
+            method: "update",
             success: true,
             error: null,
             updated: saved.updated ?? null,
@@ -578,7 +626,7 @@ export async function repairStaleRecurringBodies(
           sync_error: `dst_repair_failed: ${message}`.slice(0, 500),
           dst_repair: {
             attempted: true,
-            method: "patch",
+            method: "update",
             success: false,
             error: message.slice(0, 500),
             updated: null,
