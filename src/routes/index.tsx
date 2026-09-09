@@ -27,7 +27,9 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:image", content: LOGO_IMAGE_URL },
       { name: "twitter:image", content: LOGO_IMAGE_URL },
+      { name: "robots", content: "index, follow" },
     ],
+    links: [{ rel: "canonical", href: "https://ourfamilycalendar.com/" }],
   }),
   component: LandingPage,
 });

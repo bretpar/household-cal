@@ -19,6 +19,7 @@ export const Route = createFileRoute("/reset-password")({
       },
       { property: "og:title", content: "Reset password — Family Calendar" },
       { property: "og:description", content: "Set a new password for your family calendar." },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   component: ResetPasswordPage,

@@ -16,7 +16,9 @@ export const Route = createFileRoute("/terms")({
       { name: "twitter:image", content: LOGO_IMAGE_URL },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "robots", content: "index, follow" },
     ],
+    links: [{ rel: "canonical", href: "https://ourfamilycalendar.com/terms" }],
   }),
   component: TermsPage,
 });

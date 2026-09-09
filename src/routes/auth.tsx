@@ -24,6 +24,7 @@ export const Route = createFileRoute("/auth")({
       },
       { property: "og:title", content: "Sign in — Family Calendar" },
       { property: "og:description", content: "Access your household's shared calendar." },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   component: AuthPage,
