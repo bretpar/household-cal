@@ -76,6 +76,12 @@ function minutesFromTop(px: number) {
   return (px / HOUR_PX) * 60;
 }
 
+/**
+ * Smallest width an event card may shrink to. Dense lanes overlap slightly
+ * instead of collapsing to an untappable sliver.
+ */
+const MIN_EVENT_WIDTH_PX = 44;
+
 interface Placed {
   occurrence: Occurrence;
   lane: number;
@@ -568,12 +574,15 @@ export function WeekView({
                               "z-20 ring-2 ring-primary/70 ring-offset-1 ring-offset-surface " +
                                 (compact ? "rounded-md" : "rounded-xl"),
                           )}
-                          style={{
-                            top: topFor(o.start),
-                            height: blockHeight,
-                            left: `calc(${(lane / laneCount) * 100}% + 1px)`,
-                            width: `calc(${100 / laneCount}% - 2px)`,
-                          }}
+                           style={{
+                             top: topFor(o.start),
+                             height: blockHeight,
+                             // Dense clusters compress lanes, but every card keeps a
+                             // tappable minimum width and stays inside the column.
+                             left: `min(calc(${(lane / laneCount) * 100}% + 1px), max(0px, calc(100% - ${MIN_EVENT_WIDTH_PX}px)))`,
+                             width: `max(calc(${100 / laneCount}% - 2px), min(100%, ${MIN_EVENT_WIDTH_PX}px))`,
+                             zIndex: (overlapKeys.has(o.key) ? 40 : 10) + lane,
+                           }}
                         >
                           <div
                             className={cn(
