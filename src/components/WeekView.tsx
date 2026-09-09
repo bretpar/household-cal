@@ -575,7 +575,16 @@ export function WeekView({
                           key={o.key}
                           data-occurrence-key={o.key}
                           {...dragProps(o)}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`${o.event.title} ${formatTimeRange(o.start, o.end, false)}`}
                           onClick={open}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              open();
+                            }
+                          }}
                           className={cn(
                             "pointer-events-auto touch-hit-44 absolute cursor-pointer text-left",
                             compact ? "rounded-md" : "rounded-xl",
@@ -611,7 +620,6 @@ export function WeekView({
                               view={viewScale}
                               density={density}
                               icon={Icon}
-                              onOpen={open}
                             />
                           </div>
                         </div>
