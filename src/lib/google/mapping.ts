@@ -908,16 +908,34 @@ export function sourceSyncPatch(input: {
  * still carry fixed-offset dateTimes or a non-IANA timezone even though their
  * link is marked current, so the remote body itself has to be inspected.
  *
- * Only the fields that drive DST-safe expansion are compared: start/end
- * dateTime, start/end timeZone and the recurrence lines.
+ * Times are compared semantically, never as strings: Google may echo an
+ * RFC3339 offset (`2026-10-26T16:00:00-07:00`) for a body written as a floating
+ * wall clock (`2026-10-26T16:00:00`). Those mean the same intended local time,
+ * so the remote value is parsed as an instant and converted into the expected
+ * IANA zone before comparing. The expected timezone and the recurrence lines
+ * must still match exactly, so real drift stays stale.
  */
 export function remoteRecurringBodyIsStale(
   expected: { start?: GoogleDateTime; end?: GoogleDateTime; recurrence?: string[] | null },
   remote: { start?: GoogleDateTime; end?: GoogleDateTime; recurrence?: string[] | null },
 ): boolean {
-  const timesDiffer = (a?: GoogleDateTime, b?: GoogleDateTime) =>
-    (a?.dateTime ?? null) !== (b?.dateTime ?? null) ||
-    (a?.timeZone ?? null) !== (b?.timeZone ?? null);
+  const hasOffset = (dt: string) => /(z|[+-]\d{2}:?\d{2})$/i.test(dt);
+
+  const timesDiffer = (a?: GoogleDateTime, b?: GoogleDateTime) => {
+    const zone = a?.timeZone ?? null;
+    if (zone !== (b?.timeZone ?? null)) return true;
+    const want = (a?.dateTime ?? "").trim();
+    const got = (b?.dateTime ?? "").trim();
+    if (!want || !got) return want !== got;
+    if (want === got) return false;
+    // Only an offset-bearing remote value can be semantically equivalent to an
+    // offsetless expected wall clock, and only with a known IANA zone.
+    if (hasOffset(want) || !hasOffset(got) || !zone || !isIanaTimeZone(zone)) return true;
+    const instant = new Date(got);
+    if (Number.isNaN(instant.getTime())) return true;
+    return localWallClock(instant.toISOString(), zone).slice(0, 16) !== want.slice(0, 16);
+  };
+
   if (timesDiffer(expected.start, remote.start)) return true;
   if (timesDiffer(expected.end, remote.end)) return true;
   const norm = (lines?: string[] | null) =>
