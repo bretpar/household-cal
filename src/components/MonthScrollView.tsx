@@ -393,6 +393,7 @@ export const MonthScrollView = forwardRef<
       ref={scrollRef}
       className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
     >
+      <div ref={trackRef} className="will-change-transform">
       {months.map((month) => (
         <div key={key(month)} data-month={key(month)} className="scroll-mt-0">
           <div className="flex items-baseline gap-2 px-3 pt-4 pb-1.5 sm:px-4">
