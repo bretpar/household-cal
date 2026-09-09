@@ -246,6 +246,12 @@ export const MonthScrollView = forwardRef<
       if (!active) return;
       const id = key(active);
       if (id === reportedRef.current) return;
+      // Small deadband: while the currently labelled month's own first-week row
+      // still hovers within a few pixels of the boundary, keep the label put so
+      // momentum wobble can't toggle it back and forth.
+      const HYSTERESIS = 8;
+      const held = measured.find((row) => row.id === reportedRef.current);
+      if (held && held.offset > 1.5 && held.offset < HYSTERESIS) return;
       reportedRef.current = id;
       onVisibleMonthChange?.(active);
     };
