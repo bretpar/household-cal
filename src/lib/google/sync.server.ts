@@ -1825,28 +1825,42 @@ export async function runAcceptedManualSync(
       error,
     });
   } finally {
-    console.log("[google-sync] manual sync release attempted", { familyId, attemptId });
+    // One atomic completion/release write, matched on family + attempt so one
+    // run can never clear another run's lock. Includes last_synced_at /
+    // last_error so no separate write can leave the lock stuck.
+    const completion =
+      failure === null
+        ? {
+            manual_sync_started_at: null,
+            manual_sync_error: null,
+            last_synced_at: new Date().toISOString(),
+            last_error: null,
+          }
+        : {
+            manual_sync_started_at: null,
+            manual_sync_error: failure,
+            last_error: failure,
+          };
+    console.log("[google-sync] manual sync release attempted", {
+      familyId,
+      attemptId,
+      succeeded: failure === null,
+    });
     const { data, error } = await admin
       .from("google_connections")
-      .update({
-        manual_sync_started_at: null,
-        manual_sync_error: failure,
-      })
+      .update(completion)
       .eq("family_id", familyId)
       .eq("manual_sync_attempt_id", attemptId)
       .select("id");
     const affectedRows = Array.isArray(data) ? data.length : 0;
-    if (error) {
+    if (error || affectedRows === 0) {
+      // A real release failure: the lock may remain stuck for this attempt.
       console.error("[google-sync] manual sync release failed", {
         familyId,
         attemptId,
+        releaseAttempted: true,
         affectedRows,
-        error,
-      });
-    } else if (affectedRows === 0) {
-      console.warn("[google-sync] manual sync release affected 0 rows", {
-        familyId,
-        attemptId,
+        error: error ? String(error.message ?? error) : null,
       });
     } else {
       console.log("[google-sync] manual sync release completed", {
