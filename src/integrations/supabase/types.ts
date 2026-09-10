@@ -1039,6 +1039,15 @@ export type Database = {
     }
     Functions: {
       can_edit_family: { Args: { _family_id: string }; Returns: boolean }
+      enqueue_google_manual_sync: {
+        Args: {
+          _attempt_id: string
+          _callback_url: string
+          _family_id: string
+          _initial?: boolean
+        }
+        Returns: number
+      }
       family_role_of: {
         Args: { _family_id: string }
         Returns: Database["public"]["Enums"]["family_role"]
