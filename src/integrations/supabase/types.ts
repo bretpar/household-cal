@@ -897,6 +897,9 @@ export type Database = {
           id: string
           last_error: string | null
           last_synced_at: string | null
+          manual_sync_attempt_id: string | null
+          manual_sync_error: string | null
+          manual_sync_started_at: string | null
           status: string
           updated_at: string
         }
@@ -909,6 +912,9 @@ export type Database = {
           id?: string
           last_error?: string | null
           last_synced_at?: string | null
+          manual_sync_attempt_id?: string | null
+          manual_sync_error?: string | null
+          manual_sync_started_at?: string | null
           status?: string
           updated_at?: string
         }
@@ -921,6 +927,9 @@ export type Database = {
           id?: string
           last_error?: string | null
           last_synced_at?: string | null
+          manual_sync_attempt_id?: string | null
+          manual_sync_error?: string | null
+          manual_sync_started_at?: string | null
           status?: string
           updated_at?: string
         }
@@ -1036,6 +1045,13 @@ export type Database = {
       }
       has_family_access: { Args: { _family_id: string }; Returns: boolean }
       is_family_owner: { Args: { _family_id: string }; Returns: boolean }
+      try_start_google_manual_sync: {
+        Args: { _family_id: string; _stale_before: string }
+        Returns: {
+          accepted: boolean
+          attempt_id: string
+        }[]
+      }
     }
     Enums: {
       calendar_display_mode: "events" | "coverage_background"
