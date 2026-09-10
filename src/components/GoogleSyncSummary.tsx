@@ -19,28 +19,34 @@ export function GoogleSyncSummary() {
   const load = useServerFn(getSyncSettings);
   const runSync = useServerFn(syncNow);
 
-  const { data, isPending } = useQuery({ queryKey: SYNC_KEY, queryFn: () => load() });
+  const { data, isPending } = useQuery({
+    queryKey: SYNC_KEY,
+    queryFn: () => load(),
+    refetchInterval: (query) =>
+      query.state.data?.connection?.manual_sync_started_at ? 1_500 : false,
+  });
 
   const syncMutation = useMutation({
     mutationFn: () => runSync({ data: {} }),
     onSuccess: () => {
-      toast.success("Sync complete");
       void queryClient.invalidateQueries({ queryKey: SYNC_KEY });
-      void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: () => toast.error("Couldn’t start sync. Try again."),
   });
 
   if (isPending || !data?.is_owner) return null;
 
   const connection = data.connection;
   const connected = Boolean(connection) && connection?.status === "connected";
+  const syncing = syncMutation.isPending || Boolean(connection?.manual_sync_started_at);
   const needsAttention = (data.calendars ?? []).some((c) => c.sync_status === "needs_attention");
 
   const statusLabel = !connection
     ? "Not connected"
     : !connected
       ? "Reconnect needed"
+      : syncing
+        ? "Syncing…"
       : needsAttention
         ? "Needs attention"
         : "Connected";
@@ -74,15 +80,20 @@ export function GoogleSyncSummary() {
           <p className="mt-0.5 text-xs text-muted-foreground">
             {connection ? lastSync : "Connect Google in Calendar sync details to start syncing"}
           </p>
+          {connection?.manual_sync_error ? (
+            <p className="mt-1 text-xs font-semibold text-destructive">
+              {connection.manual_sync_error}
+            </p>
+          ) : null}
         </div>
         <Button
           size="sm"
           className="rounded-xl"
           onClick={() => syncMutation.mutate()}
-          disabled={syncMutation.isPending || !connection}
+          disabled={syncing || !connection}
         >
-          <RefreshCw className="mr-2 h-3.5 w-3.5" aria-hidden />
-          {syncMutation.isPending ? "Syncing…" : "Sync now"}
+          <RefreshCw className={`mr-2 h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} aria-hidden />
+          {syncing ? "Syncing…" : "Sync now"}
         </Button>
       </div>
     </section>
