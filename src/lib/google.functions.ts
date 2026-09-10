@@ -268,14 +268,17 @@ export const syncNow = createServerFn({ method: "POST" })
       attemptId: lock.attempt_id,
     });
     const request = getRequest();
-    if (!request) throw new Error("Couldn’t start sync. Try again.");
-    const callbackUrl = new URL("/api/public/google-calendar/manual-sync", request.url).toString();
-    const { error: enqueueError } = await supabaseAdmin.rpc("enqueue_google_manual_sync", {
-      _callback_url: callbackUrl,
-      _family_id: family,
-      _attempt_id: lock.attempt_id,
-      _initial: data.initial ?? false,
-    });
+    const callbackUrl = request
+      ? new URL("/api/public/google-calendar/manual-sync", request.url).toString()
+      : null;
+    const { error: enqueueError } = callbackUrl
+      ? await supabaseAdmin.rpc("enqueue_google_manual_sync", {
+          _callback_url: callbackUrl,
+          _family_id: family,
+          _attempt_id: lock.attempt_id,
+          _initial: data.initial ?? false,
+        })
+      : { error: new Error("Manual sync callback URL is unavailable") };
     if (enqueueError) {
       console.error("[google-sync] could not enqueue accepted manual sync", enqueueError);
       const { data: released, error: releaseError } = await supabaseAdmin
