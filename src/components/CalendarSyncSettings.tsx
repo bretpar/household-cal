@@ -236,6 +236,15 @@ export function CalendarSyncSettings() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const connection = data?.connection;
+  const syncing = syncMutation.isPending || Boolean(connection?.manual_sync_started_at);
+  useEffect(() => {
+    if (wasSyncing.current && !syncing && !connection?.manual_sync_error) {
+      void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
+    }
+    wasSyncing.current = syncing;
+  }, [connection?.manual_sync_error, queryClient, syncing]);
+
   async function onConnect() {
     const popup = window.open("", "google-calendar-oauth", "width=600,height=720");
     if (!popup) {
@@ -261,16 +270,7 @@ export function CalendarSyncSettings() {
 
   if (isPending || !data?.is_owner) return null;
 
-  const connection = data.connection;
   const disconnected = connection && connection.status !== "connected";
-  const syncing = syncMutation.isPending || Boolean(connection?.manual_sync_started_at);
-
-  useEffect(() => {
-    if (wasSyncing.current && !syncing && !connection?.manual_sync_error) {
-      void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
-    }
-    wasSyncing.current = syncing;
-  }, [connection?.manual_sync_error, queryClient, syncing]);
 
   return (
     <section className="space-y-3">

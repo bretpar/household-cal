@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { formatDistanceToNow } from "date-fns";
 import { RefreshCw } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ export function SyncStatusIndicator() {
   const queryClient = useQueryClient();
   const load = useServerFn(getSyncSettings);
   const runSync = useServerFn(syncNow);
+  const wasSyncing = useRef(false);
   const { data } = useQuery({
     queryKey: SYNC_KEY,
     queryFn: () => load(),
@@ -34,13 +36,20 @@ export function SyncStatusIndicator() {
     onError: () => toast.error("Couldn’t start sync. Try again."),
   });
 
+  const syncing = syncMutation.isPending || Boolean(data?.connection?.manual_sync_started_at);
+  useEffect(() => {
+    if (wasSyncing.current && !syncing && !data?.connection?.manual_sync_error) {
+      void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
+    }
+    wasSyncing.current = syncing;
+  }, [data?.connection?.manual_sync_error, queryClient, syncing]);
+
   if (!data?.is_owner) return null;
 
   const connection = data.connection;
   const connected = Boolean(connection) && connection?.status === "connected";
   const calendarError = data.calendars.find((calendar) => calendar.sync_error)?.sync_error;
   const error = connection?.manual_sync_error ?? connection?.last_error ?? calendarError ?? null;
-  const syncing = syncMutation.isPending || Boolean(connection?.manual_sync_started_at);
   const needsSync =
     !connection ||
     !connected ||
