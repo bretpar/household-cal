@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { formatDistanceToNow } from "date-fns";
 import { RefreshCw } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,34 +20,42 @@ export function SyncStatusIndicator() {
   const queryClient = useQueryClient();
   const load = useServerFn(getSyncSettings);
   const runSync = useServerFn(syncNow);
+  const wasSyncing = useRef(false);
   const { data } = useQuery({
     queryKey: SYNC_KEY,
     queryFn: () => load(),
-    refetchInterval: 60_000,
+    refetchInterval: (query) =>
+      query.state.data?.connection?.manual_sync_running ? 1_500 : 60_000,
   });
 
   const syncMutation = useMutation({
     mutationFn: () => runSync({ data: {} }),
     onSuccess: () => {
-      toast.success("Sync complete");
       void queryClient.invalidateQueries({ queryKey: SYNC_KEY });
-      void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: () => toast.error("Couldn’t start sync. Try again."),
   });
+
+  const syncing = syncMutation.isPending || Boolean(data?.connection?.manual_sync_running);
+  useEffect(() => {
+    if (wasSyncing.current && !syncing && !data?.connection?.manual_sync_error) {
+      void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
+    }
+    wasSyncing.current = syncing;
+  }, [data?.connection?.manual_sync_error, queryClient, syncing]);
 
   if (!data?.is_owner) return null;
 
   const connection = data.connection;
   const connected = Boolean(connection) && connection?.status === "connected";
   const calendarError = data.calendars.find((calendar) => calendar.sync_error)?.sync_error;
-  const error = connection?.last_error ?? calendarError ?? null;
+  const error = connection?.manual_sync_error ?? connection?.last_error ?? calendarError ?? null;
   const needsSync =
     !connection ||
     !connected ||
     !connection.last_synced_at ||
     data.calendars.some((calendar) => calendar.sync_status === "needs_attention");
-  const status = syncMutation.isPending
+  const status = syncing
     ? { label: "Syncing…", dot: "bg-warning", tone: "text-warning-foreground" }
     : error
       ? { label: "Sync issue", dot: "bg-destructive", tone: "text-destructive" }
@@ -98,10 +107,10 @@ export function SyncStatusIndicator() {
             size="sm"
             className="w-full rounded-md"
             onClick={() => syncMutation.mutate()}
-            disabled={syncMutation.isPending}
+            disabled={syncing}
           >
-            <RefreshCw className={syncMutation.isPending ? "animate-spin" : ""} aria-hidden />
-            {syncMutation.isPending ? "Syncing…" : "Sync now"}
+            <RefreshCw className={syncing ? "animate-spin" : ""} aria-hidden />
+            {syncing ? "Syncing…" : "Sync now"}
           </Button>
         ) : null}
       </PopoverContent>

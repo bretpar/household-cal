@@ -1786,6 +1786,43 @@ export async function reconcileHousehold(
   return result as { applied?: number; repaired?: number; skipped?: string };
 }
 
+/**
+ * Runs an already-accepted manual sync and durably releases its lock. The
+ * reconciliation itself is intentionally unchanged.
+ */
+export async function runAcceptedManualSync(
+  admin: Admin,
+  familyId: string,
+  attemptId: string,
+  initial = false,
+): Promise<void> {
+  let failure: string | null = null;
+  try {
+    const result = initial
+      ? await pullHousehold(admin, familyId, true)
+      : await reconcileHousehold(admin, familyId);
+    if (result.skipped) {
+      failure =
+        result.skipped === "google_disconnected" || result.skipped === "not_connected"
+          ? "Reconnect Google Calendar to resume syncing."
+          : "Google Calendar sync couldn’t finish. Try again.";
+    }
+  } catch (error) {
+    console.error("[google-sync] background manual sync failed", error);
+    failure = "Google Calendar sync couldn’t finish. Try again.";
+  }
+
+  const { error } = await admin
+    .from("google_connections")
+    .update({
+      manual_sync_started_at: null,
+      manual_sync_error: failure,
+    })
+    .eq("family_id", familyId)
+    .eq("manual_sync_attempt_id", attemptId);
+  if (error) console.error("[google-sync] could not release manual sync lock", error);
+}
+
 /* ------------------------------------------------------------ push channels */
 
 export function webhookAddress(origin: string): string {

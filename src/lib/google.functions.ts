@@ -34,6 +34,9 @@ export interface SyncSettings {
     status: string;
     last_error: string | null;
     last_synced_at: string | null;
+    manual_sync_started_at: string | null;
+    manual_sync_error: string | null;
+    manual_sync_running: boolean;
   } | null;
   calendars: CalendarSlot[];
   max_calendars: number;
@@ -58,7 +61,9 @@ export const getSyncSettings = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: connection } = await supabaseAdmin
       .from("google_connections")
-      .select("account_email, status, last_error, last_synced_at")
+      .select(
+        "account_email, status, last_error, last_synced_at, manual_sync_started_at, manual_sync_error",
+      )
       .eq("family_id", family)
       .maybeSingle();
     const { data: calendars } = await supabaseAdmin
@@ -77,7 +82,15 @@ export const getSyncSettings = createServerFn({ method: "GET" })
       .maybeSingle();
     return {
       is_owner: true,
-      connection: connection ?? null,
+      connection: connection
+        ? {
+            ...connection,
+            manual_sync_running: Boolean(
+              connection.manual_sync_started_at &&
+                Date.now() - Date.parse(connection.manual_sync_started_at) < 10 * 60_000,
+            ),
+          }
+        : null,
       calendars: (calendars ?? []) as CalendarSlot[],
       max_calendars: 2,
       household_time_zone: normalizeTimeZone(familyRow?.timezone as string | null),
@@ -238,10 +251,26 @@ export const syncNow = createServerFn({ method: "POST" })
     const family = await resolveOwnedFamily(context.supabase, context.userId);
     if (!family) throw new Error("Only household owners can run calendar sync");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { reconcileHousehold, pullHousehold } = await import("@/lib/google/sync.server");
-    return data.initial
-      ? pullHousehold(supabaseAdmin, family, true)
-      : reconcileHousehold(supabaseAdmin, family);
+    const staleBefore = new Date(Date.now() - 10 * 60_000).toISOString();
+    const { data: locks, error } = await supabaseAdmin.rpc("try_start_google_manual_sync", {
+      _family_id: family,
+      _stale_before: staleBefore,
+    });
+    if (error) {
+      console.error("[google-sync] could not acquire manual sync lock", error);
+      throw new Error("Couldn’t start sync. Try again.");
+    }
+    const lock = locks?.[0];
+    if (!lock?.accepted || !lock.attempt_id) return { accepted: true, already_running: true };
+
+    const { runAcceptedManualSync } = await import("@/lib/google/sync.server");
+    const job = runAcceptedManualSync(supabaseAdmin, family, lock.attempt_id, data.initial);
+    const request = getRequest() as (Request & {
+      waitUntil?: (promise: Promise<unknown>) => void;
+    }) | undefined;
+    request?.waitUntil?.(job);
+    if (!request?.waitUntil) void job;
+    return { accepted: true, already_running: false };
   });
 
 /**

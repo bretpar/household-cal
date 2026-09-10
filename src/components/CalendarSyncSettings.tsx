@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, CalendarPlus, Info, Link2, RefreshCw, Star, Unlink } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -153,12 +153,18 @@ export function CalendarSyncSettings() {
   const disconnect = useServerFn(disconnectGoogleAccount);
   const runSync = useServerFn(syncNow);
 
-  const { data, isPending } = useQuery({ queryKey: SYNC_KEY, queryFn: () => load() });
+  const { data, isPending } = useQuery({
+    queryKey: SYNC_KEY,
+    queryFn: () => load(),
+    refetchInterval: (query) =>
+      query.state.data?.connection?.manual_sync_running ? 1_500 : false,
+  });
   const [connecting, setConnecting] = useState(false);
   const [slotDialog, setSlotDialog] = useState<{ replaceId: string | null } | null>(null);
   const [mode, setMode] = useState<"existing" | "create">("existing");
   const [newName, setNewName] = useState("Family Calendar");
   const [chosen, setChosen] = useState("");
+  const wasSyncing = useRef(false);
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: SYNC_KEY });
@@ -217,10 +223,9 @@ export function CalendarSyncSettings() {
   const syncMutation = useMutation({
     mutationFn: () => runSync({ data: {} }),
     onSuccess: () => {
-      toast.success("Sync complete");
-      refresh();
+      void queryClient.invalidateQueries({ queryKey: SYNC_KEY });
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: () => toast.error("Couldn’t start sync. Try again."),
   });
   const disconnectMutation = useMutation({
     mutationFn: () => disconnect(),
@@ -230,6 +235,15 @@ export function CalendarSyncSettings() {
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  const connection = data?.connection;
+  const syncing = syncMutation.isPending || Boolean(connection?.manual_sync_running);
+  useEffect(() => {
+    if (wasSyncing.current && !syncing && !connection?.manual_sync_error) {
+      void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
+    }
+    wasSyncing.current = syncing;
+  }, [connection?.manual_sync_error, queryClient, syncing]);
 
   async function onConnect() {
     const popup = window.open("", "google-calendar-oauth", "width=600,height=720");
@@ -256,7 +270,6 @@ export function CalendarSyncSettings() {
 
   if (isPending || !data?.is_owner) return null;
 
-  const connection = data.connection;
   const disconnected = connection && connection.status !== "connected";
 
   return (
@@ -299,10 +312,10 @@ export function CalendarSyncSettings() {
                   size="sm"
                   className="rounded-xl"
                   onClick={() => syncMutation.mutate()}
-                  disabled={syncMutation.isPending}
+                  disabled={syncing}
                 >
-                  <RefreshCw className="mr-2 h-3.5 w-3.5" aria-hidden />
-                  Sync now
+                  <RefreshCw className={cn("mr-2 h-3.5 w-3.5", syncing && "animate-spin")} aria-hidden />
+                  {syncing ? "Syncing…" : "Sync now"}
                 </Button>
                 <Button
                   variant="ghost"
@@ -314,6 +327,12 @@ export function CalendarSyncSettings() {
                 </Button>
               </div>
             </div>
+
+            {connection.manual_sync_error ? (
+              <p className="text-xs font-semibold text-destructive">
+                {connection.manual_sync_error}
+              </p>
+            ) : null}
 
             {disconnected ? (
               <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface-muted p-3 text-xs font-semibold">

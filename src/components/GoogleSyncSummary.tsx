@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -18,18 +19,30 @@ export function GoogleSyncSummary() {
   const queryClient = useQueryClient();
   const load = useServerFn(getSyncSettings);
   const runSync = useServerFn(syncNow);
+  const wasSyncing = useRef(false);
 
-  const { data, isPending } = useQuery({ queryKey: SYNC_KEY, queryFn: () => load() });
+  const { data, isPending } = useQuery({
+    queryKey: SYNC_KEY,
+    queryFn: () => load(),
+    refetchInterval: (query) =>
+      query.state.data?.connection?.manual_sync_running ? 1_500 : false,
+  });
 
   const syncMutation = useMutation({
     mutationFn: () => runSync({ data: {} }),
     onSuccess: () => {
-      toast.success("Sync complete");
       void queryClient.invalidateQueries({ queryKey: SYNC_KEY });
-      void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: () => toast.error("Couldn’t start sync. Try again."),
   });
+
+  const syncing = syncMutation.isPending || Boolean(data?.connection?.manual_sync_running);
+  useEffect(() => {
+    if (wasSyncing.current && !syncing && !data?.connection?.manual_sync_error) {
+      void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
+    }
+    wasSyncing.current = syncing;
+  }, [data?.connection?.manual_sync_error, queryClient, syncing]);
 
   if (isPending || !data?.is_owner) return null;
 
@@ -41,6 +54,8 @@ export function GoogleSyncSummary() {
     ? "Not connected"
     : !connected
       ? "Reconnect needed"
+      : syncing
+        ? "Syncing…"
       : needsAttention
         ? "Needs attention"
         : "Connected";
@@ -74,15 +89,20 @@ export function GoogleSyncSummary() {
           <p className="mt-0.5 text-xs text-muted-foreground">
             {connection ? lastSync : "Connect Google in Calendar sync details to start syncing"}
           </p>
+          {connection?.manual_sync_error ? (
+            <p className="mt-1 text-xs font-semibold text-destructive">
+              {connection.manual_sync_error}
+            </p>
+          ) : null}
         </div>
         <Button
           size="sm"
           className="rounded-xl"
           onClick={() => syncMutation.mutate()}
-          disabled={syncMutation.isPending || !connection}
+          disabled={syncing || !connection}
         >
-          <RefreshCw className="mr-2 h-3.5 w-3.5" aria-hidden />
-          {syncMutation.isPending ? "Syncing…" : "Sync now"}
+          <RefreshCw className={`mr-2 h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} aria-hidden />
+          {syncing ? "Syncing…" : "Sync now"}
         </Button>
       </div>
     </section>
