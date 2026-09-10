@@ -263,13 +263,43 @@ export const syncNow = createServerFn({ method: "POST" })
     const lock = locks?.[0];
     if (!lock?.accepted || !lock.attempt_id) return { accepted: true, already_running: true };
 
-    const { runAcceptedManualSync } = await import("@/lib/google/sync.server");
-    const job = runAcceptedManualSync(supabaseAdmin, family, lock.attempt_id, data.initial);
-    const request = getRequest() as (Request & {
-      waitUntil?: (promise: Promise<unknown>) => void;
-    }) | undefined;
-    request?.waitUntil?.(job);
-    if (!request?.waitUntil) void job;
+    console.log("[google-sync] manual sync accepted", {
+      familyId: family,
+      attemptId: lock.attempt_id,
+    });
+    const request = getRequest();
+    const callbackUrl = request
+      ? new URL("/api/public/google-calendar/manual-sync", request.url).toString()
+      : null;
+    const { error: enqueueError } = callbackUrl
+      ? await supabaseAdmin.rpc("enqueue_google_manual_sync", {
+          _callback_url: callbackUrl,
+          _family_id: family,
+          _attempt_id: lock.attempt_id,
+          _initial: data.initial ?? false,
+        })
+      : { error: new Error("Manual sync callback URL is unavailable") };
+    if (enqueueError) {
+      console.error("[google-sync] could not enqueue accepted manual sync", enqueueError);
+      const { data: released, error: releaseError } = await supabaseAdmin
+        .from("google_connections")
+        .update({
+          manual_sync_started_at: null,
+          manual_sync_error: "Couldn’t start sync. Try again.",
+        })
+        .eq("family_id", family)
+        .eq("manual_sync_attempt_id", lock.attempt_id)
+        .select("id");
+      const affectedRows = released?.length ?? 0;
+      console.log("[google-sync] failed enqueue release attempted", {
+        familyId: family,
+        attemptId: lock.attempt_id,
+        affectedRows,
+      });
+      if (releaseError) console.error("[google-sync] failed enqueue release failed", releaseError);
+      if (affectedRows === 0) console.warn("[google-sync] failed enqueue release affected 0 rows");
+      throw new Error("Couldn’t start sync. Try again.");
+    }
     return { accepted: true, already_running: false };
   });
 
