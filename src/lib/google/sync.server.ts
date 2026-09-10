@@ -1797,6 +1797,7 @@ export async function runAcceptedManualSync(
   initial = false,
 ): Promise<void> {
   let failure: string | null = null;
+  let thrown: unknown = null;
   try {
     const result = initial
       ? await pullHousehold(admin, familyId, true)
@@ -1806,21 +1807,57 @@ export async function runAcceptedManualSync(
         result.skipped === "google_disconnected" || result.skipped === "not_connected"
           ? "Reconnect Google Calendar to resume syncing."
           : "Google Calendar sync couldn’t finish. Try again.";
+      thrown = new Error(failure);
+      console.error("[google-sync] manual reconciliation failed", {
+        familyId,
+        attemptId,
+        skipped: result.skipped,
+      });
+    } else {
+      console.log("[google-sync] manual reconciliation completed", { familyId, attemptId });
     }
   } catch (error) {
-    console.error("[google-sync] background manual sync failed", error);
+    thrown = error;
     failure = "Google Calendar sync couldn’t finish. Try again.";
+    console.error("[google-sync] manual reconciliation failed", {
+      familyId,
+      attemptId,
+      error,
+    });
+  } finally {
+    console.log("[google-sync] manual sync release attempted", { familyId, attemptId });
+    const { data, error } = await admin
+      .from("google_connections")
+      .update({
+        manual_sync_started_at: null,
+        manual_sync_error: failure,
+      })
+      .eq("family_id", familyId)
+      .eq("manual_sync_attempt_id", attemptId)
+      .select("id");
+    const affectedRows = Array.isArray(data) ? data.length : 0;
+    if (error) {
+      console.error("[google-sync] manual sync release failed", {
+        familyId,
+        attemptId,
+        affectedRows,
+        error,
+      });
+    } else if (affectedRows === 0) {
+      console.warn("[google-sync] manual sync release affected 0 rows", {
+        familyId,
+        attemptId,
+      });
+    } else {
+      console.log("[google-sync] manual sync release completed", {
+        familyId,
+        attemptId,
+        affectedRows,
+      });
+    }
   }
 
-  const { error } = await admin
-    .from("google_connections")
-    .update({
-      manual_sync_started_at: null,
-      manual_sync_error: failure,
-    })
-    .eq("family_id", familyId)
-    .eq("manual_sync_attempt_id", attemptId);
-  if (error) console.error("[google-sync] could not release manual sync lock", error);
+  if (thrown) throw thrown;
 }
 
 /* ------------------------------------------------------------ push channels */

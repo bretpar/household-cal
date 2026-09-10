@@ -20,3 +20,8 @@
 - [x] Group routine settings into consistent collapsed Household, Calendars & Sync, Event Settings, and Account sections.
 - [x] Keep all repair, diagnostic, and QA controls inside locked, collapsed Maintenance.
 - [x] Preserve normal sync status, account/calendar controls, and informational timezone mismatch notices.
+
+## Durable manual Google sync
+- [x] Queue accepted manual syncs through the existing durable scheduled-callback mechanism.
+- [x] Await reconciliation inside the callback and always release the matching lock with durable failure status.
+- [x] Preserve fast acknowledgement, duplicate prevention, and existing Settings polling.
