@@ -1,10 +1,14 @@
-import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { formatDistanceToNow } from "date-fns";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
-import { getSyncSettings } from "@/lib/google.functions";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getSyncSettings, syncNow } from "@/lib/google.functions";
+
+const SYNC_KEY = ["calendar-sync"] as const;
 
 /**
  * Compact Google sync health chip for the app header. Owner-only: the server
@@ -12,67 +16,95 @@ import { getSyncSettings } from "@/lib/google.functions";
  * nothing here.
  */
 export function SyncStatusIndicator() {
+  const queryClient = useQueryClient();
   const load = useServerFn(getSyncSettings);
+  const runSync = useServerFn(syncNow);
   const { data } = useQuery({
-    queryKey: ["calendar-sync"],
+    queryKey: SYNC_KEY,
     queryFn: () => load(),
     refetchInterval: 60_000,
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: () => runSync({ data: {} }),
+    onSuccess: () => {
+      toast.success("Sync complete");
+      void queryClient.invalidateQueries({ queryKey: SYNC_KEY });
+      void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   if (!data?.is_owner) return null;
 
   const connection = data.connection;
   const connected = Boolean(connection) && connection?.status === "connected";
-  const error = connection?.last_error ?? null;
-
-  let tone = "text-muted-foreground";
-  let dot = "bg-muted-foreground/50";
-  let label = "Sync off";
-  let detail = "Google Calendar is not connected";
-
-  const paused = (data.calendars ?? []).filter((c) => c.sync_status === "needs_attention");
-
-  if (connection && !connected) {
-    tone = "text-destructive";
-    dot = "bg-destructive";
-    label = "Sync issue";
-    detail = error ?? "Google Calendar access has expired — reconnect Google to resume syncing";
-  } else if (connected && paused.length > 0) {
-    tone = "text-destructive";
-    dot = "bg-destructive";
-    label = "Sync needs attention";
-    detail = `${paused[0]?.name ?? "A Google calendar"} can no longer be found. Your family events are safe; Google syncing is paused.`;
-  } else if (connected) {
-    tone = "text-foreground";
-    dot = "bg-success";
-    label = connection?.last_synced_at
-      ? `Synced ${formatDistanceToNow(new Date(connection.last_synced_at), { addSuffix: true })}`
-      : "Sync pending";
-    detail = error
-      ? `Last sync error: ${error}`
-      : `Connected as ${connection?.account_email ?? "Google account"}`;
-    if (error) {
-      tone = "text-destructive";
-      dot = "bg-destructive";
-    }
-  }
+  const calendarError = data.calendars.find((calendar) => calendar.sync_error)?.sync_error;
+  const error = connection?.last_error ?? calendarError ?? null;
+  const needsSync =
+    !connection ||
+    !connected ||
+    !connection.last_synced_at ||
+    data.calendars.some((calendar) => calendar.sync_status === "needs_attention");
+  const status = syncMutation.isPending
+    ? { label: "Syncing…", dot: "bg-warning", tone: "text-warning-foreground" }
+    : error
+      ? { label: "Sync issue", dot: "bg-destructive", tone: "text-destructive" }
+      : needsSync
+        ? { label: "Needs sync", dot: "bg-warning", tone: "text-warning-foreground" }
+        : { label: "Synced", dot: "bg-success", tone: "text-foreground" };
+  const lastSync = connection?.last_synced_at
+    ? `Last successful sync ${formatDistanceToNow(new Date(connection.last_synced_at), { addSuffix: true })}`
+    : "No successful sync yet";
+  const detail = error
+    ? error
+    : connection
+      ? connected
+        ? "Google Calendar is connected"
+        : "Google Calendar needs to be reconnected"
+      : "Google Calendar is not connected";
 
   return (
-    <Link
-      to="/family"
-      title={detail}
-      aria-label={`Google Calendar sync: ${label}. ${detail}`}
-      className={`flex h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold transition-colors hover:bg-secondary ${tone}`}
-    >
-      {error || paused.length > 0 || (connection && !connected) ? (
-        <AlertTriangle className="h-4 w-4" aria-hidden />
-      ) : (
-        <>
-          <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden />
-          <RefreshCw className="hidden h-3.5 w-3.5 sm:block" aria-hidden />
-        </>
-      )}
-      <span className="hidden max-w-[9rem] truncate lg:inline">{label}</span>
-    </Link>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          title={detail}
+          aria-label={`Google Calendar sync: ${status.label}. ${detail}`}
+          className={`h-11 rounded-full px-2.5 text-xs font-semibold sm:px-3 ${status.tone}`}
+        >
+          <span className={`h-2 w-2 shrink-0 rounded-full ${status.dot}`} aria-hidden />
+          <span>{status.label}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" sideOffset={6} className="w-[min(18rem,calc(100vw-2rem))] space-y-4 rounded-lg">
+        <div className="space-y-1">
+          <p className="flex items-center gap-2 text-sm font-bold">
+            <span className={`h-2 w-2 shrink-0 rounded-full ${status.dot}`} aria-hidden />
+            {status.label}
+          </p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{detail}</p>
+          {connection?.account_email ? (
+            <p className="truncate text-xs font-semibold" title={connection.account_email}>
+              {connection.account_email}
+            </p>
+          ) : null}
+          <p className="text-xs text-muted-foreground">{lastSync}</p>
+        </div>
+        {connection && connected ? (
+          <Button
+            type="button"
+            size="sm"
+            className="w-full rounded-md"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+          >
+            <RefreshCw className={syncMutation.isPending ? "animate-spin" : ""} aria-hidden />
+            {syncMutation.isPending ? "Syncing…" : "Sync now"}
+          </Button>
+        ) : null}
+      </PopoverContent>
+    </Popover>
   );
 }
