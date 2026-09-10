@@ -25,7 +25,7 @@ export function SyncStatusIndicator() {
     queryKey: SYNC_KEY,
     queryFn: () => load(),
     refetchInterval: (query) =>
-      query.state.data?.connection?.manual_sync_started_at ? 1_500 : 60_000,
+      query.state.data?.connection?.manual_sync_running ? 1_500 : 60_000,
   });
 
   const syncMutation = useMutation({
@@ -36,7 +36,7 @@ export function SyncStatusIndicator() {
     onError: () => toast.error("Couldn’t start sync. Try again."),
   });
 
-  const syncing = syncMutation.isPending || Boolean(data?.connection?.manual_sync_started_at);
+  const syncing = syncMutation.isPending || Boolean(data?.connection?.manual_sync_running);
   useEffect(() => {
     if (wasSyncing.current && !syncing && !data?.connection?.manual_sync_error) {
       void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });

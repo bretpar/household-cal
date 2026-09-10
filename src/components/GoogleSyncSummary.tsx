@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -18,12 +19,13 @@ export function GoogleSyncSummary() {
   const queryClient = useQueryClient();
   const load = useServerFn(getSyncSettings);
   const runSync = useServerFn(syncNow);
+  const wasSyncing = useRef(false);
 
   const { data, isPending } = useQuery({
     queryKey: SYNC_KEY,
     queryFn: () => load(),
     refetchInterval: (query) =>
-      query.state.data?.connection?.manual_sync_started_at ? 1_500 : false,
+      query.state.data?.connection?.manual_sync_running ? 1_500 : false,
   });
 
   const syncMutation = useMutation({
@@ -34,11 +36,18 @@ export function GoogleSyncSummary() {
     onError: () => toast.error("Couldn’t start sync. Try again."),
   });
 
+  const syncing = syncMutation.isPending || Boolean(data?.connection?.manual_sync_running);
+  useEffect(() => {
+    if (wasSyncing.current && !syncing && !data?.connection?.manual_sync_error) {
+      void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
+    }
+    wasSyncing.current = syncing;
+  }, [data?.connection?.manual_sync_error, queryClient, syncing]);
+
   if (isPending || !data?.is_owner) return null;
 
   const connection = data.connection;
   const connected = Boolean(connection) && connection?.status === "connected";
-  const syncing = syncMutation.isPending || Boolean(connection?.manual_sync_started_at);
   const needsAttention = (data.calendars ?? []).some((c) => c.sync_status === "needs_attention");
 
   const statusLabel = !connection

@@ -36,6 +36,7 @@ export interface SyncSettings {
     last_synced_at: string | null;
     manual_sync_started_at: string | null;
     manual_sync_error: string | null;
+    manual_sync_running: boolean;
   } | null;
   calendars: CalendarSlot[];
   max_calendars: number;
@@ -81,7 +82,15 @@ export const getSyncSettings = createServerFn({ method: "GET" })
       .maybeSingle();
     return {
       is_owner: true,
-      connection: connection ?? null,
+      connection: connection
+        ? {
+            ...connection,
+            manual_sync_running: Boolean(
+              connection.manual_sync_started_at &&
+                Date.now() - Date.parse(connection.manual_sync_started_at) < 10 * 60_000,
+            ),
+          }
+        : null,
       calendars: (calendars ?? []) as CalendarSlot[],
       max_calendars: 2,
       household_time_zone: normalizeTimeZone(familyRow?.timezone as string | null),

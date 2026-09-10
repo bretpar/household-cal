@@ -157,7 +157,7 @@ export function CalendarSyncSettings() {
     queryKey: SYNC_KEY,
     queryFn: () => load(),
     refetchInterval: (query) =>
-      query.state.data?.connection?.manual_sync_started_at ? 1_500 : false,
+      query.state.data?.connection?.manual_sync_running ? 1_500 : false,
   });
   const [connecting, setConnecting] = useState(false);
   const [slotDialog, setSlotDialog] = useState<{ replaceId: string | null } | null>(null);
@@ -237,7 +237,7 @@ export function CalendarSyncSettings() {
   });
 
   const connection = data?.connection;
-  const syncing = syncMutation.isPending || Boolean(connection?.manual_sync_started_at);
+  const syncing = syncMutation.isPending || Boolean(connection?.manual_sync_running);
   useEffect(() => {
     if (wasSyncing.current && !syncing && !connection?.manual_sync_error) {
       void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
