@@ -76,13 +76,6 @@ function minutesFromTop(px: number) {
   return (px / HOUR_PX) * 60;
 }
 
-/**
- * Smallest width an event card may shrink to. Dense lanes overlap slightly
- * instead of collapsing to an untappable sliver.
- */
-const MIN_HIT_WIDTH = 44;
-
-
 interface Placed {
   occurrence: Occurrence;
   lane: number;
@@ -548,8 +541,8 @@ export function WeekView({
                   })}
 
                   {/* Timed events sit above the coverage layer in side-by-side lanes.
-                    The block body is the move (long-press) target; only the text
-                    label opens details on tap. */}
+                    The whole card opens details on tap; the same block body is also
+                    the long-press move target. */}
                   <div className="pointer-events-none absolute inset-y-0 right-1 left-3 z-0 sm:left-4">
                     {withLanes(visible).map(({ occurrence: o, lane, laneCount }) => {
                       const Icon = eventTypeIcons[o.event.event_type];
@@ -559,17 +552,6 @@ export function WeekView({
                       // for events ~30 min and up; mobile keeps the compact rules.
                       const density = timedEventDensity(viewScale, blockHeight, isMobile);
                       const compact = density === "tiny" || density === "short";
-                      // A tap anywhere on the card opens details; the nested
-                      // opener keeps working and de-duplicates the open.
-                      let opened = false;
-                      const open = () => {
-                        if (opened) return;
-                        opened = true;
-                        openOccurrence(o);
-                        setTimeout(() => {
-                          opened = false;
-                        }, 0);
-                      };
                       return (
                         <div
                           key={o.key}
@@ -578,11 +560,11 @@ export function WeekView({
                           role="button"
                           tabIndex={0}
                           aria-label={`${o.event.title} ${formatTimeRange(o.start, o.end, false)}`}
-                          onClick={open}
+                          onClick={() => openOccurrence(o)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
-                              open();
+                              openOccurrence(o);
                             }
                           }}
                           className={cn(
@@ -599,11 +581,12 @@ export function WeekView({
                            style={{
                              top: topFor(o.start),
                              height: blockHeight,
-                             // Dense clusters compress lanes, but every card keeps a
-                             // tappable minimum width and stays inside the column.
-                             left: `min(calc(${(lane / laneCount) * 100}% + 1px), max(0px, calc(100% - ${MIN_HIT_WIDTH}px)))`,
-                             width: `max(calc(${100 / laneCount}% - 2px), min(100%, ${MIN_HIT_WIDTH}px))`,
-                             minWidth: `min(100%, ${MIN_HIT_WIDTH}px)`,
+                             // Each lane gets an equal, non-overlapping share of the
+                             // column. The entire visible card is tappable via the
+                             // outer wrapper, so even narrow lanes remain usable
+                             // without invisible hit areas stealing neighbouring taps.
+                             left: `${(lane / laneCount) * 100}%`,
+                             width: `calc(${100 / laneCount}% - 2px)`,
                              zIndex:
                                (overlapKeys.has(o.key) || draggingKey === o.key ? 40 : 10) + lane,
                            }}
