@@ -62,7 +62,6 @@ export function useDayStrip({
   const align = useCallback(() => {
     const node = hostRef.current;
     if (!node || columnWidth <= 0) return;
-    // eslint-disable-next-line no-console
     console.info("[day-strip-diag] align", {
       index: indexRef.current,
       scrollLeft: node.scrollLeft,
@@ -141,7 +140,6 @@ export function useDayStrip({
       const to = Math.max(0, Math.min(maxScroll(), targetIndex * columnWidth));
       const distance = to - from;
       const commit = () => {
-        // eslint-disable-next-line no-console
         console.info("[day-strip-diag] commit", {
           targetIndex,
           index: indexRef.current,

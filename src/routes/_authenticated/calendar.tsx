@@ -136,7 +136,6 @@ function CalendarPage() {
     if (useDayStripLayout) {
       haptic();
       if (focus) focusPeriod();
-      // eslint-disable-next-line no-console
       console.info("[nav-diag] arrow step", {
         mode,
         direction,
