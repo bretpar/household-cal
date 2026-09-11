@@ -6,8 +6,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
  * The strip is a single persistent scroll surface: the mounted range of days
  * never changes during a gesture, so the content follows the finger without any
  * rerender or page swap. On release the strip coasts briefly and then eases into
- * the nearest single-day column — never more than one day per gesture — and only
- * then reports the new index so the header can update without moving the track.
+ * the nearest reached day column and only then reports the new index so the
+ * header can update without moving the track.
  */
 export function useDayStrip({
   columnWidth,
@@ -62,6 +62,12 @@ export function useDayStrip({
   const align = useCallback(() => {
     const node = hostRef.current;
     if (!node || columnWidth <= 0) return;
+    console.info("[day-strip-diag] align", {
+      index: indexRef.current,
+      scrollLeft: node.scrollLeft,
+      columnWidth,
+      settling: settling.current,
+    });
     cancelAnimation();
     node.scrollLeft = indexRef.current * columnWidth;
   }, [cancelAnimation, columnWidth]);
@@ -134,6 +140,13 @@ export function useDayStrip({
       const to = Math.max(0, Math.min(maxScroll(), targetIndex * columnWidth));
       const distance = to - from;
       const commit = () => {
+        console.info("[day-strip-diag] commit", {
+          targetIndex,
+          index: indexRef.current,
+          scrollLeft: node.scrollLeft,
+          columnWidth,
+          settling: settling.current,
+        });
         settling.current = false;
         node.scrollLeft = to;
         if (targetIndex !== indexRef.current) {
@@ -242,11 +255,18 @@ export function useDayStrip({
       const scrollVelocity = -velocity;
       const flick = Math.abs(scrollVelocity) >= FLICK_VELOCITY;
       const far = Math.abs(dragged) >= columnWidth * DISTANCE_RATIO;
-      let direction = 0;
-      if (far) direction = dragged > 0 ? 1 : -1;
-      else if (flick) direction = scrollVelocity > 0 ? 1 : -1;
-      // Never skip: exactly one day per gesture.
-      settleTo(current + direction, scrollVelocity);
+      let flickDirection = 0;
+      if (far) flickDirection = dragged > 0 ? 1 : -1;
+      else if (flick) flickDirection = scrollVelocity > 0 ? 1 : -1;
+
+      const nearest = Math.round(node.scrollLeft / columnWidth);
+      let target = nearest;
+      // Tie-breaker: if the release lands closest to the starting column but the
+      // gesture clearly wanted to move, advance exactly one day.
+      if (target === current && flickDirection !== 0) {
+        target = current + flickDirection;
+      }
+      settleTo(target, scrollVelocity);
       velocity = 0;
       intended = null;
     };
