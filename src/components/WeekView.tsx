@@ -553,7 +553,7 @@ export function WeekView({
                         </div>
                       </div>
                     );
-                  })
+                  })}
 
                   {/* Timed events sit above the coverage layer in side-by-side lanes.
                     The whole card opens details on tap; the same block body is also
