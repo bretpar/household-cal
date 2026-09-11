@@ -76,13 +76,6 @@ function minutesFromTop(px: number) {
   return (px / HOUR_PX) * 60;
 }
 
-/**
- * Smallest width an event card may shrink to. Dense lanes overlap slightly
- * instead of collapsing to an untappable sliver.
- */
-const MIN_HIT_WIDTH = 44;
-
-
 interface Placed {
   occurrence: Occurrence;
   lane: number;
