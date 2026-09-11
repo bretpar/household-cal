@@ -495,8 +495,9 @@ export function WeekView({
                   )}
 
                   {/* Babysitter coverage: warm neutral shading across the whole scheduled range.
-                    The shaded body is inert (long-press there creates a normal event, like
-                    blank calendar space); only the small header label is interactive. */}
+                    The full visible block is the tap target for childcare shifts; the inner
+                    label is rendered as non-interactive text so a single press never opens
+                    the details twice. */}
                   {coverage.map((o) => {
                     const moving = draggingKey === o.key || ghost?.occurrence?.key === o.key;
                     const blockHeight = heightFor(o);
@@ -505,25 +506,40 @@ export function WeekView({
                     // area is capped so long shifts stay readable underneath.
                     const labelHeight = Math.min(blockHeight, 56);
                     const density = densityForHeight(viewScale, labelHeight);
+                    const isChildcareEvent = isChildcare(o.event);
                     return (
                       <div
                         key={o.key}
+                        data-occurrence-key={isChildcareEvent ? o.key : undefined}
+                        {...(isChildcareEvent ? dragProps(o) : {})}
+                        role={isChildcareEvent ? "button" : undefined}
+                        tabIndex={isChildcareEvent ? 0 : undefined}
+                        aria-label={`${careLabel(o)} ${formatTimeRange(o.start, o.end, false)}`}
+                        onClick={isChildcareEvent ? () => openOccurrence(o) : undefined}
+                        onKeyDown={
+                          isChildcareEvent
+                            ? (e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  openOccurrence(o);
+                                }
+                              }
+                            : undefined
+                        }
                         className={cn(
-                          "pointer-events-none absolute inset-x-0 border-y border-coverage-strong/40",
-                          isChildcare(o.event) ? "bg-coverage/45" : "bg-coverage/60",
+                          "absolute inset-x-0 border-y border-coverage-strong/40",
+                          isChildcareEvent ? "bg-coverage/45" : "bg-coverage/60",
+                          isChildcareEvent
+                            ? "pointer-events-auto touch-hit-44 cursor-pointer"
+                            : "pointer-events-none",
                           // Subtle selected state: outline only, keeps the coverage colour.
                           moving && "ring-2 ring-coverage-strong/70 ring-inset",
                         )}
                         style={{ top: topFor(o.start), height: blockHeight }}
-                        aria-label={`${careLabel(o)} ${formatTimeRange(o.start, o.end, false)}`}
                       >
                         <div
-                          {...(isChildcare(o.event)
-                            ? { "data-occurrence-key": o.key, ...dragProps(o) }
-                            : {})}
                           className={cn(
-                            "absolute inset-x-0 top-0 text-coverage-foreground",
-                            isChildcare(o.event) && "pointer-events-auto touch-hit-44",
+                            "pointer-events-none absolute inset-x-0 top-0 text-coverage-foreground",
                           )}
                           style={{ height: labelHeight }}
                         >
@@ -533,12 +549,11 @@ export function WeekView({
                             density={density}
                             muted
                             title={careLabel(o)}
-                            onOpen={isChildcare(o.event) ? () => openOccurrence(o) : undefined}
                           />
                         </div>
                       </div>
                     );
-                  })}
+                  })
 
                   {/* Timed events sit above the coverage layer in side-by-side lanes.
                     The whole card opens details on tap; the same block body is also
