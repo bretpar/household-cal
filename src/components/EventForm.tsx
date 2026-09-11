@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { format } from "date-fns";
-import { ChevronDown } from "lucide-react";
+import { addDays, differenceInCalendarDays, format } from "date-fns";
+import { CalendarDays, ChevronDown, Repeat2 } from "lucide-react";
 
 
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LocationAutocomplete } from "@/components/LocationAutocomplete";
@@ -49,6 +48,7 @@ export type RecurrenceEndMode = "on" | "count" | "never";
 export interface EventFormState {
   title: string;
   date: string;
+  endDate: string;
   startTime: string;
   endTime: string;
   allDay: boolean;
@@ -112,12 +112,12 @@ export function emptyFormState(defaultDate?: Date, useDateTime = false): EventFo
   const base = defaultDate ?? new Date();
   const date = format(base, "yyyy-MM-dd");
   const startTime = useDateTime ? format(base, "HH:mm") : "16:00";
-  const endTime = useDateTime
-    ? format(new Date(base.getTime() + 60 * 60 * 1000), "HH:mm")
-    : "17:00";
+  const end = useDateTime ? new Date(base.getTime() + 60 * 60 * 1000) : base;
+  const endTime = useDateTime ? format(end, "HH:mm") : "17:00";
   return {
     title: "",
     date,
+    endDate: useDateTime ? format(end, "yyyy-MM-dd") : date,
     startTime,
     endTime,
     allDay: false,
@@ -169,6 +169,7 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
   return {
     title: event.title,
     date,
+    endDate: format(end, "yyyy-MM-dd"),
     startTime: format(start, "HH:mm"),
     endTime: format(end, "HH:mm"),
     allDay: event.all_day,
@@ -195,6 +196,7 @@ export function formStateFromClipboard(clip: EventClipboard, date: Date): EventF
   return {
     title: clip.title,
     date: day,
+    endDate: format(addDays(new Date(`${day}T00:00`), clip.endDayOffset), "yyyy-MM-dd"),
     startTime: clip.startTime,
     endTime: clip.endTime,
     allDay: clip.allDay,
@@ -235,7 +237,16 @@ export function stateForSeriesScope(
   // A date different from the occurrence's own day is an explicit series-start change.
   if (state.date !== occurrenceDay) return state;
   const parentDay = format(new Date(occurrence.event.start_at), "yyyy-MM-dd");
-  return parentDay === occurrenceDay ? state : { ...state, date: parentDay };
+  if (parentDay === occurrenceDay) return state;
+  const daySpan = differenceInCalendarDays(
+    new Date(`${state.endDate}T00:00`),
+    new Date(`${state.date}T00:00`),
+  );
+  return {
+    ...state,
+    date: parentDay,
+    endDate: format(addDays(new Date(`${parentDay}T00:00`), daySpan), "yyyy-MM-dd"),
+  };
 }
 
 function formattedPickerValue(type: "date" | "time", value: string): string {
@@ -262,8 +273,9 @@ function NativePickerField({
     <div className="group relative h-11 w-full min-w-0 max-w-full">
       <div
         aria-hidden="true"
-        className="flex h-11 w-full min-w-0 items-center overflow-hidden rounded-xl border border-input bg-transparent px-3 text-base shadow-sm transition-colors group-focus-within:ring-1 group-focus-within:ring-ring md:text-sm"
+        className="flex h-11 w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-xl border border-input bg-card px-3 text-base shadow-sm transition-colors group-focus-within:ring-1 group-focus-within:ring-ring md:text-sm"
       >
+        <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
         <span className="min-w-0 truncate">{formattedPickerValue(type, value)}</span>
       </div>
       <input
@@ -371,7 +383,9 @@ export function draftFromFormState(
   return {
     title: state.title.trim(),
     start_at: state.allDay ? combine(state.date, "00:00") : combine(state.date, state.startTime),
-    end_at: state.allDay ? combine(state.date, "23:59") : combine(state.date, state.endTime),
+    end_at: state.allDay
+      ? combine(state.endDate, "23:59")
+      : combine(state.endDate, state.endTime),
     all_day: state.allDay,
     location: state.location.trim() || null,
     notes: state.notes.trim() || null,
@@ -394,6 +408,11 @@ export function draftFromFormState(
 
 export function validateFormState(state: EventFormState): string | null {
   if (!state.title.trim()) return "Please add an event name";
+  if (!state.date || !state.endDate) return "Choose a start and end date";
+  if (state.endDate < state.date) return "The end date can't be before the start date";
+  if (!state.allDay && combine(state.endDate, state.endTime) <= combine(state.date, state.startTime)) {
+    return "The event must end after it starts";
+  }
   // Childcare names the caregiver, so family members stay optional.
   if (state.eventType !== "childcare" && state.members.length === 0) {
     return "Choose at least one family member";
@@ -549,51 +568,100 @@ export function EventFormFields({
         />
       </div>
 
-      {/* Date flexes; All day stays a compact fixed control with a real gap. */}
-      <div className="date-row grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
-        <div className="min-w-0 max-w-full space-y-1.5">
-          <Label htmlFor={`${idPrefix}-date`}>Date</Label>
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor={`${idPrefix}-date`}>Start</Label>
+          <div
+            className={cn(
+              "date-row grid min-w-0 grid-cols-1 gap-2",
+              !state.allDay &&
+                "min-[360px]:grid-cols-[minmax(0,1.08fr)_minmax(0,.92fr)]",
+            )}
+          >
           <NativePickerField
             id={`${idPrefix}-date`}
             type="date"
             value={state.date}
             onChange={(date) => {
+              const endDate = !state.endDate || state.endDate <= state.date ? date : state.endDate;
               onChange({
                 ...state,
                 date,
+                endDate,
                 recurrenceUntil:
                   date && state.recurrenceUntil < date ? defaultUntil(date) : state.recurrenceUntil,
               });
             }}
           />
+            {!state.allDay ? (
+              <TimeField
+                id={`${idPrefix}-start`}
+                value={state.startTime}
+                onChange={(value) => set("startTime", value)}
+              />
+            ) : null}
+          </div>
         </div>
-        <div className="flex h-11 min-w-0 shrink-0 items-center gap-2 rounded-xl border border-input bg-card px-3">
-          <Label
-            htmlFor={`${idPrefix}-all-day`}
-            className="text-sm font-semibold whitespace-nowrap text-muted-foreground"
+
+        <div className="space-y-1.5">
+          <Label htmlFor={`${idPrefix}-end-date`}>End</Label>
+          <div
+            className={cn(
+              "date-row grid min-w-0 grid-cols-1 gap-2",
+              !state.allDay &&
+                "min-[360px]:grid-cols-[minmax(0,1.08fr)_minmax(0,.92fr)]",
+            )}
           >
-            All day
-          </Label>
-          <Switch
-            id={`${idPrefix}-all-day`}
-            checked={state.allDay}
-            onCheckedChange={(v) => set("allDay", v)}
-          />
+            <NativePickerField
+              id={`${idPrefix}-end-date`}
+              type="date"
+              value={state.endDate}
+              onChange={(endDate) => set("endDate", endDate)}
+            />
+            {!state.allDay ? (
+              <TimeField
+                id={`${idPrefix}-end`}
+                value={state.endTime}
+                onChange={(value) => {
+                  const endDate =
+                    state.endDate === state.date && value < state.startTime
+                      ? format(addDays(new Date(`${state.date}T00:00`), 1), "yyyy-MM-dd")
+                      : state.endDate;
+                  onChange({ ...state, endTime: value, endDate });
+                }}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
 
-      {/* Repeat stays out of the way until the event actually repeats. */}
+      {/* Secondary options share one quiet row beneath the prominent dates. */}
       <div className="space-y-3">
-        <div className="flex items-center gap-3 py-0.5">
-          <Checkbox
-            id={`${idPrefix}-repeats`}
-            checked={repeats}
-            onCheckedChange={(v) => set("recurrence", v ? "weekly" : "none")}
-            className="size-5 rounded-md"
-          />
-          <Label htmlFor={`${idPrefix}-repeats`} className="text-sm font-semibold">
-            Repeats
-          </Label>
+        <div className="grid min-h-12 grid-cols-2 divide-x divide-border-soft rounded-xl bg-surface-muted">
+          <div className="flex min-w-0 items-center justify-between gap-2 px-3">
+            <Label htmlFor={`${idPrefix}-all-day`} className="flex min-w-0 items-center gap-2 text-xs font-semibold text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+              <span>All day</span>
+            </Label>
+            <Switch
+              id={`${idPrefix}-all-day`}
+              checked={state.allDay}
+              onCheckedChange={(v) => set("allDay", v)}
+              className="scale-90"
+            />
+          </div>
+          <div className="flex min-w-0 items-center justify-between gap-2 px-3">
+            <Label htmlFor={`${idPrefix}-repeats`} className="flex min-w-0 items-center gap-2 text-xs font-semibold text-muted-foreground">
+              <Repeat2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+              <span>Repeats</span>
+            </Label>
+            <Switch
+              id={`${idPrefix}-repeats`}
+              checked={repeats}
+              onCheckedChange={(v) => set("recurrence", v ? "weekly" : "none")}
+              className="scale-90"
+            />
+          </div>
         </div>
 
 
@@ -830,32 +898,6 @@ export function EventFormFields({
           </>
         ) : null}
       </div>
-
-      {!state.allDay ? (
-        // Stacks on narrow phones, side by side as soon as both fields fit cleanly.
-        <div className="time-row flex w-full min-w-0 max-w-full flex-col gap-3 min-[480px]:flex-row min-[480px]:items-end min-[480px]:gap-4">
-          <div className="min-w-0 w-full space-y-1.5 min-[480px]:flex-1 min-[480px]:basis-0">
-            <Label htmlFor={`${idPrefix}-start`}>Start time</Label>
-            <TimeField
-              id={`${idPrefix}-start`}
-              value={state.startTime}
-              onChange={(value) => set("startTime", value)}
-            />
-          </div>
-          <div className="min-w-0 w-full space-y-1.5 min-[480px]:flex-1 min-[480px]:basis-0">
-            <Label htmlFor={`${idPrefix}-end`}>End time</Label>
-            <TimeField
-              id={`${idPrefix}-end`}
-              value={state.endTime}
-              onChange={(value) => set("endTime", value)}
-            />
-          </div>
-        </div>
-      ) : null}
-
-
-
-
 
       {/* Household Event Categories (Settings → Event Categories) are the only
           source of truth here. event_type is derived from the chosen category

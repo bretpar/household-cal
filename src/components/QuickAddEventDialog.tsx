@@ -36,7 +36,9 @@ export function QuickAddEventDialog({
       const formKey = `${at.toISOString()}:${until?.toISOString() ?? ""}:${withTime}:${Date.now()}`;
       setSession({
         formKey,
-        state: until ? { ...base, endTime: format(until, "HH:mm") } : base,
+        state: until
+          ? { ...base, endDate: format(until, "yyyy-MM-dd"), endTime: format(until, "HH:mm") }
+          : base,
       });
     } else {
       setSession(null);

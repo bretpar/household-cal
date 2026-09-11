@@ -3,7 +3,7 @@
  * always uses the newly chosen day and keeps the copied times.
  * Lives in its own module so the store never imports form components.
  */
-import { format } from "date-fns";
+import { differenceInCalendarDays, format } from "date-fns";
 
 import type { EventType, MemberId, Occurrence } from "@/lib/family-data";
 
@@ -11,6 +11,8 @@ export interface EventClipboard {
   title: string;
   startTime: string;
   endTime: string;
+  /** Number of calendar days between the copied occurrence's start and end. */
+  endDayOffset: number;
   allDay: boolean;
   members: MemberId[];
   eventType: EventType;
@@ -28,6 +30,7 @@ export function clipboardFromOccurrence(occurrence: Occurrence): EventClipboard 
     title: event.title,
     startTime: format(start, "HH:mm"),
     endTime: format(end, "HH:mm"),
+    endDayOffset: Math.max(0, differenceInCalendarDays(end, start)),
     allDay: event.all_day,
     // a copied occurrence keeps only the people scheduled that day
     members: [...occurrence.member_ids],

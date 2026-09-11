@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
+import { Clock3 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -80,8 +81,9 @@ export function TimeField({
       <div className="group relative h-11 w-full min-w-0 max-w-full">
         <div
           aria-hidden="true"
-          className="flex h-11 w-full min-w-0 items-center overflow-hidden rounded-xl border border-input bg-transparent px-3 text-base shadow-sm transition-colors group-focus-within:ring-1 group-focus-within:ring-ring md:text-sm"
+          className="flex h-11 w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-xl border border-input bg-card px-3 text-base shadow-sm transition-colors group-focus-within:ring-1 group-focus-within:ring-ring md:text-sm"
         >
+          <Clock3 className="h-4 w-4 shrink-0 text-primary" aria-hidden />
           <span className="min-w-0 truncate">{formatTimeValue(value)}</span>
         </div>
         <input
@@ -139,8 +141,9 @@ function DesktopTimeField({
         <button
           id={id}
           type="button"
-          className="flex h-11 w-full min-w-0 max-w-full items-center rounded-xl border border-input bg-transparent px-3 text-left text-base shadow-sm transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
+          className="flex h-11 w-full min-w-0 max-w-full items-center gap-2.5 rounded-xl border border-input bg-card px-3 text-left text-base shadow-sm transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
         >
+          <Clock3 className="h-4 w-4 shrink-0 text-primary" aria-hidden />
           <span className="min-w-0 truncate">{formatTimeValue(value)}</span>
         </button>
       </PopoverTrigger>

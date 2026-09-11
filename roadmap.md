@@ -25,3 +25,7 @@
 - [x] Queue accepted manual syncs through the existing durable scheduled-callback mechanism.
 - [x] Await reconciliation inside the callback and always release the matching lock with durable failure status.
 - [x] Preserve fast acknowledgement, duplicate prevention, and existing Settings polling.
+
+## Event date and time controls
+- [x] Add explicit Start and End date/time rows that preserve overnight and multi-day events.
+- [x] Group All day and Repeats into one compact secondary control row.

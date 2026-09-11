@@ -75,6 +75,7 @@ function withProposedStart(
   return {
     ...state,
     date: format(start, "yyyy-MM-dd"),
+    endDate: format(end, "yyyy-MM-dd"),
     startTime: format(start, "HH:mm"),
     endTime: format(end, "HH:mm"),
   };
