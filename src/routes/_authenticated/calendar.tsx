@@ -136,6 +136,13 @@ function CalendarPage() {
     if (useDayStripLayout) {
       haptic();
       if (focus) focusPeriod();
+      // eslint-disable-next-line no-console
+      console.info("[nav-diag] arrow step", {
+        mode,
+        direction,
+        anchorBefore: anchor.getTime(),
+        anchorAfter: shift(anchor, direction).getTime(),
+      });
       setAnchor((prev) => shift(prev, direction));
       return;
     }
