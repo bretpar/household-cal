@@ -541,8 +541,8 @@ export function WeekView({
                   })}
 
                   {/* Timed events sit above the coverage layer in side-by-side lanes.
-                    The block body is the move (long-press) target; only the text
-                    label opens details on tap. */}
+                    The whole card opens details on tap; the same block body is also
+                    the long-press move target. */}
                   <div className="pointer-events-none absolute inset-y-0 right-1 left-3 z-0 sm:left-4">
                     {withLanes(visible).map(({ occurrence: o, lane, laneCount }) => {
                       const Icon = eventTypeIcons[o.event.event_type];
