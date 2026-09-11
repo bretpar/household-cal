@@ -571,7 +571,13 @@ export function EventFormFields({
       <div className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}-date`}>Start</Label>
-          <div className="date-row grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-[minmax(0,1.08fr)_minmax(0,.92fr)]">
+          <div
+            className={cn(
+              "date-row grid min-w-0 grid-cols-1 gap-2",
+              !state.allDay &&
+                "min-[360px]:grid-cols-[minmax(0,1.08fr)_minmax(0,.92fr)]",
+            )}
+          >
           <NativePickerField
             id={`${idPrefix}-date`}
             type="date"
@@ -599,7 +605,13 @@ export function EventFormFields({
 
         <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}-end-date`}>End</Label>
-          <div className="date-row grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-[minmax(0,1.08fr)_minmax(0,.92fr)]">
+          <div
+            className={cn(
+              "date-row grid min-w-0 grid-cols-1 gap-2",
+              !state.allDay &&
+                "min-[360px]:grid-cols-[minmax(0,1.08fr)_minmax(0,.92fr)]",
+            )}
+          >
             <NativePickerField
               id={`${idPrefix}-end-date`}
               type="date"
