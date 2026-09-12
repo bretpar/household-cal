@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, MailPlus, ShieldCheck, Trash2 } from "lucide-react";
+import { CircleCheck, Clock3, Copy, MailPlus, ShieldCheck, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -188,9 +188,17 @@ export function HouseholdAccess() {
         {(access.data?.memberships ?? []).map((m) => (
           <div key={m.id} className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold">
-                {m.display_name ?? m.email ?? "Household user"}
-                {m.is_self ? " (you)" : ""}
+              <p className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
+                <span className="truncate">
+                  {m.display_name ?? m.email ?? "Household user"}
+                  {m.is_self ? " (you)" : ""}
+                </span>
+                {isOwner ? (
+                  <span title="Account setup complete" className="shrink-0 text-success">
+                    <CircleCheck className="h-3.5 w-3.5" aria-hidden />
+                    <span className="sr-only">Account setup complete</span>
+                  </span>
+                ) : null}
               </p>
               <p className="truncate text-xs text-muted-foreground">
                 {m.email ?? "no email on file"} · {ROLE_HINT[m.role] ?? m.role}
@@ -244,7 +252,13 @@ export function HouseholdAccess() {
                 className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold">{inv.email}</p>
+                  <p className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
+                    <span className="truncate">{inv.email}</span>
+                    <span title="Invitation pending" className="shrink-0 text-muted-foreground">
+                      <Clock3 className="h-3.5 w-3.5" aria-hidden />
+                      <span className="sr-only">Invitation pending</span>
+                    </span>
+                  </p>
                   <p className="text-xs text-muted-foreground capitalize">
                     {inv.role} · {inv.status}
                   </p>
