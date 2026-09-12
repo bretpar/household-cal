@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { emailSelectableCalendars, isEmailSelectableCalendar } from '@/lib/email-summaries/eligibility'
+import {
+  emailSelectableCalendars,
+  isAcceptedHouseholdRecipient,
+  isEmailSelectableCalendar,
+} from '@/lib/email-summaries/eligibility'
 
 describe('email summary calendar eligibility', () => {
   const google = { id: 'g', active: true, display_mode: 'events', selectable_in_email: true }
@@ -16,6 +20,13 @@ describe('email summary calendar eligibility', () => {
   })
   it('display style does not affect eligibility — coverage background qualifies', () => {
     expect(isEmailSelectableCalendar(coverage)).toBe(true)
+  })
+
+  it('only sends recurring summaries to accepted household users', () => {
+    const accepted = new Set(['accepted-user'])
+    expect(isAcceptedHouseholdRecipient('accepted-user', accepted)).toBe(true)
+    expect(isAcceptedHouseholdRecipient('pending-user', accepted)).toBe(false)
+    expect(isAcceptedHouseholdRecipient(null, accepted)).toBe(false)
   })
 
 })
