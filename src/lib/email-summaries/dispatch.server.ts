@@ -10,7 +10,7 @@
 
 import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 
-import { emailSelectableCalendars } from "./eligibility";
+import { emailSelectableCalendars, isAcceptedHouseholdRecipient } from "./eligibility";
 import {
   buildSummaryDays,
   eventsForSelection,
@@ -52,6 +52,7 @@ export interface RecipientRow {
   id: string;
   schedule_id: string;
   family_id: string;
+  user_id: string | null;
   name: string;
   email: string;
   unsubscribe_token: string;
@@ -143,6 +144,7 @@ async function loadRecipients(admin: AnyDb, scheduleId: string): Promise<Recipie
     id: r.id,
     schedule_id: r.schedule_id,
     family_id: r.family_id,
+    user_id: r.user_id ?? null,
     name: r.name,
     email: r.email,
     unsubscribe_token: r.unsubscribe_token,
@@ -152,6 +154,18 @@ async function loadRecipients(admin: AnyDb, scheduleId: string): Promise<Recipie
     ),
     weekdays: (r.weekdays ?? []) as string[],
   }));
+}
+
+async function loadAcceptedHouseholdUserIds(
+  admin: AnyDb,
+  familyId: string,
+): Promise<Set<string>> {
+  const { data, error } = await admin
+    .from("family_users")
+    .select("user_id")
+    .eq("family_id", familyId);
+  if (error) throw error;
+  return new Set(((data ?? []) as Array<{ user_id: string }>).map((row) => row.user_id));
 }
 
 export interface RenderedSummary {
@@ -252,12 +266,21 @@ export async function runSchedule(
   const household = await loadHousehold(admin, schedule.family_id);
 
 
-  const recipients = (await loadRecipients(admin, schedule.id)).filter((r) => !r.unsubscribed_at);
+  const [loadedRecipients, acceptedUserIds] = await Promise.all([
+    loadRecipients(admin, schedule.id),
+    loadAcceptedHouseholdUserIds(admin, schedule.family_id),
+  ]);
+  const recipients = loadedRecipients.filter((r) => !r.unsubscribed_at);
   let sent = 0;
   let skipped = 0;
   let failed = 0;
 
   for (const recipient of recipients) {
+    if (!isAcceptedHouseholdRecipient(recipient.user_id, acceptedUserIds)) {
+      skipped += 1;
+      continue;
+    }
+
     // A recipient restricted to certain weekdays gets nothing when the window
     // holds none of them (a daily summary for an excluded day, for example).
     if (selectedDaysInWindow(due.window, recipient.weekdays).length === 0) {

@@ -24,3 +24,11 @@ export function isEmailSelectableCalendar(source: EmailSelectableSource | null |
 export function emailSelectableCalendars<T extends EmailSelectableSource>(sources: T[]): T[] {
   return sources.filter(isEmailSelectableCalendar);
 }
+
+/** Recurring summaries only go to users who completed household invite acceptance. */
+export function isAcceptedHouseholdRecipient(
+  userId: string | null | undefined,
+  acceptedUserIds: ReadonlySet<string>,
+): boolean {
+  return Boolean(userId && acceptedUserIds.has(userId));
+}
