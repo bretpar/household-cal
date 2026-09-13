@@ -49,7 +49,8 @@ function timedEventDensity(
 /** Full 24-hour timeline so overnight and early-morning events are visible. */
 const DAY_START = 0;
 const DAY_END = 24;
-const HOUR_PX = 60;
+/** Reduced hour height so Day/3-Day views show more hours at once (~75%). */
+const HOUR_PX = 45;
 /** Drops snap to a friendly grid rather than to the exact pixel. */
 const SNAP_MINUTES = 15;
 
