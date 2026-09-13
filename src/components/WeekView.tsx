@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
 import { MemberBadgeRow } from "@/components/MemberBadge";
 import { eventTintClass } from "@/lib/event-colors";
-import { eventTypeIcons } from "@/components/EventCard";
 import { CalendarEventContent } from "@/components/CalendarEventContent";
 import {
   densityForHeight,
@@ -561,7 +560,6 @@ export function WeekView({
                     the long-press move target. */}
                   <div className="pointer-events-none absolute inset-y-0 right-1 left-3 z-0 sm:left-4">
                     {withLanes(visible).map(({ occurrence: o, lane, laneCount }) => {
-                      const Icon = eventTypeIcons[o.event.event_type];
                       const blockHeight = heightFor(o);
                       // Height decides which rows are shown — never the font size.
                       // On desktop/tablet there is enough room to keep title + time
@@ -614,12 +612,7 @@ export function WeekView({
                               eventTintClass(categoryAppearanceFor(o.event)),
                             )}
                           >
-                            <CalendarEventContent
-                              occurrence={o}
-                              view={viewScale}
-                              density={density}
-                              icon={Icon}
-                            />
+                            <CalendarEventContent occurrence={o} view={viewScale} density={density} />
                           </div>
                         </div>
                       );

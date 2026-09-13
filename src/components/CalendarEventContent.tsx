@@ -52,13 +52,19 @@ export function CalendarEventContent({
 
   // Compact rows: the title always wins. The written time is dropped before the
   // title is truncated, because the block's vertical position already says when
-  // the event happens. Month pills keep the time (no timeline to read it from).
+  // the event happens. Month pills keep the time inline (no timeline to read
+  // it from); Day/3-Day/Week short blocks show time stacked below the title.
   if (density === "tiny" || density === "short") {
-    const showTime = view === "month" || (view === "day" && density === "short");
-    const showDesktopStackedTime =
-      !showTime && density === "short" && !occurrence.event.all_day;
+    const showInlineTime = view === "month" && density === "short";
+    const showStackedTime = density === "short" && view !== "month" && !occurrence.event.all_day;
+    const innerLayout = showStackedTime ? "block" : "flex items-center gap-1.5";
     return (
-      <div className={cn(wrapperClass, "flex items-center gap-1.5")}>
+      <div
+        className={cn(
+          wrapperClass,
+          showStackedTime ? "flex items-start gap-1.5" : "flex items-center gap-1.5",
+        )}
+      >
         {onOpen ? (
           <button
             type="button"
@@ -66,32 +72,24 @@ export function CalendarEventContent({
               e.stopPropagation();
               onOpen();
             }}
-            className={cn(
-              "min-w-11 flex-1 text-left",
-              showDesktopStackedTime ? "block" : "flex items-center gap-1.5",
-            )}
+            className={cn("min-w-11 flex-1 text-left", innerLayout)}
           >
             <span className={cn("block min-w-0 flex-1 truncate", scale.title)}>{label}</span>
-            {showTime ? (
+            {showInlineTime ? (
               <span className={cn("shrink-0 truncate", scale.time, timeTone)}>{time}</span>
-            ) : showDesktopStackedTime ? (
-              <span className={cn("hidden truncate md:mt-0.5 md:block", scale.time, timeTone)}>
+            ) : showStackedTime ? (
+              <span className={cn("block truncate leading-none", scale.time, timeTone)}>
                 {time}
               </span>
             ) : null}
           </button>
         ) : (
-          <div
-            className={cn(
-              "min-w-0 flex-1 text-left",
-              showDesktopStackedTime ? "block" : "flex items-center gap-1.5",
-            )}
-          >
+          <div className={cn("min-w-0 flex-1 text-left", innerLayout)}>
             <span className={cn("block min-w-0 flex-1 truncate", scale.title)}>{label}</span>
-            {showTime ? (
+            {showInlineTime ? (
               <span className={cn("shrink-0 truncate", scale.time, timeTone)}>{time}</span>
-            ) : showDesktopStackedTime ? (
-              <span className={cn("hidden truncate md:mt-0.5 md:block", scale.time, timeTone)}>
+            ) : showStackedTime ? (
+              <span className={cn("block truncate leading-none", scale.time, timeTone)}>
                 {time}
               </span>
             ) : null}
