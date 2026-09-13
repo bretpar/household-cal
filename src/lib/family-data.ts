@@ -484,10 +484,13 @@ export function occurrenceMatchesFilter(occurrence: Occurrence, selected: Member
 
 export function formatTimeRange(start: Date, end: Date, allDay: boolean): string {
   if (allDay) return "All day";
-  const fmt = (d: Date) =>
-    d
-      .toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-      .replace(":00", "")
-      .toLowerCase();
+  const fmt = (d: Date) => {
+    const hour = d.getHours();
+    const min = d.getMinutes();
+    const h = hour % 12 === 0 ? 12 : hour % 12;
+    const ampm = hour < 12 ? "a" : "p";
+    if (min === 0) return `${h}${ampm}`;
+    return `${h}:${String(min).padStart(2, "0")}${ampm}`;
+  };
   return `${fmt(start)}–${fmt(end)}`;
 }
