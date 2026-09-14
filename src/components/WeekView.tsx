@@ -38,8 +38,8 @@ function timedEventDensity(
   if (isMobile) return densityForHeight(view, height);
   if (view === "week") {
     if (height >= 70) return "full";
-    if (height >= 30) return "medium"; // 30 min -> title + time
-    if (height >= 20) return "short";
+    if (height >= 42) return "medium";
+    if (height >= 34) return "short";
     return "tiny";
   }
   return densityForHeight(view, height);
@@ -647,7 +647,12 @@ export function WeekView({
                               eventTintClass(categoryAppearanceFor(o.event)),
                             )}
                           >
-                            <CalendarEventContent occurrence={o} view={viewScale} density={density} />
+                            <CalendarEventContent
+                              occurrence={o}
+                              view={viewScale}
+                              density={density}
+                              showRecurrence
+                            />
                           </div>
                         </div>
                       );
