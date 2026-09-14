@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { Repeat2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { MemberBadgeRow } from "@/components/MemberBadge";
@@ -24,6 +25,7 @@ export function CalendarEventContent({
   icon: Icon,
   title,
   onOpen,
+  showRecurrence = false,
   className,
 }: {
   occurrence: Occurrence;
@@ -34,12 +36,21 @@ export function CalendarEventContent({
   /** override the label (coverage blocks show their calendar name) */
   title?: string;
   onOpen?: (() => void) | undefined;
+  /** Show a quiet scan marker on timed cards without changing their interaction. */
+  showRecurrence?: boolean;
   className?: string;
 }) {
   const scale = EVENT_TYPE_SCALE[view];
   const label = title ?? occurrence.event.title;
   const time = formatTimeRange(occurrence.start, occurrence.end, occurrence.event.all_day);
   const timeTone = eventTimeToneClass(muted);
+  const recurrenceIndicator =
+    showRecurrence && occurrence.event.recurrence_rule ? (
+      <span className="inline-flex shrink-0 text-muted-foreground" title="Repeating event">
+        <Repeat2 className="h-3 w-3" aria-hidden />
+        <span className="sr-only">Repeating event</span>
+      </span>
+    ) : null;
   const badges = (
     <MemberBadgeRow
       ids={occurrence.member_ids}
@@ -58,6 +69,12 @@ export function CalendarEventContent({
     const showInlineTime = view === "month" && density === "short";
     const showStackedTime = density === "short" && view !== "month" && !occurrence.event.all_day;
     const innerLayout = showStackedTime ? "block" : "flex items-center gap-1.5";
+    const titleRow = (
+      <span className="flex min-w-0 items-center gap-1">
+        <span className={cn("block min-w-0 flex-1 line-clamp-1", scale.title)}>{label}</span>
+        {recurrenceIndicator}
+      </span>
+    );
     return (
       <div
         className={cn(
@@ -74,7 +91,7 @@ export function CalendarEventContent({
             }}
             className={cn("min-w-11 flex-1 text-left", innerLayout)}
           >
-            <span className={cn("block min-w-0 flex-1 truncate", scale.title)}>{label}</span>
+            {titleRow}
             {showInlineTime ? (
               <span className={cn("shrink-0 truncate", scale.time, timeTone)}>{time}</span>
             ) : showStackedTime ? (
@@ -85,7 +102,7 @@ export function CalendarEventContent({
           </button>
         ) : (
           <div className={cn("min-w-0 flex-1 text-left", innerLayout)}>
-            <span className={cn("block min-w-0 flex-1 truncate", scale.title)}>{label}</span>
+            {titleRow}
             {showInlineTime ? (
               <span className={cn("shrink-0 truncate", scale.time, timeTone)}>{time}</span>
             ) : showStackedTime ? (
@@ -113,12 +130,18 @@ export function CalendarEventContent({
             }}
             className="block min-w-11 flex-1 text-left"
           >
-            <span className={cn("block truncate", scale.title)}>{label}</span>
+            <span className="flex min-w-0 items-center gap-1">
+              <span className={cn("block min-w-0 flex-1 line-clamp-1", scale.title)}>{label}</span>
+              {recurrenceIndicator}
+            </span>
             <span className={cn("mt-0.5 block truncate", scale.time, timeTone)}>{time}</span>
           </button>
         ) : (
           <div className="block min-w-0 flex-1 text-left">
-            <span className={cn("block truncate", scale.title)}>{label}</span>
+            <span className="flex min-w-0 items-center gap-1">
+              <span className={cn("block min-w-0 flex-1 line-clamp-1", scale.title)}>{label}</span>
+              {recurrenceIndicator}
+            </span>
             <span className={cn("mt-0.5 block truncate", scale.time, timeTone)}>{time}</span>
           </div>
         )}
@@ -141,7 +164,8 @@ export function CalendarEventContent({
         >
           <span className="flex items-center gap-1.5">
             {Icon ? <Icon className={cn("shrink-0", scale.icon, timeTone)} aria-hidden /> : null}
-            <span className={cn("min-w-0 flex-1 truncate", scale.title)}>{label}</span>
+            <span className={cn("min-w-0 flex-1 line-clamp-1", scale.title)}>{label}</span>
+            {recurrenceIndicator}
           </span>
           <span className={cn("mt-0.5 block truncate", scale.time, timeTone)}>{time}</span>
         </button>
@@ -149,7 +173,8 @@ export function CalendarEventContent({
         <div className="w-full text-left">
           <span className="flex items-center gap-1.5">
             {Icon ? <Icon className={cn("shrink-0", scale.icon, timeTone)} aria-hidden /> : null}
-            <span className={cn("min-w-0 flex-1 truncate", scale.title)}>{label}</span>
+            <span className={cn("min-w-0 flex-1 line-clamp-1", scale.title)}>{label}</span>
+            {recurrenceIndicator}
           </span>
           <span className={cn("mt-0.5 block truncate", scale.time, timeTone)}>{time}</span>
         </div>

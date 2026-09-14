@@ -73,7 +73,7 @@ export const EVENT_TYPE_SCALE: Record<CalendarViewScale, EventTypeScale> = {
  */
 const DENSITY_STEPS: Record<CalendarViewScale, { full: number; medium: number; short: number }> = {
   week: { full: 76, medium: 54, short: 34 },
-  day: { full: 84, medium: 60, short: 38 },
+  day: { full: 84, medium: 60, short: 42 },
   month: { full: 40, medium: 30, short: 20 },
 };
 
