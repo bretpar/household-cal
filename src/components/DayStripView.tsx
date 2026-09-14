@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { addDays, differenceInCalendarDays, startOfDay } from "date-fns";
 
-import { WeekView } from "@/components/WeekView";
+import { MOBILE_THREE_DAY_GUTTER_PX, WeekView } from "@/components/WeekView";
 import { useDayStrip } from "@/hooks/use-day-strip";
 import type { CalendarEvent, MemberId } from "@/lib/family-data";
 
@@ -87,7 +87,8 @@ export function DayStripView({
     const el = outerRef.current;
     if (!el) return;
     const measure = () => {
-      const available = el.clientWidth - GUTTER_PX;
+      const gutter = visibleDays === 3 ? MOBILE_THREE_DAY_GUTTER_PX : GUTTER_PX;
+      const available = el.clientWidth - gutter;
       if (available > 0) setColumnWidth(available / visibleDays);
     };
     measure();
