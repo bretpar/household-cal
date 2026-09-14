@@ -295,18 +295,17 @@
 }
 
 /* Invisible 44px-tall hit area for very short events, without making the
-   rendered block any taller. */
+   rendered block any taller. It extends downward so a later event beginning
+   in that area remains the topmost, correct target. */
 @utility touch-hit-44 {
   &::after {
     content: "";
-    /* Never intercept taps meant for nested labels/buttons. */
-    pointer-events: none;
+    pointer-events: auto;
 
     position: absolute;
     left: 0;
     right: 0;
-    top: 50%;
-    transform: translateY(-50%);
+    top: 0;
     height: 100%;
     min-height: 44px;
   }

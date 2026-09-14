@@ -561,8 +561,8 @@ export function WeekView({
 
                   {/* Timed events sit above the coverage layer in side-by-side lanes.
                     The whole card opens details on tap; the same block body is also
-                    the long-press move target. Narrow mobile 3-Day uses full-width,
-                    vertically offset cards so titles and times remain readable. */}
+                    the long-press move target. Narrow mobile 3-Day uses layered,
+                    full-width cards anchored to their true start times. */}
                   <div className="pointer-events-none absolute inset-y-0 right-1 left-3 z-0 sm:left-4">
                     {(() => {
                       const placed = withLanes(visible);
@@ -636,10 +636,6 @@ export function WeekView({
                               width: stackMobileThreeDay
                                 ? "calc(100% - 2px)"
                                 : `calc(${100 / laneCount}% - 2px)`,
-                              transform:
-                                stackMobileThreeDay && lane > 0
-                                  ? `translateY(${lane * 28}px)`
-                                  : undefined,
                              zIndex:
                                (overlapKeys.has(o.key) || draggingKey === o.key ? 40 : 10) + lane,
                            }}
