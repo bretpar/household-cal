@@ -50,6 +50,9 @@ const DAY_START = 0;
 const DAY_END = 24;
 /** Reduced hour height so Day/3-Day views show more hours at once (~75%). */
 const HOUR_PX = 45;
+/** Narrower time rail used only when three phone-sized day columns share the viewport. */
+export const MOBILE_THREE_DAY_GUTTER_PX = 40;
+const DEFAULT_GUTTER_PX = 52;
 /** Drops snap to a friendly grid rather than to the exact pixel. */
 const SNAP_MINUTES = 15;
 
@@ -273,10 +276,11 @@ export function WeekView({
 
   // Day-strip mode: fixed-width day columns inside one horizontal scroll host.
   const strip = dayWidth != null && dayWidth > 0;
+  const gutterPx = stackMobileThreeDay ? MOBILE_THREE_DAY_GUTTER_PX : DEFAULT_GUTTER_PX;
   const gridTemplate = strip
-    ? `3.25rem repeat(${days}, ${dayWidth}px)`
-    : `3.25rem repeat(${days}, minmax(0,1fr))`;
-  const trackWidth = strip ? 52 + days * dayWidth! : undefined;
+    ? `${gutterPx}px repeat(${days}, ${dayWidth}px)`
+    : `${gutterPx}px repeat(${days}, minmax(0,1fr))`;
+  const trackWidth = strip ? gutterPx + days * dayWidth : undefined;
   const gutterClass = strip ? "sticky left-0 z-30 bg-surface" : "";
   // In strip mode a single element scrolls both axes, so the sticky hour gutter
   // and sticky day headers stay pinned to the viewport instead of the wide track.
@@ -569,7 +573,7 @@ export function WeekView({
                       const hiddenByCluster = new Map<number, Placed[]>();
                       if (stackMobileThreeDay) {
                         for (const item of placed) {
-                          if (item.lane < 2) continue;
+                           if (item.lane < 4) continue;
                           const hidden = hiddenByCluster.get(item.cluster) ?? [];
                           hidden.push(item);
                           hiddenByCluster.set(item.cluster, hidden);
@@ -577,16 +581,16 @@ export function WeekView({
                       }
 
                       return placed.map(({ occurrence: o, lane, laneCount, cluster }) => {
-                       if (stackMobileThreeDay && lane >= 2) {
+                        if (stackMobileThreeDay && lane >= 4) {
                          const hidden = hiddenByCluster.get(cluster) ?? [];
                          if (hidden[0]?.occurrence.key !== o.key) return null;
-                         const markerTop = Math.min(...hidden.map((item) => topFor(item.occurrence.start))) + 56;
+                          const markerTop = Math.min(...hidden.map((item) => topFor(item.occurrence.start)));
                          return (
                            <button
                              key={`more-${cluster}`}
                              type="button"
-                             className="pointer-events-auto absolute inset-x-0 z-30 h-7 truncate rounded-md border border-border-soft bg-surface px-2 text-left text-xs font-semibold text-muted-foreground shadow-soft"
-                             style={{ top: markerTop }}
+                              className="pointer-events-auto absolute right-0 z-30 h-6 max-w-[70%] truncate rounded-md border border-border-soft bg-surface px-1.5 text-xs font-semibold text-muted-foreground shadow-soft"
+                              style={{ top: markerTop }}
                              onClick={() => openOccurrence(o)}
                              aria-label={`${hidden.length} more overlapping ${hidden.length === 1 ? "event" : "events"}`}
                            >
@@ -629,12 +633,12 @@ export function WeekView({
                            style={{
                              top: topFor(o.start),
                              height: blockHeight,
-                              // Day and larger screens retain equal overlap lanes.
-                              // Mobile 3-Day stacks two readable full-width cards and
-                              // summarizes any denser overlap rather than squeezing.
+                               // Day and larger screens retain equal overlap lanes.
+                               // Mobile 3-Day keeps four readable cascading widths and
+                               // summarizes any denser overlap rather than squeezing.
                               left: stackMobileThreeDay ? 0 : `${(lane / laneCount) * 100}%`,
                               width: stackMobileThreeDay
-                                ? "calc(100% - 2px)"
+                                 ? `calc(${100 - Math.min(lane, 3) * 10}% - 2px)`
                                 : `calc(${100 / laneCount}% - 2px)`,
                              zIndex:
                                (overlapKeys.has(o.key) || draggingKey === o.key ? 40 : 10) + lane,
@@ -651,7 +655,7 @@ export function WeekView({
                               occurrence={o}
                               view={viewScale}
                               density={density}
-                              showRecurrence
+                              showRecurrence={!stackMobileThreeDay}
                             />
                           </div>
                         </div>
