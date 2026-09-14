@@ -7,7 +7,6 @@ import { AgendaView } from "@/components/AgendaView";
 
 import { MemberFilter } from "@/components/MemberFilter";
 import { useCalendar } from "@/lib/calendar-store";
-import { isCoverage, occurrencesForDay } from "@/lib/family-data";
 
 export const Route = createFileRoute("/_authenticated/today")({
   head: () => ({
@@ -29,11 +28,8 @@ export const Route = createFileRoute("/_authenticated/today")({
 });
 
 function TodayPage() {
-  const { events, visibleEvents, selectedMembers, sources, canEdit, copiedEvent, startPaste } = useCalendar();
+  const { visibleEvents, selectedMembers, canEdit, copiedEvent, startPaste } = useCalendar();
   const today = new Date();
-  const coverage = occurrencesForDay(events, today).filter((o) => isCoverage(o.event));
-  const coverageName =
-    sources.find((s) => s.display_mode === "coverage_background")?.name ?? "Coverage";
 
   return (
     <AppShell>
@@ -49,16 +45,6 @@ function TodayPage() {
           </div>
           <AddEventDialog defaultDate={today} />
         </header>
-
-        {coverage.length > 0 ? (
-          <p className="rounded-2xl bg-coverage-strong/70 px-4 py-3 text-sm font-semibold text-coverage-foreground">
-            {coverageName} today ·{" "}
-            {coverage
-              .map((o) => `${format(o.start, "h:mm a")}–${format(o.end, "h:mm a")}`)
-              .join(", ")}
-          </p>
-        ) : null}
-
 
         <MemberFilter />
         <AgendaView
