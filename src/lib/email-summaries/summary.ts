@@ -42,6 +42,9 @@ export interface SummaryEvent {
   /** palette name of the event's category colour; null = Uncategorized */
   category_color?: string | null;
   category_name?: string | null;
+  /** stable Google identity, when the event came from a synced calendar */
+  external_event_id?: string | null;
+  external_recurring_event_id?: string | null;
 }
 
 export interface SummaryBadge {
