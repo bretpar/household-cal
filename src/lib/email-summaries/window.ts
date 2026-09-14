@@ -225,7 +225,7 @@ export function previewWindow(
   const todayKey = dayKeyInZone(now, timeZone);
   if (frequency === "daily") return windowForSendDay("daily", todayKey);
   if (frequency === "weekly") {
-    const monday = mondayOf(todayKey);
+    const monday = mondayOf(addDays(todayKey, 7));
     return {
       frequency,
       startDayKey: monday,
