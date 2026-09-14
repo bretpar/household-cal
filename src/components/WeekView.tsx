@@ -80,6 +80,7 @@ interface Placed {
   occurrence: Occurrence;
   lane: number;
   laneCount: number;
+  cluster: number;
 }
 
 /** Greedy lane packing so overlapping events render side by side instead of stacked. */
@@ -89,6 +90,7 @@ function withLanes(list: Occurrence[]): Placed[] {
   let cluster: Placed[] = [];
   let clusterEnd = 0;
   let laneEnds: number[] = [];
+  let clusterIndex = 0;
 
   const flush = () => {
     const count = Math.max(1, laneEnds.length);
@@ -97,6 +99,7 @@ function withLanes(list: Occurrence[]): Placed[] {
     cluster = [];
     laneEnds = [];
     clusterEnd = 0;
+    clusterIndex += 1;
   };
 
   for (const occurrence of sorted) {
@@ -108,7 +111,7 @@ function withLanes(list: Occurrence[]): Placed[] {
     }
     laneEnds[lane] = occurrence.end.getTime();
     clusterEnd = Math.max(clusterEnd, occurrence.end.getTime());
-    cluster.push({ occurrence, lane, laneCount: 1 });
+    cluster.push({ occurrence, lane, laneCount: 1, cluster: clusterIndex });
   }
   flush();
   return placed;
@@ -174,6 +177,7 @@ export function WeekView({
   /** Rolling window: the selected date is always the left-most column. */
   /** One column = Day view, which gets the slightly larger shared type scale. */
   const viewScale = (scaleDays ?? days) === 1 ? "day" : "week";
+  const stackMobileThreeDay = isMobile && (scaleDays ?? days) === 3;
   const start = anchor;
   const columns: Date[] = Array.from({ length: days }, (_, i) => addDays(start, i));
   const occurrences = expandOccurrences(events, columns[0]!, addDays(columns[days - 1]!, 1));
@@ -557,9 +561,39 @@ export function WeekView({
 
                   {/* Timed events sit above the coverage layer in side-by-side lanes.
                     The whole card opens details on tap; the same block body is also
-                    the long-press move target. */}
+                    the long-press move target. Narrow mobile 3-Day uses full-width,
+                    vertically offset cards so titles and times remain readable. */}
                   <div className="pointer-events-none absolute inset-y-0 right-1 left-3 z-0 sm:left-4">
-                    {withLanes(visible).map(({ occurrence: o, lane, laneCount }) => {
+                    {(() => {
+                      const placed = withLanes(visible);
+                      const hiddenByCluster = new Map<number, Placed[]>();
+                      if (stackMobileThreeDay) {
+                        for (const item of placed) {
+                          if (item.lane < 2) continue;
+                          const hidden = hiddenByCluster.get(item.cluster) ?? [];
+                          hidden.push(item);
+                          hiddenByCluster.set(item.cluster, hidden);
+                        }
+                      }
+
+                      return placed.map(({ occurrence: o, lane, laneCount, cluster }) => {
+                       if (stackMobileThreeDay && lane >= 2) {
+                         const hidden = hiddenByCluster.get(cluster) ?? [];
+                         if (hidden[0]?.occurrence.key !== o.key) return null;
+                         const markerTop = Math.min(...hidden.map((item) => topFor(item.occurrence.start))) + 56;
+                         return (
+                           <button
+                             key={`more-${cluster}`}
+                             type="button"
+                             className="pointer-events-auto absolute inset-x-0 z-30 h-7 truncate rounded-md border border-border-soft bg-surface px-2 text-left text-xs font-semibold text-muted-foreground shadow-soft"
+                             style={{ top: markerTop }}
+                             onClick={() => openOccurrence(o)}
+                             aria-label={`${hidden.length} more overlapping ${hidden.length === 1 ? "event" : "events"}`}
+                           >
+                             +{hidden.length} more
+                           </button>
+                         );
+                       }
                       const blockHeight = heightFor(o);
                       // Height decides which rows are shown — never the font size.
                       // On desktop/tablet there is enough room to keep title + time
@@ -595,12 +629,17 @@ export function WeekView({
                            style={{
                              top: topFor(o.start),
                              height: blockHeight,
-                             // Each lane gets an equal, non-overlapping share of the
-                             // column. The entire visible card is tappable via the
-                             // outer wrapper, so even narrow lanes remain usable
-                             // without invisible hit areas stealing neighbouring taps.
-                             left: `${(lane / laneCount) * 100}%`,
-                             width: `calc(${100 / laneCount}% - 2px)`,
+                              // Day and larger screens retain equal overlap lanes.
+                              // Mobile 3-Day stacks two readable full-width cards and
+                              // summarizes any denser overlap rather than squeezing.
+                              left: stackMobileThreeDay ? 0 : `${(lane / laneCount) * 100}%`,
+                              width: stackMobileThreeDay
+                                ? "calc(100% - 2px)"
+                                : `calc(${100 / laneCount}% - 2px)`,
+                              transform:
+                                stackMobileThreeDay && lane > 0
+                                  ? `translateY(${lane * 28}px)`
+                                  : undefined,
                              zIndex:
                                (overlapKeys.has(o.key) || draggingKey === o.key ? 40 : 10) + lane,
                            }}
@@ -617,7 +656,8 @@ export function WeekView({
                         </div>
                       );
 
-                    })}
+                      });
+                    })()}
                   </div>
 
                   {/* Live drag preview: never persisted, replaced by the real form on release.

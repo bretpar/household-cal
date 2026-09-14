@@ -29,3 +29,8 @@
 ## Event date and time controls
 - [x] Add explicit Start and End date/time rows that preserve overnight and multi-day events.
 - [x] Group All day and Repeats into one compact secondary control row.
+
+## Mobile calendar readability
+- [x] Remove the temporary caregiver coverage summary from Today without changing coverage data.
+- [x] Stack overlapping mobile 3-Day events at readable width, with compact overflow for dense groups.
+- [x] Preserve Day, larger-screen overlap lanes, the 45px hour scale, and vertical timeline scrolling.
