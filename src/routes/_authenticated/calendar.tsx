@@ -282,8 +282,8 @@ function CalendarPage() {
     );
 
   return (
-    <AppShell fitViewport>
-      <div className="flex min-h-0 flex-1 flex-col gap-2 md:block md:space-y-4">
+    <AppShell fitViewport compactMobileLandscape={mode === "week"}>
+      <div className="calendar-page-layout flex min-h-0 flex-1 flex-col gap-2 md:block md:space-y-4">
         {/* Desktop / tablet header — unchanged */}
         <header className="hidden grid-cols-[minmax(0,1fr)_auto] items-center gap-3 md:grid">
           <h1 className="truncate text-2xl font-bold sm:text-3xl">Calendar</h1>
@@ -291,7 +291,7 @@ function CalendarPage() {
         </header>
 
         {/* Compact phone toolbar: navigation, Today and + on one row. */}
-        <div className="flex shrink-0 items-center gap-1 md:hidden">
+        <div className="calendar-mobile-toolbar flex shrink-0 items-center gap-1 md:hidden">
           <Button
             variant="ghost"
             size="icon"
@@ -383,7 +383,7 @@ function CalendarPage() {
         </div>
 
         {/* Phone view switcher + filters */}
-        <div className="flex shrink-0 items-center gap-2 md:hidden">
+        <div className="calendar-mobile-view-controls flex shrink-0 items-center gap-2 md:hidden">
           <div className="flex min-w-0 flex-1 rounded-full bg-surface-muted p-1">
             {(["month", "week", "day"] as ViewMode[]).map((v) => (
               <button
