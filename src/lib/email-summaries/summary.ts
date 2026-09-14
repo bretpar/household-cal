@@ -235,9 +235,19 @@ export function buildSummaryDays(
     // recipient day filter is applied after calendar filtering
     if (!includesWeekday(weekdays, dayKey)) continue;
     const items: SummaryItem[] = [];
+    // Guard against duplicate stored rows for the same Google occurrence
+    // rendering twice in one email. Only Google-identified events participate,
+    // keyed by calendar + external occurrence id + day; anything else always renders.
+    const seenGoogleOccurrences = new Set<string>();
     for (const event of events) {
       if (!occursOnDayKey(event, dayKey, timeZone)) continue;
       if (!hasParticipantsOn(event, dayKey)) continue;
+      const googleId = event.external_event_id ?? event.external_recurring_event_id;
+      if (event.calendar_source_id && googleId) {
+        const dedupeKey = `${event.calendar_source_id}|${googleId}|${dayKey}`;
+        if (seenGoogleOccurrences.has(dedupeKey)) continue;
+        seenGoogleOccurrences.add(dedupeKey);
+      }
 
       const badges = participantsOn(event, dayKey)
         .map((id) => memberById.get(id))

@@ -119,6 +119,8 @@ async function loadHousehold(admin: AnyDb, familyId: string): Promise<HouseholdD
     member_ids: (e.event_members ?? []).map((m: any) => m.family_member_id),
     category_color: categoryById.get(e.category_id)?.color ?? null,
     category_name: categoryById.get(e.category_id)?.name ?? null,
+    external_event_id: e.external_event_id ?? null,
+    external_recurring_event_id: e.external_recurring_event_id ?? null,
   }));
 
   return {
