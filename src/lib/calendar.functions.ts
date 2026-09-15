@@ -76,7 +76,7 @@ export const updateEventFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const db = context.supabase as unknown as Db;
-    const familyId = await resolveWritableFamily(db, context.userId);
+    const familyId = await resolveWritableFamilyForEvent(db, context.userId, data.event_id);
     const created = await applyEventUpdate(
       db,
       data.event_id,
@@ -109,7 +109,7 @@ export const deleteEventFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const db = context.supabase as unknown as Db;
-    const familyId = await resolveWritableFamily(db, context.userId);
+    const familyId = await resolveWritableFamilyForEvent(db, context.userId, data.event_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const sync = await import("@/lib/google/sync.server");
 
