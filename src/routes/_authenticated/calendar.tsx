@@ -63,8 +63,10 @@ function CalendarPage() {
     ? (at: Date, until: Date) => setQuickAdd({ at, until, withTime: true })
     : undefined;
   const isMobile = useIsMobile();
+  const [isLandscape, setIsLandscape] = useState(false);
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("month");
+  const portraitViewRef = useRef<Extract<ViewMode, "month" | "day">>("month");
   const { defaultView } = useDefaultCalendarView(family?.id ?? null);
   const { weekStart } = useWeekStart(family?.id ?? null);
   const [appliedDefault, setAppliedDefault] = useState(false);
@@ -73,8 +75,34 @@ function CalendarPage() {
   useEffect(() => {
     if (appliedDefault || !defaultView) return;
     setView(defaultView);
+    if (defaultView === "month" || defaultView === "day") {
+      portraitViewRef.current = defaultView;
+    }
     setAppliedDefault(true);
   }, [defaultView, appliedDefault]);
+
+  useEffect(() => {
+    const orientation = window.matchMedia("(orientation: landscape)");
+    const updateOrientation = () => setIsLandscape(orientation.matches);
+    orientation.addEventListener("change", updateOrientation);
+    updateOrientation();
+    return () => orientation.removeEventListener("change", updateOrientation);
+  }, []);
+
+  // Phone landscape temporarily uses Week; portrait returns to its prior
+  // Month or Day selection without changing the saved default preference.
+  useEffect(() => {
+    if (!isMobile) return;
+    setView((currentView) => {
+      if (isLandscape) {
+        if (currentView === "month" || currentView === "day") {
+          portraitViewRef.current = currentView;
+        }
+        return "week";
+      }
+      return currentView === "week" ? portraitViewRef.current : currentView;
+    });
+  }, [isLandscape, isMobile]);
 
   const mode: ViewMode = view;
   const isEmpty = !loading && events.length === 0;
@@ -385,11 +413,14 @@ function CalendarPage() {
         {/* Phone view switcher + filters */}
         <div className="calendar-mobile-view-controls flex shrink-0 items-center gap-2 md:hidden">
           <div className="flex min-w-0 flex-1 rounded-full bg-surface-muted p-1">
-            {(["month", "week", "day"] as ViewMode[]).map((v) => (
+            {(isLandscape ? ["month", "week", "day"] : ["month", "day"] as ViewMode[]).map((v) => (
               <button
                 key={v}
                 type="button"
-                onClick={() => setView(v)}
+                onClick={() => {
+                  if (v === "month" || v === "day") portraitViewRef.current = v;
+                  setView(v);
+                }}
                 className={cn(
                   "h-8 flex-1 rounded-full text-xs font-semibold transition-colors",
                   view === v ? "bg-surface text-foreground shadow-soft" : "text-muted-foreground",
