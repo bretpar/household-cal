@@ -63,8 +63,11 @@ function CalendarPage() {
     ? (at: Date, until: Date) => setQuickAdd({ at, until, withTime: true })
     : undefined;
   const isMobile = useIsMobile();
+  const [isLandscape, setIsLandscape] = useState(false);
+  const [isPhoneScreen, setIsPhoneScreen] = useState(false);
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("month");
+  const portraitViewRef = useRef<Extract<ViewMode, "month" | "day">>("month");
   const { defaultView } = useDefaultCalendarView(family?.id ?? null);
   const { weekStart } = useWeekStart(family?.id ?? null);
   const [appliedDefault, setAppliedDefault] = useState(false);
@@ -73,15 +76,51 @@ function CalendarPage() {
   useEffect(() => {
     if (appliedDefault || !defaultView) return;
     setView(defaultView);
+    if (defaultView === "month" || defaultView === "day") {
+      portraitViewRef.current = defaultView;
+    }
     setAppliedDefault(true);
   }, [defaultView, appliedDefault]);
+
+  useEffect(() => {
+    const orientation = window.matchMedia("(orientation: landscape)");
+    const phoneScreen = window.matchMedia(
+      "(max-width: 767px), (orientation: landscape) and (max-height: 600px)",
+    );
+    const updateOrientation = () => {
+      setIsLandscape(orientation.matches);
+      setIsPhoneScreen(phoneScreen.matches);
+    };
+    orientation.addEventListener("change", updateOrientation);
+    phoneScreen.addEventListener("change", updateOrientation);
+    updateOrientation();
+    return () => {
+      orientation.removeEventListener("change", updateOrientation);
+      phoneScreen.removeEventListener("change", updateOrientation);
+    };
+  }, []);
+
+  // Phone landscape temporarily uses Week; portrait returns to its prior
+  // Month or Day selection without changing the saved default preference.
+  useEffect(() => {
+    if (!isPhoneScreen) return;
+    setView((currentView) => {
+      if (isLandscape) {
+        if (currentView === "month" || currentView === "day") {
+          portraitViewRef.current = currentView;
+        }
+        return "week";
+      }
+      return currentView === "week" ? portraitViewRef.current : currentView;
+    });
+  }, [isLandscape, isPhoneScreen]);
 
   const mode: ViewMode = view;
   const isEmpty = !loading && events.length === 0;
 
   // Week view is a 7-day calendar where there is room, and a 3-day calendar on
   // phones so each column is wide enough to read.
-  const weekDays = isMobile ? 3 : 7;
+  const weekDays = isMobile && !isLandscape ? 3 : 7;
 
   // Continuous single-day strip: mobile Day / 3-Day and desktop Week are all one
   // long horizontal sequence of day columns behind a fixed hour rail.
@@ -198,7 +237,8 @@ function CalendarPage() {
 
 
   const viewLabel = (v: ViewMode) =>
-    v === "week" && isMobile ? "3 Day" : CALENDAR_VIEW_LABEL[v];
+    v === "week" && isMobile && !isLandscape ? "3 Day" : CALENDAR_VIEW_LABEL[v];
+  const phoneViews: ViewMode[] = isLandscape ? ["month", "week", "day"] : ["month", "day"];
 
 
   const syncTimelineScroll = (scrollTop: number, source: HTMLDivElement) => {
@@ -385,11 +425,14 @@ function CalendarPage() {
         {/* Phone view switcher + filters */}
         <div className="calendar-mobile-view-controls flex shrink-0 items-center gap-2 md:hidden">
           <div className="flex min-w-0 flex-1 rounded-full bg-surface-muted p-1">
-            {(["month", "week", "day"] as ViewMode[]).map((v) => (
+            {phoneViews.map((v) => (
               <button
                 key={v}
                 type="button"
-                onClick={() => setView(v)}
+                onClick={() => {
+                  if (v === "month" || v === "day") portraitViewRef.current = v;
+                  setView(v);
+                }}
                 className={cn(
                   "h-8 flex-1 rounded-full text-xs font-semibold transition-colors",
                   view === v ? "bg-surface text-foreground shadow-soft" : "text-muted-foreground",
