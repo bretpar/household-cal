@@ -109,7 +109,7 @@ function CalendarPage() {
 
   // Week view is a 7-day calendar where there is room, and a 3-day calendar on
   // phones so each column is wide enough to read.
-  const weekDays = isMobile ? 3 : 7;
+  const weekDays = isMobile && !isLandscape ? 3 : 7;
 
   // Continuous single-day strip: mobile Day / 3-Day and desktop Week are all one
   // long horizontal sequence of day columns behind a fixed hour rail.
@@ -226,7 +226,8 @@ function CalendarPage() {
 
 
   const viewLabel = (v: ViewMode) =>
-    v === "week" && isMobile ? "3 Day" : CALENDAR_VIEW_LABEL[v];
+    v === "week" && isMobile && !isLandscape ? "3 Day" : CALENDAR_VIEW_LABEL[v];
+  const phoneViews: ViewMode[] = isLandscape ? ["month", "week", "day"] : ["month", "day"];
 
 
   const syncTimelineScroll = (scrollTop: number, source: HTMLDivElement) => {
@@ -413,10 +414,7 @@ function CalendarPage() {
         {/* Phone view switcher + filters */}
         <div className="calendar-mobile-view-controls flex shrink-0 items-center gap-2 md:hidden">
           <div className="flex min-w-0 flex-1 rounded-full bg-surface-muted p-1">
-            {(isLandscape
-              ? (["month", "week", "day"] as ViewMode[])
-              : (["month", "day"] as ViewMode[])
-            ).map((v) => (
+            {phoneViews.map((v) => (
               <button
                 key={v}
                 type="button"
