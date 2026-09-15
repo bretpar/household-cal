@@ -75,12 +75,15 @@ function CalendarPage() {
   // Open on the user's saved default view once, without fighting later manual changes.
   useEffect(() => {
     if (appliedDefault || !defaultView) return;
-    setView(defaultView);
     if (defaultView === "month" || defaultView === "day") {
       portraitViewRef.current = defaultView;
     }
+    // A saved Week/3-Day default must not open on a portrait phone, where the
+    // selector only offers Month and Day.
+    const portraitPhone = isPhoneScreen && !isLandscape;
+    setView(portraitPhone && defaultView === "week" ? portraitViewRef.current : defaultView);
     setAppliedDefault(true);
-  }, [defaultView, appliedDefault]);
+  }, [defaultView, appliedDefault, isPhoneScreen, isLandscape]);
 
   useEffect(() => {
     const orientation = window.matchMedia("(orientation: landscape)");
