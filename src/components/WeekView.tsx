@@ -636,7 +636,9 @@ export function WeekView({
                                // Day and larger screens retain equal overlap lanes.
                                // Mobile 3-Day keeps four readable cascading widths and
                                // summarizes any denser overlap rather than squeezing.
-                              left: stackMobileThreeDay ? 0 : `${(lane / laneCount) * 100}%`,
+                               left: stackMobileThreeDay
+                                 ? `${Math.min(lane, 3) * 10}%`
+                                 : `${(lane / laneCount) * 100}%`,
                               width: stackMobileThreeDay
                                  ? `calc(${100 - Math.min(lane, 3) * 10}% - 2px)`
                                 : `calc(${100 / laneCount}% - 2px)`,
