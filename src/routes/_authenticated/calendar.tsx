@@ -413,7 +413,10 @@ function CalendarPage() {
         {/* Phone view switcher + filters */}
         <div className="calendar-mobile-view-controls flex shrink-0 items-center gap-2 md:hidden">
           <div className="flex min-w-0 flex-1 rounded-full bg-surface-muted p-1">
-            {(isLandscape ? ["month", "week", "day"] : ["month", "day"] as ViewMode[]).map((v) => (
+            {(isLandscape
+              ? (["month", "week", "day"] as ViewMode[])
+              : (["month", "day"] as ViewMode[])
+            ).map((v) => (
               <button
                 key={v}
                 type="button"
