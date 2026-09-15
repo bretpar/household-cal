@@ -235,6 +235,39 @@ export async function resolveWritableFamily(db: Db, userId: string): Promise<str
   return familyId;
 }
 
+/**
+ * The household an existing event belongs to, but only when the caller may
+ * write to *that* household. Editing/deleting must authorise against the
+ * event's own household: users who belong to more than one would otherwise be
+ * checked against their first writable household while the write targets a
+ * different one, which row-level security then rejects outright.
+ */
+export async function resolveWritableFamilyForEvent(
+  db: Db,
+  userId: string,
+  eventId: string,
+): Promise<string> {
+  const { data: event, error: eventError } = await db
+    .from("events")
+    .select("family_id")
+    .eq("id", eventId)
+    .single();
+  if (eventError) throw eventError;
+  const familyId = event?.family_id as string | undefined;
+  if (!familyId) throw new Error("This event could not be found");
+
+  const { data, error } = await db
+    .from("family_users")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("family_id", familyId)
+    .in("role", ["owner", "editor"])
+    .limit(1);
+  if (error) throw error;
+  if (!data?.[0]) throw new Error("You do not have permission to change this calendar");
+  return familyId;
+}
+
 export async function defaultEventSource(db: Db, familyId: string): Promise<string | null> {
   const { data } = await db
     .from("calendar_sources")
