@@ -64,6 +64,7 @@ function CalendarPage() {
     : undefined;
   const isMobile = useIsMobile();
   const [isLandscape, setIsLandscape] = useState(false);
+  const [isPhoneScreen, setIsPhoneScreen] = useState(false);
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("month");
   const portraitViewRef = useRef<Extract<ViewMode, "month" | "day">>("month");
@@ -83,16 +84,26 @@ function CalendarPage() {
 
   useEffect(() => {
     const orientation = window.matchMedia("(orientation: landscape)");
-    const updateOrientation = () => setIsLandscape(orientation.matches);
+    const phoneScreen = window.matchMedia(
+      "(max-width: 767px), (orientation: landscape) and (max-height: 600px)",
+    );
+    const updateOrientation = () => {
+      setIsLandscape(orientation.matches);
+      setIsPhoneScreen(phoneScreen.matches);
+    };
     orientation.addEventListener("change", updateOrientation);
+    phoneScreen.addEventListener("change", updateOrientation);
     updateOrientation();
-    return () => orientation.removeEventListener("change", updateOrientation);
+    return () => {
+      orientation.removeEventListener("change", updateOrientation);
+      phoneScreen.removeEventListener("change", updateOrientation);
+    };
   }, []);
 
   // Phone landscape temporarily uses Week; portrait returns to its prior
   // Month or Day selection without changing the saved default preference.
   useEffect(() => {
-    if (!isMobile) return;
+    if (!isPhoneScreen) return;
     setView((currentView) => {
       if (isLandscape) {
         if (currentView === "month" || currentView === "day") {
@@ -102,7 +113,7 @@ function CalendarPage() {
       }
       return currentView === "week" ? portraitViewRef.current : currentView;
     });
-  }, [isLandscape, isMobile]);
+  }, [isLandscape, isPhoneScreen]);
 
   const mode: ViewMode = view;
   const isEmpty = !loading && events.length === 0;
