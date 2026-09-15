@@ -41,8 +41,23 @@ async function resolveGuard(pathname: string) {
     return { user: data.user, family_id: resolved.family_id };
   }
 
-  // membership check failed: do not redirect to onboarding; remain in the
-  // authenticated app and let the current route decide how to degrade.
+  // The server membership check failed. Fail closed only when we can confirm
+  // the account truly has no household: read the caller's own membership rows
+  // (the family_users SELECT policy allows user_id = auth.uid()). A confirmed
+  // household-less account must not land on an empty calendar; if this read
+  // also fails, the state is genuinely unknown, so keep the user in-app
+  // rather than bouncing an established household through onboarding on a
+  // transient error.
+  if (!onOnboarding) {
+    const { data: memberships, error: membershipError } = await supabase
+      .from("family_users")
+      .select("family_id")
+      .eq("user_id", data.user.id)
+      .limit(1);
+    if (!membershipError && (memberships?.length ?? 0) === 0) {
+      return { redirectTo: "/onboarding" as const };
+    }
+  }
   return { user: data.user };
 }
 
