@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { CopiedEventBar } from "@/components/CopiedEventBar";
@@ -81,25 +81,35 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   const navigate = useNavigate();
-  const [ready, setReady] = useState(false);
+  // Re-run the guard on every pathname change: the membership check may itself
+  // trigger a navigation (e.g. fresh signup -> /onboarding), and without this
+  // dependency the layout would stay unready forever after that redirect.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [readyForPath, setReadyForPath] = useState<string | null>(null);
 
   useEffect(() => {
     hasMountedOnce = true;
     let cancelled = false;
     void (async () => {
-      const result = await resolveGuard(window.location.pathname);
+      const result = await resolveGuard(pathname);
       if (cancelled) return;
       if ("redirectTo" in result) {
-        navigate({ to: result.redirectTo, replace: true });
+        // Only redirect when the guard disagrees with the current path; on
+        // the destination path the guard passes, so no redirect loop forms.
+        if (result.redirectTo !== pathname) {
+          navigate({ to: result.redirectTo, replace: true });
+        }
         return;
       }
-      setReady(true);
+      setReadyForPath(pathname);
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pathname]);
+
+  const ready = readyForPath === pathname;
 
   if (!ready) return null;
 
