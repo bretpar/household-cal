@@ -561,7 +561,7 @@ function CalendarPage() {
 
           <div
             aria-hidden
-            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col overflow-hidden md:block"
+            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col overflow-hidden"
           >
             {renderPeriod(shift(anchor, -1))}
           </div>
@@ -570,7 +570,7 @@ function CalendarPage() {
             tabIndex={-1}
             role="group"
             aria-label={`${viewLabel(mode)} view: ${label}`}
-            className="flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col outline-none md:block"
+            className="flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col outline-none"
             onKeyDown={(e) => {
               if (e.key === "ArrowLeft") {
                 e.preventDefault();
@@ -585,7 +585,7 @@ function CalendarPage() {
           </div>
           <div
             aria-hidden
-            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col overflow-hidden md:block"
+            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col overflow-hidden"
           >
             {renderPeriod(shift(anchor, 1))}
           </div>
