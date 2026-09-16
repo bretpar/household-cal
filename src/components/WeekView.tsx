@@ -583,6 +583,20 @@ export function WeekView({
                             title={careLabel(o)}
                           />
                         </div>
+                        {continuation ? (
+                          <div
+                            className="pointer-events-none absolute inset-x-0 text-coverage-foreground/90"
+                            style={{ top: continuation.top, height: continuation.height }}
+                          >
+                            <CalendarEventContent
+                              occurrence={o}
+                              view={viewScale}
+                              density={densityForHeight(viewScale, continuation.height)}
+                              muted
+                              title={careLabel(o)}
+                            />
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}
