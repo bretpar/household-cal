@@ -756,7 +756,18 @@ export function WeekView({
                               density={density}
                                showRecurrence={!cascadeMobileTimed}
                                compactTimed={cascadeMobileTimed}
-                               maxBadges={cascadeMobileTimed && (stackMobileThreeDay || mobileDayCoverage.length > 0 || lane > 0) ? 1 : undefined}
+                               maxBadges={
+                                 // Collapse to "+N" only when the card is genuinely
+                                 // narrow: 3-Day overlaps keep the aggressive cap,
+                                 // wide mobile Day cards show every badge.
+                                 stackMobileThreeDay && lane > 0
+                                   ? 1
+                                   : mobileDay &&
+                                       mobileDayCoverage.length > 0 &&
+                                       mobileDayWidth < 60
+                                     ? 1
+                                     : undefined
+                               }
                             />
                           </div>
                         </div>
