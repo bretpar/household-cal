@@ -1054,8 +1054,35 @@ export async function applyGoogleEvent(
     return;
   }
 
+  /* ---------- linked exception: keep the parent's exclusion asserted ---------- */
+  // A detached occurrence we already track can outlive the parent's excluded
+  // date (older imports, or a series edited after the exception was created).
+  // Re-assert it by strong series identity so Google's single occurrence never
+  // shows up alongside an expanded master occurrence for the same date.
+  if (link && link.google_recurring_event_id) {
+    const occurrenceDay =
+      dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime) ??
+      dayOf(link.google_original_start);
+    if (occurrenceDay) {
+      const { data: parentLinks } = await admin
+        .from("event_sync_links")
+        .select("event_id, calendar_source_id")
+        .eq("family_id", familyId)
+        .eq("google_event_id", link.google_recurring_event_id);
+      type ParentLinkRow = { event_id: string; calendar_source_id: string };
+      const parentLink =
+        ((parentLinks ?? []) as ParentLinkRow[]).find((l) => l.calendar_source_id === source.id) ??
+        ((parentLinks ?? []) as ParentLinkRow[])[0] ??
+        null;
+      if (parentLink && parentLink.event_id !== link.event_id) {
+        await addExcludedDate(admin, parentLink.event_id, occurrenceDay);
+      }
+    }
+  }
+
   /* ---------- single-occurrence exception of a known series ---------- */
   if (!link && g.recurringEventId) {
+
     // family-scoped: the parent branch may live in the other connected calendar
     const { data: seriesLinks } = await admin
       .from("event_sync_links")
