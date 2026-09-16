@@ -27,6 +27,7 @@ export function CalendarEventContent({
   onOpen,
   showRecurrence = false,
   compactTimed = false,
+  adaptiveTimed = false,
   maxBadges,
   className,
 }: {
@@ -42,6 +43,8 @@ export function CalendarEventContent({
   showRecurrence?: boolean;
   /** Reclaim horizontal space on phone-sized timed cards only. */
   compactTimed?: boolean;
+  /** Progressively remove timed-card details based on its rendered height density. */
+  adaptiveTimed?: boolean;
   /** Limit cramped badge rows while retaining an overflow count. */
   maxBadges?: number | undefined;
   className?: string;
@@ -84,7 +87,12 @@ export function CalendarEventContent({
   // it from); Day/3-Day/Week short blocks show time stacked below the title.
   if (density === "tiny" || density === "short") {
     const showInlineTime = view === "month" && density === "short";
-    const showStackedTime = density === "short" && view !== "month" && !occurrence.event.all_day;
+    const showStackedTime =
+      density === "short" &&
+      view !== "month" &&
+      !occurrence.event.all_day &&
+      !adaptiveTimed;
+    const showBadges = !adaptiveTimed || density !== "tiny";
     const innerLayout = showStackedTime ? "block" : "flex items-center gap-1.5";
     const titleRow = (
       <span className="flex min-w-0 items-center gap-1">
@@ -129,7 +137,7 @@ export function CalendarEventContent({
             ) : null}
           </div>
         )}
-        {badges}
+        {showBadges ? badges : null}
       </div>
     );
   }
