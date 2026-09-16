@@ -42,10 +42,12 @@ export function MemberBadge({
 export function MemberBadgeRow({
   ids,
   size = "xs",
+  maxVisible,
   className,
 }: {
   ids: MemberId[];
   size?: keyof typeof sizes;
+  maxVisible?: number | undefined;
   className?: string;
 }) {
   const { members } = useCalendar();
@@ -65,11 +67,24 @@ export function MemberBadgeRow({
       </span>
     );
   }
+  const visibleIds = maxVisible == null ? ids : ids.slice(0, maxVisible);
+  const hiddenCount = ids.length - visibleIds.length;
   return (
     <span className={cn("flex shrink-0 items-center gap-0.5", className)}>
-      {ids.map((id) => (
+      {visibleIds.map((id) => (
         <MemberBadge key={id} id={id} size={size} />
       ))}
+      {hiddenCount > 0 ? (
+        <span
+          title={`${hiddenCount} more ${hiddenCount === 1 ? "member" : "members"}`}
+          className={cn(
+            "inline-flex w-auto shrink-0 items-center justify-center rounded-full bg-shared-strong px-1 font-bold text-member-foreground",
+            sizes[size],
+          )}
+        >
+          +{hiddenCount}
+        </span>
+      ) : null}
     </span>
   );
 }

@@ -26,6 +26,8 @@ export function CalendarEventContent({
   title,
   onOpen,
   showRecurrence = false,
+  compactTimed = false,
+  maxBadges,
   className,
 }: {
   occurrence: Occurrence;
@@ -38,6 +40,10 @@ export function CalendarEventContent({
   onOpen?: (() => void) | undefined;
   /** Show a quiet scan marker on timed cards without changing their interaction. */
   showRecurrence?: boolean;
+  /** Reclaim horizontal space on phone-sized timed cards only. */
+  compactTimed?: boolean;
+  /** Limit cramped badge rows while retaining an overflow count. */
+  maxBadges?: number | undefined;
   className?: string;
 }) {
   const scale = EVENT_TYPE_SCALE[view];
@@ -55,11 +61,22 @@ export function CalendarEventContent({
     <MemberBadgeRow
       ids={occurrence.member_ids}
       size={scale.badge}
+      maxVisible={maxBadges}
       className="pointer-events-none shrink-0"
     />
   );
 
-  const wrapperClass = cn("h-full min-w-0", scale.padding[density], className);
+  const compactPadding: Record<EventDensity, string> = {
+    full: "px-1.5 py-1.5",
+    medium: "px-1.5 py-1",
+    short: "px-1 py-0.5",
+    tiny: "px-1 py-px",
+  };
+  const wrapperClass = cn(
+    "h-full min-w-0",
+    compactTimed ? compactPadding[density] : scale.padding[density],
+    className,
+  );
 
   // Compact rows: the title always wins. The written time is dropped before the
   // title is truncated, because the block's vertical position already says when

@@ -181,6 +181,7 @@ export function WeekView({
   /** One column = Day view, which gets the slightly larger shared type scale. */
   const viewScale = (scaleDays ?? days) === 1 ? "day" : "week";
   const stackMobileThreeDay = isMobile && (scaleDays ?? days) === 3;
+  const cascadeMobileTimed = isMobile && ((scaleDays ?? days) === 1 || stackMobileThreeDay);
   const start = anchor;
   const columns: Date[] = Array.from({ length: days }, (_, i) => addDays(start, i));
   const occurrences = expandOccurrences(events, columns[0]!, addDays(columns[days - 1]!, 1));
@@ -567,13 +568,13 @@ export function WeekView({
                     The whole card opens details on tap; the same block body is also
                     the long-press move target. Narrow mobile 3-Day uses layered,
                     full-width cards anchored to their true start times. */}
-                  <div className="pointer-events-none absolute inset-y-0 right-1 left-3 z-0 sm:left-4">
+                  <div className="pointer-events-none absolute inset-y-0 right-0.5 left-1 z-0 sm:right-1 sm:left-4">
                     {(() => {
                       const placed = withLanes(visible);
                       const hiddenByCluster = new Map<number, Placed[]>();
-                      if (stackMobileThreeDay) {
+                      if (cascadeMobileTimed) {
                         for (const item of placed) {
-                           if (item.lane < 4) continue;
+                           if (item.lane < 3) continue;
                           const hidden = hiddenByCluster.get(item.cluster) ?? [];
                           hidden.push(item);
                           hiddenByCluster.set(item.cluster, hidden);
@@ -581,7 +582,7 @@ export function WeekView({
                       }
 
                       return placed.map(({ occurrence: o, lane, laneCount, cluster }) => {
-                        if (stackMobileThreeDay && lane >= 4) {
+                        if (cascadeMobileTimed && lane >= 3) {
                          const hidden = hiddenByCluster.get(cluster) ?? [];
                          if (hidden[0]?.occurrence.key !== o.key) return null;
                           const markerTop = Math.min(...hidden.map((item) => topFor(item.occurrence.start)));
@@ -604,6 +605,7 @@ export function WeekView({
                       // for events ~30 min and up; mobile keeps the compact rules.
                       const density = timedEventDensity(viewScale, blockHeight, isMobile);
                       const compact = density === "tiny" || density === "short";
+                       const cascadeLeft = lane === 0 ? 0 : lane === 1 ? 22 : 37;
                       return (
                         <div
                           key={o.key}
@@ -620,7 +622,8 @@ export function WeekView({
                             }
                           }}
                           className={cn(
-                            "pointer-events-auto touch-hit-44 absolute cursor-pointer text-left",
+                             "pointer-events-auto absolute cursor-pointer text-left",
+                             !isMobile && "touch-hit-44",
                             compact ? "rounded-md" : "rounded-xl",
                             draggingKey === o.key && "opacity-40",
                             // Lifted by a long press: fade the original in place.
@@ -632,15 +635,16 @@ export function WeekView({
                           )}
                            style={{
                              top: topFor(o.start),
-                             height: blockHeight,
-                               // Day and larger screens retain equal overlap lanes.
-                               // Mobile 3-Day keeps four readable cascading widths and
-                               // summarizes any denser overlap rather than squeezing.
-                               left: stackMobileThreeDay
-                                 ? `${Math.min(lane, 3) * 10}%`
+                              // The mobile wrapper is the real 44px touch target; its
+                              // child keeps the visible event at the exact duration.
+                              height: isMobile ? Math.max(44, blockHeight) : blockHeight,
+                                // Mobile Day and 3-Day share three readable cascading
+                                // widths and summarize denser overlaps instead of squeezing.
+                                left: cascadeMobileTimed
+                                  ? `${cascadeLeft}%`
                                  : `${(lane / laneCount) * 100}%`,
-                              width: stackMobileThreeDay
-                                 ? `calc(${100 - Math.min(lane, 3) * 10}% - 2px)`
+                               width: cascadeMobileTimed
+                                  ? `calc(${100 - cascadeLeft}% - 2px)`
                                 : `calc(${100 / laneCount}% - 2px)`,
                              zIndex:
                                (overlapKeys.has(o.key) || draggingKey === o.key ? 40 : 10) + lane,
@@ -648,16 +652,19 @@ export function WeekView({
                         >
                           <div
                             className={cn(
-                              "absolute inset-0 overflow-hidden border border-border-soft shadow-soft",
+                               "absolute inset-x-0 top-0 overflow-hidden border border-border-soft shadow-soft",
                               compact ? "rounded-md" : "rounded-xl",
                               eventTintClass(categoryAppearanceFor(o.event)),
                             )}
+                             style={{ height: blockHeight }}
                           >
                             <CalendarEventContent
                               occurrence={o}
                               view={viewScale}
                               density={density}
-                              showRecurrence={!stackMobileThreeDay}
+                               showRecurrence={!cascadeMobileTimed}
+                               compactTimed={cascadeMobileTimed}
+                               maxBadges={cascadeMobileTimed && (stackMobileThreeDay || lane > 0) ? 1 : undefined}
                             />
                           </div>
                         </div>
