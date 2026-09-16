@@ -672,7 +672,10 @@ export function WeekView({
                          0,
                          foregroundAtLabel.findIndex((candidate) => candidate.key === o.key),
                        );
-                       const backgroundForegroundWidth = coversBackgroundLabel ? 72 : 84;
+                       // Only events sitting on the background's own label segment
+                       // need to give room back; later activities keep nearly the
+                       // full column, still anchored to the right edge.
+                       const backgroundForegroundWidth = coversBackgroundLabel ? 72 : 94;
                        const mobileDayWidth =
                          foregroundAtLabel.length > 1
                            ? backgroundForegroundWidth / Math.min(2, foregroundAtLabel.length)
