@@ -520,12 +520,15 @@ export function WeekView({
                     // Desktop/tablet: if a foreground activity sits on top of the
                     // coverage label, repeat a quiet continuation label in the first
                     // exposed background space so the shift stays identifiable.
-                    const labelEnd = new Date(
-                      o.start.getTime() + (labelHeight / HOUR_PX) * 60 * 60_000,
+                    // Only the title/time text rows decide: a foreground event
+                    // that merely overlaps the bottom of the label area leaves
+                    // the title readable, so no continuation label is needed.
+                    const labelTextEnd = new Date(
+                      o.start.getTime() + (Math.min(labelHeight, 30) / HOUR_PX) * 60 * 60_000,
                     );
                     const obscuring = isMobile
                       ? []
-                      : visible.filter((f) => f.start < labelEnd && f.end > o.start);
+                      : visible.filter((f) => f.start < labelTextEnd && f.end > o.start);
                     let continuation: { top: number; height: number } | null = null;
                     if (obscuring.length) {
                       const resumeAt = new Date(
