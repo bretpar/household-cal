@@ -517,6 +517,28 @@ export function WeekView({
                     const labelHeight = Math.min(blockHeight, 56);
                     const density = densityForHeight(viewScale, labelHeight);
                     const isChildcareEvent = isChildcare(o.event);
+                    // Desktop/tablet: if a foreground activity sits on top of the
+                    // coverage label, repeat a quiet continuation label in the first
+                    // exposed background space so the shift stays identifiable.
+                    const labelEnd = new Date(
+                      o.start.getTime() + (labelHeight / HOUR_PX) * 60 * 60_000,
+                    );
+                    const obscuring = isMobile
+                      ? []
+                      : visible.filter((f) => f.start < labelEnd && f.end > o.start);
+                    let continuation: { top: number; height: number } | null = null;
+                    if (obscuring.length) {
+                      const resumeAt = new Date(
+                        Math.max(...obscuring.map((f) => f.end.getTime())),
+                      );
+                      if (resumeAt < o.end) {
+                        const offset = topFor(resumeAt) - topFor(o.start);
+                        const remaining = blockHeight - offset;
+                        if (remaining >= 24) {
+                          continuation = { top: offset, height: Math.min(remaining, 56) };
+                        }
+                      }
+                    }
                     return (
                       <div
                         key={o.key}
@@ -561,6 +583,20 @@ export function WeekView({
                             title={careLabel(o)}
                           />
                         </div>
+                        {continuation ? (
+                          <div
+                            className="pointer-events-none absolute inset-x-0 text-coverage-foreground/90"
+                            style={{ top: continuation.top, height: continuation.height }}
+                          >
+                            <CalendarEventContent
+                              occurrence={o}
+                              view={viewScale}
+                              density={densityForHeight(viewScale, continuation.height)}
+                              muted
+                              title={careLabel(o)}
+                            />
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}

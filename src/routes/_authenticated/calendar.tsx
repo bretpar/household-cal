@@ -300,7 +300,9 @@ function CalendarPage() {
         recenterSignal={todaySignal}
       />
     ) : (
-      <div>
+      // Desktop day view: the hourly timeline owns vertical scrolling so the
+      // wheel moves through hours instead of the page.
+      <div className="flex h-full min-h-0 flex-col">
         <WeekView
           anchor={at}
           events={visibleEvents}
@@ -308,12 +310,13 @@ function CalendarPage() {
           days={1}
           onCreateRange={onCreateRange}
           bare
+          fill
           active={active}
           onTimelineScroll={syncTimelineScroll}
           onEventDragChange={handleEventDragChange}
           recenterSignal={todaySignal}
         />
-        <div className="border-t border-border-soft p-4">
+        <div className="max-h-[30%] shrink-0 overflow-y-auto border-t border-border-soft p-4">
         <AgendaView
           anchor={at}
           events={visibleEvents}
@@ -473,7 +476,11 @@ function CalendarPage() {
             "flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft",
             // Desktop day-strip and the vertical month surface need a bounded
             // height so only their inner content scrolls.
-            useDayStripLayout ? "md:h-[70vh]" : mode === "month" ? "md:h-[78vh]" : "md:block",
+            useDayStripLayout
+              ? "md:h-[70vh]"
+              : mode === "month"
+                ? "md:h-[78vh]"
+                : "md:flex md:h-[78vh] md:min-h-0 md:flex-col",
           )}
         >
         {mode === "month" ? (
@@ -554,7 +561,7 @@ function CalendarPage() {
 
           <div
             aria-hidden
-            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col overflow-hidden md:block"
+            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col overflow-hidden"
           >
             {renderPeriod(shift(anchor, -1))}
           </div>
@@ -563,7 +570,7 @@ function CalendarPage() {
             tabIndex={-1}
             role="group"
             aria-label={`${viewLabel(mode)} view: ${label}`}
-            className="flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col outline-none md:block"
+            className="flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col outline-none"
             onKeyDown={(e) => {
               if (e.key === "ArrowLeft") {
                 e.preventDefault();
@@ -578,7 +585,7 @@ function CalendarPage() {
           </div>
           <div
             aria-hidden
-            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col overflow-hidden md:block"
+            className="pointer-events-none flex min-h-0 w-full shrink-0 snap-center [scroll-snap-stop:always] flex-col overflow-hidden"
           >
             {renderPeriod(shift(anchor, 1))}
           </div>
