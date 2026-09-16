@@ -34,3 +34,4 @@
 - [x] Remove the temporary caregiver coverage summary from Today without changing coverage data.
 - [x] Stack overlapping mobile 3-Day events at readable width, with compact overflow for dense groups.
 - [x] Preserve Day, larger-screen overlap lanes, the 45px hour scale, and vertical timeline scrolling.
+- [x] Improve mobile Day/3-Day timed-card cascade widths, content space, and 44px touch targets.
