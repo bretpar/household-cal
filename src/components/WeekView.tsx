@@ -34,7 +34,14 @@ function timedEventDensity(
   view: CalendarViewScale,
   height: number,
   isMobile: boolean,
+  adaptiveTimed: boolean,
 ): EventDensity {
+  if (adaptiveTimed) {
+    if (height >= 76) return "full";
+    if (height >= 42) return "medium";
+    if (height >= 30) return "short";
+    return "tiny";
+  }
   if (isMobile) return densityForHeight(view, height);
   if (view === "week") {
     if (height >= 70) return "full";
@@ -180,6 +187,7 @@ export function WeekView({
   /** Rolling window: the selected date is always the left-most column. */
   /** One column = Day view, which gets the slightly larger shared type scale. */
   const viewScale = (scaleDays ?? days) === 1 ? "day" : "week";
+  const adaptiveTimed = (scaleDays ?? days) === 1 || (scaleDays ?? days) === 3;
   const mobileDay = isMobile && (scaleDays ?? days) === 1;
   const stackMobileThreeDay = isMobile && (scaleDays ?? days) === 3;
   const cascadeMobileTimed = mobileDay || stackMobileThreeDay;
@@ -645,7 +653,12 @@ export function WeekView({
                       // Height decides which rows are shown — never the font size.
                       // On desktop/tablet there is enough room to keep title + time
                       // for events ~30 min and up; mobile keeps the compact rules.
-                      const density = timedEventDensity(viewScale, blockHeight, isMobile);
+                       const density = timedEventDensity(
+                         viewScale,
+                         blockHeight,
+                         isMobile,
+                         adaptiveTimed,
+                       );
                       const compact = density === "tiny" || density === "short";
                        const mobileDayCoverage = mobileDay
                          ? coverage.filter(
@@ -757,8 +770,9 @@ export function WeekView({
                               occurrence={o}
                               view={viewScale}
                               density={density}
-                               showRecurrence={!cascadeMobileTimed}
+                                showRecurrence={!adaptiveTimed && !cascadeMobileTimed}
                                compactTimed={cascadeMobileTimed}
+                                adaptiveTimed={adaptiveTimed}
                                maxBadges={
                                  // Collapse to "+N" only when the card is genuinely
                                  // narrow: 3-Day overlaps keep the aggressive cap,
