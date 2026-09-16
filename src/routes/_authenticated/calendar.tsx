@@ -476,7 +476,11 @@ function CalendarPage() {
             "flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft",
             // Desktop day-strip and the vertical month surface need a bounded
             // height so only their inner content scrolls.
-            useDayStripLayout ? "md:h-[70vh]" : mode === "month" ? "md:h-[78vh]" : "md:block",
+            useDayStripLayout
+              ? "md:h-[70vh]"
+              : mode === "month"
+                ? "md:h-[78vh]"
+                : "md:flex md:h-[78vh] md:min-h-0 md:flex-col",
           )}
         >
         {mode === "month" ? (
