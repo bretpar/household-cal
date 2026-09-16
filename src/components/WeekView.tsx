@@ -5,7 +5,7 @@ import { addDays, format, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
 import { MemberBadgeRow } from "@/components/MemberBadge";
-import { eventTintClass } from "@/lib/event-colors";
+import { eventAccentClass, eventTintClass } from "@/lib/event-colors";
 import { CalendarEventContent } from "@/components/CalendarEventContent";
 import {
   densityForHeight,
@@ -180,8 +180,9 @@ export function WeekView({
   /** Rolling window: the selected date is always the left-most column. */
   /** One column = Day view, which gets the slightly larger shared type scale. */
   const viewScale = (scaleDays ?? days) === 1 ? "day" : "week";
+  const mobileDay = isMobile && (scaleDays ?? days) === 1;
   const stackMobileThreeDay = isMobile && (scaleDays ?? days) === 3;
-  const cascadeMobileTimed = isMobile && ((scaleDays ?? days) === 1 || stackMobileThreeDay);
+  const cascadeMobileTimed = mobileDay || stackMobileThreeDay;
   const start = anchor;
   const columns: Date[] = Array.from({ length: days }, (_, i) => addDays(start, i));
   const occurrences = expandOccurrences(events, columns[0]!, addDays(columns[days - 1]!, 1));
@@ -536,7 +537,7 @@ export function WeekView({
                             : undefined
                         }
                         className={cn(
-                          "absolute inset-x-0 border-y border-coverage-strong/40",
+                          "absolute inset-x-0 border-y border-l-2 border-coverage-strong/40 border-l-coverage-strong",
                           isChildcareEvent ? "bg-coverage/45" : "bg-coverage/60",
                           isChildcareEvent
                             ? "pointer-events-auto touch-hit-44 cursor-pointer"
@@ -574,7 +575,8 @@ export function WeekView({
                       const hiddenByCluster = new Map<number, Placed[]>();
                       if (cascadeMobileTimed) {
                         for (const item of placed) {
-                           if (item.lane < 3) continue;
+                          const visibleLaneLimit = mobileDay ? 2 : 3;
+                          if (item.lane < visibleLaneLimit) continue;
                           const hidden = hiddenByCluster.get(item.cluster) ?? [];
                           hidden.push(item);
                           hiddenByCluster.set(item.cluster, hidden);
@@ -582,7 +584,8 @@ export function WeekView({
                       }
 
                       return placed.map(({ occurrence: o, lane, laneCount, cluster }) => {
-                        if (cascadeMobileTimed && lane >= 3) {
+                        const visibleLaneLimit = mobileDay ? 2 : 3;
+                        if (cascadeMobileTimed && lane >= visibleLaneLimit) {
                          const hidden = hiddenByCluster.get(cluster) ?? [];
                          if (hidden[0]?.occurrence.key !== o.key) return null;
                           const markerTop = Math.min(...hidden.map((item) => topFor(item.occurrence.start)));
@@ -605,6 +608,42 @@ export function WeekView({
                       // for events ~30 min and up; mobile keeps the compact rules.
                       const density = timedEventDensity(viewScale, blockHeight, isMobile);
                       const compact = density === "tiny" || density === "short";
+                       const mobileDayCoverage = mobileDay
+                         ? coverage.filter(
+                             (background) => background.start < o.end && background.end > o.start,
+                           )
+                         : [];
+                       const coversBackgroundLabel = mobileDayCoverage.some((background) => {
+                         const labelMinutes = (Math.min(heightFor(background), 56) / HOUR_PX) * 60;
+                         const labelEnd = new Date(background.start.getTime() + labelMinutes * 60_000);
+                         return o.start < labelEnd && o.end > background.start;
+                       });
+                       const foregroundLabelEnd = new Date(
+                         o.start.getTime() + (Math.min(blockHeight, 56) / HOUR_PX) * 60 * 60_000,
+                       );
+                       const foregroundAtLabel = mobileDayCoverage.length
+                         ? visible
+                             .filter(
+                               (candidate) =>
+                                 candidate.start < foregroundLabelEnd && candidate.end > o.start,
+                             )
+                             .sort(
+                               (a, b) =>
+                                 a.start.getTime() - b.start.getTime() || a.key.localeCompare(b.key),
+                             )
+                         : [];
+                       const foregroundSlot = Math.max(
+                         0,
+                         foregroundAtLabel.findIndex((candidate) => candidate.key === o.key),
+                       );
+                       const backgroundForegroundWidth = coversBackgroundLabel ? 72 : 84;
+                       const mobileDayWidth =
+                         foregroundAtLabel.length > 1
+                           ? backgroundForegroundWidth / Math.min(2, foregroundAtLabel.length)
+                           : backgroundForegroundWidth;
+                       const mobileDayLeft =
+                         100 - backgroundForegroundWidth +
+                         Math.min(foregroundSlot, 1) * mobileDayWidth;
                        const cascadeLeft = lane === 0 ? 0 : lane === 1 ? 22 : 37;
                       return (
                         <div
@@ -640,11 +679,15 @@ export function WeekView({
                               height: isMobile ? Math.max(44, blockHeight) : blockHeight,
                                 // Mobile Day and 3-Day share three readable cascading
                                 // widths and summarize denser overlaps instead of squeezing.
-                                left: cascadeMobileTimed
-                                  ? `${cascadeLeft}%`
+                                left: mobileDay && mobileDayCoverage.length
+                                  ? `${mobileDayLeft}%`
+                                  : cascadeMobileTimed
+                                    ? `${cascadeLeft}%`
                                  : `${(lane / laneCount) * 100}%`,
-                               width: cascadeMobileTimed
-                                  ? `calc(${100 - cascadeLeft}% - 2px)`
+                                width: mobileDay && mobileDayCoverage.length
+                                  ? `calc(${mobileDayWidth}% - 2px)`
+                                  : cascadeMobileTimed
+                                    ? `calc(${100 - cascadeLeft}% - 2px)`
                                 : `calc(${100 / laneCount}% - 2px)`,
                              zIndex:
                                (overlapKeys.has(o.key) || draggingKey === o.key ? 40 : 10) + lane,
@@ -652,19 +695,29 @@ export function WeekView({
                         >
                           <div
                             className={cn(
-                               "absolute inset-x-0 top-0 overflow-hidden border border-border-soft shadow-soft",
-                              compact ? "rounded-md" : "rounded-xl",
+                               "absolute inset-x-0 top-0 overflow-hidden border border-border-soft",
+                               mobileDay ? "rounded-md shadow-none" : "shadow-soft",
+                              !mobileDay && (compact ? "rounded-md" : "rounded-xl"),
                               eventTintClass(categoryAppearanceFor(o.event)),
                             )}
                              style={{ height: blockHeight }}
                           >
+                             {mobileDay ? (
+                               <span
+                                 className={cn(
+                                   "pointer-events-none absolute inset-y-0 left-0 z-10 w-0.5",
+                                   eventAccentClass(categoryAppearanceFor(o.event)),
+                                 )}
+                                 aria-hidden
+                               />
+                             ) : null}
                             <CalendarEventContent
                               occurrence={o}
                               view={viewScale}
                               density={density}
                                showRecurrence={!cascadeMobileTimed}
                                compactTimed={cascadeMobileTimed}
-                               maxBadges={cascadeMobileTimed && (stackMobileThreeDay || lane > 0) ? 1 : undefined}
+                               maxBadges={cascadeMobileTimed && (stackMobileThreeDay || mobileDayCoverage.length > 0 || lane > 0) ? 1 : undefined}
                             />
                           </div>
                         </div>
