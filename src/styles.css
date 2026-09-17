@@ -334,12 +334,30 @@
   }
 
   .calendar-three-day-landscape .calendar-landscape-toolbar {
-    display: flex;
+    display: grid;
+    height: 2rem;
     min-height: 2rem;
+    max-height: 2rem;
+    overflow-anchor: none;
+    contain: layout;
   }
 
   .calendar-three-day-landscape .calendar-period-surface {
     border-radius: 0.75rem;
+    overflow-anchor: none;
+  }
+
+  .calendar-three-day-landscape .calendar-timeline-scroll {
+    overflow-anchor: none;
+  }
+
+  .calendar-three-day-landscape .calendar-date-headers {
+    top: 0;
+    z-index: 40;
+    flex: none;
+    overflow-anchor: none;
+    background: var(--color-surface);
+    transform: translateZ(0);
   }
 }
 
