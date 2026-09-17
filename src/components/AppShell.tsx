@@ -5,7 +5,21 @@ import { useEffect, useState, type ReactNode } from "react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { LegalFooter } from "@/components/LegalFooter";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
+import { reportShellMount, reportShellUnmount } from "@/lib/shell-remount-probe";
 import { cn } from "@/lib/utils";
+
+/** Content-only placeholder: the header and bottom nav stay visible around it. */
+function PageContentSkeleton() {
+  return (
+    <div className="animate-pulse space-y-4" aria-hidden>
+      <div className="h-8 w-2/3 rounded-2xl bg-secondary" />
+      <div className="h-12 w-full rounded-2xl bg-secondary/70" />
+      <div className="h-24 w-full rounded-3xl bg-secondary/60" />
+      <div className="h-24 w-full rounded-3xl bg-secondary/50" />
+    </div>
+  );
+}
+
 
 
 const NAV = [
@@ -40,10 +54,31 @@ export function AppShell({
   }, [pathname]);
   const activeTab = tapped ?? pathname;
 
+  // Dev-only: warn if the shared header / bottom nav remount across a tab change.
+  useEffect(() => {
+    reportShellMount("header", pathname);
+    reportShellMount("bottom-nav", pathname);
+    return () => {
+      reportShellUnmount("header", pathname);
+      reportShellUnmount("bottom-nav", pathname);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Router transition between the four primary tabs: swap only the central
+  // content for a light skeleton, never the shell.
+  const isTransitioning = useRouterState({
+    select: (s) => s.status === "pending" && s.location.pathname !== s.resolvedLocation?.pathname,
+  });
+  const tabPaths = NAV.map((n) => n.to) as readonly string[];
+  const showContentSkeleton =
+    isTransitioning && tabPaths.some((to) => activeTab.startsWith(to)) && !fitViewport;
+
   /** Warm the route (code + loader data) as soon as a finger/pointer lands. */
   const prefetch = (to: string) => {
     void router.preloadRoute({ to }).catch(() => {});
   };
+
 
   return (
 
@@ -99,7 +134,7 @@ export function AppShell({
             : "px-4 pt-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-12 lg:px-8",
         )}
       >
-        {children}
+        {showContentSkeleton ? <PageContentSkeleton /> : children}
       </main>
 
       {fitViewport ? (
