@@ -81,8 +81,10 @@ function CalendarPage() {
   const { weekStart } = useWeekStart(family?.id ?? null);
   const [appliedDefault, setAppliedDefault] = useState(false);
 
-  // Open on the user's saved default view once, without fighting later manual changes.
-  useEffect(() => {
+  // Open on the user's saved default view once, without fighting later manual
+  // changes. A layout effect applies it before the first paint, so a saved Day
+  // view never flashes Month first.
+  useLayoutEffect(() => {
     if (appliedDefault || !defaultView) return;
     if (defaultView === "month" || defaultView === "day") {
       portraitViewRef.current = defaultView;
