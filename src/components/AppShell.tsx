@@ -31,6 +31,14 @@ export function AppShell({
   compactMobileLandscape?: boolean;
 }) {
   const router = useRouter();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Optimistic tab selection: the tap highlights instantly, before the
+  // destination screen has mounted or loaded anything.
+  const [tapped, setTapped] = useState<string | null>(null);
+  useEffect(() => {
+    setTapped(null);
+  }, [pathname]);
+  const activeTab = tapped ?? pathname;
 
   /** Warm the route (code + loader data) as soon as a finger/pointer lands. */
   const prefetch = (to: string) => {
