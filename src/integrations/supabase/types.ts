@@ -688,6 +688,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          include_google_event_initials: boolean
           name: string
           timezone: string
           updated_at: string
@@ -696,6 +697,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          include_google_event_initials?: boolean
           name: string
           timezone?: string
           updated_at?: string
@@ -704,6 +706,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          include_google_event_initials?: boolean
           name?: string
           timezone?: string
           updated_at?: string
