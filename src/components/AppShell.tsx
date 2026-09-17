@@ -54,10 +54,31 @@ export function AppShell({
   }, [pathname]);
   const activeTab = tapped ?? pathname;
 
+  // Dev-only: warn if the shared header / bottom nav remount across a tab change.
+  useEffect(() => {
+    reportShellMount("header", pathname);
+    reportShellMount("bottom-nav", pathname);
+    return () => {
+      reportShellUnmount("header", pathname);
+      reportShellUnmount("bottom-nav", pathname);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Router transition between the four primary tabs: swap only the central
+  // content for a light skeleton, never the shell.
+  const isTransitioning = useRouterState({
+    select: (s) => s.status === "pending" && s.location.pathname !== s.resolvedLocation?.pathname,
+  });
+  const tabPaths = NAV.map((n) => n.to) as readonly string[];
+  const showContentSkeleton =
+    isTransitioning && tabPaths.some((to) => activeTab.startsWith(to)) && !fitViewport;
+
   /** Warm the route (code + loader data) as soon as a finger/pointer lands. */
   const prefetch = (to: string) => {
     void router.preloadRoute({ to }).catch(() => {});
   };
+
 
   return (
 
