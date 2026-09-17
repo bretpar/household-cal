@@ -91,8 +91,14 @@ function CalendarPage() {
     }
     // A saved Week/3-Day default must not open on a portrait phone, where the
     // selector only offers Month and Day.
-    const portraitPhone = isPhoneScreen && !isLandscape;
-    setView(portraitPhone && defaultView === "week" ? portraitViewRef.current : defaultView);
+    setView(
+      resolveInitialCalendarView({
+        defaultView,
+        isPhoneScreen,
+        isLandscape,
+        portraitView: portraitViewRef.current,
+      }),
+    );
     setAppliedDefault(true);
   }, [defaultView, appliedDefault, isPhoneScreen, isLandscape]);
 
