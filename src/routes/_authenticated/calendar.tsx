@@ -38,6 +38,13 @@ import { resolveInitialCalendarView } from "@/lib/calendar-initial-view";
 import { useWeekStart } from "@/lib/week-start-preference";
 import { cn } from "@/lib/utils";
 
+/** Landscape-only in-app navigation (header + bottom nav are hidden there). */
+const LANDSCAPE_NAV = [
+  { to: "/today", label: "Today" },
+  { to: "/activities", label: "Activities" },
+  { to: "/family", label: "Family" },
+] as const;
+
 export const Route = createFileRoute("/_authenticated/calendar")({
   head: () => ({
     meta: [
