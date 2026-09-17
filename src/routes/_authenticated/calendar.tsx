@@ -13,6 +13,13 @@ import { MonthScrollView, type MonthScrollHandle } from "@/components/MonthScrol
 import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { usePeriodCarousel } from "@/hooks/use-period-carousel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCalendar } from "@/lib/calendar-store";
@@ -120,21 +127,6 @@ function CalendarPage() {
       phoneScreen.removeEventListener("change", updateOrientation);
     };
   }, []);
-
-  // Phone landscape temporarily uses Week; portrait returns to its prior
-  // Month or Day selection without changing the saved default preference.
-  useEffect(() => {
-    if (!isPhoneScreen) return;
-    setView((currentView) => {
-      if (isLandscape) {
-        if (currentView === "month" || currentView === "day") {
-          portraitViewRef.current = currentView;
-        }
-        return "week";
-      }
-      return currentView === "week" ? portraitViewRef.current : currentView;
-    });
-  }, [isLandscape, isPhoneScreen]);
 
   const mode: ViewMode = view;
   const isEmpty = !loading && events.length === 0;
@@ -346,7 +338,7 @@ function CalendarPage() {
     );
 
   return (
-    <AppShell fitViewport compactMobileLandscape={mode === "week"}>
+    <AppShell fitViewport compactMobileLandscape={isPhoneScreen && isLandscape}>
       <div className="calendar-page-layout flex min-h-0 flex-1 flex-col gap-2 md:block md:space-y-4">
         {/* Desktop / tablet header — unchanged */}
         <header className="hidden grid-cols-[minmax(0,1fr)_auto] items-center gap-3 md:grid">
@@ -388,6 +380,51 @@ function CalendarPage() {
             Today
           </Button>
           <AddEventDialog defaultDate={anchor} compact />
+        </div>
+
+        {/* One-row phone landscape workspace toolbar. */}
+        <div className="calendar-landscape-toolbar hidden shrink-0 items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 rounded-full"
+            aria-label={`Previous ${viewLabel(mode).toLowerCase()}`}
+            onClick={() => step(-1, { focus: true })}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="min-w-0 flex-1 truncate text-sm font-bold">
+            <span key={label} className="inline-block animate-fade-in">
+              {label}
+            </span>
+          </span>
+          <Button
+            variant="ghost"
+            className="h-8 shrink-0 rounded-full px-2 text-xs font-bold"
+            onClick={goToday}
+          >
+            Today
+          </Button>
+          <Select
+            value={mode}
+            onValueChange={(next: ViewMode) => {
+              if (next === "month" || next === "day") portraitViewRef.current = next;
+              setView(next);
+            }}
+          >
+            <SelectTrigger className="h-8 w-[5.75rem] shrink-0 rounded-full border-border-soft bg-surface px-2 text-xs font-semibold shadow-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(["month", "week", "day"] as ViewMode[]).map((option) => (
+                <SelectItem key={option} value={option}>
+                  {CALENDAR_VIEW_LABEL[option]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <CalendarFiltersSheet iconOnly className="h-8 w-8 border-0 bg-transparent" />
+          <AddEventDialog defaultDate={anchor} compact className="h-8 w-8" />
         </div>
 
         <div className="hidden flex-wrap items-center justify-between gap-3 md:flex">
@@ -491,7 +528,7 @@ function CalendarPage() {
         </p>
         <div
           className={cn(
-            "flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft",
+            "calendar-period-surface flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border-soft bg-surface shadow-soft",
             // Desktop day-strip and the vertical month surface need a bounded
             // height so only their inner content scrolls.
             useDayStripLayout
