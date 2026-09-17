@@ -42,6 +42,7 @@ export interface SyncSettings {
   max_calendars: number;
   /** Household IANA timezone used for all timed Google sync. */
   household_time_zone: string;
+  include_google_event_initials: boolean;
 }
 
 export const getSyncSettings = createServerFn({ method: "GET" })
@@ -56,6 +57,7 @@ export const getSyncSettings = createServerFn({ method: "GET" })
         calendars: [],
         max_calendars: 2,
         household_time_zone: "America/Los_Angeles",
+        include_google_event_initials: true,
       };
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -77,7 +79,7 @@ export const getSyncSettings = createServerFn({ method: "GET" })
     const { normalizeTimeZone } = await import("@/lib/google/timezone");
     const { data: familyRow } = await supabaseAdmin
       .from("families")
-      .select("timezone")
+      .select("timezone, include_google_event_initials")
       .eq("id", family)
       .maybeSingle();
     return {
@@ -94,7 +96,23 @@ export const getSyncSettings = createServerFn({ method: "GET" })
       calendars: (calendars ?? []) as CalendarSlot[],
       max_calendars: 2,
       household_time_zone: normalizeTimeZone(familyRow?.timezone as string | null),
+      include_google_event_initials: familyRow?.include_google_event_initials !== false,
     };
+  });
+
+export const setGoogleEventTitleInitials = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { enabled: boolean }) => {
+    if (typeof input?.enabled !== "boolean") throw new Error("Invalid title setting");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const { resolveOwnedFamily, setGoogleEventInitials } = await import(
+      "@/lib/google-settings.server"
+    );
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can configure calendar sync");
+    return setGoogleEventInitials(family, data.enabled);
   });
 
 export const startGoogleCalendarConnect = createServerFn({ method: "POST" })

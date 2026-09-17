@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -34,6 +35,7 @@ import {
   renameCalendarSlot,
   setCalendarDisplayMode,
   setMainCalendarSlot,
+  setGoogleEventTitleInitials,
   startGoogleCalendarConnect,
   syncNow,
 } from "@/lib/google.functions";
@@ -149,6 +151,7 @@ export function CalendarSyncSettings() {
   const rename = useServerFn(renameCalendarSlot);
   const makeMain = useServerFn(setMainCalendarSlot);
   const setDisplay = useServerFn(setCalendarDisplayMode);
+  const setTitleInitials = useServerFn(setGoogleEventTitleInitials);
   const detach = useServerFn(disconnectCalendarSlot);
   const disconnect = useServerFn(disconnectGoogleAccount);
   const runSync = useServerFn(syncNow);
@@ -199,6 +202,14 @@ export function CalendarSyncSettings() {
     mutationFn: (input: { data: { source_id: string } }) => makeMain(input),
     onSuccess: () => {
       toast.success("Main calendar updated");
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const titleInitialsMutation = useMutation({
+    mutationFn: (enabled: boolean) => setTitleInitials({ data: { enabled } }),
+    onSuccess: () => {
+      toast.success("Google event titles updated");
       refresh();
     },
     onError: (error: Error) => toast.error(error.message),
@@ -344,6 +355,25 @@ export function CalendarSyncSettings() {
                 </Button>
               </div>
             ) : null}
+
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-2xl border border-border-soft p-3">
+              <div className="min-w-0 space-y-1">
+                <Label htmlFor="google-event-title-initials" className="text-sm font-bold">
+                  Include family initials in Google event titles
+                </Label>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  When enabled, synced Google events include assigned family-member initials, such
+                  as ‘Soccer Practice - B &amp; E’.
+                </p>
+              </div>
+              <Switch
+                id="google-event-title-initials"
+                checked={data.include_google_event_initials}
+                disabled={titleInitialsMutation.isPending}
+                onCheckedChange={(enabled) => titleInitialsMutation.mutate(enabled)}
+                aria-label="Include family initials in Google event titles"
+              />
+            </div>
 
             <div className="space-y-2">
               {Array.from({ length: data.max_calendars }).map((_, index) => {

@@ -64,6 +64,10 @@ describe("google titles", () => {
     expect(googleTitle("School", [])).toBe("School");
   });
 
+  it("returns the clean title when household initials are disabled", () => {
+    expect(googleTitle("Soccer Practice", ["B", "E"], false)).toBe("Soccer Practice");
+  });
+
   it("does not re-read assignments out of an externally renamed title", () => {
     expect(stripGeneratedSuffix("Late Start", ["B", "E"])).toBe("Late Start");
     expect(stripGeneratedSuffix("School - B & E", ["B", "E"])).toBe("School");
