@@ -1,6 +1,6 @@
-import { Link, useRouter } from "@tanstack/react-router";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { CalendarDays, Home, Sparkles, Users } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import logoAsset from "@/assets/logo.png.asset.json";
 import { LegalFooter } from "@/components/LegalFooter";
