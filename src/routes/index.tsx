@@ -22,6 +22,7 @@ import mobileDayAsset from "@/assets/landing-mobile-day.png.asset.json";
 import ogImageAsset from "@/assets/landing-og-image.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { LegalFooter } from "@/components/LegalFooter";
+import { initAnalytics, trackEvent } from "@/lib/analytics";
 import { getSessionStatus, hasCachedSession, peekSessionStatus } from "@/lib/session-hint";
 
 const SITE_URL = "https://ourfamilycalendar.com";
@@ -246,6 +247,7 @@ function LandingPage() {
   );
 
   useEffect(() => {
+    initAnalytics();
     let active = true;
     getSessionStatus().then((signedIn) => {
       if (!active) return;
@@ -274,7 +276,11 @@ function LandingPage() {
         </div>
         <nav className="flex shrink-0 items-center gap-1.5 sm:gap-2" aria-label="Account">
           <Link to="/auth">
-            <Button variant="ghost" className="h-10 rounded-full px-3 font-bold sm:px-4">
+            <Button
+              variant="ghost"
+              className="h-10 rounded-full px-3 font-bold sm:px-4"
+              onClick={() => trackEvent("sign_in_click", { location: "header" })}
+            >
               Sign in
             </Button>
           </Link>
@@ -300,12 +306,21 @@ function LandingPage() {
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link to="/auth">
-                <Button size="lg" className="h-12 rounded-full px-6 font-bold">
+                <Button
+                  size="lg"
+                  className="h-12 rounded-full px-6 font-bold"
+                  onClick={() => trackEvent("start_family_calendar_click", { location: "hero" })}
+                >
                   Start your family calendar
                 </Button>
               </Link>
               <Link to="/auth">
-                <Button variant="outline" size="lg" className="h-12 rounded-full px-6 font-bold">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="h-12 rounded-full px-6 font-bold"
+                  onClick={() => trackEvent("sign_in_click", { location: "hero" })}
+                >
                   Sign in
                 </Button>
               </Link>
