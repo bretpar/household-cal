@@ -163,10 +163,10 @@ export function branchPushWeekdays(
   return parseRuleWeekdays(rule);
 }
 
-/** "School" + [B, E] -> "School - B & E". Initials come from the household. */
-export function googleTitle(title: string, initials: string[]): string {
+/** "School" + [B, E] -> "School - B & E" when the household preference is enabled. */
+export function googleTitle(title: string, initials: string[], includeInitials = true): string {
   const clean = title.trim();
-  if (initials.length === 0) return clean;
+  if (!includeInitials || initials.length === 0) return clean;
   return `${clean} - ${initials.join(" & ")}`;
 }
 

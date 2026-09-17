@@ -253,6 +253,24 @@ export async function setDisplayMode(
   return { ok: true };
 }
 
+export async function setGoogleEventInitials(
+  familyId: string,
+  includeInitials: boolean,
+): Promise<{ ok: true }> {
+  const { error } = await supabaseAdmin
+    .from("families")
+    .update({ include_google_event_initials: includeInitials })
+    .eq("id", familyId);
+  if (error) throw error;
+
+  const { error: linksError } = await supabaseAdmin
+    .from("event_sync_links")
+    .update({ app_version: 0 })
+    .eq("family_id", familyId);
+  if (linksError) throw linksError;
+  return { ok: true };
+}
+
 export async function setMain(familyId: string, sourceId: string): Promise<{ ok: true }> {
   await supabaseAdmin
     .from("calendar_sources")

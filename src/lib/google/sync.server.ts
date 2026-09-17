@@ -70,6 +70,18 @@ async function householdTimeZone(admin: Admin, familyId: string): Promise<string
   return normalizeTimeZone(data?.timezone as string | null);
 }
 
+async function householdIncludesGoogleEventInitials(
+  admin: Admin,
+  familyId: string,
+): Promise<boolean> {
+  const { data } = await admin
+    .from("families")
+    .select("include_google_event_initials")
+    .eq("id", familyId)
+    .maybeSingle();
+  return data?.include_google_event_initials !== false;
+}
+
 /**
  * Keeps a connected calendar's Google timezone in step with the household.
  * App-created calendars are corrected in place; calendars the household does not
@@ -331,7 +343,6 @@ async function needsBodyRepatch(
   event: { recurrence_rule: string | null; all_day: boolean },
   eventId: string,
 ): Promise<boolean> {
-  if (!event.recurrence_rule || event.all_day) return false;
   const { data } = await admin
     .from("event_sync_links")
     .select("app_version")
@@ -453,6 +464,7 @@ async function staleRecurringBranches(
   const links = (data ?? []) as (LinkRow & { id: string })[];
   const initials = await initialsFor(admin, familyId);
   const timeZone = await householdTimeZone(admin, familyId);
+  const includeInitials = await householdIncludesGoogleEventInitials(admin, familyId);
   const stale: StaleRecurringBranch[] = [];
 
   for (const branch of branches) {
@@ -470,7 +482,7 @@ async function staleRecurringBranches(
     } catch {
       continue; // unreachable master is handled by the stale-link path
     }
-    const body = branchBody(event, branch, initials, timeZone);
+    const body = branchBody(event, branch, initials, timeZone, includeInitials);
     const expected = body as {
       start?: GoogleDateTime;
       end?: GoogleDateTime;
@@ -690,6 +702,7 @@ function branchBody(
   branch: SyncBranch,
   initials: Map<string, string>,
   timeZone: string,
+  includeInitials = true,
 ): Record<string, unknown> {
   // each branch is anchored to its own first matching weekday so Google does
   // not also emit it on the shared series' start weekday
@@ -713,7 +726,7 @@ function branchBody(
     event.all_day ? null : { startAt: anchored.startAt, timeZone },
   );
   return {
-    summary: googleTitle(event.title, branchInitials(branch, initials)),
+    summary: googleTitle(event.title, branchInitials(branch, initials), includeInitials),
     description: event.notes ?? "",
     location: event.location ?? "",
     start: times.start,
@@ -764,6 +777,7 @@ export async function pushEvent(
       sources[0]!;
 
     const initials = await initialsFor(admin, familyId);
+    const includeInitials = await householdIncludesGoogleEventInitials(admin, familyId);
     const participants = (event.event_members ?? []).map((m) => ({
       member_id: m.family_member_id,
       weekdays: m.weekdays,
@@ -805,7 +819,7 @@ export async function pushEvent(
     const timeZone = await householdTimeZone(admin, familyId);
     let pushed = 0;
     for (const branch of branches) {
-      const body = branchBody(event, branch, initials, timeZone);
+      const body = branchBody(event, branch, initials, timeZone, includeInitials);
       const link = links.find((l) => l.branch_key === branch.key);
 
       // Temporary diagnostic: verify DST Clean Test sends 09:00 + America/Los_Angeles
@@ -2275,7 +2289,8 @@ export async function diagnoseDstRepair(
   const timeZone = await householdTimeZone(admin, familyId);
   base.time_zone = timeZone;
   const initials = await initialsFor(admin, familyId);
-  const expected = branchBody(event, branch, initials, timeZone) as {
+  const includeInitials = await householdIncludesGoogleEventInitials(admin, familyId);
+  const expected = branchBody(event, branch, initials, timeZone, includeInitials) as {
     start?: GoogleDateTime;
     end?: GoogleDateTime;
     recurrence?: string[] | null;
