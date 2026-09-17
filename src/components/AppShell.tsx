@@ -122,20 +122,22 @@ export function AppShell({
               key={to}
               to={to}
               preload="intent"
-              onTouchStart={() => prefetch(to)}
-              onPointerDown={() => prefetch(to)}
+              onTouchStart={() => {
+                setTapped(to);
+                prefetch(to);
+              }}
+              onPointerDown={() => {
+                setTapped(to);
+                prefetch(to);
+              }}
               className={cn(
                 "app-shell-bottom-link",
                 "relative flex h-16 min-h-16 w-full flex-col items-center justify-center gap-1 rounded-2xl text-xs font-semibold text-muted-foreground",
                 "transition-all duration-150 ease-out",
                 "active:scale-95 active:bg-secondary/60 active:text-foreground",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40",
+                activeTab.startsWith(to) && "bg-accent text-primary",
               )}
-              activeProps={{
-                className: cn(
-                  "bg-accent text-primary",
-                ),
-              }}
             >
               <Icon className="h-7 w-7 transition-transform duration-150 ease-out" aria-hidden />
               <span className="leading-none">{label}</span>
