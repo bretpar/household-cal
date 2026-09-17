@@ -206,6 +206,18 @@ function FamilyPage() {
             <DeveloperTools />
           </GoogleCalendarMaintenance>
         </SettingsSection>
+
+        <footer className="space-y-2 rounded-3xl border border-dashed border-border bg-surface-muted/50 p-4 text-center">
+          <nav className="flex items-center justify-center gap-4 text-sm font-semibold">
+            <Link to="/privacy" className="text-muted-foreground transition-colors hover:text-foreground">
+              Privacy Policy
+            </Link>
+            <Link to="/terms" className="text-muted-foreground transition-colors hover:text-foreground">
+              Terms of Service
+            </Link>
+          </nav>
+          <p className="text-xs text-muted-foreground">© 2026 Our Family Calendar</p>
+        </footer>
       </div>
     </AppShell>
   );
