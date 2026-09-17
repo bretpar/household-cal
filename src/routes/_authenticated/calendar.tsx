@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { addDays, addMonths, format, startOfWeek } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Menu } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { AddEventDialog } from "@/components/AddEventDialog";
@@ -13,6 +13,12 @@ import { MonthScrollView, type MonthScrollHandle } from "@/components/MonthScrol
 import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -31,6 +37,13 @@ import {
 import { resolveInitialCalendarView } from "@/lib/calendar-initial-view";
 import { useWeekStart } from "@/lib/week-start-preference";
 import { cn } from "@/lib/utils";
+
+/** Landscape-only in-app navigation (header + bottom nav are hidden there). */
+const LANDSCAPE_NAV = [
+  { to: "/today", label: "Today" },
+  { to: "/activities", label: "Activities" },
+  { to: "/family", label: "Family" },
+] as const;
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   head: () => ({
@@ -383,7 +396,26 @@ function CalendarPage() {
         </div>
 
         {/* One-row phone landscape workspace toolbar. */}
-        <div className="calendar-landscape-toolbar hidden h-8 shrink-0 grid-cols-[2rem_minmax(0,1fr)_auto_5.75rem_2rem_2rem] items-center gap-1">
+        <div className="calendar-landscape-toolbar hidden h-8 shrink-0 grid-cols-[2rem_2rem_minmax(0,1fr)_auto_5.75rem_2rem_2rem] items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 rounded-full"
+                aria-label="Open navigation menu"
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-40">
+              {LANDSCAPE_NAV.map(({ to, label }) => (
+                <DropdownMenuItem key={to} asChild>
+                  <Link to={to}>{label}</Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="ghost"
             size="icon"

@@ -855,11 +855,17 @@ export async function pushEvent(
             );
           }
         }
+        // A link pointing at a single instance/exception id cannot accept
+        // series-level fields: Google answers 400 badRequest. Patch the
+        // occurrence with its own fields only and leave the series alone.
+        const patchBody = isExceptionLink(link)
+          ? Object.fromEntries(Object.entries(body).filter(([key]) => key !== "recurrence"))
+          : body;
         saved = await google.patchEvent(
           conn.connectionKey,
           target.external_calendar_id!,
           link.google_event_id,
-          body,
+          patchBody,
         );
       } else {
         saved = await google.insertEvent(conn.connectionKey, target.external_calendar_id!, body);
@@ -1815,8 +1821,13 @@ export async function reconcileHousehold(
         }
       }
 
-      await pushEvent(admin, familyId, candidate.id);
-      repaired += 1;
+      // One unpushable event must not abort the whole household's pass.
+      try {
+        await pushEvent(admin, familyId, candidate.id);
+        repaired += 1;
+      } catch (error) {
+        console.error("[google-sync] reconcile push failed", candidate.id, error);
+      }
     }
 
 
