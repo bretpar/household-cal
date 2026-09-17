@@ -383,7 +383,7 @@ function CalendarPage() {
         </div>
 
         {/* One-row phone landscape workspace toolbar. */}
-        <div className="calendar-landscape-toolbar hidden shrink-0 items-center gap-1">
+        <div className="calendar-landscape-toolbar hidden h-8 shrink-0 grid-cols-[2rem_minmax(0,1fr)_auto_5.75rem_2rem_2rem] items-center gap-1">
           <Button
             variant="ghost"
             size="icon"

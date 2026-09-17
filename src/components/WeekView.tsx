@@ -313,7 +313,7 @@ export function WeekView({
         onScroll={strip ? trackScroll : undefined}
         style={strip ? { touchAction: dragging ? "none" : "pan-y" } : undefined}
         className={cn(
-          "calendar-gesture-surface",
+          "calendar-gesture-surface calendar-timeline-scroll",
           strip
             ? "min-h-0 flex-1 overflow-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             : "overflow-hidden",
@@ -325,7 +325,7 @@ export function WeekView({
           className={cn(!strip && fill && "flex min-h-0 flex-1 flex-col")}
           style={trackWidth ? { width: trackWidth } : undefined}
         >
-        <div className={cn(strip && "sticky top-0 z-40 bg-surface")}>
+        <div className={cn("calendar-date-headers", strip && "sticky top-0 z-40 bg-surface")}>
         <div
           className="grid shrink-0 border-b border-border-soft bg-surface-muted"
           style={{ gridTemplateColumns: gridTemplate }}
