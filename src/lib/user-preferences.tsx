@@ -10,36 +10,20 @@ import {
 } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
+import {
+  DEFAULT_PREFERENCES,
+  PREFERENCES_CACHE_KEY as CACHE_KEY,
+  parseCachedPreferences,
+} from "@/lib/calendar-initial-view";
+import type { CalendarViewMode, UserPreferences, WeekStart } from "@/lib/user-preferences.types";
 
-/** date-fns weekStartsOn value: 0 = Sunday, 1 = Monday. */
-export type WeekStart = 0 | 1;
-export type CalendarViewMode = "month" | "week" | "day";
-
-export interface UserPreferences {
-  weekStart: WeekStart;
-  defaultView: CalendarViewMode;
-}
-
-export const DEFAULT_PREFERENCES: UserPreferences = { weekStart: 1, defaultView: "month" };
-
-const CACHE_KEY = "ofc:user-preferences";
+export type { CalendarViewMode, UserPreferences, WeekStart };
+export { DEFAULT_PREFERENCES };
 
 function readCache(): UserPreferences | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<UserPreferences>;
-    const weekStart = parsed.weekStart === 0 ? 0 : parsed.weekStart === 1 ? 1 : null;
-    const view =
-      parsed.defaultView === "day" || parsed.defaultView === "week" || parsed.defaultView === "month"
-        ? parsed.defaultView
-        : null;
-    if (weekStart === null && view === null) return null;
-    return {
-      weekStart: weekStart ?? DEFAULT_PREFERENCES.weekStart,
-      defaultView: view ?? DEFAULT_PREFERENCES.defaultView,
-    };
+    return parseCachedPreferences(window.localStorage.getItem(CACHE_KEY));
   } catch {
     return null;
   }
