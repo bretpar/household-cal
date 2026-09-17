@@ -214,6 +214,7 @@ function CompareMark({ value }: { value: CompareValue }) {
       </span>
     );
   }
+  if (value.kind === "text") return <span className="text-muted-foreground">{value.label}</span>;
   if (value.kind === "no") {
     return (
       <span className="inline-flex items-center gap-1.5 font-semibold text-muted-foreground">
