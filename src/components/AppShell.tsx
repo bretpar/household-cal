@@ -40,7 +40,7 @@ export function AppShell({
 }: {
   children: ReactNode;
   fitViewport?: boolean;
-  /** Compact chrome for the phone Calendar's landscape 3-Day view only. */
+  /** Compact chrome for the phone Calendar in landscape. */
   compactMobileLandscape?: boolean;
 }) {
   const router = useRouter();

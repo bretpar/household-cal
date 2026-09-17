@@ -20,7 +20,13 @@ import { cn } from "@/lib/utils";
  * calendar itself sits higher on small screens. Filtering logic is unchanged —
  * this only moves the existing controls into a bottom sheet.
  */
-export function CalendarFiltersSheet({ className }: { className?: string }) {
+export function CalendarFiltersSheet({
+  className,
+  iconOnly = false,
+}: {
+  className?: string;
+  iconOnly?: boolean;
+}) {
   const { selectedMembers, selectedCategory, clearMembers, setSelectedCategory } = useCalendar();
   const [open, setOpen] = useState(false);
   const activeCount = selectedMembers.length + (selectedCategory ? 1 : 0);
@@ -33,6 +39,7 @@ export function CalendarFiltersSheet({ className }: { className?: string }) {
           variant="ghost"
           className={cn(
             "h-9 gap-2 rounded-full border px-3 text-sm font-semibold",
+            iconOnly && "w-9 shrink-0 px-0",
             filtered
               ? "border-primary bg-secondary text-foreground"
               : "border-border-soft bg-surface text-muted-foreground",
@@ -41,7 +48,7 @@ export function CalendarFiltersSheet({ className }: { className?: string }) {
           aria-label={filtered ? `Filters — ${activeCount} active` : "Filters"}
         >
           <SlidersHorizontal className="h-4 w-4" aria-hidden />
-          <span>Filters</span>
+          {iconOnly ? null : <span>Filters</span>}
           {filtered ? (
             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground">
               {activeCount}
