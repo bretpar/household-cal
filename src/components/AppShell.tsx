@@ -134,7 +134,7 @@ export function AppShell({
             : "px-4 pt-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-12 lg:px-8",
         )}
       >
-        {children}
+        {showContentSkeleton ? <PageContentSkeleton /> : children}
       </main>
 
       {fitViewport ? (
