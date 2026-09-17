@@ -3,7 +3,6 @@ import { CalendarDays, Home, Sparkles, Users } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import logoAsset from "@/assets/logo.png.asset.json";
-import { LegalFooter } from "@/components/LegalFooter";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { reportShellMount, reportShellUnmount } from "@/lib/shell-remount-probe";
 import { cn } from "@/lib/utils";
@@ -137,16 +136,6 @@ export function AppShell({
         {showContentSkeleton ? <PageContentSkeleton /> : children}
       </main>
 
-      {fitViewport ? (
-        <div className="hidden md:block">
-          <LegalFooter />
-        </div>
-      ) : (
-        // Padding clears the floating phone bottom nav and its safe-area gap.
-        <div className="pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-0">
-          <LegalFooter />
-        </div>
-      )}
 
 
       {/* Phone bottom navigation */}
