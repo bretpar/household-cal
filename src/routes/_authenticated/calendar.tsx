@@ -63,8 +63,17 @@ function CalendarPage() {
     ? (at: Date, until: Date) => setQuickAdd({ at, until, withTime: true })
     : undefined;
   const isMobile = useIsMobile();
-  const [isLandscape, setIsLandscape] = useState(false);
-  const [isPhoneScreen, setIsPhoneScreen] = useState(false);
+  // Read orientation/screen size synchronously so the very first render can
+  // already honour the saved default view.
+  const [isLandscape, setIsLandscape] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(orientation: landscape)").matches,
+  );
+  const [isPhoneScreen, setIsPhoneScreen] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px), (orientation: landscape) and (max-height: 600px)")
+        .matches,
+  );
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("month");
   const portraitViewRef = useRef<Extract<ViewMode, "month" | "day">>("month");
