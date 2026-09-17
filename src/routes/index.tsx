@@ -222,7 +222,7 @@ function CompareMark({ value }: { value: CompareValue }) {
       </span>
     );
   }
-  return <span className="text-muted-foreground">{value.label}</span>;
+  return null;
 }
 
 function AuthLoadingShell() {
