@@ -87,8 +87,8 @@ export function AppShell({
         className={cn(
           "app-shell-main mx-auto w-full max-w-6xl",
           fitViewport
-            ? "flex min-h-0 flex-1 flex-col overflow-hidden px-3 pt-2 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:block md:min-h-0 md:flex-none md:overflow-visible md:px-4 md:pt-5 md:pb-12 lg:px-8"
-            : "px-4 pt-5 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-12 lg:px-8",
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden px-3 pt-2 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:block md:min-h-0 md:flex-none md:overflow-visible md:px-4 md:pt-5 md:pb-12 lg:px-8"
+            : "px-4 pt-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-12 lg:px-8",
         )}
       >
         {children}
@@ -99,16 +99,16 @@ export function AppShell({
           <LegalFooter />
         </div>
       ) : (
-        // Padding clears the fixed phone bottom nav (h-14 + 0.75rem + safe-area).
-        <div className="pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:pb-0">
+        // Padding clears the floating phone bottom nav and its safe-area gap.
+        <div className="pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-0">
           <LegalFooter />
         </div>
       )}
 
 
       {/* Phone bottom navigation */}
-      <nav className="app-shell-bottom-nav fixed inset-x-0 bottom-0 z-30 border-t border-border-soft bg-surface/95 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur md:hidden">
-        <div className="grid h-auto grid-cols-4">
+      <nav className="app-shell-bottom-nav fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-30 mx-auto max-w-lg rounded-3xl border border-border-soft bg-surface/95 p-1.5 shadow-lifted backdrop-blur md:hidden">
+        <div className="grid grid-cols-4 gap-1">
           {NAV.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}
@@ -118,19 +118,18 @@ export function AppShell({
               onPointerDown={() => prefetch(to)}
               className={cn(
                 "app-shell-bottom-link",
-                "relative flex h-14 min-h-14 flex-col items-center justify-start gap-2 pt-2.5 text-xs font-semibold text-muted-foreground",
+                "relative flex h-16 min-h-16 w-full flex-col items-center justify-center gap-1 rounded-2xl text-xs font-semibold text-muted-foreground",
                 "transition-all duration-150 ease-out",
                 "active:scale-95 active:bg-secondary/60 active:text-foreground",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40",
               )}
               activeProps={{
                 className: cn(
-                  "bg-secondary text-primary",
-                  "after:absolute after:top-1.5 after:h-1 after:w-1 after:rounded-full after:bg-primary",
+                  "bg-accent text-primary",
                 ),
               }}
             >
-              <Icon className="h-6 w-6 transition-transform duration-150 ease-out" aria-hidden />
+              <Icon className="h-7 w-7 transition-transform duration-150 ease-out" aria-hidden />
               <span className="leading-none">{label}</span>
             </Link>
           ))}
