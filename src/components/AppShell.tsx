@@ -1,6 +1,6 @@
-import { Link, useRouter } from "@tanstack/react-router";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { CalendarDays, Home, Sparkles, Users } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import logoAsset from "@/assets/logo.png.asset.json";
 import { LegalFooter } from "@/components/LegalFooter";
@@ -31,6 +31,14 @@ export function AppShell({
   compactMobileLandscape?: boolean;
 }) {
   const router = useRouter();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Optimistic tab selection: the tap highlights instantly, before the
+  // destination screen has mounted or loaded anything.
+  const [tapped, setTapped] = useState<string | null>(null);
+  useEffect(() => {
+    setTapped(null);
+  }, [pathname]);
+  const activeTab = tapped ?? pathname;
 
   /** Warm the route (code + loader data) as soon as a finger/pointer lands. */
   const prefetch = (to: string) => {
@@ -114,20 +122,22 @@ export function AppShell({
               key={to}
               to={to}
               preload="intent"
-              onTouchStart={() => prefetch(to)}
-              onPointerDown={() => prefetch(to)}
+              onTouchStart={() => {
+                setTapped(to);
+                prefetch(to);
+              }}
+              onPointerDown={() => {
+                setTapped(to);
+                prefetch(to);
+              }}
               className={cn(
                 "app-shell-bottom-link",
                 "relative flex h-16 min-h-16 w-full flex-col items-center justify-center gap-1 rounded-2xl text-xs font-semibold text-muted-foreground",
                 "transition-all duration-150 ease-out",
                 "active:scale-95 active:bg-secondary/60 active:text-foreground",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40",
+                activeTab.startsWith(to) && "bg-accent text-primary",
               )}
-              activeProps={{
-                className: cn(
-                  "bg-accent text-primary",
-                ),
-              }}
             >
               <Icon className="h-7 w-7 transition-transform duration-150 ease-out" aria-hidden />
               <span className="leading-none">{label}</span>

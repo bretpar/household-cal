@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { supabase } from "@/integrations/supabase/client";
 
@@ -61,10 +70,18 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
   const [prefs, setPrefs] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [ready, setReady] = useState(false);
 
+  // Apply the cached values before the browser paints, so views that depend on
+  // a saved preference (e.g. the Calendar default view) never flash a default.
+  useLayoutEffect(() => {
+    const cached = readCache();
+    if (cached) {
+      setPrefs(cached);
+      setReady(true);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-    const cached = readCache();
-    if (cached) setPrefs(cached);
 
     (async () => {
       const { data: auth } = await supabase.auth.getUser();

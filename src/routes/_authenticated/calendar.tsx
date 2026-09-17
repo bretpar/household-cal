@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { addDays, addMonths, format, startOfWeek } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -63,8 +63,17 @@ function CalendarPage() {
     ? (at: Date, until: Date) => setQuickAdd({ at, until, withTime: true })
     : undefined;
   const isMobile = useIsMobile();
-  const [isLandscape, setIsLandscape] = useState(false);
-  const [isPhoneScreen, setIsPhoneScreen] = useState(false);
+  // Read orientation/screen size synchronously so the very first render can
+  // already honour the saved default view.
+  const [isLandscape, setIsLandscape] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(orientation: landscape)").matches,
+  );
+  const [isPhoneScreen, setIsPhoneScreen] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px), (orientation: landscape) and (max-height: 600px)")
+        .matches,
+  );
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("month");
   const portraitViewRef = useRef<Extract<ViewMode, "month" | "day">>("month");
@@ -72,8 +81,10 @@ function CalendarPage() {
   const { weekStart } = useWeekStart(family?.id ?? null);
   const [appliedDefault, setAppliedDefault] = useState(false);
 
-  // Open on the user's saved default view once, without fighting later manual changes.
-  useEffect(() => {
+  // Open on the user's saved default view once, without fighting later manual
+  // changes. A layout effect applies it before the first paint, so a saved Day
+  // view never flashes Month first.
+  useLayoutEffect(() => {
     if (appliedDefault || !defaultView) return;
     if (defaultView === "month" || defaultView === "day") {
       portraitViewRef.current = defaultView;
