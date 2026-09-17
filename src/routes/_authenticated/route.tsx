@@ -112,9 +112,7 @@ function AuthenticatedLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  const ready = readyForPath === pathname;
-
-  if (!ready) return null;
+  if (!everReady) return null;
 
   return (
     <UserPreferencesProvider>
