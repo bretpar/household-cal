@@ -47,4 +47,25 @@ describe('summaries', () => {
     expect(normalizeWeekdays(['MO','TU','WE','TH','FR','SA','SU'])).toEqual([])
     expect(normalizeWeekdays(['th','mo'])).toEqual(['MO','TH'])
   })
+  it('keeps direct and linked events from multiple selected calendars', () => {
+    const events = [
+      {
+        id: 'babysitter', title: 'Michelle', start_at: '2026-09-17T14:30:00Z', end_at: '2026-09-18T00:00:00Z',
+        all_day: false, calendar_source_id: 'babysitter-calendar', linked_calendar_source_ids: [],
+        display_mode: 'coverage_background', recurrence_rule: null, recurrence_until: null,
+      },
+      {
+        id: 'kids-place', title: 'Kids Place', start_at: '2026-09-17T16:00:00Z', end_at: '2026-09-17T20:00:00Z',
+        all_day: false, calendar_source_id: 'family-calendar', linked_calendar_source_ids: ['kids-calendar'],
+        display_mode: 'events', recurrence_rule: 'FREQ=DAILY', recurrence_until: '2027-06-11',
+      },
+    ]
+
+    const selected = eventsForSelection(events, {
+      sourceIds: ['kids-calendar', 'babysitter-calendar'],
+      mainSourceId: 'family-calendar',
+    })
+
+    expect(selected.map((event) => event.title)).toEqual(['Michelle', 'Kids Place'])
+  })
 })
