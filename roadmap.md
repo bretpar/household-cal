@@ -36,3 +36,7 @@
 - [x] Preserve Day, larger-screen overlap lanes, the 45px hour scale, and vertical timeline scrolling.
 - [x] Improve mobile Day/3-Day timed-card cascade widths, content space, and 44px touch targets.
 - [x] Keep phone Day babysitter coverage full-width while foreground activities adapt around its label and each other.
+
+## Landing page redesign
+- [ ] Rebuild signed-out homepage with requested sections, real product screenshots, FAQ/JSON-LD, and improved SEO/OG metadata.
+- [ ] Ship a polished mobile layout alongside desktop: stacked hero, responsive comparison, phone showcase, compact header/CTAs.

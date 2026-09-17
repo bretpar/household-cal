@@ -7,10 +7,11 @@
 
 ## Page structure
 1. Build a compact responsive header with branding, Sign in, and Get started actions.
-2. Replace the sparse opening with the requested two-column desktop / stacked mobile hero, clear conversion copy, CTAs, reassurance line, and a large uncropped Month screenshot.
+2. Replace the sparse opening with the requested two-column desktop hero and a dedicated stacked mobile hero (compact header, headline, CTAs, reassurance line), with the large uncropped Month screenshot prominent on both.
 3. Add concise full-width sections for the scheduling problem, at-a-glance benefits, mobile product showcase, caregiver access, four setup steps, comparison, email summaries, FAQ, and final CTA.
 4. Keep the layout product-led rather than card-heavy: generous whitespace, restrained framed screenshots, soft dividers/surfaces, and responsive comparison treatment.
-5. Keep Privacy and Terms in the existing footer.
+5. Deliver a fully designed mobile version, not a compressed desktop page: stacked sections, full-width readable text, large tappable CTAs, the phone screenshot as the hero-adjacent showcase, stacked comparison cards instead of a squeezed table, and tight spacing tuned for phones.
+6. Keep Privacy and Terms in the existing footer.
 
 ## Content and trust
 - Use the supplied wording and only claims supported by current functionality.
