@@ -8,7 +8,7 @@ export function CopiedEventBar() {
   if (!canEdit || !copiedEvent) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-16 z-40 px-4 pb-2 md:bottom-4">
+    <div className="fixed inset-x-0 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-40 px-4 md:bottom-4">
       <div className="mx-auto flex max-w-md items-center gap-2 rounded-full border border-border-soft bg-surface/95 px-3 py-2 shadow-soft backdrop-blur">
         <ClipboardCheck className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         <p className="min-w-0 flex-1 truncate text-sm font-semibold">
