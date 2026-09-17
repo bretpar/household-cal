@@ -5,7 +5,21 @@ import { useEffect, useState, type ReactNode } from "react";
 import logoAsset from "@/assets/logo.png.asset.json";
 import { LegalFooter } from "@/components/LegalFooter";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
+import { reportShellMount, reportShellUnmount } from "@/lib/shell-remount-probe";
 import { cn } from "@/lib/utils";
+
+/** Content-only placeholder: the header and bottom nav stay visible around it. */
+function PageContentSkeleton() {
+  return (
+    <div className="animate-pulse space-y-4" aria-hidden>
+      <div className="h-8 w-2/3 rounded-2xl bg-secondary" />
+      <div className="h-12 w-full rounded-2xl bg-secondary/70" />
+      <div className="h-24 w-full rounded-3xl bg-secondary/60" />
+      <div className="h-24 w-full rounded-3xl bg-secondary/50" />
+    </div>
+  );
+}
+
 
 
 const NAV = [
