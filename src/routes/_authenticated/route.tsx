@@ -104,7 +104,7 @@ function AuthenticatedLayout() {
         }
         return;
       }
-      setReadyForPath(pathname);
+      setEverReady(true);
     })();
     return () => {
       cancelled = true;
