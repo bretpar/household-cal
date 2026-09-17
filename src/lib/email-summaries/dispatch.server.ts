@@ -81,7 +81,7 @@ async function loadHousehold(admin: AnyDb, familyId: string): Promise<HouseholdD
       .eq("family_id", familyId),
     admin
       .from("events")
-      .select("*, event_members(family_member_id, weekdays)")
+      .select("*, event_members(family_member_id, weekdays), event_sync_links(calendar_source_id)")
       .eq("family_id", familyId),
     admin.from("event_categories").select("id, name, color").eq("family_id", familyId),
   ]);
@@ -106,6 +106,9 @@ async function loadHousehold(admin: AnyDb, familyId: string): Promise<HouseholdD
     end_at: e.end_at,
     all_day: e.all_day,
     calendar_source_id: e.calendar_source_id,
+    linked_calendar_source_ids: (e.event_sync_links ?? []).map(
+      (link: { calendar_source_id: string }) => link.calendar_source_id,
+    ),
     display_mode: e.calendar_source_id
       ? (displayModeOf.get(e.calendar_source_id) ?? "events")
       : "events",

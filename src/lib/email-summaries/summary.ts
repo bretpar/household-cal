@@ -33,6 +33,8 @@ export interface SummaryEvent {
   end_at: string;
   all_day: boolean;
   calendar_source_id: string | null;
+  /** Connected calendars that carry this event when its canonical row belongs to the main calendar. */
+  linked_calendar_source_ids?: string[];
   display_mode?: string | null;
   recurrence_rule: string | null;
   recurrence_until: string | null;
@@ -139,7 +141,9 @@ export function eventsForSelection(
   return events.filter((event) => {
     if (allowed.size > 0) {
       // An explicitly selected calendar is included whatever its display style.
-      if (event.calendar_source_id) return allowed.has(event.calendar_source_id);
+      if (event.calendar_source_id && allowed.has(event.calendar_source_id)) return true;
+      if (event.linked_calendar_source_ids?.some((sourceId) => allowed.has(sourceId))) return true;
+      if (event.calendar_source_id) return false;
       // events stored without a calendar belong to the household's main calendar
       return selection.mainSourceId ? allowed.has(selection.mainSourceId) : false;
     }
