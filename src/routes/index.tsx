@@ -22,6 +22,7 @@ import mobileDayAsset from "@/assets/landing-mobile-day.png.asset.json";
 import ogImageAsset from "@/assets/landing-og-image.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { LegalFooter } from "@/components/LegalFooter";
+import { initAnalytics, trackEvent } from "@/lib/analytics";
 import { getSessionStatus, hasCachedSession, peekSessionStatus } from "@/lib/session-hint";
 
 const SITE_URL = "https://ourfamilycalendar.com";
