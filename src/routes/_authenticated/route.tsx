@@ -85,7 +85,10 @@ function AuthenticatedLayout() {
   // trigger a navigation (e.g. fresh signup -> /onboarding), and without this
   // dependency the layout would stay unready forever after that redirect.
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const [readyForPath, setReadyForPath] = useState<string | null>(null);
+  // Once the guard has passed once, keep the shell (header + bottom nav + page)
+  // mounted while re-validating on later tab navigations. Blanking the tree on
+  // every pathname change is what made tab switches flash an empty screen.
+  const [everReady, setEverReady] = useState(false);
 
   useEffect(() => {
     hasMountedOnce = true;
