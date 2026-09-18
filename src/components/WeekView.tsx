@@ -1,5 +1,5 @@
 import type { DragEvent, Ref } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { addDays, format, isSameDay } from "date-fns";
 
 import { cn } from "@/lib/utils";
@@ -8,14 +8,17 @@ import { MemberBadgeRow } from "@/components/MemberBadge";
 import { eventAccentClass, eventTintClass } from "@/lib/event-colors";
 import { CalendarEventContent } from "@/components/CalendarEventContent";
 import {
-  densityForHeight,
-  EVENT_TYPE_SCALE,
-  type CalendarViewScale,
-  type EventDensity,
-} from "@/lib/event-typography";
+  CALENDAR_TOKENS,
+  EVENT_TEXT_SCALE,
+  heightForOccurrence,
+  isDayBlock,
+  layoutBackground,
+  layoutTimedEvents,
+  planEventContent,
+  topForTime,
+} from "@/lib/calendar-layout";
 import { useReschedule } from "@/components/useReschedule";
 import { useTimeGridDrag } from "@/hooks/use-time-grid-drag";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   expandOccurrences,
   formatTimeRange,
@@ -27,105 +30,16 @@ import {
   type Occurrence,
 } from "@/lib/family-data";
 
-/** Responsive density for timed events in Week/Day view.
- *  Mobile keeps the aggressive compact rules. Desktop/tablet has enough
- *  horizontal room to show the title + time for events ~30 min and up. */
-function timedEventDensity(
-  view: CalendarViewScale,
-  height: number,
-  isMobile: boolean,
-  adaptiveTimed: boolean,
-): EventDensity {
-  if (adaptiveTimed) {
-    if (height >= 76) return "full";
-    if (height >= 42) return "medium";
-    if (height >= 30) return "short";
-    return "tiny";
-  }
-  if (isMobile) return densityForHeight(view, height);
-  if (view === "week") {
-    if (height >= 70) return "full";
-    if (height >= 42) return "medium";
-    if (height >= 34) return "short";
-    return "tiny";
-  }
-  return densityForHeight(view, height);
-}
+const DAY_START = CALENDAR_TOKENS.dayStartHour;
+const DAY_END = CALENDAR_TOKENS.dayEndHour;
+const HOUR_PX = CALENDAR_TOKENS.hourPx;
+const SNAP_MINUTES = CALENDAR_TOKENS.snapMinutes;
+/** Horizontal padding of the event area inside a day column. */
+const AREA_INSET_PX = 6;
 
-/** Full 24-hour timeline so overnight and early-morning events are visible. */
-const DAY_START = 0;
-const DAY_END = 24;
-/** Reduced hour height so Day/3-Day views show more hours at once (~75%). */
-const HOUR_PX = 45;
-/** Narrower time rail used only when three phone-sized day columns share the viewport. */
-export const MOBILE_THREE_DAY_GUTTER_PX = 40;
-const DEFAULT_GUTTER_PX = 52;
-/** Drops snap to a friendly grid rather than to the exact pixel. */
-const SNAP_MINUTES = 15;
+const topFor = topForTime;
+const heightFor = heightForOccurrence;
 
-function topFor(date: Date) {
-  return (date.getHours() + date.getMinutes() / 60 - DAY_START) * HOUR_PX;
-}
-
-function heightFor(o: Occurrence) {
-  const minutes = (o.end.getTime() - o.start.getTime()) / 60000;
-  return Math.max(28, (minutes / 60) * HOUR_PX);
-}
-
-/** Long, day-spanning blocks (school, work) render as banner chips instead of tall columns. */
-function isDayBlock(o: Occurrence): boolean {
-  return o.event.all_day || (o.end.getTime() - o.start.getTime()) / 3600000 >= 5;
-}
-
-function hourLabel(hour: number) {
-  const h = hour % 12 === 0 ? 12 : hour % 12;
-  return `${h} ${hour < 12 ? "AM" : "PM"}`;
-}
-
-function minutesFromTop(px: number) {
-  return (px / HOUR_PX) * 60;
-}
-
-interface Placed {
-  occurrence: Occurrence;
-  lane: number;
-  laneCount: number;
-  cluster: number;
-}
-
-/** Greedy lane packing so overlapping events render side by side instead of stacked. */
-function withLanes(list: Occurrence[]): Placed[] {
-  const sorted = [...list].sort((a, b) => a.start.getTime() - b.start.getTime());
-  const placed: Placed[] = [];
-  let cluster: Placed[] = [];
-  let clusterEnd = 0;
-  let laneEnds: number[] = [];
-  let clusterIndex = 0;
-
-  const flush = () => {
-    const count = Math.max(1, laneEnds.length);
-    cluster.forEach((item) => (item.laneCount = count));
-    placed.push(...cluster);
-    cluster = [];
-    laneEnds = [];
-    clusterEnd = 0;
-    clusterIndex += 1;
-  };
-
-  for (const occurrence of sorted) {
-    if (cluster.length > 0 && occurrence.start.getTime() >= clusterEnd) flush();
-    let lane = laneEnds.findIndex((end) => occurrence.start.getTime() >= end);
-    if (lane === -1) {
-      lane = laneEnds.length;
-      laneEnds.push(0);
-    }
-    laneEnds[lane] = occurrence.end.getTime();
-    clusterEnd = Math.max(clusterEnd, occurrence.end.getTime());
-    cluster.push({ occurrence, lane, laneCount: 1, cluster: clusterIndex });
-  }
-  flush();
-  return placed;
-}
 
 export function WeekView({
   anchor,
