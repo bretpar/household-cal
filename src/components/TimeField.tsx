@@ -147,7 +147,12 @@ function DesktopTimeField({
           <span className="min-w-0 truncate">{formatTimeValue(value)}</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="pointer-events-auto w-56 p-2">
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="pointer-events-auto z-[70] w-56 p-2"
+        onWheel={(event) => event.stopPropagation()}
+      >
         <Input
           autoFocus
           value={draft}
@@ -163,7 +168,10 @@ function DesktopTimeField({
           className="h-10 rounded-lg"
           aria-label="Type a time"
         />
-        <div ref={listRef} className="mt-2 max-h-56 overflow-y-auto pr-1">
+        <div
+          ref={listRef}
+          className="mt-2 max-h-56 touch-pan-y overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]"
+        >
           {OPTIONS.map((option) => {
             const selected = option === normalized;
             return (
