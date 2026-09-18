@@ -142,7 +142,7 @@ export const addIcsSubscription = createServerFn({ method: "POST" })
         sort_order: sortOrder,
         color,
         subscription_member_id: memberId,
-        sync_status: "syncing",
+        sync_status: "active",
       })
       .select("id")
       .single();

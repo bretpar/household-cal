@@ -266,7 +266,7 @@ export async function refreshSubscriptionRow(
   if (!secret?.url_ciphertext) {
     await admin
       .from("calendar_sources")
-      .update({ sync_status: "error", sync_error: "The saved calendar link is missing" })
+      .update({ sync_status: "needs_attention", sync_error: "The saved calendar link is missing" })
       .eq("id", subscription.id);
     return { ok: false, error: "missing link", fetched: 0, created: 0, updated: 0, deleted: 0 };
   }
@@ -281,7 +281,7 @@ export async function refreshSubscriptionRow(
     );
     await admin
       .from("calendar_sources")
-      .update({ sync_status: "idle", sync_error: null, last_synced_at: new Date().toISOString() })
+      .update({ sync_status: "active", sync_error: null, last_synced_at: new Date().toISOString() })
       .eq("id", subscription.id);
     return { ok: true, ...result };
   } catch (error) {
@@ -289,7 +289,7 @@ export async function refreshSubscriptionRow(
     console.error(`[ics] refresh failed for source ${subscription.id}: ${message}`);
     await admin
       .from("calendar_sources")
-      .update({ sync_status: "error", sync_error: message })
+      .update({ sync_status: "needs_attention", sync_error: message })
       .eq("id", subscription.id);
     return { ok: false, error: message, fetched: 0, created: 0, updated: 0, deleted: 0 };
   }
