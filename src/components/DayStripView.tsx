@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { addDays, differenceInCalendarDays, startOfDay } from "date-fns";
 
-import { MOBILE_THREE_DAY_GUTTER_PX, WeekView } from "@/components/WeekView";
+import { WeekView } from "@/components/WeekView";
+import { CALENDAR_TOKENS } from "@/lib/calendar-layout";
 import { useDayStrip } from "@/hooks/use-day-strip";
 import type { CalendarEvent, MemberId } from "@/lib/family-data";
 
@@ -9,8 +10,8 @@ import type { CalendarEvent, MemberId } from "@/lib/family-data";
 const BUFFER = 14;
 /** How close to the mounted edge we may drift before rebasing (after settle). */
 const EDGE = 4;
-/** Width of the hour gutter inside WeekView (3.25rem). */
-const GUTTER_PX = 52;
+/** Hour gutter widths come from the shared calendar tokens. */
+const GUTTER_PX = CALENDAR_TOKENS.gutter.default;
 
 /**
  * Mobile Day / 3-Day calendar: one continuous strip of single-day columns.
