@@ -212,30 +212,6 @@ export function EventDetailsDialog() {
 
 
 
-  // Kept at the top of the edit form so the scope is never below the fold.
-  const scopePicker = needsScope ? (
-    <div className="space-y-2 rounded-2xl bg-surface-muted p-3">
-      <p className="text-sm font-bold">Apply changes to:</p>
-      <div className="flex flex-col gap-2">
-        {SCOPE_OPTIONS.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            aria-pressed={scope === option.id}
-            onClick={() => setScope(option.id)}
-            className={
-              scope === option.id
-                ? "flex h-11 items-center rounded-xl bg-secondary px-3 text-sm font-bold ring-2 ring-primary"
-                : "flex h-11 items-center rounded-xl bg-background px-3 text-sm font-semibold text-muted-foreground"
-            }
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  ) : null;
-
   return (
     <Dialog open onOpenChange={(next) => (next ? null : closeOccurrence())}>
       <DialogContent
