@@ -40,8 +40,6 @@ export const CALENDAR_TOKENS = {
   },
   /** Below this rendered width a card is too narrow to stay readable. */
   minCardWidthPx: 116,
-  /** Never split foreground overlaps into more than this many lanes. */
-  maxForegroundLanes: 3,
   /** Content thresholds, measured against the card's rendered box. */
   content: {
     timeMinHeightPx: 40,
@@ -134,7 +132,6 @@ export function layoutBackground(
 interface Lane {
   occurrence: Occurrence;
   lane: number;
-  laneCount: number;
   cluster: number;
 }
 
@@ -150,8 +147,6 @@ function withLanes(list: Occurrence[]): Lane[] {
   let clusterIndex = 0;
 
   const flush = () => {
-    const count = Math.max(1, laneEnds.length);
-    cluster.forEach((item) => (item.laneCount = count));
     placed.push(...cluster);
     cluster = [];
     laneEnds = [];
@@ -168,7 +163,7 @@ function withLanes(list: Occurrence[]): Lane[] {
     }
     laneEnds[lane] = occurrence.end.getTime();
     clusterEnd = Math.max(clusterEnd, occurrence.end.getTime());
-    cluster.push({ occurrence, lane, laneCount: 1, cluster: clusterIndex });
+    cluster.push({ occurrence, lane, cluster: clusterIndex });
   }
   flush();
   return placed;
@@ -178,6 +173,12 @@ export interface ForegroundPlacement {
   occurrence: Occurrence;
   cluster: number;
   lane: number;
+  /** Stable segment identity. One occurrence may have several width segments. */
+  segment: number;
+  startsEvent: boolean;
+  endsEvent: boolean;
+  /** Content appears once, on the first segment where this event is visible. */
+  showContent: boolean;
   top: number;
   /** True visual height from the event's duration. */
   height: number;
@@ -190,6 +191,7 @@ export interface ForegroundPlacement {
 
 export interface OverflowMarker {
   cluster: number;
+  segment: number;
   top: number;
   hidden: Occurrence[];
 }
@@ -217,77 +219,119 @@ export function layoutTimedEvents({
   areaWidth: number;
 }): TimedLayout {
   const placed = withLanes(foreground);
-
-  // How many lanes stay readable in this column?
-  const maxLanes = Math.max(
-    1,
-    Math.min(
-      CALENDAR_TOKENS.maxForegroundLanes,
-      Math.floor(Math.max(areaWidth, 1) / CALENDAR_TOKENS.minCardWidthPx) || 1,
-    ),
-  );
-
-  const overflowByCluster = new Map<number, Occurrence[]>();
-  for (const item of placed) {
-    if (item.lane < maxLanes) continue;
-    const hidden = overflowByCluster.get(item.cluster) ?? [];
-    hidden.push(item.occurrence);
-    overflowByCluster.set(item.cluster, hidden);
-  }
-
   const results: ForegroundPlacement[] = [];
+  const overflow: OverflowMarker[] = [];
+  const shownContent = new Set<string>();
+  const clusters = new Map<number, Lane[]>();
   for (const item of placed) {
-    if (item.lane >= maxLanes) continue;
-    const o = item.occurrence;
-
-    // Width the foreground layer may use: full column unless a background
-    // event's single label would be covered.
-    let areaLeftPct = 0;
-    let areaWidthPct = 100;
-    const covering = coverage.filter((b) => overlaps(b, o));
-    if (covering.length > 0) {
-      const onLabel = covering.some((b) => {
-        const labelHeight = Math.min(
-          heightForOccurrence(b),
-          CALENDAR_TOKENS.background.labelHeightPx,
-        );
-        const labelMinutes =
-          (Math.min(labelHeight, CALENDAR_TOKENS.background.labelTextHeightPx) /
-            CALENDAR_TOKENS.hourPx) *
-          60;
-        const labelEnd = new Date(b.start.getTime() + labelMinutes * 60_000);
-        return o.start < labelEnd && o.end > b.start;
-      });
-      areaWidthPct = onLabel
-        ? CALENDAR_TOKENS.background.foregroundWidthOverLabelPct
-        : CALENDAR_TOKENS.background.foregroundWidthPct;
-      // Right-aligned so the background label keeps a readable left strip.
-      areaLeftPct = 100 - areaWidthPct;
-    }
-
-    const lanes = Math.min(item.laneCount, maxLanes);
-    const laneWidthPct = areaWidthPct / lanes;
-    const leftPct = areaLeftPct + item.lane * laneWidthPct;
-
-    results.push({
-      occurrence: o,
-      cluster: item.cluster,
-      lane: item.lane,
-      top: topForTime(o.start),
-      height: heightForOccurrence(o),
-      leftPct,
-      widthPct: laneWidthPct,
-      widthPx: Math.max(0, (areaWidth * laneWidthPct) / 100 - CALENDAR_TOKENS.card.gapPx),
-    });
+    const cluster = clusters.get(item.cluster) ?? [];
+    cluster.push(item);
+    clusters.set(item.cluster, cluster);
   }
 
-  const overflow: OverflowMarker[] = [...overflowByCluster.entries()].map(
-    ([cluster, hidden]) => ({
-      cluster,
-      hidden,
-      top: Math.min(...hidden.map((o) => topForTime(o.start))),
-    }),
-  );
+  for (const [cluster, items] of clusters) {
+    const boundaries = [
+      ...new Set(items.flatMap(({ occurrence }) => [occurrence.start.getTime(), occurrence.end.getTime()])),
+    ].sort((a, b) => a - b);
+
+    for (let segment = 0; segment < boundaries.length - 1; segment += 1) {
+      const segmentStart = boundaries[segment];
+      const segmentEnd = boundaries[segment + 1];
+      if (segmentStart == null || segmentEnd == null || segmentStart >= segmentEnd) continue;
+
+      const active = items
+        .filter(
+          ({ occurrence }) =>
+            occurrence.start.getTime() < segmentEnd && occurrence.end.getTime() > segmentStart,
+        )
+        .sort((a, b) => a.lane - b.lane || a.occurrence.key.localeCompare(b.occurrence.key));
+      if (active.length === 0) continue;
+
+      // Background coverage remains a separate layer. It can reserve a left
+      // label strip, but it never consumes a foreground lane or overflow slot.
+      let areaLeftPct = 0;
+      let areaWidthPct = 100;
+      const segmentStartDate = new Date(segmentStart);
+      const segmentEndDate = new Date(segmentEnd);
+      const covering = coverage.filter(
+        (background) => background.start < segmentEndDate && background.end > segmentStartDate,
+      );
+      if (covering.length > 0) {
+        const onLabel = covering.some((background) => {
+          const labelHeight = Math.min(
+            heightForOccurrence(background),
+            CALENDAR_TOKENS.background.labelHeightPx,
+          );
+          const labelMinutes =
+            (Math.min(labelHeight, CALENDAR_TOKENS.background.labelTextHeightPx) /
+              CALENDAR_TOKENS.hourPx) *
+            60;
+          const labelEnd = new Date(background.start.getTime() + labelMinutes * 60_000);
+          return segmentStartDate < labelEnd && segmentEndDate > background.start;
+        });
+        areaWidthPct = onLabel
+          ? CALENDAR_TOKENS.background.foregroundWidthOverLabelPct
+          : CALENDAR_TOKENS.background.foregroundWidthPct;
+        areaLeftPct = 100 - areaWidthPct;
+      }
+
+      const usableWidth = (areaWidth * areaWidthPct) / 100;
+      const widthCapacity = Math.max(
+        1,
+        Math.floor(
+          Math.max(usableWidth, 1) /
+            (CALENDAR_TOKENS.minCardWidthPx + CALENDAR_TOKENS.card.gapPx),
+        ),
+      );
+      // Two overlapping activities are always represented by two real cards.
+      // At higher densities, actual available width alone determines capacity.
+      const visibleCount =
+        active.length <= 2 ? active.length : Math.max(2, Math.min(active.length, widthCapacity));
+      const visible = active.slice(0, visibleCount);
+      const hidden = active.slice(visibleCount).map(({ occurrence }) => occurrence);
+      const laneWidthPct = areaWidthPct / visibleCount;
+
+      visible.forEach((item, visibleLane) => {
+        const showContent = !shownContent.has(item.occurrence.key);
+        shownContent.add(item.occurrence.key);
+        const startsEvent = segmentStart === item.occurrence.start.getTime();
+        const endsEvent = segmentEnd === item.occurrence.end.getTime();
+        const segmentHeight = endsEvent
+          ? Math.max(
+              heightForMinutes((segmentEnd - segmentStart) / 60_000),
+              topForTime(item.occurrence.start) + heightForOccurrence(item.occurrence) -
+                topForTime(segmentStartDate),
+            )
+          : heightForMinutes((segmentEnd - segmentStart) / 60_000);
+        results.push({
+          occurrence: item.occurrence,
+          cluster,
+          lane: visibleLane,
+          segment,
+          startsEvent,
+          endsEvent,
+          showContent,
+          top: topForTime(segmentStartDate),
+          height: segmentHeight,
+          leftPct: areaLeftPct + visibleLane * laneWidthPct,
+          widthPct: laneWidthPct,
+          widthPx: Math.max(
+            0,
+            (areaWidth * laneWidthPct) / 100 - CALENDAR_TOKENS.card.gapPx,
+          ),
+        });
+      });
+
+      if (hidden.length > 0) {
+        overflow.push({
+          cluster,
+          segment,
+          hidden,
+          top: topForTime(segmentStartDate),
+        });
+      }
+    }
+  }
 
   return { foreground: results, overflow };
 }
