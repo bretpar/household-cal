@@ -774,6 +774,21 @@ export function isExceptionLink(link: {
 }
 
 /**
+ * True when a Google event id names a single instance of a series
+ * (`<masterId>_20260917T143000Z` or `<masterId>_20260917`).
+ *
+ * Series-level fields such as `recurrence` cannot be patched onto an instance:
+ * Google answers 400 badRequest. Some link rows only carry the recurring master
+ * id without an original start, so the id shape is checked as well.
+ */
+export function isInstanceEventId(id: string | null | undefined): boolean {
+  if (!id) return false;
+  const suffix = id.slice(id.lastIndexOf("_") + 1);
+  return id.includes("_") && /^\d{8}(T\d{6}Z)?$/.test(suffix);
+}
+
+
+/**
  * Series links whose branch key no longer exists in the desired representation.
  *
  * Used when an event flips between a shared series ([""]) and per-person
