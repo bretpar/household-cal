@@ -51,18 +51,40 @@ export const createEvent = createServerFn({ method: "POST" })
     const familyId = await resolveWritableFamily(db, context.userId);
     const sourceId = data.calendar_source_id ?? (await defaultEventSource(db, familyId));
     const id = await insertEvent(db, familyId, { ...data, calendar_source_id: sourceId });
-    // The Google push must never hold the user's save open: a slow or hung
-    // Google API call would otherwise leave the Add Event dialog spinning
-    // after the event already exists. Bound it; the reconciliation pass
-    // repairs anything a cut-off push misses (pushToGoogle already swallows
-    // errors for the same reason).
+
+    // Authoritative confirmation: the caller only reports success once the row
+    // is readable back under the caller's own RLS context. Without this an
+    // insert that is silently filtered out (policy change, wrong household)
+    // could still resolve and produce a false "saved" state in the UI.
+    const { data: saved, error: confirmError } = await db
+      .from("events")
+      .select("id, family_id, calendar_source_id, title, start_at, end_at, recurrence_rule, event_type")
+      .eq("id", id)
+      .eq("family_id", familyId)
+      .maybeSingle();
+    if (confirmError) {
+      throw new Error(`Event save could not be confirmed: ${confirmError.message}`);
+    }
+    if (!saved?.id) {
+      throw new Error("Event save could not be confirmed: no saved event was found after insert.");
+    }
+    if (data.recurrence_rule && !saved.recurrence_rule) {
+      throw new Error("Event save could not be confirmed: the repeat pattern was not stored.");
+    }
+
+    // Google push only ever runs against a confirmed, stable OFC event id.
+    // It must never hold the user's save open: a slow or hung Google API call
+    // would otherwise leave the Add Event dialog spinning after the event
+    // already exists. Bound it; the reconciliation pass repairs anything a
+    // cut-off push misses (pushToGoogle already swallows errors).
     const { pushToGoogle } = await import("@/lib/google/push.server");
     await Promise.race([
-      pushToGoogle(familyId, id),
+      pushToGoogle(familyId, saved.id),
       new Promise<void>((resolve) => setTimeout(resolve, 2500)),
     ]);
-    return { id };
+    return { id: saved.id as string };
   });
+
 
 export const updateEventFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
