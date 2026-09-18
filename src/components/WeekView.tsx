@@ -208,12 +208,21 @@ export function WeekView({
 
   // Day-strip mode: fixed-width day columns inside one horizontal scroll host.
   const strip = dayWidth != null && dayWidth > 0;
-  const gutterPx = stackMobileThreeDay ? MOBILE_THREE_DAY_GUTTER_PX : DEFAULT_GUTTER_PX;
+  const gutterPx =
+    visibleColumns === 3 ? CALENDAR_TOKENS.gutter.compact : CALENDAR_TOKENS.gutter.default;
   const gridTemplate = strip
     ? `${gutterPx}px repeat(${days}, ${dayWidth}px)`
     : `${gutterPx}px repeat(${days}, minmax(0,1fr))`;
   const trackWidth = strip ? gutterPx + days * dayWidth : undefined;
   const gutterClass = strip ? "sticky left-0 z-30 bg-surface" : "";
+  /** Width of one day column, and of the event area inside it. */
+  const columnWidth = strip
+    ? dayWidth
+    : measuredWidth > 0
+      ? Math.max(0, (measuredWidth - gutterPx) / days)
+      : 0;
+  const areaWidth = Math.max(40, (columnWidth || 160) - AREA_INSET_PX);
+
   // In strip mode a single element scrolls both axes, so the sticky hour gutter
   // and sticky day headers stay pinned to the viewport instead of the wide track.
   const setStripHost = (node: HTMLDivElement | null) => {
