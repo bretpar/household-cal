@@ -446,27 +446,14 @@ export function WeekView({
                     </div>
                   )}
 
-                  {/* Babysitter coverage: warm neutral shading across the whole scheduled range.
-                    The full visible block is the tap target for childcare shifts; the inner
-                    label is rendered as non-interactive text so a single press never opens
-                    the details twice. */}
-                  {coverage.map((o) => {
+                  {/* Background coverage layer (babysitter / childcare): one
+                    full-width block for its true duration, muted styling, one
+                    single top-left label, always clickable where exposed. */}
+                  {layoutBackground(coverage, visible).map((bg) => {
+                    const o = bg.occurrence;
                     const moving = draggingKey === o.key || ghost?.occurrence?.key === o.key;
-                    const blockHeight = heightFor(o);
-                    // Background coverage uses the SAME type scale as any other
-                    // event in this view — only the colour is muted. The label
-                    // area is capped so long shifts stay readable underneath.
-                    const labelHeight = Math.min(blockHeight, 56);
-                    const density = densityForHeight(viewScale, labelHeight);
                     const isChildcareEvent = isChildcare(o.event);
-                    // Desktop/tablet keeps one label at the top-left. Foreground
-                    // activities remain in their normal lanes above this layer.
-                    const labelTextEnd = new Date(
-                      o.start.getTime() + (Math.min(labelHeight, 30) / HOUR_PX) * 60 * 60_000,
-                    );
-                    const desktopLabelObscured =
-                      !isMobile &&
-                      visible.some((f) => f.start < labelTextEnd && f.end > o.start);
+                    const labelWidthPx = bg.labelWidth ? 120 : areaWidth;
                     return (
                       <div
                         key={o.key}
@@ -483,27 +470,21 @@ export function WeekView({
                           }
                         }}
                         className={cn(
-                          "absolute inset-x-0 border-y border-l-2 border-coverage-strong/40 border-l-coverage-strong",
+                          "absolute inset-x-0 border-y border-l-[3px] border-coverage-strong/40 border-l-coverage-strong",
                           isChildcareEvent ? "bg-coverage/45" : "bg-coverage/60",
-                          "pointer-events-auto touch-hit-44 cursor-pointer",
-                          // Subtle selected state: outline only, keeps the coverage colour.
+                          "pointer-events-auto cursor-pointer",
                           moving && "ring-2 ring-coverage-strong/70 ring-inset",
                         )}
-                        style={{ top: topFor(o.start), height: blockHeight }}
+                        style={{ top: bg.top, height: bg.height }}
                       >
                         <div
-                          className={cn(
-                            "pointer-events-none absolute inset-x-0 top-0 text-coverage-foreground",
-                          )}
-                          style={{
-                            height: labelHeight,
-                            width: desktopLabelObscured ? "clamp(96px, 38%, 132px)" : undefined,
-                          }}
+                          className="pointer-events-none absolute inset-x-0 top-0 text-coverage-foreground"
+                          style={{ height: bg.labelHeight, width: bg.labelWidth }}
                         >
                           <CalendarEventContent
                             occurrence={o}
-                            view={viewScale}
-                            density={density}
+                            width={labelWidthPx}
+                            height={bg.labelHeight}
                             muted
                             title={careLabel(o)}
                           />
@@ -512,187 +493,125 @@ export function WeekView({
                     );
                   })}
 
-                  {/* Timed events sit above the coverage layer in side-by-side lanes.
-                    The whole card opens details on tap; the same block body is also
-                    the long-press move target. Narrow mobile 3-Day uses layered,
-                    full-width cards anchored to their true start times. */}
-                  <div className="pointer-events-none absolute inset-y-0 right-0.5 left-1 z-0 sm:right-1 sm:left-4">
+                  {/* Foreground timed events: one shared layout engine for every
+                    view and screen size. Lanes are only shared with other
+                    foreground events; the background layer never takes a lane. */}
+                  <div
+                    className="pointer-events-none absolute inset-y-0 z-0"
+                    style={{ left: 4, right: 2 }}
+                  >
                     {(() => {
-                      const placed = withLanes(visible);
-                      const hiddenByCluster = new Map<number, Placed[]>();
-                      if (cascadeMobileTimed) {
-                        for (const item of placed) {
-                          const visibleLaneLimit = mobileDay ? 2 : 3;
-                          if (item.lane < visibleLaneLimit) continue;
-                          const hidden = hiddenByCluster.get(item.cluster) ?? [];
-                          hidden.push(item);
-                          hiddenByCluster.set(item.cluster, hidden);
-                        }
-                      }
-
-                      return placed.map(({ occurrence: o, lane, laneCount, cluster }) => {
-                        const visibleLaneLimit = mobileDay ? 2 : 3;
-                        if (cascadeMobileTimed && lane >= visibleLaneLimit) {
-                         const hidden = hiddenByCluster.get(cluster) ?? [];
-                         if (hidden[0]?.occurrence.key !== o.key) return null;
-                          const markerTop = Math.min(...hidden.map((item) => topFor(item.occurrence.start)));
-                         return (
-                           <button
-                             key={`more-${cluster}`}
-                             type="button"
-                              className="pointer-events-auto absolute right-0 z-30 h-6 max-w-[70%] truncate rounded-md border border-border-soft bg-surface px-1.5 text-xs font-semibold text-muted-foreground shadow-soft"
-                              style={{ top: markerTop }}
-                             onClick={() => openOccurrence(o)}
-                             aria-label={`${hidden.length} more overlapping ${hidden.length === 1 ? "event" : "events"}`}
-                           >
-                             +{hidden.length} more
-                           </button>
-                         );
-                       }
-                      const blockHeight = heightFor(o);
-                      // Height decides which rows are shown — never the font size.
-                      // On desktop/tablet there is enough room to keep title + time
-                      // for events ~30 min and up; mobile keeps the compact rules.
-                       const density = timedEventDensity(
-                         viewScale,
-                         blockHeight,
-                         isMobile,
-                         adaptiveTimed,
-                       );
-                      const compact = density === "tiny" || density === "short";
-                       const mobileDayCoverage = mobileDay
-                         ? coverage.filter(
-                             (background) => background.start < o.end && background.end > o.start,
-                           )
-                         : [];
-                       const coversBackgroundLabel = mobileDayCoverage.some((background) => {
-                         const labelMinutes = (Math.min(heightFor(background), 56) / HOUR_PX) * 60;
-                         const labelEnd = new Date(background.start.getTime() + labelMinutes * 60_000);
-                         return o.start < labelEnd && o.end > background.start;
-                       });
-                       const foregroundLabelEnd = new Date(
-                         o.start.getTime() + (Math.min(blockHeight, 56) / HOUR_PX) * 60 * 60_000,
-                       );
-                       const foregroundAtLabel = mobileDayCoverage.length
-                         ? visible
-                             .filter(
-                               (candidate) =>
-                                 candidate.start < foregroundLabelEnd && candidate.end > o.start,
-                             )
-                             .sort(
-                               (a, b) =>
-                                 a.start.getTime() - b.start.getTime() || a.key.localeCompare(b.key),
-                             )
-                         : [];
-                       const foregroundSlot = Math.max(
-                         0,
-                         foregroundAtLabel.findIndex((candidate) => candidate.key === o.key),
-                       );
-                       // Only events sitting on the background's own label segment
-                       // need to give room back; later activities keep nearly the
-                       // full column, still anchored to the right edge.
-                       const backgroundForegroundWidth = coversBackgroundLabel ? 72 : 94;
-                       const mobileDayWidth =
-                         foregroundAtLabel.length > 1
-                           ? backgroundForegroundWidth / Math.min(2, foregroundAtLabel.length)
-                           : backgroundForegroundWidth;
-                       const mobileDayLeft =
-                         100 - backgroundForegroundWidth +
-                         Math.min(foregroundSlot, 1) * mobileDayWidth;
-                       const cascadeLeft = lane === 0 ? 0 : lane === 1 ? 22 : 37;
-                      return (
-                        <div
-                          key={o.key}
-                          data-occurrence-key={o.key}
-                          {...dragProps(o)}
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`${o.event.title} ${formatTimeRange(o.start, o.end, false)}`}
-                          onClick={() => openOccurrence(o)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              openOccurrence(o);
-                            }
-                          }}
-                          className={cn(
-                             "pointer-events-auto absolute cursor-pointer text-left",
-                             !isMobile && "touch-hit-44",
-                            compact ? "rounded-md" : "rounded-xl",
-                            draggingKey === o.key && "opacity-40",
-                            // Lifted by a long press: fade the original in place.
-                            ghost?.occurrence?.key === o.key && "opacity-30",
-                            // Currently in the landing zone of the lifted block.
-                            overlapKeys.has(o.key) &&
-                              "z-20 ring-2 ring-primary/70 ring-offset-1 ring-offset-surface " +
-                                (compact ? "rounded-md" : "rounded-xl"),
-                          )}
-                           style={{
-                             top: topFor(o.start),
-                              // The mobile wrapper is the real 44px touch target; its
-                              // child keeps the visible event at the exact duration.
-                              height: isMobile ? Math.max(44, blockHeight) : blockHeight,
-                                // Mobile Day and 3-Day share three readable cascading
-                                // widths and summarize denser overlaps instead of squeezing.
-                                 left: mobileDay && mobileDayCoverage.length
-                                  ? `${mobileDayLeft}%`
-                                  : cascadeMobileTimed
-                                    ? `${cascadeLeft}%`
-                                 : `${(lane / laneCount) * 100}%`,
-                                width: mobileDay && mobileDayCoverage.length
-                                  ? `calc(${mobileDayWidth}% - 2px)`
-                                  : cascadeMobileTimed
-                                    ? `calc(${100 - cascadeLeft}% - 2px)`
-                                : `calc(${100 / laneCount}% - 2px)`,
-                             zIndex:
-                               (overlapKeys.has(o.key) || draggingKey === o.key ? 40 : 10) + lane,
-                           }}
-                        >
-                          <div
-                            className={cn(
-                               "absolute inset-x-0 top-0 overflow-hidden border border-border-soft",
-                               mobileDay ? "rounded-md shadow-none" : "shadow-soft",
-                              !mobileDay && (compact ? "rounded-md" : "rounded-xl"),
-                              eventTintClass(categoryAppearanceFor(o.event)),
-                            )}
-                             style={{ height: blockHeight }}
-                          >
-                             {mobileDay ? (
-                               <span
-                                 className={cn(
-                                   "pointer-events-none absolute inset-y-0 left-0 z-10 w-0.5",
-                                   eventAccentClass(categoryAppearanceFor(o.event)),
-                                 )}
-                                 aria-hidden
-                               />
-                             ) : null}
-                            <CalendarEventContent
-                              occurrence={o}
-                              view={viewScale}
-                              density={density}
-                                showRecurrence={!adaptiveTimed && !cascadeMobileTimed}
-                               compactTimed={cascadeMobileTimed}
-                                adaptiveTimed={adaptiveTimed}
-                               maxBadges={
-                                 // Collapse to "+N" only when the card is genuinely
-                                 // narrow: 3-Day overlaps keep the aggressive cap,
-                                 // wide mobile Day cards show every badge.
-                                 stackMobileThreeDay && lane > 0
-                                   ? 1
-                                   : mobileDay &&
-                                       mobileDayCoverage.length > 0 &&
-                                       mobileDayWidth < 60
-                                     ? 1
-                                     : undefined
-                               }
-                            />
-                          </div>
-                        </div>
-                      );
-
+                      const layout = layoutTimedEvents({
+                        foreground: visible,
+                        coverage,
+                        areaWidth,
                       });
+
+                      return (
+                        <>
+                          {layout.overflow.map((group) => (
+                            <button
+                              key={`more-${group.cluster}`}
+                              type="button"
+                              className={cn(
+                                "pointer-events-auto absolute right-0 z-30 h-6 max-w-[70%] truncate border border-border-soft bg-surface px-1.5 text-xs font-semibold text-muted-foreground",
+                                CALENDAR_TOKENS.card.radius,
+                              )}
+                              style={{ top: group.top }}
+                              onClick={() => openOccurrence(group.hidden[0]!)}
+                              aria-label={`${group.hidden.length} more overlapping ${
+                                group.hidden.length === 1 ? "event" : "events"
+                              }`}
+                            >
+                              +{group.hidden.length} more
+                            </button>
+                          ))}
+
+                          {layout.foreground.map((placement) => {
+                            const o = placement.occurrence;
+                            const plan = planEventContent({
+                              width: placement.widthPx,
+                              height: placement.height,
+                              badgeCount: o.member_ids.length,
+                            });
+                            const padHeight = Math.max(
+                              0,
+                              CALENDAR_TOKENS.tapTargetPx - placement.height,
+                            );
+                            return (
+                              <div
+                                key={o.key}
+                                data-occurrence-key={o.key}
+                                {...dragProps(o)}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`${o.event.title} ${formatTimeRange(o.start, o.end, false)}`}
+                                onClick={() => openOccurrence(o)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    openOccurrence(o);
+                                  }
+                                }}
+                                className={cn(
+                                  "pointer-events-auto absolute cursor-pointer text-left",
+                                  CALENDAR_TOKENS.card.radius,
+                                  draggingKey === o.key && "opacity-40",
+                                  ghost?.occurrence?.key === o.key && "opacity-30",
+                                  overlapKeys.has(o.key) &&
+                                    "z-20 ring-2 ring-primary/70 ring-offset-1 ring-offset-surface",
+                                )}
+                                style={{
+                                  top: placement.top,
+                                  // True visual height from the duration.
+                                  height: placement.height,
+                                  left: `${placement.leftPct}%`,
+                                  width: `calc(${placement.widthPct}% - ${CALENDAR_TOKENS.card.gapPx}px)`,
+                                  zIndex:
+                                    (overlapKeys.has(o.key) || draggingKey === o.key ? 40 : 10) +
+                                    placement.lane,
+                                }}
+                              >
+                                <div
+                                  className={cn(
+                                    "relative h-full overflow-hidden",
+                                    CALENDAR_TOKENS.card.radius,
+                                    CALENDAR_TOKENS.card.border,
+                                    eventTintClass(categoryAppearanceFor(o.event)),
+                                  )}
+                                >
+                                  <span
+                                    className={cn(
+                                      "pointer-events-none absolute inset-y-0 left-0 z-10",
+                                      CALENDAR_TOKENS.card.railWidth,
+                                      eventAccentClass(categoryAppearanceFor(o.event)),
+                                    )}
+                                    aria-hidden
+                                  />
+                                  <CalendarEventContent
+                                    occurrence={o}
+                                    width={placement.widthPx}
+                                    height={placement.height}
+                                    plan={plan}
+                                  />
+                                </div>
+                                {/* Real (not pseudo-element) hit area for very
+                                  short events; sits under later event cards. */}
+                                {padHeight > 0 ? (
+                                  <span
+                                    className="absolute inset-x-0 block"
+                                    style={{ top: placement.height, height: padHeight }}
+                                    aria-hidden
+                                  />
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </>
+                      );
                     })()}
                   </div>
+
 
                   {/* Live drag preview: never persisted, replaced by the real form on release.
                     Long coverage shifts stay unfilled so the day is still readable. */}
