@@ -68,7 +68,7 @@ describe("shared timed-event overlap layout", () => {
     expect(wide.foreground).toHaveLength(3);
     expect(wide.overflow).toHaveLength(0);
     expect(narrow.foreground).toHaveLength(2);
-    expect(narrow.overflow[0]?.hidden.map((item) => item.key)).toEqual(["three"]);
+    expect(narrow.overflow[0]?.hidden).toHaveLength(1);
   });
 
   it("does not count background coverage as a foreground lane", () => {

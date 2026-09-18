@@ -220,7 +220,12 @@ export function layoutTimedEvents({
   const results: ForegroundPlacement[] = [];
   const overflow: OverflowMarker[] = [];
   const shownContent = new Set<string>();
-  const clusters = Map.groupBy(placed, (item) => item.cluster);
+  const clusters = new Map<number, Lane[]>();
+  for (const item of placed) {
+    const cluster = clusters.get(item.cluster) ?? [];
+    cluster.push(item);
+    clusters.set(item.cluster, cluster);
+  }
 
   for (const [cluster, items] of clusters) {
     const boundaries = [
