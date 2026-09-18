@@ -523,7 +523,7 @@ export function WeekView({
                         <>
                           {layout.overflow.map((group) => (
                             <button
-                              key={`more-${group.cluster}`}
+                              key={`more-${group.cluster}-${group.segment}`}
                               type="button"
                               className={cn(
                                 "pointer-events-auto absolute right-0 z-30 h-6 max-w-[70%] truncate border border-border-soft bg-surface px-1.5 text-xs font-semibold text-muted-foreground",
@@ -548,11 +548,11 @@ export function WeekView({
                             });
                             const padHeight = Math.max(
                               0,
-                              CALENDAR_TOKENS.tapTargetPx - placement.height,
+                              CALENDAR_TOKENS.tapTargetPx - heightForOccurrence(o),
                             );
                             return (
                               <div
-                                key={o.key}
+                                key={`${o.key}-${placement.segment}`}
                                 data-occurrence-key={o.key}
                                 {...dragProps(o)}
                                 role="button"
@@ -600,16 +600,18 @@ export function WeekView({
                                     )}
                                     aria-hidden
                                   />
-                                  <CalendarEventContent
-                                    occurrence={o}
-                                    width={placement.widthPx}
-                                    height={placement.height}
-                                    plan={plan}
-                                  />
+                                  {placement.showContent ? (
+                                    <CalendarEventContent
+                                      occurrence={o}
+                                      width={placement.widthPx}
+                                      height={placement.height}
+                                      plan={plan}
+                                    />
+                                  ) : null}
                                 </div>
                                 {/* Real (not pseudo-element) hit area for very
                                   short events; sits under later event cards. */}
-                                {padHeight > 0 ? (
+                                {placement.showContent && padHeight > 0 ? (
                                   <span
                                     className="absolute inset-x-0 block"
                                     style={{ top: placement.height, height: padHeight }}
