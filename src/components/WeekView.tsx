@@ -538,26 +538,20 @@ export function WeekView({
                         key={o.key}
                         data-occurrence-key={isChildcareEvent ? o.key : undefined}
                         {...(isChildcareEvent ? dragProps(o) : {})}
-                        role={isChildcareEvent ? "button" : undefined}
-                        tabIndex={isChildcareEvent ? 0 : undefined}
+                        role="button"
+                        tabIndex={0}
                         aria-label={`${careLabel(o)} ${formatTimeRange(o.start, o.end, false)}`}
-                        onClick={isChildcareEvent ? () => openOccurrence(o) : undefined}
-                        onKeyDown={
-                          isChildcareEvent
-                            ? (e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  openOccurrence(o);
-                                }
-                              }
-                            : undefined
-                        }
+                        onClick={() => openOccurrence(o)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            openOccurrence(o);
+                          }
+                        }}
                         className={cn(
                           "absolute inset-x-0 border-y border-l-2 border-coverage-strong/40 border-l-coverage-strong",
                           isChildcareEvent ? "bg-coverage/45" : "bg-coverage/60",
-                          isChildcareEvent
-                            ? "pointer-events-auto touch-hit-44 cursor-pointer"
-                            : "pointer-events-none",
+                          "pointer-events-auto touch-hit-44 cursor-pointer",
                           // Subtle selected state: outline only, keeps the coverage colour.
                           moving && "ring-2 ring-coverage-strong/70 ring-inset",
                         )}
