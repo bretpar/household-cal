@@ -161,4 +161,101 @@ describe("shared timed-event overlap layout", () => {
       ["last", 2],
     ]);
   });
+
+  it("keeps one stable overlap group for a chain of indirect overlaps", () => {
+    // A overlaps B, B overlaps C, C overlaps D — but A never touches C or D.
+    // The chain must stay a single cluster with stable, monotonically
+    // increasing lanes rather than splitting into separate groups.
+    const layout = layoutTimedEvents({
+      foreground: [
+        occurrence("d", 12, 14),
+        occurrence("b", 10, 13),
+        occurrence("a", 9, 11),
+        occurrence("c", 11, 15),
+      ],
+      coverage: [],
+      areaWidth: 420,
+    });
+    expect(layout.foreground).toHaveLength(4);
+    expect(layout.overflow).toHaveLength(0);
+    const lanes = Object.fromEntries(
+      layout.foreground.map((item) => [item.occurrence.key, item.lane]),
+    );
+    expect(new Set(layout.foreground.map((item) => item.cluster)).size).toBe(1);
+    expect(lanes).toEqual({ a: 0, b: 1, c: 2, d: 3 });
+  });
+
+  it("gives identical start times stable lanes ordered by duration then key", () => {
+    const layout = layoutTimedEvents({
+      foreground: [
+        occurrence("b-short", 9, 10),
+        occurrence("a-short", 9, 10),
+        occurrence("z-long", 9, 12),
+      ],
+      coverage: [],
+      areaWidth: 420,
+    });
+    expect(layout.foreground.map((item) => [item.occurrence.key, item.lane])).toEqual([
+      ["z-long", 0],
+      ["a-short", 1],
+      ["b-short", 2],
+    ]);
+    // Every card keeps the same left/width for its full duration.
+    for (const item of layout.foreground) {
+      expect(item.widthPct).toBeCloseTo(100 / 3);
+      expect(item.leftPct).toBeCloseTo((item.lane * 100) / 3);
+    }
+  });
+
+  it("keeps a long-duration event in one segment with its true geometry", () => {
+    const layout = layoutTimedEvents({
+      foreground: [
+        occurrence("long", 8, 20),
+        occurrence("morning", 9, 10),
+        occurrence("evening", 18, 19),
+      ],
+      coverage: [],
+      areaWidth: 420,
+    });
+    const long = layout.foreground.find((item) => item.occurrence.key === "long");
+    expect(long).toMatchObject({
+      lane: 0,
+      startsEvent: true,
+      endsEvent: true,
+      top: 8 * 45,
+      height: 12 * 45,
+    });
+    // The long event never splits into multiple segments.
+    expect(
+      layout.foreground.filter((item) => item.occurrence.key === "long"),
+    ).toHaveLength(1);
+  });
+
+  it("counts each hidden event once even when hidden for part of a long group", () => {
+    // Narrow width forces hidden lanes; a late event that only overlaps the
+    // tail of the group must still appear exactly once in the single pill.
+    const events = [
+      occurrence("a", 8, 18),
+      occurrence("b", 9, 17),
+      occurrence("c", 10, 16),
+      occurrence("late", 15, 19),
+    ];
+    const layout = layoutTimedEvents({ foreground: events, coverage: [], areaWidth: 120 });
+    expect(layout.overflow).toHaveLength(1);
+    const hiddenKeys = layout.overflow[0]?.hidden.map((o) => o.key) ?? [];
+    expect(new Set(hiddenKeys).size).toBe(hiddenKeys.length);
+    expect(hiddenKeys).toContain("late");
+  });
+
+  it("produces no overflow when every chained event fits the width", () => {
+    const events = [
+      occurrence("a", 9, 11),
+      occurrence("b", 10, 12),
+      occurrence("c", 11, 13),
+      occurrence("d", 12, 14),
+    ];
+    const layout = layoutTimedEvents({ foreground: events, coverage: [], areaWidth: 420 });
+    expect(layout.foreground).toHaveLength(4);
+    expect(layout.overflow).toHaveLength(0);
+  });
 });
