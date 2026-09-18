@@ -140,6 +140,9 @@ export function EventDetailsDialog() {
   const appearance = categoryAppearanceFor(event);
 
   const needsScope = Boolean(event.recurrence_rule);
+  // Apple/iCloud subscriptions are mirrors: nothing about them can change here.
+  const readOnly = event.read_only === true;
+  const mayEdit = canEdit && !readOnly;
 
   // only shown when someone in the series has their own weekdays
   const perPersonDays = event.participants
@@ -237,7 +240,7 @@ export function EventDetailsDialog() {
                   ? typeLabel
                   : `${appearance.label} · ${typeLabel}`}
               </DialogDescription>
-              {canEdit ? (
+              {mayEdit ? (
                 // Copy sits immediately left of Edit in the upper-right.
                 <div className="absolute top-3.5 right-4 flex items-center gap-1 sm:top-5 sm:right-6">
                   <Button
@@ -276,6 +279,18 @@ export function EventDetailsDialog() {
                 <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 {format(start, "EEEE, MMM d")} · {formatTimeRange(start, end, event.all_day)}
               </p>
+              {readOnly ? (
+                <div className="flex items-start gap-2 rounded-xl border border-border-soft bg-surface-muted px-3 py-2 text-xs">
+                  <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span>
+                    <span className="block font-bold">Synced from Apple Calendar · Read only</span>
+                    <span className="mt-0.5 block text-muted-foreground">
+                      To change this event, edit it in Apple Calendar. It will update here on the
+                      next refresh.
+                    </span>
+                  </span>
+                </div>
+              ) : null}
               {occurrence.member_ids.length > 0 ? (
                 <div className="flex items-center gap-2">
                   <MemberBadgeRow ids={occurrence.member_ids} size="md" />
