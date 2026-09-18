@@ -1,16 +1,23 @@
 import * as google from "@/lib/google/api.server";
 import {
+  classifyRecurrence,
   eventMatchesFilters,
   previewIdentity,
+  statusReason,
   type BulkDeleteComparableEvent,
   type BulkDeleteFilters,
   type BulkDeletePreviewItem,
+  type RecurrenceStatus,
 } from "@/lib/google/bulk-delete";
 import { fromGoogleTimes, type GoogleEvent } from "@/lib/google/mapping";
 import { getConnection } from "@/lib/google/sync.server";
 import { normalizeTimeZone } from "@/lib/google/timezone";
 
 type Admin = { from: (table: string) => any };
+
+/** Horizon used for "all future matching events" so Google expansion terminates. */
+const FUTURE_HORIZON_YEARS = 10;
+const LOCAL_PAGE_SIZE = 1000;
 
 interface SourceRow {
   id: string;
@@ -40,6 +47,9 @@ export interface BulkDeletePreview {
   calendar: { id: string; name: string };
   time_zone: string;
   total: number;
+  eligible_total: number;
+  protected_total: number;
+  excluded_total: number;
   items: BulkDeletePreviewItem[];
   preview_token: string;
 }
@@ -47,6 +57,7 @@ export interface BulkDeletePreview {
 export interface BulkDeleteCompletion {
   deleted_from_google: number;
   deleted_from_ofc: number;
+  skipped: number;
   failures: { title: string; date: string; message: string }[];
 }
 
@@ -103,6 +114,12 @@ function nextDay(date: string): string {
   return next.toISOString().slice(0, 10);
 }
 
+function horizonDate(startDate: string): string {
+  const at = new Date(`${startDate}T12:00:00Z`);
+  at.setUTCFullYear(at.getUTCFullYear() + FUTURE_HORIZON_YEARS);
+  return at.toISOString().slice(0, 10);
+}
+
 function localComparable(row: LocalRow, timeZone: string): BulkDeleteComparableEvent {
   const start = zonedParts(row.start_at, timeZone);
   const end = zonedParts(row.end_at, timeZone);
@@ -112,17 +129,16 @@ function localComparable(row: LocalRow, timeZone: string): BulkDeleteComparableE
     date: start.date,
     start_time: row.all_day ? null : start.time,
     end_time: row.all_day ? null : end.time,
-    recurring: Boolean(row.recurrence_rule || row.external_recurring_event_id),
   };
 }
 
 function googleComparable(event: GoogleEvent, timeZone: string): BulkDeleteComparableEvent | null {
   const times = fromGoogleTimes(event);
   const start = event.start?.date
-    ? { date: event.start.date, time: null }
+    ? { date: event.start.date, time: null as string | null }
     : { ...zonedParts(times.start_at, timeZone) };
   const end = event.end?.date
-    ? { date: event.end.date, time: null }
+    ? { date: event.end.date, time: null as string | null }
     : { ...zonedParts(times.end_at, timeZone) };
   if (!start.date) return null;
   return {
@@ -131,20 +147,19 @@ function googleComparable(event: GoogleEvent, timeZone: string): BulkDeleteCompa
     date: start.date,
     start_time: event.start?.date ? null : start.time,
     end_time: event.end?.date ? null : end.time,
-    recurring: Boolean(event.recurrence?.length || event.recurringEventId),
   };
 }
 
 async function hashPreview(filters: BulkDeleteFilters, identity: string): Promise<string> {
   const { createHash } = await import("node:crypto");
-  return createHash("sha256").update(JSON.stringify(filters)).update("\n").update(identity).digest("hex");
+  return createHash("sha256")
+    .update(JSON.stringify(filters))
+    .update("\n")
+    .update(identity)
+    .digest("hex");
 }
 
-async function resolveSource(
-  admin: Admin,
-  familyId: string,
-  sourceId: string,
-): Promise<SourceRow> {
+async function resolveSource(admin: Admin, familyId: string, sourceId: string) {
   const { data, error } = await admin
     .from("calendar_sources")
     .select("id, name, external_calendar_id")
@@ -153,8 +168,54 @@ async function resolveSource(
     .eq("provider", "google")
     .maybeSingle();
   if (error) throw error;
-  if (!data?.external_calendar_id) throw new Error("Choose a connected Google calendar");
-  return data as SourceRow;
+  const row = data as SourceRow | null;
+  if (!row?.external_calendar_id) throw new Error("Choose a connected Google calendar");
+  return { id: row.id, name: row.name, external_calendar_id: row.external_calendar_id };
+}
+
+/** Cached master lookups so a whole broken series costs at most one probe. */
+function masterProbe(connectionKey: string, calendarId: string) {
+  const cache = new Map<string, "live_series" | "gone">();
+  return async (recurringEventId: string): Promise<"live_series" | "gone"> => {
+    const cached = cache.get(recurringEventId);
+    if (cached) return cached;
+    let state: "live_series" | "gone" = "gone";
+    try {
+      const master = await google.getEvent(connectionKey, calendarId, recurringEventId);
+      if (master?.status !== "cancelled" && (master?.recurrence?.length ?? 0) > 0) {
+        state = "live_series";
+      }
+    } catch {
+      state = "gone";
+    }
+    cache.set(recurringEventId, state);
+    return state;
+  };
+}
+
+async function fetchLocalRows(
+  admin: Admin,
+  familyId: string,
+  sourceId: string,
+  timeMin: string,
+  timeMax: string,
+): Promise<LocalRow[]> {
+  const rows: LocalRow[] = [];
+  for (let page = 0; ; page += 1) {
+    const { data, error } = await admin
+      .from("events")
+      .select("id, title, start_at, end_at, all_day, recurrence_rule, external_recurring_event_id")
+      .eq("family_id", familyId)
+      .eq("calendar_source_id", sourceId)
+      .gte("start_at", timeMin)
+      .lt("start_at", timeMax)
+      .order("start_at", { ascending: true })
+      .range(page * LOCAL_PAGE_SIZE, page * LOCAL_PAGE_SIZE + LOCAL_PAGE_SIZE - 1);
+    if (error) throw error;
+    const batch = (data ?? []) as LocalRow[];
+    rows.push(...batch);
+    if (batch.length < LOCAL_PAGE_SIZE) return rows;
+  }
 }
 
 export async function previewBulkDelete(
@@ -163,51 +224,54 @@ export async function previewBulkDelete(
   filters: BulkDeleteFilters,
 ): Promise<BulkDeletePreview> {
   const source = await resolveSource(admin, familyId, filters.source_id);
-  const externalCalendarId = source.external_calendar_id;
-  if (!externalCalendarId) throw new Error("Choose a connected Google calendar");
   const connection = await getConnection(admin, familyId);
   if (!connection) throw new Error("Google Calendar is not connected");
 
-  const { data: family } = await admin.from("families").select("timezone").eq("id", familyId).maybeSingle();
+  const { data: family } = await admin
+    .from("families")
+    .select("timezone")
+    .eq("id", familyId)
+    .maybeSingle();
   const timeZone = normalizeTimeZone(family?.timezone as string | null);
+  const upperDate = filters.end_date ? nextDay(filters.end_date) : horizonDate(filters.start_date);
   const timeMin = zonedMidnight(filters.start_date, timeZone).toISOString();
-  const timeMax = zonedMidnight(nextDay(filters.end_date), timeZone).toISOString();
+  const timeMax = zonedMidnight(upperDate, timeZone).toISOString();
 
-  const [{ data: memberRows }, { data: localRows, error: localError }, googleRows] = await Promise.all([
+  const [{ data: memberRows }, localRows, googleRows] = await Promise.all([
     admin.from("family_members").select("initial").eq("family_id", familyId),
-    admin
-      .from("events")
-      .select("id, title, start_at, end_at, all_day, recurrence_rule, external_recurring_event_id")
-      .eq("family_id", familyId)
-      .eq("calendar_source_id", source.id)
-      .gte("start_at", timeMin)
-      .lt("start_at", timeMax),
+    fetchLocalRows(admin, familyId, source.id, timeMin, timeMax),
     google.listEventsInRange(
       connection.connectionKey,
-      externalCalendarId,
+      source.external_calendar_id,
       timeMin,
       timeMax,
     ),
   ]);
-  if (localError) throw localError;
 
   const initials = (memberRows ?? []).map((row: { initial: string }) => row.initial);
-  const localMatches = ((localRows ?? []) as LocalRow[])
+  const localMatches = localRows
     .map((row) => ({ row, comparable: localComparable(row, timeZone) }))
     .filter(({ comparable }) => eventMatchesFilters(comparable, filters, initials));
+
   const localIds = localMatches.map(({ row }) => row.id);
   let links: LinkRow[] = [];
   if (localIds.length > 0) {
-    const { data, error } = await admin
-      .from("event_sync_links")
-      .select("event_id, google_event_id, google_recurring_event_id, google_original_start")
-      .eq("family_id", familyId)
-      .eq("calendar_source_id", source.id)
-      .in("event_id", localIds);
-    if (error) throw error;
-    links = (data ?? []) as LinkRow[];
+    for (let index = 0; index < localIds.length; index += 200) {
+      const { data, error } = await admin
+        .from("event_sync_links")
+        .select("event_id, google_event_id, google_recurring_event_id, google_original_start")
+        .eq("family_id", familyId)
+        .eq("calendar_source_id", source.id)
+        .in("event_id", localIds.slice(index, index + 200));
+      if (error) throw error;
+      links = links.concat((data ?? []) as LinkRow[]);
+    }
   }
 
+  const liveGoogleById = new Map<string, GoogleEvent>();
+  for (const event of googleRows) {
+    if (event.status !== "cancelled") liveGoogleById.set(event.id, event);
+  }
   const googleMatches = googleRows
     .filter((event) => event.status !== "cancelled")
     .map((event) => ({ event, comparable: googleComparable(event, timeZone) }))
@@ -215,26 +279,59 @@ export async function previewBulkDelete(
       (entry): entry is { event: GoogleEvent; comparable: BulkDeleteComparableEvent } =>
         Boolean(entry.comparable && eventMatchesFilters(entry.comparable, filters, initials)),
     );
-  const googleById = new Map(googleMatches.map((entry) => [entry.event.id, entry]));
+
+  const probeMaster = masterProbe(connection.connectionKey, source.external_calendar_id);
+  const googleStatus = new Map<string, RecurrenceStatus>();
+  for (const { event } of googleMatches) {
+    const recurringEventId = event.recurringEventId ?? null;
+    const masterState = recurringEventId ? await probeMaster(recurringEventId) : null;
+    googleStatus.set(
+      event.id,
+      classifyRecurrence({
+        hasRecurrenceRule: (event.recurrence?.length ?? 0) > 0,
+        recurringEventId,
+        masterState,
+      }),
+    );
+  }
+
   const items: BulkDeletePreviewItem[] = [];
   const claimedGoogleIds = new Set<string>();
 
   for (const local of localMatches) {
-    const localLinks = links.filter(
-      (link) =>
-        link.event_id === local.row.id &&
-        !link.google_recurring_event_id &&
-        !link.google_original_start,
-    );
-    const liveMatches = localLinks
-      .map((link) => googleById.get(link.google_event_id))
-      .filter((entry): entry is { event: GoogleEvent; comparable: BulkDeleteComparableEvent } => Boolean(entry));
-    const hasLiveLinkedMismatch = localLinks.some(
-      (link) => googleRows.some((event) => event.id === link.google_event_id && event.status !== "cancelled") && !googleById.has(link.google_event_id),
-    );
-    if (hasLiveLinkedMismatch) continue;
-    const googleIds = liveMatches.map((entry) => entry.event.id);
+    const localLinks = links.filter((link) => link.event_id === local.row.id);
+    const liveLinked = localLinks.filter((link) => liveGoogleById.has(link.google_event_id));
+    const matchedLinked = liveLinked.filter((link) => googleStatus.has(link.google_event_id));
+    const googleIds = matchedLinked.map((link) => link.google_event_id);
     googleIds.forEach((id) => claimedGoogleIds.add(id));
+
+    let status: RecurrenceStatus;
+    if (googleIds.length > 0) {
+      // Google is authoritative for a linked event's recurrence health.
+      status = googleIds.some((id) => googleStatus.get(id) === "healthy_recurring")
+        ? "healthy_recurring"
+        : googleIds.some((id) => googleStatus.get(id) === "detached")
+          ? "detached"
+          : "standalone";
+    } else {
+      const recurringPointer =
+        local.row.external_recurring_event_id ??
+        localLinks.find((link) => link.google_recurring_event_id)?.google_recurring_event_id ??
+        (localLinks.some((link) => link.google_original_start) ? local.row.id : null);
+      const masterState = local.row.external_recurring_event_id
+        ? await probeMaster(local.row.external_recurring_event_id)
+        : recurringPointer
+          ? "gone"
+          : null;
+      status = classifyRecurrence({
+        hasRecurrenceRule: Boolean(local.row.recurrence_rule),
+        recurringEventId: recurringPointer,
+        masterState,
+      });
+    }
+
+    const mismatchedLinked = liveLinked.length > 0 && matchedLinked.length === 0;
+    const eligible = status !== "healthy_recurring" && !mismatchedLinked;
     items.push({
       key: `ofc:${local.row.id}`,
       title: local.comparable.title,
@@ -243,6 +340,11 @@ export async function previewBulkDelete(
       end_time: local.comparable.end_time,
       calendar_name: source.name,
       exists_in: googleIds.length > 0 ? "Both" : "OFC",
+      recurrence_status: status,
+      eligible,
+      reason: mismatchedLinked
+        ? "Linked Google event does not match these filters"
+        : statusReason(status),
       google_event_ids: googleIds,
       ofc_event_id: local.row.id,
     });
@@ -250,6 +352,7 @@ export async function previewBulkDelete(
 
   for (const { event, comparable } of googleMatches) {
     if (claimedGoogleIds.has(event.id)) continue;
+    const status = googleStatus.get(event.id) ?? "standalone";
     items.push({
       key: `google:${event.id}`,
       title: comparable.title,
@@ -258,18 +361,33 @@ export async function previewBulkDelete(
       end_time: comparable.end_time,
       calendar_name: source.name,
       exists_in: "Google",
+      recurrence_status: status,
+      eligible: status !== "healthy_recurring",
+      reason: statusReason(status),
       google_event_ids: [event.id],
       ofc_event_id: null,
     });
   }
 
-  items.sort((a, b) => `${a.date}${a.start_time ?? ""}${a.title}`.localeCompare(`${b.date}${b.start_time ?? ""}${b.title}`));
+  items.sort((a, b) =>
+    `${a.date}${a.start_time ?? ""}${a.title}`.localeCompare(
+      `${b.date}${b.start_time ?? ""}${b.title}`,
+    ),
+  );
+  const eligible_total = items.filter((item) => item.eligible).length;
+  const protected_total = items.filter(
+    (item) => !item.eligible && item.recurrence_status === "healthy_recurring",
+  ).length;
+  const excluded_total = items.length - eligible_total - protected_total;
   const preview_token = await hashPreview(filters, previewIdentity(items));
   return {
     filters,
     calendar: { id: source.id, name: source.name },
     time_zone: timeZone,
     total: items.length,
+    eligible_total,
+    protected_total,
+    excluded_total,
     items,
     preview_token,
   };
@@ -286,21 +404,34 @@ export async function deleteBulkMatches(
     throw new Error("Matches changed since preview. Preview again before deleting.");
   }
   const source = await resolveSource(admin, familyId, filters.source_id);
-  const externalCalendarId = source.external_calendar_id;
-  if (!externalCalendarId) throw new Error("Choose a connected Google calendar");
   const connection = await getConnection(admin, familyId);
   if (!connection) throw new Error("Google Calendar is not connected");
 
   const result: BulkDeleteCompletion = {
     deleted_from_google: 0,
     deleted_from_ofc: 0,
+    skipped: preview.items.filter((item) => !item.eligible).length,
     failures: [],
   };
+
   for (const item of preview.items) {
+    if (!item.eligible) continue;
     try {
       for (const googleEventId of item.google_event_ids) {
-        await google.deleteEvent(connection.connectionKey, externalCalendarId, googleEventId);
+        await google.deleteEvent(
+          connection.connectionKey,
+          source.external_calendar_id,
+          googleEventId,
+        );
         result.deleted_from_google += 1;
+        // Drop the mirror link first so the cancellation cannot re-import later.
+        const { error: linkError } = await admin
+          .from("event_sync_links")
+          .delete()
+          .eq("family_id", familyId)
+          .eq("calendar_source_id", source.id)
+          .eq("google_event_id", googleEventId);
+        if (linkError) throw linkError;
       }
       if (item.ofc_event_id) {
         const { error } = await admin
