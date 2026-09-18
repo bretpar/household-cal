@@ -64,6 +64,8 @@ export function resolveCategory(
 export type CategorizableEvent = {
   category_id?: string | null;
   event_type?: EventType | null;
+  /** read-only subscription colour; when set it owns the card appearance */
+  source_color?: MemberColor | null;
 };
 
 /** Accepts a bare category id or a whole event row. */
@@ -121,10 +123,20 @@ export function categoryAppearance(category: EventCategory | null): CategoryAppe
   return { label: category.name, swatch: style.dot, soft: style.soft };
 }
 
+/**
+ * Events imported from a read-only subscription are coloured by the colour the
+ * household picked for that subscription, not by a household category — there is
+ * no way to categorise them, since nothing about them can be edited here.
+ */
 export function appearanceForEvent(
   categories: EventCategory[],
   ref: CategoryRef,
 ): CategoryAppearance {
+  const subscriptionColor = refToEvent(ref).source_color;
+  if (subscriptionColor) {
+    const style = styleForColor(subscriptionColor);
+    return { label: "Apple Calendar", swatch: style.dot, soft: style.soft };
+  }
   return categoryAppearance(resolveEventCategory(categories, ref));
 }
 
