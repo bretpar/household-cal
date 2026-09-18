@@ -97,9 +97,6 @@ export function isDayBlock(o: Occurrence): boolean {
   return (o.end.getTime() - o.start.getTime()) / 3600000 >= 5;
 }
 
-function overlaps(a: Occurrence, b: Occurrence): boolean {
-  return a.start < b.end && a.end > b.start;
-}
 
 /* ------------------------------------------------------- background layout */
 
