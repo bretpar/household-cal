@@ -181,16 +181,23 @@ function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }
     start_time: "",
     end_time: "",
   });
+  const [allFuture, setAllFuture] = useState(false);
   const [preview, setPreview] = useState<Awaited<ReturnType<typeof previewFn>> | null>(null);
   const [completion, setCompletion] = useState<Awaited<ReturnType<typeof deleteFn>> | null>(null);
 
   const input = {
     ...filters,
+    end_date: allFuture ? null : filters.end_date,
     start_time: filters.start_time || null,
     end_time: filters.end_time || null,
   };
   const change = (name: keyof typeof filters, value: string) => {
     setFilters((current) => ({ ...current, [name]: value }));
+    setPreview(null);
+    setCompletion(null);
+  };
+  const changeRangeMode = (value: string) => {
+    setAllFuture(value === "future");
     setPreview(null);
     setCompletion(null);
   };
@@ -218,16 +225,25 @@ function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }
       toast.error(error instanceof Error ? error.message : "Bulk deletion failed"),
   });
   const ready = Boolean(
-    filters.source_id && filters.title.trim() && filters.start_date && filters.end_date,
+    filters.source_id && filters.title.trim() && filters.start_date && (allFuture || filters.end_date),
   );
+  const rangeLabel = preview
+    ? `${preview.filters.start_date} → ${preview.filters.end_date ?? "all future dates"}`
+    : "";
+  const statusLabel = (status: string) =>
+    status === "healthy_recurring"
+      ? "Healthy recurring"
+      : status === "detached"
+        ? "Detached"
+        : "Standalone";
 
   return (
     <div className="space-y-4 rounded-3xl border border-destructive/30 bg-card p-4">
       <div>
         <h3 className="text-base font-bold">Bulk Delete Matching Events</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Preview and remove matching standalone events from Google and this calendar. Repeating
-          events are excluded.
+          Preview and remove standalone or detached repeat events from Google and this calendar.
+          Events that still belong to an active repeating series stay protected.
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -254,9 +270,23 @@ function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }
           <Input id="bulk-delete-start-date" type="date" value={filters.start_date} onChange={(event) => change("start_date", event.target.value)} className="h-11 rounded-xl" />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="bulk-delete-end-date">End date</Label>
-          <Input id="bulk-delete-end-date" type="date" value={filters.end_date} onChange={(event) => change("end_date", event.target.value)} className="h-11 rounded-xl" />
+          <Label htmlFor="bulk-delete-range-mode">End date</Label>
+          <select
+            id="bulk-delete-range-mode"
+            value={allFuture ? "future" : "specific"}
+            onChange={(event) => changeRangeMode(event.target.value)}
+            className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+          >
+            <option value="specific">Specific date</option>
+            <option value="future">All future matching events</option>
+          </select>
         </div>
+        {allFuture ? null : (
+          <div className="space-y-1.5">
+            <Label htmlFor="bulk-delete-end-date">Specific end date</Label>
+            <Input id="bulk-delete-end-date" type="date" value={filters.end_date} onChange={(event) => change("end_date", event.target.value)} className="h-11 rounded-xl" />
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="bulk-delete-start-time">Start time (optional)</Label>
           <Input id="bulk-delete-start-time" type="time" value={filters.start_time} onChange={(event) => change("start_time", event.target.value)} className="h-11 rounded-xl" />
@@ -272,7 +302,13 @@ function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }
 
       {preview ? (
         <div className="space-y-3 rounded-2xl border border-border-soft bg-background p-3">
-          <p className="font-bold">{preview.total} matching event{preview.total === 1 ? "" : "s"}</p>
+          <div className="space-y-1">
+            <p className="font-bold">{preview.eligible_total} eligible match{preview.eligible_total === 1 ? "" : "es"}</p>
+            <p className="text-sm text-muted-foreground">
+              {preview.protected_total} protected healthy recurring · {preview.excluded_total} other excluded · {preview.total} found in total
+            </p>
+            <p className="text-xs text-muted-foreground">{rangeLabel}</p>
+          </div>
           <div className="max-h-72 space-y-2 overflow-y-auto">
             {preview.items.map((item) => (
               <div key={item.key} className="rounded-xl border border-border-soft p-3 text-sm">
@@ -284,31 +320,38 @@ function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }
                   {item.date}{item.start_time ? ` · ${item.start_time}${item.end_time ? `–${item.end_time}` : ""}` : " · All day"}
                 </p>
                 <p className="text-xs text-muted-foreground">{item.calendar_name}</p>
+                <p className="mt-1 text-xs font-bold">
+                  {statusLabel(item.recurrence_status)} · {item.eligible ? "Eligible" : "Protected"}
+                </p>
+                {item.reason ? <p className="text-xs text-muted-foreground">{item.reason}</p> : null}
               </div>
             ))}
           </div>
-          {preview.total > 0 ? (
+          {preview.eligible_total > 0 ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button type="button" variant="destructive" className="h-11 rounded-full font-bold">Review deletion</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete {preview.total} matching events?</AlertDialogTitle>
+                  <AlertDialogTitle>Delete {preview.eligible_total} matching events?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This removes the previewed standalone events from Google and Our Family Calendar.
+                    This removes the eligible previewed events from Google and Our Family Calendar.
+                    Protected repeating events are left untouched.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <dl className="grid gap-2 rounded-xl border border-border-soft p-3 text-sm">
                   <Row label="Calendar" value={preview.calendar.name} />
                   <Row label="Title" value={preview.filters.title} />
-                  <Row label="Date range" value={`${preview.filters.start_date} – ${preview.filters.end_date}`} />
-                  <Row label="Total" value={String(preview.total)} />
+                  <Row label="Start date" value={preview.filters.start_date} />
+                  <Row label="End" value={preview.filters.end_date ?? "All future dates"} />
+                  <Row label="Eligible" value={String(preview.eligible_total)} />
+                  <Row label="Protected" value={String(preview.protected_total)} />
                 </dl>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>
-                    Delete {preview.total} matching events
+                    Delete all {preview.eligible_total} matching events
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -322,6 +365,8 @@ function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }
           <p className="font-bold">Deletion complete</p>
           <p>Deleted from Google: {completion.deleted_from_google}</p>
           <p>Deleted from OFC: {completion.deleted_from_ofc}</p>
+          <p>Protected or skipped: {completion.skipped}</p>
+          <p>Failed: {completion.failures.length}</p>
           {completion.failures.length > 0 ? (
             <div className="space-y-1 text-destructive">
               <p className="font-bold">Needs attention: {completion.failures.length}</p>
@@ -333,6 +378,7 @@ function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }
     </div>
   );
 }
+
 
 /** Re-reads authoritative repeat rules from Google. Idempotent. */
 function RecurrenceRepair() {
