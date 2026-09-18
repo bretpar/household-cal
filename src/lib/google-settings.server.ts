@@ -167,7 +167,10 @@ export async function attachCalendar(
       .eq("family_id", familyId);
     if (error) throw error;
     await pullHousehold(supabaseAdmin, familyId, true);
+    // Start near-real-time notifications now instead of at the next reconcile.
+    await ensureWatchChannelsForFamily(supabaseAdmin, familyId);
     return { source_id: input.replace_source_id };
+
   }
 
   const { count } = await supabaseAdmin
