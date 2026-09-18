@@ -28,7 +28,6 @@ import { Route as ApiPublicEmailSummariesDispatchRouteImport } from './routes/ap
 import { Route as ApiPublicGoogleCalendarManualSyncRouteImport } from './routes/api/public/google-calendar/manual-sync'
 import { Route as ApiPublicGoogleCalendarNotifyRouteImport } from './routes/api/public/google-calendar/notify'
 import { Route as ApiPublicGoogleCalendarReconcileRouteImport } from './routes/api/public/google-calendar/reconcile'
-import { Route as ApiPublicIcsDetachGoogleRouteImport } from './routes/api/public/ics/detach-google'
 import { Route as ApiPublicIcsRefreshRouteImport } from './routes/api/public/ics/refresh'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 
@@ -132,12 +131,6 @@ const ApiPublicGoogleCalendarReconcileRoute =
     path: '/api/public/google-calendar/reconcile',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicIcsDetachGoogleRoute =
-  ApiPublicIcsDetachGoogleRouteImport.update({
-    id: '/api/public/ics/detach-google',
-    path: '/api/public/ics/detach-google',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiPublicIcsRefreshRoute = ApiPublicIcsRefreshRouteImport.update({
   id: '/api/public/ics/refresh',
   path: '/api/public/ics/refresh',
@@ -169,7 +162,6 @@ export interface FileRoutesByFullPath {
   '/api/public/google-calendar/manual-sync': typeof ApiPublicGoogleCalendarManualSyncRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
   '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
-  '/api/public/ics/detach-google': typeof ApiPublicIcsDetachGoogleRoute
   '/api/public/ics/refresh': typeof ApiPublicIcsRefreshRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
@@ -192,7 +184,6 @@ export interface FileRoutesByTo {
   '/api/public/google-calendar/manual-sync': typeof ApiPublicGoogleCalendarManualSyncRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
   '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
-  '/api/public/ics/detach-google': typeof ApiPublicIcsDetachGoogleRoute
   '/api/public/ics/refresh': typeof ApiPublicIcsRefreshRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
@@ -217,7 +208,6 @@ export interface FileRoutesById {
   '/api/public/google-calendar/manual-sync': typeof ApiPublicGoogleCalendarManualSyncRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
   '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
-  '/api/public/ics/detach-google': typeof ApiPublicIcsDetachGoogleRoute
   '/api/public/ics/refresh': typeof ApiPublicIcsRefreshRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
@@ -242,7 +232,6 @@ export interface FileRouteTypes {
     | '/api/public/google-calendar/manual-sync'
     | '/api/public/google-calendar/notify'
     | '/api/public/google-calendar/reconcile'
-    | '/api/public/ics/detach-google'
     | '/api/public/ics/refresh'
     | '/lovable/email/transactional/preview'
   fileRoutesByTo: FileRoutesByTo
@@ -265,7 +254,6 @@ export interface FileRouteTypes {
     | '/api/public/google-calendar/manual-sync'
     | '/api/public/google-calendar/notify'
     | '/api/public/google-calendar/reconcile'
-    | '/api/public/ics/detach-google'
     | '/api/public/ics/refresh'
     | '/lovable/email/transactional/preview'
   id:
@@ -289,7 +277,6 @@ export interface FileRouteTypes {
     | '/api/public/google-calendar/manual-sync'
     | '/api/public/google-calendar/notify'
     | '/api/public/google-calendar/reconcile'
-    | '/api/public/ics/detach-google'
     | '/api/public/ics/refresh'
     | '/lovable/email/transactional/preview'
   fileRoutesById: FileRoutesById
@@ -308,7 +295,6 @@ export interface RootRouteChildren {
   ApiPublicGoogleCalendarManualSyncRoute: typeof ApiPublicGoogleCalendarManualSyncRoute
   ApiPublicGoogleCalendarNotifyRoute: typeof ApiPublicGoogleCalendarNotifyRoute
   ApiPublicGoogleCalendarReconcileRoute: typeof ApiPublicGoogleCalendarReconcileRoute
-  ApiPublicIcsDetachGoogleRoute: typeof ApiPublicIcsDetachGoogleRoute
   ApiPublicIcsRefreshRoute: typeof ApiPublicIcsRefreshRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
 }
@@ -448,13 +434,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicGoogleCalendarReconcileRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/ics/detach-google': {
-      id: '/api/public/ics/detach-google'
-      path: '/api/public/ics/detach-google'
-      fullPath: '/api/public/ics/detach-google'
-      preLoaderRoute: typeof ApiPublicIcsDetachGoogleRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/ics/refresh': {
       id: '/api/public/ics/refresh'
       path: '/api/public/ics/refresh'
@@ -508,7 +487,6 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicGoogleCalendarManualSyncRoute,
   ApiPublicGoogleCalendarNotifyRoute: ApiPublicGoogleCalendarNotifyRoute,
   ApiPublicGoogleCalendarReconcileRoute: ApiPublicGoogleCalendarReconcileRoute,
-  ApiPublicIcsDetachGoogleRoute: ApiPublicIcsDetachGoogleRoute,
   ApiPublicIcsRefreshRoute: ApiPublicIcsRefreshRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
 }
