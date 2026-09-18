@@ -201,7 +201,8 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     ),
     member_ids: (e.event_members ?? []).map((l: { family_member_id: string }) => l.family_member_id),
 
-  }));
+    };
+  });
 
   const activities: FamilyActivity[] = (activitiesRes.data ?? []).map((a: any) => ({
     id: a.id,
