@@ -278,11 +278,14 @@ export function layoutTimedEvents({
         : 100;
     const areaLeftPct = 100 - areaWidthPct;
     const usableWidth = (areaWidth * areaWidthPct) / 100;
+    // Cards are allowed to get narrow (down to a still-tappable floor) before
+    // any event is hidden: seeing every event's time and duration matters more
+    // than keeping cards wide.
     const widthCapacity = Math.max(
       1,
       Math.floor(
         Math.max(usableWidth, 1) /
-          (CALENDAR_TOKENS.minCardWidthPx + CALENDAR_TOKENS.card.gapPx),
+          (CALENDAR_TOKENS.minOverlapColumnPx + CALENDAR_TOKENS.card.gapPx),
       ),
     );
     const visibleCount =
@@ -311,28 +314,23 @@ export function layoutTimedEvents({
         });
       });
 
-    for (let segment = 0; segment < boundaries.length - 1; segment += 1) {
-      const segmentStart = boundaries[segment];
-      const segmentEnd = boundaries[segment + 1];
-      if (segmentStart == null || segmentEnd == null || segmentStart >= segmentEnd) continue;
-      const hidden = items
-        .filter(
-          (item) =>
-            item.lane >= visibleCount &&
-            item.occurrence.start.getTime() < segmentEnd &&
-            item.occurrence.end.getTime() > segmentStart,
-        )
-        .map(({ occurrence }) => occurrence);
-      if (hidden.length > 0) {
-        overflow.push({
-          cluster,
-          segment,
-          hidden,
-          top: topForTime(new Date(segmentStart)),
-        });
-      }
+    // One overflow affordance per overlap group, listing each hidden event once.
+    // Per-boundary markers used to repeat the same event as several "+1 more"
+    // pills down its duration.
+    const hidden = items
+      .filter((item) => item.lane >= visibleCount)
+      .map(({ occurrence }) => occurrence);
+    if (hidden.length > 0) {
+      const firstStart = Math.min(...hidden.map((o) => o.start.getTime()));
+      overflow.push({
+        cluster,
+        segment: 0,
+        hidden,
+        top: topForTime(new Date(firstStart)),
+      });
     }
   }
+
 
   return { foreground: results, overflow };
 }
