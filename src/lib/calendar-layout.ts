@@ -82,9 +82,15 @@ export function heightForMinutes(minutes: number): number {
   return (minutes / 60) * CALENDAR_TOKENS.hourPx;
 }
 
-/** Long day-spanning blocks (school, work) render in the all-day band. */
+/**
+ * Long day-spanning blocks (school, work) render in the all-day band.
+ * Imported read-only subscription events follow their own flag only: a timed
+ * feed event stays on the timeline no matter how long it runs.
+ */
 export function isDayBlock(o: Occurrence): boolean {
-  return o.event.all_day || (o.end.getTime() - o.start.getTime()) / 3600000 >= 5;
+  if (o.event.all_day) return true;
+  if (o.event.read_only) return false;
+  return (o.end.getTime() - o.start.getTime()) / 3600000 >= 5;
 }
 
 function overlaps(a: Occurrence, b: Occurrence): boolean {
