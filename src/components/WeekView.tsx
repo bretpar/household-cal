@@ -552,7 +552,7 @@ export function WeekView({
                             );
                             return (
                               <div
-                                key={`${o.key}-${placement.segment}`}
+                                key={o.key}
                                 data-occurrence-key={o.key}
                                 {...dragProps(o)}
                                 role="button"
@@ -567,13 +567,7 @@ export function WeekView({
                                 }}
                                 className={cn(
                                   "pointer-events-auto absolute cursor-pointer text-left",
-                                  placement.startsEvent && placement.endsEvent
-                                    ? CALENDAR_TOKENS.card.radius
-                                    : placement.startsEvent
-                                      ? "rounded-t-[6px]"
-                                      : placement.endsEvent
-                                        ? "rounded-b-[6px]"
-                                        : "rounded-none",
+                                  CALENDAR_TOKENS.card.radius,
                                   draggingKey === o.key && "opacity-40",
                                   ghost?.occurrence?.key === o.key && "opacity-30",
                                   overlapKeys.has(o.key) &&
@@ -592,16 +586,8 @@ export function WeekView({
                               >
                                 <div
                                   className={cn(
-                                    "relative h-full overflow-hidden border-x border-border-soft",
-                                    placement.startsEvent && "border-t border-border-soft",
-                                    placement.endsEvent && "border-b border-border-soft",
-                                    placement.startsEvent && placement.endsEvent
-                                      ? CALENDAR_TOKENS.card.radius
-                                      : placement.startsEvent
-                                        ? "rounded-t-[6px]"
-                                        : placement.endsEvent
-                                          ? "rounded-b-[6px]"
-                                          : "rounded-none",
+                                    "relative h-full overflow-hidden border border-border-soft",
+                                    CALENDAR_TOKENS.card.radius,
                                     eventTintClass(categoryAppearanceFor(o.event)),
                                   )}
                                 >
