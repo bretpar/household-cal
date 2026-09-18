@@ -14,7 +14,12 @@ import {
   renameCalendar as renameGoogleCalendar,
 } from "@/lib/google/api.server";
 import { normalizeTimeZone } from "@/lib/google/timezone";
-import { getConnection, pullHousehold } from "@/lib/google/sync.server";
+import {
+  ensureWatchChannelsForFamily,
+  getConnection,
+  pullHousehold,
+} from "@/lib/google/sync.server";
+
 
 type Client = { from: (table: string) => any };
 
