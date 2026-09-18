@@ -89,8 +89,9 @@ export function WeekView({
 
   const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
   const { dragProps, dropProps, draggingKey, requestMove, dialog } = useReschedule();
-  const isMobile = useIsMobile();
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const [measuredWidth, setMeasuredWidth] = useState(0);
 
   const sourceName = (id: string | null) => sources.find((s) => s.id === id)?.name ?? "Coverage";
   /** Childcare joins the soft care-coverage layer instead of competing as a card. */
@@ -99,16 +100,23 @@ export function WeekView({
   const careLabel = (o: Occurrence) =>
     isChildcare(o.event) ? o.event.title : sourceName(o.event.calendar_source_id);
   /** Rolling window: the selected date is always the left-most column. */
-  /** One column = Day view, which gets the slightly larger shared type scale. */
-  const viewScale = (scaleDays ?? days) === 1 ? "day" : "week";
-  const adaptiveTimed = (scaleDays ?? days) === 1 || (scaleDays ?? days) === 3;
-  const mobileDay = isMobile && (scaleDays ?? days) === 1;
-  const stackMobileThreeDay = isMobile && (scaleDays ?? days) === 3;
-  const cascadeMobileTimed = mobileDay || stackMobileThreeDay;
+  const visibleColumns = scaleDays ?? days;
   const start = anchor;
   const columns: Date[] = Array.from({ length: days }, (_, i) => addDays(start, i));
   const occurrences = expandOccurrences(events, columns[0]!, addDays(columns[days - 1]!, 1));
   const hours = Array.from({ length: DAY_END - DAY_START }, (_, i) => DAY_START + i);
+
+  // Available space — not the device — decides card geometry and text density.
+  useLayoutEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const measure = () => setMeasuredWidth(el.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
 
   /** Pointer position inside a day column -> snapped start time on that day. */
   const startFromDrop = (day: Date, e: DragEvent<HTMLElement>): Date => {
