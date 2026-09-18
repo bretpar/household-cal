@@ -88,7 +88,7 @@ export function DayStripView({
     const el = outerRef.current;
     if (!el) return;
     const measure = () => {
-      const gutter = visibleDays === 3 ? MOBILE_THREE_DAY_GUTTER_PX : GUTTER_PX;
+      const gutter = visibleDays === 3 ? CALENDAR_TOKENS.gutter.compact : GUTTER_PX;
       const available = el.clientWidth - gutter;
       if (available > 0) setColumnWidth(available / visibleDays);
     };
