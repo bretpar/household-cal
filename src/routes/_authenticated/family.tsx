@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { AppleCalendarSubscriptions } from "@/components/AppleCalendarSubscriptions";
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
 import { CalendarSyncSettings } from "@/components/CalendarSyncSettings";
 import { DeveloperTools } from "@/components/DeveloperTools";
