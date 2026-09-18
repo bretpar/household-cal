@@ -288,6 +288,31 @@ export async function defaultEventSource(db: Db, familyId: string): Promise<stri
   return data?.[0]?.id ?? null;
 }
 
+/**
+ * Events imported from a read-only subscription (Apple/iCloud) can never be
+ * edited or deleted inside the app — Apple Calendar owns them. Enforced here as
+ * well as in the interface, so a stale page cannot bypass it.
+ */
+export async function assertEventEditable(db: Db, eventId: string): Promise<void> {
+  const { data } = await db
+    .from("events")
+    .select("calendar_source_id")
+    .eq("id", eventId)
+    .maybeSingle();
+  const sourceId = (data?.calendar_source_id ?? null) as string | null;
+  if (!sourceId) return;
+  const { data: source } = await db
+    .from("calendar_sources")
+    .select("provider")
+    .eq("id", sourceId)
+    .maybeSingle();
+  if (source?.provider === "ics") {
+    throw new Error(
+      "This event is synced from Apple Calendar and is read only here. Make changes in Apple Calendar.",
+    );
+  }
+}
+
 export async function insertEvent(
   db: Db,
   familyId: string,
