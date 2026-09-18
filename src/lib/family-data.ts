@@ -35,7 +35,8 @@ export type EventType =
   | "other";
 
 export type DisplayMode = "events" | "coverage_background";
-export type CalendarProvider = "local" | "google";
+/** `ics` = read-only Apple/iCloud subscription feed. */
+export type CalendarProvider = "local" | "google" | "ics";
 
 /** Palette keys a household can assign to its own members. */
 export type MemberColor =
@@ -78,6 +79,10 @@ export interface CalendarSource {
   is_main: boolean;
   /** Whether this source may be included as a recipient's summary calendar. */
   selectable_in_email: boolean;
+  /** subscription colour used for every event imported from this source (ics only) */
+  color?: MemberColor | null;
+  /** family member every imported event is assigned to (ics only) */
+  subscription_member_id?: string | null;
 }
 
 /** Weekday code used by RRULE BYDAY and by per-person participation rules. */
@@ -109,6 +114,10 @@ export interface CalendarEvent {
   calendar_source_id: string | null;
   /** resolved from the event's calendar source — drives coverage vs. event rendering */
   display_mode: DisplayMode;
+  /** true for events imported from a read-only subscription (Apple/iCloud) */
+  read_only: boolean;
+  /** subscription colour, when the event came from a read-only subscription */
+  source_color?: MemberColor | null;
   title: string;
   start_at: string;
   end_at: string;

@@ -98,6 +98,7 @@ export type Database = {
         Row: {
           active: boolean
           app_managed_calendar: boolean
+          color: string | null
           created_at: string
           display_mode: Database["public"]["Enums"]["calendar_display_mode"]
           external_calendar_id: string | null
@@ -115,6 +116,7 @@ export type Database = {
           provider: Database["public"]["Enums"]["calendar_provider"]
           selectable_in_email: boolean
           sort_order: number
+          subscription_member_id: string | null
           sync_error: string | null
           sync_failure_count: number
           sync_paused_at: string | null
@@ -124,6 +126,7 @@ export type Database = {
         Insert: {
           active?: boolean
           app_managed_calendar?: boolean
+          color?: string | null
           created_at?: string
           display_mode?: Database["public"]["Enums"]["calendar_display_mode"]
           external_calendar_id?: string | null
@@ -141,6 +144,7 @@ export type Database = {
           provider?: Database["public"]["Enums"]["calendar_provider"]
           selectable_in_email?: boolean
           sort_order?: number
+          subscription_member_id?: string | null
           sync_error?: string | null
           sync_failure_count?: number
           sync_paused_at?: string | null
@@ -150,6 +154,7 @@ export type Database = {
         Update: {
           active?: boolean
           app_managed_calendar?: boolean
+          color?: string | null
           created_at?: string
           display_mode?: Database["public"]["Enums"]["calendar_display_mode"]
           external_calendar_id?: string | null
@@ -167,6 +172,7 @@ export type Database = {
           provider?: Database["public"]["Enums"]["calendar_provider"]
           selectable_in_email?: boolean
           sort_order?: number
+          subscription_member_id?: string | null
           sync_error?: string | null
           sync_failure_count?: number
           sync_paused_at?: string | null
@@ -179,6 +185,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_sources_subscription_member_id_fkey"
+            columns: ["subscription_member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
             referencedColumns: ["id"]
           },
         ]
@@ -949,6 +962,38 @@ export type Database = {
           },
         ]
       }
+      ics_subscription_secrets: {
+        Row: {
+          created_at: string
+          source_id: string
+          updated_at: string
+          url_ciphertext: string
+          url_hint: string
+        }
+        Insert: {
+          created_at?: string
+          source_id: string
+          updated_at?: string
+          url_ciphertext: string
+          url_hint: string
+        }
+        Update: {
+          created_at?: string
+          source_id?: string
+          updated_at?: string
+          url_ciphertext?: string
+          url_hint?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ics_subscription_secrets_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: true
+            referencedRelation: "calendar_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1070,7 +1115,7 @@ export type Database = {
     }
     Enums: {
       calendar_display_mode: "events" | "coverage_background"
-      calendar_provider: "local" | "google"
+      calendar_provider: "local" | "google" | "ics"
       email_summary_frequency: "daily" | "weekly" | "monthly"
       event_type:
         | "school"
@@ -1214,7 +1259,7 @@ export const Constants = {
   public: {
     Enums: {
       calendar_display_mode: ["events", "coverage_background"],
-      calendar_provider: ["local", "google"],
+      calendar_provider: ["local", "google", "ics"],
       email_summary_frequency: ["daily", "weekly", "monthly"],
       event_type: [
         "school",
