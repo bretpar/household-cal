@@ -11,13 +11,18 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveWritableFamily, type Db } from "@/lib/calendar-ops";
-import { MEMBER_COLORS, type MemberColor } from "@/lib/family-data";
+import {
+  MEMBER_COLORS,
+  type DisplayMode,
+  type MemberColor,
+} from "@/lib/family-data";
 
 export interface IcsSubscriptionSummary {
   id: string;
   name: string;
   color: MemberColor | null;
   member_id: string | null;
+  display_mode: DisplayMode;
   /** masked remnant of the saved link; never the full URL */
   hint: string;
   last_synced_at: string | null;
@@ -42,7 +47,9 @@ function assertColor(value: unknown): MemberColor {
 async function loadSubscriptions(db: Db, familyId: string): Promise<IcsSubscriptionSummary[]> {
   const { data, error } = await db
     .from("calendar_sources")
-    .select("id, name, color, subscription_member_id, last_synced_at, sync_status, sync_error")
+    .select(
+      "id, name, color, subscription_member_id, display_mode, last_synced_at, sync_status, sync_error",
+    )
     .eq("family_id", familyId)
     .eq("provider", "ics")
     .order("sort_order", { ascending: true });
@@ -69,6 +76,7 @@ async function loadSubscriptions(db: Db, familyId: string): Promise<IcsSubscript
     name: r.name as string,
     color: (r.color ?? null) as MemberColor | null,
     member_id: (r.subscription_member_id ?? null) as string | null,
+    display_mode: (r.display_mode ?? "events") as DisplayMode,
     hint: hintOf.get(r.id as string) ?? "calendar link",
     last_synced_at: (r.last_synced_at ?? null) as string | null,
     sync_status: (r.sync_status ?? "idle") as string,
@@ -212,6 +220,33 @@ export const refreshIcsSubscription = createServerFn({ method: "POST" })
     });
     if (!result.ok) throw new Error(result.error ?? "Could not refresh that calendar");
     return { created: result.created, updated: result.updated, deleted: result.deleted };
+  });
+
+export const updateIcsSubscriptionDisplayMode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string; display_mode: DisplayMode }) => ({
+    id: String(data.id ?? ""),
+    display_mode: data.display_mode,
+  }))
+  .handler(async ({ data, context }) => {
+    if (data.display_mode !== "events" && data.display_mode !== "coverage_background") {
+      throw new Error("Choose Event or Background");
+    }
+
+    const db = context.supabase as unknown as Db;
+    const familyId = await resolveWritableFamily(db, context.userId);
+    const { data: source, error } = await db
+      .from("calendar_sources")
+      .update({ display_mode: data.display_mode })
+      .eq("id", data.id)
+      .eq("family_id", familyId)
+      .eq("provider", "ics")
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    if (!source) throw new Error("That calendar subscription no longer exists");
+
+    return { ok: true };
   });
 
 export const removeIcsSubscription = createServerFn({ method: "POST" })

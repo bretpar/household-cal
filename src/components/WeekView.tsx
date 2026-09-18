@@ -465,6 +465,8 @@ export function WeekView({
                     const o = bg.occurrence;
                     const moving = draggingKey === o.key || ghost?.occurrence?.key === o.key;
                     const isChildcareEvent = isChildcare(o.event);
+                    const isSubscriptionEvent = o.event.read_only && Boolean(o.event.source_color);
+                    const appearance = categoryAppearanceFor(o.event);
                     const labelWidthPx = bg.labelWidth ? 120 : areaWidth;
                     return (
                       <div
@@ -482,15 +484,36 @@ export function WeekView({
                           }
                         }}
                         className={cn(
-                          "absolute inset-x-0 border-y border-l-[3px] border-coverage-strong/40 border-l-coverage-strong",
-                          isChildcareEvent ? "bg-coverage/45" : "bg-coverage/60",
+                          "absolute inset-x-0 border-y border-l-[3px]",
+                          isSubscriptionEvent
+                            ? cn(
+                                "border-border-soft",
+                                eventTintClass(appearance),
+                              )
+                            : cn(
+                                "border-coverage-strong/40 border-l-coverage-strong",
+                                isChildcareEvent ? "bg-coverage/45" : "bg-coverage/60",
+                              ),
                           "pointer-events-auto cursor-pointer",
                           moving && "ring-2 ring-coverage-strong/70 ring-inset",
                         )}
                         style={{ top: bg.top, height: bg.height }}
                       >
+                        {isSubscriptionEvent ? (
+                          <span
+                            className={cn(
+                              "pointer-events-none absolute inset-y-0 left-0 z-10",
+                              CALENDAR_TOKENS.card.railWidth,
+                              eventAccentClass(appearance),
+                            )}
+                            aria-hidden
+                          />
+                        ) : null}
                         <div
-                          className="pointer-events-none absolute inset-x-0 top-0 text-coverage-foreground"
+                          className={cn(
+                            "pointer-events-none absolute inset-x-0 top-0",
+                            isSubscriptionEvent ? "text-foreground" : "text-coverage-foreground",
+                          )}
                           style={{ height: bg.labelHeight, width: bg.labelWidth }}
                         >
                           <CalendarEventContent

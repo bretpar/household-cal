@@ -106,6 +106,22 @@ describe("shared timed-event overlap layout", () => {
     expect(layout.overflow[0]?.hidden.map((o) => o.key)).toEqual(["c", "d"]);
   });
 
+  it("deduplicates a hidden occurrence within its single overlap marker", () => {
+    const hidden = occurrence("hidden", 10, 18);
+    const layout = layoutTimedEvents({
+      foreground: [
+        occurrence("first", 8, 12),
+        occurrence("second", 9, 13),
+        hidden,
+        hidden,
+      ],
+      coverage: [],
+      areaWidth: 120,
+    });
+    expect(layout.overflow).toHaveLength(1);
+    expect(layout.overflow[0]?.hidden.map((o) => o.key)).toEqual(["hidden"]);
+  });
+
 
   it("does not count background coverage as a foreground lane", () => {
     const layout = layoutTimedEvents({

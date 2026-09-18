@@ -311,9 +311,13 @@ export function layoutTimedEvents({
     // One overflow affordance per overlap group, listing each hidden event once.
     // Per-boundary markers used to repeat the same event as several "+1 more"
     // pills down its duration.
-    const hidden = items
-      .filter((item) => item.lane >= visibleCount)
-      .map(({ occurrence }) => occurrence);
+    const hiddenByKey = new Map<string, Occurrence>();
+    for (const item of items) {
+      if (item.lane >= visibleCount && !hiddenByKey.has(item.occurrence.key)) {
+        hiddenByKey.set(item.occurrence.key, item.occurrence);
+      }
+    }
+    const hidden = [...hiddenByKey.values()];
     if (hidden.length > 0) {
       const firstStart = Math.min(...hidden.map((o) => o.start.getTime()));
       overflow.push({
