@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  classifyRecurrence,
   eventMatchesFilters,
   previewIdentity,
   titleMatchesFilter,
@@ -16,6 +17,14 @@ const filters: BulkDeleteFilters = {
   end_time: null,
 };
 
+const event = {
+  id: "one",
+  title: "Michelle",
+  date: "2026-09-17",
+  start_time: "07:30",
+  end_time: "17:00",
+};
+
 describe("bulk delete matching", () => {
   it("matches exact titles and known generated initials only", () => {
     expect(titleMatchesFilter("Michelle", "Michelle", ["D", "M"])).toBe(true);
@@ -25,27 +34,42 @@ describe("bulk delete matching", () => {
   });
 
   it("applies inclusive dates and optional exact times", () => {
-    const event = {
-      id: "one",
-      title: "Michelle",
-      date: "2026-09-17",
-      start_time: "07:30",
-      end_time: "17:00",
-      recurring: false,
-    };
     expect(eventMatchesFilters(event, filters, ["M"])).toBe(true);
     expect(eventMatchesFilters(event, { ...filters, start_time: "07:30" }, ["M"])).toBe(true);
     expect(eventMatchesFilters(event, { ...filters, start_time: "08:00" }, ["M"])).toBe(false);
   });
 
-  it("always excludes recurring masters and instances", () => {
+  it("treats a null end date as all future matching events", () => {
+    const far = { ...event, date: "2031-01-04" };
+    expect(eventMatchesFilters(far, filters, ["M"])).toBe(false);
+    expect(eventMatchesFilters(far, { ...filters, end_date: null }, ["M"])).toBe(true);
     expect(
-      eventMatchesFilters(
-        { id: "series", title: "Michelle", date: "2026-09-17", start_time: "07:30", end_time: "17:00", recurring: true },
-        filters,
-        ["M"],
-      ),
+      eventMatchesFilters({ ...event, date: "2026-08-31" }, { ...filters, end_date: null }, ["M"]),
     ).toBe(false);
+  });
+
+  it("classifies standalone, detached and healthy recurring events", () => {
+    expect(
+      classifyRecurrence({ hasRecurrenceRule: false, recurringEventId: null, masterState: null }),
+    ).toBe("standalone");
+    expect(
+      classifyRecurrence({ hasRecurrenceRule: false, recurringEventId: "master", masterState: "gone" }),
+    ).toBe("detached");
+    expect(
+      classifyRecurrence({
+        hasRecurrenceRule: false,
+        recurringEventId: "master",
+        masterState: "live_series",
+      }),
+    ).toBe("healthy_recurring");
+    expect(
+      classifyRecurrence({ hasRecurrenceRule: true, recurringEventId: null, masterState: null }),
+    ).toBe("healthy_recurring");
+  });
+
+  it("keeps recurrence metadata from hiding matches before classification", () => {
+    // Stale recurrence pointers no longer filter an event out of the preview.
+    expect(eventMatchesFilters({ ...event, id: "stale" }, filters, ["M"])).toBe(true);
   });
 
   it("creates a stable identity and detects changed preview membership", () => {
@@ -57,10 +81,16 @@ describe("bulk delete matching", () => {
       end_time: "17:00",
       calendar_name: "Babysitter Calendar",
       exists_in: "Both" as const,
+      recurrence_status: "detached" as const,
+      eligible: true,
+      reason: null,
       google_event_ids: ["google-one"],
       ofc_event_id: "one",
     };
-    expect(previewIdentity([item])).toBe(previewIdentity([{ ...item, google_event_ids: ["google-one"] }]));
-    expect(previewIdentity([item])).not.toBe(previewIdentity([{ ...item, google_event_ids: ["google-two"] }]));
+    expect(previewIdentity([item])).toBe(previewIdentity([{ ...item }]));
+    expect(previewIdentity([item])).not.toBe(
+      previewIdentity([{ ...item, google_event_ids: ["google-two"] }]),
+    );
+    expect(previewIdentity([item])).not.toBe(previewIdentity([{ ...item, eligible: false }]));
   });
 });

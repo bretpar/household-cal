@@ -8,19 +8,17 @@ function validateBulkDeleteFilters(input: BulkDeleteFilters): BulkDeleteFilters 
   const sourceId = String(input?.source_id ?? "").trim();
   const title = String(input?.title ?? "").trim();
   const startDate = String(input?.start_date ?? "").trim();
-  const endDate = String(input?.end_date ?? "").trim();
+  // A null/blank end date means "all future matching events".
+  const endDate = input?.end_date ? String(input.end_date).trim() : null;
   const startTime = input?.start_time ? String(input.start_time).trim() : null;
   const endTime = input?.end_time ? String(input.end_time).trim() : null;
   if (!sourceId) throw new Error("Choose a calendar");
   if (!title) throw new Error("Enter an exact event title");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
-    throw new Error("Choose a valid date range");
-  }
-  if (startDate > endDate) throw new Error("Start date must be on or before end date");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) throw new Error("Choose a valid start date");
+  if (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) throw new Error("Choose a valid end date");
+  if (endDate && startDate > endDate) throw new Error("Start date must be on or before end date");
   if (startTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)) throw new Error("Invalid start time");
   if (endTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)) throw new Error("Invalid end time");
-  const inclusiveDays = Math.floor((Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86_400_000) + 1;
-  if (inclusiveDays > 366) throw new Error("Date range must be 366 days or less");
   return {
     source_id: sourceId,
     title,
@@ -30,6 +28,7 @@ function validateBulkDeleteFilters(input: BulkDeleteFilters): BulkDeleteFilters 
     end_time: endTime,
   };
 }
+
 
 /**
  * Owner-only Google Calendar sync configuration.
