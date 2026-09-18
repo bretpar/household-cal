@@ -77,7 +77,7 @@ describe("shared timed-event overlap layout", () => {
     ]);
   });
 
-  it("uses actual width to show three events or collapse only the unreadable lane", () => {
+  it("prefers narrow columns and only collapses when width truly cannot fit", () => {
     const events = [
       occurrence("one", 9, 10),
       occurrence("two", 9, 10),
@@ -85,11 +85,27 @@ describe("shared timed-event overlap layout", () => {
     ];
     const wide = layoutTimedEvents({ foreground: events, coverage: [], areaWidth: 420 });
     const narrow = layoutTimedEvents({ foreground: events, coverage: [], areaWidth: 250 });
+    const tiny = layoutTimedEvents({ foreground: events, coverage: [], areaWidth: 120 });
     expect(wide.foreground).toHaveLength(3);
     expect(wide.overflow).toHaveLength(0);
-    expect(narrow.foreground).toHaveLength(2);
-    expect(narrow.overflow[0]?.hidden).toHaveLength(1);
+    expect(narrow.foreground).toHaveLength(3);
+    expect(narrow.overflow).toHaveLength(0);
+    expect(tiny.foreground).toHaveLength(2);
+    expect(tiny.overflow[0]?.hidden).toHaveLength(1);
   });
+
+  it("emits one overflow pill per group, counting each hidden event once", () => {
+    const events = [
+      occurrence("a", 8, 12),
+      occurrence("b", 9, 13),
+      occurrence("c", 10, 18),
+      occurrence("d", 10, 11),
+    ];
+    const layout = layoutTimedEvents({ foreground: events, coverage: [], areaWidth: 120 });
+    expect(layout.overflow).toHaveLength(1);
+    expect(layout.overflow[0]?.hidden.map((o) => o.key)).toEqual(["c", "d"]);
+  });
+
 
   it("does not count background coverage as a foreground lane", () => {
     const layout = layoutTimedEvents({

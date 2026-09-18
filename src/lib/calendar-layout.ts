@@ -38,8 +38,12 @@ export const CALENDAR_TOKENS = {
     border: "border border-border-soft",
     gapPx: 2,
   },
-  /** Below this rendered width a card is too narrow to stay readable. */
+  /** Preferred readable width for a card that has the column to itself. */
   minCardWidthPx: 116,
+  /** Absolute floor for an overlap column: still readable and tappable. Cards
+   *  are narrowed down to this before any event is pushed into "+N more". */
+  minOverlapColumnPx: 56,
+
   /** Content thresholds, measured against the card's rendered box. */
   content: {
     timeMinHeightPx: 40,
@@ -93,9 +97,6 @@ export function isDayBlock(o: Occurrence): boolean {
   return (o.end.getTime() - o.start.getTime()) / 3600000 >= 5;
 }
 
-function overlaps(a: Occurrence, b: Occurrence): boolean {
-  return a.start < b.end && a.end > b.start;
-}
 
 /* ------------------------------------------------------- background layout */
 
@@ -242,9 +243,6 @@ export function layoutTimedEvents({
 
   for (const [cluster, items] of clusters) {
     const laneCount = Math.max(...items.map((item) => item.lane)) + 1;
-    const boundaries = [
-      ...new Set(items.flatMap(({ occurrence }) => [occurrence.start.getTime(), occurrence.end.getTime()])),
-    ].sort((a, b) => a - b);
 
     // Background coverage remains a separate full-width layer. It can reserve
     // a stable left label strip, but never consumes a foreground lane.
@@ -274,11 +272,14 @@ export function layoutTimedEvents({
         : 100;
     const areaLeftPct = 100 - areaWidthPct;
     const usableWidth = (areaWidth * areaWidthPct) / 100;
+    // Cards are allowed to get narrow (down to a still-tappable floor) before
+    // any event is hidden: seeing every event's time and duration matters more
+    // than keeping cards wide.
     const widthCapacity = Math.max(
       1,
       Math.floor(
         Math.max(usableWidth, 1) /
-          (CALENDAR_TOKENS.minCardWidthPx + CALENDAR_TOKENS.card.gapPx),
+          (CALENDAR_TOKENS.minOverlapColumnPx + CALENDAR_TOKENS.card.gapPx),
       ),
     );
     const visibleCount =
@@ -307,28 +308,23 @@ export function layoutTimedEvents({
         });
       });
 
-    for (let segment = 0; segment < boundaries.length - 1; segment += 1) {
-      const segmentStart = boundaries[segment];
-      const segmentEnd = boundaries[segment + 1];
-      if (segmentStart == null || segmentEnd == null || segmentStart >= segmentEnd) continue;
-      const hidden = items
-        .filter(
-          (item) =>
-            item.lane >= visibleCount &&
-            item.occurrence.start.getTime() < segmentEnd &&
-            item.occurrence.end.getTime() > segmentStart,
-        )
-        .map(({ occurrence }) => occurrence);
-      if (hidden.length > 0) {
-        overflow.push({
-          cluster,
-          segment,
-          hidden,
-          top: topForTime(new Date(segmentStart)),
-        });
-      }
+    // One overflow affordance per overlap group, listing each hidden event once.
+    // Per-boundary markers used to repeat the same event as several "+1 more"
+    // pills down its duration.
+    const hidden = items
+      .filter((item) => item.lane >= visibleCount)
+      .map(({ occurrence }) => occurrence);
+    if (hidden.length > 0) {
+      const firstStart = Math.min(...hidden.map((o) => o.start.getTime()));
+      overflow.push({
+        cluster,
+        segment: 0,
+        hidden,
+        top: topForTime(new Date(firstStart)),
+      });
     }
   }
+
 
   return { foreground: results, overflow };
 }
