@@ -49,12 +49,27 @@ describe("shared timed-event overlap layout", () => {
 
   it("always shows exactly two overlapping foreground events as real blocks", () => {
     const layout = layoutTimedEvents({
-      foreground: [occurrence("first", 9, 10), occurrence("second", 9, 11)],
+      foreground: [occurrence("short", 9, 10), occurrence("long", 9, 11)],
       coverage: [],
       areaWidth: 150,
     });
-    expect(layout.foreground.filter((item) => item.top === 9 * 45)).toHaveLength(2);
+    expect(layout.foreground.map((item) => [item.occurrence.key, item.lane, item.leftPct])).toEqual([
+      ["long", 0, 0],
+      ["short", 1, 50],
+    ]);
     expect(layout.overflow).toHaveLength(0);
+  });
+
+  it("uses the stable key after equal start times and durations", () => {
+    const layout = layoutTimedEvents({
+      foreground: [occurrence("z-event", 9, 10), occurrence("a-event", 9, 10)],
+      coverage: [],
+      areaWidth: 300,
+    });
+    expect(layout.foreground.map((item) => [item.occurrence.key, item.lane])).toEqual([
+      ["a-event", 0],
+      ["z-event", 1],
+    ]);
   });
 
   it("uses actual width to show three events or collapse only the unreadable lane", () => {
@@ -81,17 +96,32 @@ describe("shared timed-event overlap layout", () => {
     expect(layout.overflow).toHaveLength(0);
   });
 
-  it("lets a long event reclaim full width after a partial overlap ends", () => {
+  it("keeps a long event in its original lane and width after an overlap ends", () => {
     const layout = layoutTimedEvents({
-      foreground: [occurrence("kids-place", 9, 13), occurrence("little-gym", 9, 10)],
+      foreground: [occurrence("little-gym", 9, 10), occurrence("kids-place", 9, 13)],
       coverage: [],
       areaWidth: 320,
     });
-    const kidsPlace = layout.foreground.filter(
-      (item) => item.occurrence.key === "kids-place",
-    );
-    expect(kidsPlace).toHaveLength(2);
-    expect(kidsPlace[0]).toMatchObject({ top: 9 * 45, height: 45, widthPct: 50 });
-    expect(kidsPlace[1]).toMatchObject({ top: 10 * 45, height: 3 * 45, widthPct: 100 });
+    const kidsPlace = layout.foreground.find((item) => item.occurrence.key === "kids-place");
+    const littleGym = layout.foreground.find((item) => item.occurrence.key === "little-gym");
+    expect(kidsPlace).toMatchObject({ lane: 0, top: 9 * 45, height: 4 * 45, widthPct: 50 });
+    expect(littleGym).toMatchObject({ lane: 1, top: 9 * 45, height: 45, widthPct: 50 });
+  });
+
+  it("keeps later overlapping events to the right instead of reclaiming freed left lanes", () => {
+    const layout = layoutTimedEvents({
+      foreground: [
+        occurrence("first", 9, 10),
+        occurrence("middle", 9.5, 11),
+        occurrence("last", 10, 12),
+      ],
+      coverage: [],
+      areaWidth: 420,
+    });
+    expect(layout.foreground.map((item) => [item.occurrence.key, item.lane])).toEqual([
+      ["first", 0],
+      ["middle", 1],
+      ["last", 2],
+    ]);
   });
 });
