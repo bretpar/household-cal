@@ -222,6 +222,8 @@ export function WeekView({
       ? Math.max(0, (measuredWidth - gutterPx) / days)
       : 0;
   const areaWidth = Math.max(40, (columnWidth || 160) - AREA_INSET_PX);
+  const bandScale = EVENT_TEXT_SCALE[areaWidth >= 200 ? "regular" : "compact"];
+
 
   // In strip mode a single element scrolls both axes, so the sticky hour gutter
   // and sticky day headers stay pinned to the viewport instead of the wide track.
