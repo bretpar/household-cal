@@ -294,22 +294,6 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Invisible 44px-tall hit area for very short events, without making the
-   rendered block any taller. It extends downward so a later event beginning
-   in that area remains the topmost, correct target. */
-@utility touch-hit-44 {
-  &::after {
-    content: "";
-    pointer-events: auto;
-
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    height: 100%;
-    min-height: 44px;
-  }
-}
 
 /* Phone landscape calendar workspace: only the compact calendar toolbar stays
    above the full-height, vertically scrolling 45px/hour timeline. */
