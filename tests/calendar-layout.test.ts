@@ -158,7 +158,7 @@ describe("shared timed-event overlap layout", () => {
     expect(layout.foreground.map((item) => [item.occurrence.key, item.lane])).toEqual([
       ["first", 0],
       ["middle", 1],
-      ["last", 2],
+      ["last", 0],
     ]);
   });
 
@@ -182,7 +182,7 @@ describe("shared timed-event overlap layout", () => {
       layout.foreground.map((item) => [item.occurrence.key, item.lane]),
     );
     expect(new Set(layout.foreground.map((item) => item.cluster)).size).toBe(1);
-    expect(lanes).toEqual({ a: 0, b: 1, c: 2, d: 3 });
+    expect(lanes).toEqual({ a: 0, b: 1, c: 0, d: 2 });
   });
 
   it("gives identical start times stable lanes ordered by duration then key", () => {
