@@ -151,7 +151,10 @@ export function EventDetailsDialog() {
     }));
 
 
-  const saveEdit = async () => {
+  // Save tap: validate first; repeating events choose a scope in the follow-up
+  // sheet instead of saving immediately, so a save can never silently detach
+  // one occurrence.
+  const requestSave = () => {
     if (!state) return;
     const error = validateFormState(state);
     setFormError(error);
@@ -159,6 +162,15 @@ export function EventDetailsDialog() {
       toast.error(error);
       return;
     }
+    if (needsScope) {
+      setMode("save-scope");
+    } else {
+      void saveEdit("this");
+    }
+  };
+
+  const saveEdit = async (scope: RecurrenceScope) => {
+    if (!state) return;
     await runGuardedMutation({
       busy,
       setBusy,
