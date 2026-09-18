@@ -60,7 +60,16 @@ export function eventMatchesFilters(
 export function previewIdentity(items: BulkDeletePreviewItem[]): string {
   return items
     .map((item) =>
-      [item.key, item.ofc_event_id ?? "", ...item.google_event_ids.slice().sort()].join("|"),
+      [
+        item.key,
+        item.title,
+        item.date,
+        item.start_time ?? "",
+        item.end_time ?? "",
+        item.exists_in,
+        item.ofc_event_id ?? "",
+        ...item.google_event_ids.slice().sort(),
+      ].join("|"),
     )
     .sort()
     .join("\n");
