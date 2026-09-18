@@ -269,6 +269,7 @@ describe("School per-person branches end to end", () => {
   const state = {
     title: "School",
     date: "2026-08-31",
+    endDate: "2026-08-31",
     startTime: "08:00",
     endTime: "15:00",
     allDay: false,
