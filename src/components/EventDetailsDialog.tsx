@@ -74,7 +74,7 @@ const DELETE_OPTIONS: { id: RecurrenceScope; label: string; hint: string }[] = [
   },
 ];
 
-type Mode = "details" | "edit" | "delete";
+type Mode = "details" | "edit" | "delete" | "save-scope";
 
 /**
  * Prefills a dragged occurrence's proposed time. The duration is preserved and
@@ -125,10 +125,6 @@ export function EventDetailsDialog() {
     if (activeOccurrence) {
       // A touch drag lands straight in the edit form with the proposed time filled in.
       setMode(proposedStart ? "edit" : "details");
-      // Recurring events default to the whole series so a quick save can never
-      // detach a single occurrence by accident; a detached one-off (no rule on
-      // its own row) has no scope choice at all.
-      setScope(activeOccurrence.event.recurrence_rule ? "series" : "this");
       const base = formStateFromOccurrence(activeOccurrence);
       setState(proposedStart ? withProposedStart(base, activeOccurrence, proposedStart) : base);
     }
