@@ -897,9 +897,13 @@ export async function pushEvent(
         // A link pointing at a single instance/exception id cannot accept
         // series-level fields: Google answers 400 badRequest. Patch the
         // occurrence with its own fields only and leave the series alone.
-        const patchBody = isExceptionLink(link)
-          ? Object.fromEntries(Object.entries(body).filter(([key]) => key !== "recurrence"))
-          : body;
+        // Some rows carry only the recurring master id (no original start), so
+        // the instance id shape is treated as an exception too.
+        const patchBody =
+          isExceptionLink(link) || isInstanceEventId(link.google_event_id)
+            ? Object.fromEntries(Object.entries(body).filter(([key]) => key !== "recurrence"))
+            : body;
+
         saved = await google.patchEvent(
           conn.connectionKey,
           target.external_calendar_id!,
