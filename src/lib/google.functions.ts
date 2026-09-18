@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { BulkDeleteFilters } from "@/lib/google/bulk-delete";
+import type { BulkDeleteFilters, BulkDeleteTarget } from "@/lib/google/bulk-delete";
 
 function validateBulkDeleteFilters(input: BulkDeleteFilters): BulkDeleteFilters {
   const sourceId = String(input?.source_id ?? "").trim();
@@ -552,16 +552,37 @@ export const previewBulkDeleteMatchingEvents = createServerFn({ method: "POST" }
 /** Owner-only destructive action; re-runs and fingerprints the preview first. */
 export const deleteBulkMatchingEvents = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: BulkDeleteFilters & { preview_token: string }) => ({
-    ...validateBulkDeleteFilters(input),
-    preview_token: String(input?.preview_token ?? "").trim(),
-  }))
+  .inputValidator((input: BulkDeleteFilters & { preview_token: string; targets: BulkDeleteTarget[] }) => {
+    const targets = Array.isArray(input?.targets)
+      ? input.targets.map((target) => ({
+          key: String(target?.key ?? "").trim(),
+          title: String(target?.title ?? "").trim(),
+          date: String(target?.date ?? "").trim(),
+          google_event_ids: Array.isArray(target?.google_event_ids)
+            ? target.google_event_ids.map((id) => String(id).trim()).filter(Boolean)
+            : [],
+          ofc_event_id: target?.ofc_event_id ? String(target.ofc_event_id).trim() : null,
+        }))
+      : [];
+    return {
+      filters: validateBulkDeleteFilters(input),
+      preview_token: String(input?.preview_token ?? "").trim(),
+      targets,
+    };
+  })
   .handler(async ({ data, context }) => {
     if (!data.preview_token) throw new Error("Preview matches before deleting");
+    if (data.targets.length === 0) throw new Error("No eligible previewed event IDs were provided");
     const { resolveOwnedFamily } = await import("@/lib/google-settings.server");
     const family = await resolveOwnedFamily(context.supabase, context.userId);
     if (!family) throw new Error("Only household owners can delete matching events");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { deleteBulkMatches } = await import("@/lib/google/bulk-delete.server");
-    return deleteBulkMatches(supabaseAdmin, family, data, data.preview_token);
+    return deleteBulkMatches(
+      supabaseAdmin,
+      family,
+      data.filters,
+      data.preview_token,
+      data.targets,
+    );
   });
