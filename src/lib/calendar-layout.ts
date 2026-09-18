@@ -246,9 +246,6 @@ export function layoutTimedEvents({
 
   for (const [cluster, items] of clusters) {
     const laneCount = Math.max(...items.map((item) => item.lane)) + 1;
-    const boundaries = [
-      ...new Set(items.flatMap(({ occurrence }) => [occurrence.start.getTime(), occurrence.end.getTime()])),
-    ].sort((a, b) => a - b);
 
     // Background coverage remains a separate full-width layer. It can reserve
     // a stable left label strip, but never consumes a foreground lane.
