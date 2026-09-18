@@ -384,6 +384,43 @@ export function EventDetailsDialog() {
 
             </DialogFooter>
           </>
+        ) : mode === "save-scope" ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Apply changes to {event.title}?</DialogTitle>
+              <DialogDescription>
+                This event repeats. Choose how much of the series to update.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="-mx-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-4 sm:-mx-6 sm:px-6">
+              {SAVE_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void saveEdit(option.id)}
+                  className="rounded-2xl bg-surface-muted px-4 py-3 text-left transition-colors hover:bg-secondary disabled:opacity-60"
+                >
+                  <span className="block text-sm font-bold">{option.label}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {option.hint}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                type="button"
+                className="h-11 rounded-full"
+                onClick={() => setMode("edit")}
+              >
+                Cancel
+              </Button>
+            </DialogFooter>
+          </>
         ) : (
           <>
             <DialogHeader>
