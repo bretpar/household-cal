@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { reportEventSaved } from "@/lib/google-sync-feedback";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -118,8 +120,14 @@ export function EventComposerContent({
         addEvent(
           draftFromFormState(state, calendarSourceId ?? defaultCalendarSourceId(sources)),
         ),
-      onSuccess: () => {
-        toast.success(`${state.title.trim()} added to the family calendar`);
+      onSuccess: (result) => {
+        // The household save is authoritative here; Google mirroring is
+        // reported separately so a slow Google call never looks like a failure.
+        reportEventSaved(
+          `${state.title.trim()} added to the family calendar`,
+          result?.event_id ?? null,
+          result?.google_sync,
+        );
         onClose();
       },
       onError: toast.error,

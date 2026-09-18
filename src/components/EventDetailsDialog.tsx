@@ -3,6 +3,8 @@ import { format } from "date-fns";
 import { CalendarDays, Copy, MapPin, NotebookPen, Pencil, Repeat, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { reportEventSaved } from "@/lib/google-sync-feedback";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -160,8 +162,10 @@ export function EventDetailsDialog() {
           ),
           scope,
         ),
-      onSuccess: () => {
-        toast.success(`${state.title.trim()} updated`);
+      onSuccess: (result) => {
+        // Local persistence already succeeded; Google sync progress is shown
+        // separately rather than blocking the edit.
+        reportEventSaved(`${state.title.trim()} updated`, result?.event_id ?? null, result?.google_sync);
         closeOccurrence();
       },
       onError: toast.error,

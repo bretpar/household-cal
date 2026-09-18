@@ -72,17 +72,12 @@ export const createEvent = createServerFn({ method: "POST" })
       throw new Error("Event save could not be confirmed: the repeat pattern was not stored.");
     }
 
-    // Google push only ever runs against a confirmed, stable OFC event id.
-    // It must never hold the user's save open: a slow or hung Google API call
-    // would otherwise leave the Add Event dialog spinning after the event
-    // already exists. Bound it; the reconciliation pass repairs anything a
-    // cut-off push misses (pushToGoogle already swallows errors).
-    const { pushToGoogle } = await import("@/lib/google/push.server");
-    await Promise.race([
-      pushToGoogle(familyId, saved.id),
-      new Promise<void>((resolve) => setTimeout(resolve, 2500)),
-    ]);
-    return { id: saved.id as string };
+    // Google push only ever runs against a confirmed, stable OFC event id, and
+    // never holds the user's save open: the wait is bounded and the push keeps
+    // running in the background if Google is slow.
+    const { pushWithDeadline } = await import("@/lib/google/push.server");
+    const google_sync = await pushWithDeadline(familyId, [saved.id as string]);
+    return { id: saved.id as string, google_sync };
   });
 
 
@@ -110,18 +105,20 @@ export const updateEventFn = createServerFn({ method: "POST" })
     if (data.input.member_ids.length > 0) {
       await db.from("events").update({ needs_family_assignment: false }).eq("id", data.event_id);
     }
-    const { pushToGoogle } = await import("@/lib/google/push.server");
-    // A "This event only" time edit touches two rows: the recurring parent
-    // (gains an EXDATE) and the detached one-off replacement. They are pushed in
-    // parallel, but never on a timeout: abandoning a push mid-operation could
-    // leave a Google branch series created without its event_sync_links row,
-    // which inbound sync then imports as a standalone duplicate. pushToGoogle is
-    // link-keyed and swallows its own errors, so waiting for it is safe.
-    await Promise.all(
-      pushTargetsForUpdate(data.event_id, created).map((id) => pushToGoogle(familyId, id)),
+    // Local persistence is done at this point, so the edit is authoritative and
+    // the UI may return immediately. A "This event only" time edit touches two
+    // rows (the recurring parent gains an EXDATE, plus the detached one-off);
+    // both are pushed together. The wait is bounded like create/delete, but the
+    // pushes are not cancelled — they are link-keyed and swallow their own
+    // errors, and reconcile repairs anything a cut-off worker dropped, so no
+    // Google branch is left without its event_sync_links row for long.
+    const { pushWithDeadline } = await import("@/lib/google/push.server");
+    const google_sync = await pushWithDeadline(
+      familyId,
+      pushTargetsForUpdate(data.event_id, created),
     );
 
-    return { ok: true };
+    return { ok: true as const, google_sync };
   });
 
 export const deleteEventFn = createServerFn({ method: "POST" })
@@ -148,4 +145,48 @@ export const deleteEventFn = createServerFn({ method: "POST" })
     ]);
     return { ok: true };
   });
+
+/**
+ * Per-event outbound sync state, used to move a saved event from "Syncing…" to
+ * "Synced" without waiting for inbound reconciliation. "Synced" means the push
+ * succeeded *and* its event_sync_links row exists.
+ */
+export const getEventSyncState = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { event_id: string }) => ({ event_id: String(data.event_id) }))
+  .handler(
+    async ({
+      data,
+      context,
+    }): Promise<{ state: "synced" | "pending" | "failed" | "unlinked"; error: string | null }> => {
+      const db = context.supabase as unknown as Db;
+      // RLS-scoped read first: household isolation is enforced before any
+      // admin-side link lookup happens.
+      const { data: event } = await (db as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (c: string, v: string) => { maybeSingle: () => Promise<{ data: { id: string; family_id: string } | null }> };
+          };
+        };
+      })
+        .from("events")
+        .select("id, family_id")
+        .eq("id", data.event_id)
+        .maybeSingle();
+      if (!event) return { state: "unlinked", error: null };
+
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: links } = await supabaseAdmin
+        .from("event_sync_links")
+        .select("google_event_id, sync_error")
+        .eq("event_id", data.event_id)
+        .eq("family_id", event.family_id);
+      const rows = (links ?? []) as { google_event_id: string | null; sync_error: string | null }[];
+      const failure = rows.find((row) => row.sync_error)?.sync_error ?? null;
+      if (failure) return { state: "failed", error: failure };
+      if (rows.some((row) => row.google_event_id)) return { state: "synced", error: null };
+      return { state: "pending", error: null };
+    },
+  );
+
 

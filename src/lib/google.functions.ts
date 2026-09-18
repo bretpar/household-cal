@@ -493,6 +493,85 @@ export const unlockCalendarMaintenance = createServerFn({ method: "POST" })
     return { ok };
   });
 
+export interface WatchChannelHealth {
+  source_id: string;
+  name: string;
+  /** active = registered and comfortably in date; expiring = under 24h left */
+  state: "active" | "expiring" | "expired" | "missing";
+  expires_at: string | null;
+  last_notification_at: string | null;
+  /** true once Google has ever delivered a push notification for this calendar */
+  push_confirmed: boolean;
+}
+
+/**
+ * Owner-only watch-channel health for the locked maintenance panel: shows
+ * whether near-real-time Google -> app push notifications are actually active,
+ * or whether the household is silently relying on the 15-minute reconcile.
+ * Never returns channel tokens or resource ids.
+ */
+export const getWatchChannelHealth = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ calendars: WatchChannelHealth[] }> => {
+    const { resolveOwnedFamily } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can view sync diagnostics");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("calendar_sources")
+      .select(
+        "id, name, google_channel_id, google_channel_expires_at, google_channel_last_notified_at",
+      )
+      .eq("family_id", family)
+      .eq("provider", "google")
+      .order("sort_order", { ascending: true });
+
+    const now = Date.now();
+    const calendars = ((data ?? []) as {
+      id: string;
+      name: string;
+      google_channel_id: string | null;
+      google_channel_expires_at: string | null;
+      google_channel_last_notified_at: string | null;
+    }[]).map((row) => {
+      const expiresMs = row.google_channel_expires_at
+        ? Date.parse(row.google_channel_expires_at)
+        : null;
+      const state: WatchChannelHealth["state"] = !row.google_channel_id
+        ? "missing"
+        : expiresMs === null
+          ? "active"
+          : expiresMs <= now
+            ? "expired"
+            : expiresMs - now < 24 * 60 * 60 * 1000
+              ? "expiring"
+              : "active";
+      return {
+        source_id: row.id,
+        name: row.name,
+        state,
+        expires_at: row.google_channel_expires_at,
+        last_notification_at: row.google_channel_last_notified_at,
+        push_confirmed: Boolean(row.google_channel_last_notified_at),
+      };
+    });
+    return { calendars };
+  });
+
+/** Owner-only: registers any missing/expiring push channels right now. */
+export const refreshWatchChannels = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { resolveOwnedFamily } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can manage sync channels");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { ensureWatchChannelsForFamily } = await import("@/lib/google/sync.server");
+    await ensureWatchChannelsForFamily(supabaseAdmin, family);
+    return { ok: true as const };
+  });
+
+
 /**
  * Owner-only, read-only row inspection for a single Google instance: local rows,
  * parent series, projection fields, assignments and link bookkeeping. Mutates

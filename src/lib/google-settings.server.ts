@@ -14,7 +14,12 @@ import {
   renameCalendar as renameGoogleCalendar,
 } from "@/lib/google/api.server";
 import { normalizeTimeZone } from "@/lib/google/timezone";
-import { getConnection, pullHousehold } from "@/lib/google/sync.server";
+import {
+  ensureWatchChannelsForFamily,
+  getConnection,
+  pullHousehold,
+} from "@/lib/google/sync.server";
+
 
 type Client = { from: (table: string) => any };
 
@@ -162,7 +167,10 @@ export async function attachCalendar(
       .eq("family_id", familyId);
     if (error) throw error;
     await pullHousehold(supabaseAdmin, familyId, true);
+    // Start near-real-time notifications now instead of at the next reconcile.
+    await ensureWatchChannelsForFamily(supabaseAdmin, familyId);
     return { source_id: input.replace_source_id };
+
   }
 
   const { count } = await supabaseAdmin
@@ -198,7 +206,10 @@ export async function attachCalendar(
   if (error) throw error;
 
   await pullHousehold(supabaseAdmin, familyId, true);
+  // Start near-real-time notifications now instead of at the next reconcile.
+  await ensureWatchChannelsForFamily(supabaseAdmin, familyId);
   return { source_id: data.id as string };
+
 }
 
 export async function renameSlot(

@@ -43,6 +43,17 @@ export type EventDraft = Omit<EventInput, "calendar_source_id"> & {
   calendar_source_id?: string | null;
 };
 
+/**
+ * Outcome of an authoritative household save. `google_sync` reports whether the
+ * outbound Google push already finished ("synced") or is still running
+ * ("pending") — the household save itself is complete either way.
+ */
+export interface EventSaveResult {
+  event_id: string;
+  google_sync: "synced" | "pending";
+}
+
+
 interface CalendarStore {
   loading: boolean;
   family: Family | null;
@@ -67,12 +78,14 @@ interface CalendarStore {
   /** effective household category id for an event (legacy/stale-safe); null = Uncategorized */
   resolvedCategoryIdFor: (ref: CategoryRef) => string | null;
 
-  addEvent: (draft: EventDraft) => Promise<void>;
+  /** Resolves once the household save is authoritative; Google may still be syncing. */
+  addEvent: (draft: EventDraft) => Promise<EventSaveResult>;
   updateEvent: (
     occurrence: Occurrence,
     draft: EventDraft,
     scope: RecurrenceScope,
-  ) => Promise<void>;
+  ) => Promise<EventSaveResult>;
+
   deleteEvent: (occurrence: Occurrence, scope: RecurrenceScope) => Promise<void>;
 
   selectedMembers: MemberId[];
@@ -207,10 +220,11 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       resolvedCategoryIdFor: (ref) => resolvedCategoryId(data?.categories ?? [], ref),
 
       addEvent: async (draft) => {
-        await createMutation.mutateAsync(draft);
+        const result = await createMutation.mutateAsync(draft);
+        return { event_id: result.id, google_sync: result.google_sync };
       },
       updateEvent: async (occurrence, draft, scope) => {
-        await updateMutation.mutateAsync({
+        const result = await updateMutation.mutateAsync({
           event_id: occurrence.event.id,
           occurrence_day: dayKey(occurrence.start),
           scope,
@@ -219,7 +233,9 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
             ...draft,
           } as EventInput,
         });
+        return { event_id: occurrence.event.id, google_sync: result.google_sync };
       },
+
       deleteEvent: async (occurrence, scope) => {
         await deleteMutation.mutateAsync({
           event_id: occurrence.event.id,

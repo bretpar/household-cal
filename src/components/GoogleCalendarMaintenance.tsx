@@ -23,9 +23,11 @@ import {
   diagnoseGoogleDstRepair,
   diagnoseGoogleInbound,
   getSyncSettings,
+  getWatchChannelHealth,
   inspectOccurrenceRows,
   previewBulkDeleteMatchingEvents,
   reapplyGoogleInboundEvent,
+  refreshWatchChannels,
   repairGoogleRecurrence,
   unlockCalendarMaintenance,
 } from "@/lib/google.functions";
@@ -158,6 +160,7 @@ export function GoogleCalendarMaintenance({ children }: { children?: ReactNode }
       <p className="text-sm text-muted-foreground">
         Safe repair tools for this household&rsquo;s connected Google calendars.
       </p>
+      <WatchChannelHealthPanel />
       <RecurrenceRepair />
       <BulkDeleteMatchingEvents calendars={calendars} />
       <GoogleInboundDiagnostic calendars={calendars} />
@@ -398,6 +401,78 @@ function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }
 
 
 /** Re-reads authoritative repeat rules from Google. Idempotent. */
+/**
+ * Push-channel health: confirms whether Google -> app notifications are live for
+ * each connected calendar, or whether this household is quietly falling back to
+ * the 15-minute reconcile. Shows no channel tokens or resource ids.
+ */
+function WatchChannelHealthPanel() {
+  const load = useServerFn(getWatchChannelHealth);
+  const refresh = useServerFn(refreshWatchChannels);
+  const health = useQuery({ queryKey: ["google-watch-health"], queryFn: () => load() });
+  const register = useMutation({
+    mutationFn: () => refresh({ data: undefined }),
+    onSuccess: async () => {
+      await health.refetch();
+      toast.success("Push channels checked");
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Could not register push channels"),
+  });
+
+  const tone: Record<string, string> = {
+    active: "text-success",
+    expiring: "text-warning-foreground",
+    expired: "text-destructive",
+    missing: "text-destructive",
+  };
+  const label: Record<string, string> = {
+    active: "Active",
+    expiring: "Expiring soon",
+    expired: "Expired",
+    missing: "Missing",
+  };
+  const when = (value: string | null) => (value ? new Date(value).toLocaleString() : "—");
+
+  return (
+    <div className="space-y-3 rounded-3xl border border-border-soft bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-sm font-bold">Google push channels</h4>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-9 rounded-full font-bold"
+          onClick={() => register.mutate()}
+          disabled={register.isPending}
+        >
+          {register.isPending ? "Checking…" : "Check / register"}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Near-real-time Google changes arrive through these channels. Without an active channel,
+        changes only appear at the next scheduled sync.
+      </p>
+      {health.isLoading ? <p className="text-xs text-muted-foreground">Loading…</p> : null}
+      {(health.data?.calendars ?? []).map((calendar) => (
+        <div key={calendar.source_id} className="space-y-1 rounded-2xl bg-secondary/50 p-3 text-xs">
+          <p className="flex flex-wrap items-center gap-2 text-sm font-bold">
+            {calendar.name}
+            <span className={tone[calendar.state] ?? ""}>{label[calendar.state] ?? calendar.state}</span>
+          </p>
+          <p className="text-muted-foreground">Channel expires: {when(calendar.expires_at)}</p>
+          <p className="text-muted-foreground">
+            Last notification: {when(calendar.last_notification_at)}
+            {calendar.push_confirmed ? "" : " (no push received yet)"}
+          </p>
+        </div>
+      ))}
+      {health.data && health.data.calendars.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No Google calendars connected.</p>
+      ) : null}
+    </div>
+  );
+}
+
 function RecurrenceRepair() {
   const queryClient = useQueryClient();
   const repair = useServerFn(repairGoogleRecurrence);

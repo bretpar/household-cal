@@ -1982,6 +1982,26 @@ export async function ensureWatchChannels(
   }
 }
 
+/**
+ * Registers push channels for a household right away, without waiting for the
+ * scheduled reconcile pass. Called when a Google calendar is newly attached so
+ * near-real-time Google -> app notifications start immediately; renewal and
+ * repair still happen in reconcile.
+ */
+export async function ensureWatchChannelsForFamily(admin: Admin, familyId: string): Promise<void> {
+  try {
+    const conn = await getConnection(admin, familyId);
+    if (!conn) return;
+    const sources = await googleSources(admin, familyId);
+    if (sources.length === 0) return;
+    await ensureWatchChannels(admin, conn, sources);
+  } catch (error) {
+    // Never block the connect flow: reconcile repairs missing channels.
+    console.error("[google-sync] immediate watch registration failed", error);
+  }
+}
+
+
 /** Resolves the household that owns a Google push channel id. */
 export async function familyForChannel(
   admin: Admin,

@@ -28,7 +28,15 @@ export const Route = createFileRoute("/api/public/google-calendar/notify")({
         const owner = await familyForChannel(supabaseAdmin, channelId);
         if (!owner) return new Response("Unknown channel", { status: 404 });
 
+        // Health visibility: proves near-real-time push delivery is actually
+        // happening rather than silently falling back to the reconcile cron.
+        await supabaseAdmin
+          .from("calendar_sources")
+          .update({ google_channel_last_notified_at: new Date().toISOString() })
+          .eq("google_channel_id", channelId);
+
         const result = await pullHousehold(supabaseAdmin, owner.familyId, false);
+
         return Response.json({ ok: true, ...result });
       },
     },
