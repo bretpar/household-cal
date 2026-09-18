@@ -104,6 +104,7 @@ export type Database = {
           family_id: string
           google_channel_expires_at: string | null
           google_channel_id: string | null
+          google_channel_last_notified_at: string | null
           google_channel_resource_id: string | null
           google_sync_token: string | null
           google_time_zone: string | null
@@ -129,6 +130,7 @@ export type Database = {
           family_id: string
           google_channel_expires_at?: string | null
           google_channel_id?: string | null
+          google_channel_last_notified_at?: string | null
           google_channel_resource_id?: string | null
           google_sync_token?: string | null
           google_time_zone?: string | null
@@ -154,6 +156,7 @@ export type Database = {
           family_id?: string
           google_channel_expires_at?: string | null
           google_channel_id?: string | null
+          google_channel_last_notified_at?: string | null
           google_channel_resource_id?: string | null
           google_sync_token?: string | null
           google_time_zone?: string | null
