@@ -146,9 +146,10 @@ interface Lane {
  * Stable foreground lane packing.
  *
  * Priority is decided once per overlap group: earlier start, then longer
- * duration, then the occurrence key. A later event is always placed to the
- * right of every higher-priority event that is still active. Freed lanes to
- * the left are deliberately not reclaimed while the group remains active.
+ * duration, then the occurrence key. An event keeps its lane for its whole
+ * duration (never re-flowed mid-event), but a lane whose previous event has
+ * already ended is reused, so a chain of partial overlaps does not inflate the
+ * lane count past the number of events that are genuinely concurrent.
  */
 function withLanes(list: Occurrence[]): Lane[] {
   const sorted = [...list].sort(
@@ -159,28 +160,30 @@ function withLanes(list: Occurrence[]): Lane[] {
   );
   const placed: Lane[] = [];
   let cluster: Lane[] = [];
+  let laneEnds: number[] = [];
   let clusterEnd = 0;
   let clusterIndex = 0;
 
   const flush = () => {
     placed.push(...cluster);
     cluster = [];
+    laneEnds = [];
     clusterEnd = 0;
     clusterIndex += 1;
   };
 
   for (const occurrence of sorted) {
     if (cluster.length > 0 && occurrence.start.getTime() >= clusterEnd) flush();
-    const active = cluster.filter(
-      (item) => item.occurrence.end.getTime() > occurrence.start.getTime(),
-    );
-    const lane = active.length > 0 ? Math.max(...active.map((item) => item.lane)) + 1 : 0;
+    const free = laneEnds.findIndex((end) => end <= occurrence.start.getTime());
+    const lane = free === -1 ? laneEnds.length : free;
+    laneEnds[lane] = occurrence.end.getTime();
     clusterEnd = Math.max(clusterEnd, occurrence.end.getTime());
     cluster.push({ occurrence, lane, cluster: clusterIndex });
   }
   flush();
   return placed;
 }
+
 
 export interface ForegroundPlacement {
   occurrence: Occurrence;
