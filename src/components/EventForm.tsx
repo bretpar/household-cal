@@ -3,10 +3,13 @@ import { addDays, differenceInCalendarDays, format } from "date-fns";
 import { CalendarDays, ChevronDown, Repeat2 } from "lucide-react";
 
 
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LocationAutocomplete } from "@/components/LocationAutocomplete";
 import { TimeField } from "@/components/TimeField";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import {
   Select,
@@ -286,6 +289,66 @@ function NativePickerField({
         className="absolute inset-0 z-10 block h-full w-full cursor-pointer opacity-0"
       />
     </div>
+  );
+}
+
+function useCoarsePointer() {
+  const [coarse, setCoarse] = useState<boolean | null>(null);
+  useEffect(() => {
+    setCoarse(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+  return coarse;
+}
+
+/** Native date input on touch devices; an explicit calendar popover on desktop. */
+function DatePickerField({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const coarse = useCoarsePointer();
+  const [open, setOpen] = useState(false);
+  const selected = value ? new Date(`${value}T00:00`) : undefined;
+
+  if (coarse !== false) {
+    return <NativePickerField id={id} type="date" value={value} onChange={onChange} />;
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          id={id}
+          type="button"
+          variant="outline"
+          className="h-11 w-full min-w-0 justify-start gap-2.5 rounded-xl bg-card px-3 text-left text-sm font-normal shadow-sm"
+        >
+          <CalendarDays className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+          <span className="min-w-0 truncate">{formattedPickerValue("date", value)}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="pointer-events-auto z-[70] w-auto p-0"
+      >
+        <Calendar
+          mode="single"
+          {...(selected ? { selected, defaultMonth: selected } : {})}
+          onSelect={(date) => {
+            if (!date) return;
+            onChange(format(date, "yyyy-MM-dd"));
+            setOpen(false);
+          }}
+          initialFocus
+          className="pointer-events-auto p-3"
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -575,12 +638,11 @@ export function EventFormFields({
             className={cn(
               "date-row grid min-w-0 grid-cols-1 gap-2",
               !state.allDay &&
-                "min-[360px]:grid-cols-[minmax(0,1.08fr)_minmax(0,.92fr)]",
+                "min-[520px]:grid-cols-[minmax(0,1.08fr)_minmax(0,.92fr)]",
             )}
           >
-          <NativePickerField
+          <DatePickerField
             id={`${idPrefix}-date`}
-            type="date"
             value={state.date}
             onChange={(date) => {
               const endDate = !state.endDate || state.endDate <= state.date ? date : state.endDate;
@@ -609,12 +671,11 @@ export function EventFormFields({
             className={cn(
               "date-row grid min-w-0 grid-cols-1 gap-2",
               !state.allDay &&
-                "min-[360px]:grid-cols-[minmax(0,1.08fr)_minmax(0,.92fr)]",
+                "min-[520px]:grid-cols-[minmax(0,1.08fr)_minmax(0,.92fr)]",
             )}
           >
-            <NativePickerField
+            <DatePickerField
               id={`${idPrefix}-end-date`}
-              type="date"
               value={state.endDate}
               onChange={(endDate) => set("endDate", endDate)}
             />
