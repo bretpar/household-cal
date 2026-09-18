@@ -24,12 +24,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FAMILY_BUNDLE_KEY, useCalendar } from "@/lib/calendar-store";
-import { MEMBER_COLORS, styleForColor, type MemberColor } from "@/lib/family-data";
+import {
+  MEMBER_COLORS,
+  styleForColor,
+  type DisplayMode,
+  type MemberColor,
+} from "@/lib/family-data";
 import {
   addIcsSubscription,
   listIcsSubscriptions,
   refreshIcsSubscription,
   removeIcsSubscription,
+  updateIcsSubscriptionDisplayMode,
 } from "@/lib/ics.functions";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +58,7 @@ export function AppleCalendarSubscriptions() {
   const add = useServerFn(addIcsSubscription);
   const refresh = useServerFn(refreshIcsSubscription);
   const remove = useServerFn(removeIcsSubscription);
+  const updateDisplayMode = useServerFn(updateIcsSubscriptionDisplayMode);
 
   const [adding, setAdding] = useState(false);
   const [url, setUrl] = useState("");
@@ -114,6 +121,16 @@ export function AppleCalendarSubscriptions() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const displayModeMutation = useMutation({
+    mutationFn: ({ id, display_mode }: { id: string; display_mode: DisplayMode }) =>
+      updateDisplayMode({ data: { id, display_mode } }),
+    onSuccess: async () => {
+      toast.success("Display style updated");
+      await invalidate();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const rows = subscriptions.data?.subscriptions ?? [];
 
   return (
@@ -144,7 +161,7 @@ export function AppleCalendarSubscriptions() {
                 className={cn("h-8 w-8 shrink-0 rounded-xl", styleForColor(row.color ?? undefined).dot)}
                 aria-hidden
               />
-              <div className="min-w-0">
+              <div className="min-w-0 space-y-2">
                 <h3 className="truncate text-base font-bold">{row.name}</h3>
                 <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1 font-semibold">
@@ -164,6 +181,30 @@ export function AppleCalendarSubscriptions() {
                 {row.sync_error ? (
                   <p className="mt-1 text-[11px] font-semibold text-destructive">{row.sync_error}</p>
                 ) : null}
+                <div className="flex items-center gap-2">
+                  <Label htmlFor={`apple-display-${row.id}`} className="text-xs">
+                    Display style
+                  </Label>
+                  <Select
+                    value={row.display_mode}
+                    disabled={!canEdit || displayModeMutation.isPending}
+                    onValueChange={(display_mode: DisplayMode) =>
+                      displayModeMutation.mutate({ id: row.id, display_mode })
+                    }
+                  >
+                    <SelectTrigger
+                      id={`apple-display-${row.id}`}
+                      className="h-8 w-32 rounded-lg text-xs"
+                      aria-label={`Display style for ${row.name}`}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="coverage_background">Background</SelectItem>
+                      <SelectItem value="events">Event</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               {canEdit ? (
                 <div className="flex items-center gap-1">
