@@ -685,6 +685,31 @@ async function loadEvent(admin: Admin, eventId: string): Promise<EventRow | null
   return (data as EventRow) ?? null;
 }
 
+/** Ids of this household's read-only subscription calendars (Apple/iCloud ICS). */
+export async function subscriptionSourceIds(admin: Admin, familyId: string): Promise<Set<string>> {
+  const { data } = await admin
+    .from("calendar_sources")
+    .select("id")
+    .eq("family_id", familyId)
+    .eq("provider", "ics");
+  return new Set(((data ?? []) as { id: string }[]).map((s) => s.id));
+}
+
+/** True when an event belongs to a read-only subscription calendar. */
+async function isSubscriptionSourced(
+  admin: Admin,
+  calendarSourceId: string | null | undefined,
+): Promise<boolean> {
+  if (!calendarSourceId) return false;
+  const { data } = await admin
+    .from("calendar_sources")
+    .select("provider")
+    .eq("id", calendarSourceId)
+    .maybeSingle();
+  return (data as { provider?: string } | null)?.provider === "ics";
+}
+
+
 export async function initialsFor(admin: Admin, familyId: string): Promise<Map<string, string>> {
   const { data } = await admin
     .from("family_members")
@@ -758,6 +783,15 @@ export async function pushEvent(
 
     const event = await loadEvent(admin, eventId);
     if (!event || event.family_id !== familyId) return { skipped: "event_not_found" };
+
+    // Events imported from a read-only Apple/iCloud subscription are inbound
+    // only. Pushing one to Google would land it back in Apple through the
+    // user's Google subscription, producing a second copy of the same source
+    // event in a different calendar colour.
+    if (await isSubscriptionSourced(admin, event.calendar_source_id)) {
+      return { skipped: "read_only_subscription" };
+    }
+
 
     // A detached instance that came *from* Google already exists there as an
     // exception of its parent series. Creating it again would produce a second,
@@ -1796,7 +1830,7 @@ export async function reconcileHousehold(
     const { timeMin, timeMax } = syncWindow(new Date(), false);
     const { data: candidates } = await admin
       .from("events")
-      .select("id, start_at, recurrence_rule, all_day")
+      .select("id, start_at, recurrence_rule, all_day, calendar_source_id")
       .eq("family_id", familyId)
       .lte("start_at", timeMax);
     const { data: linked } = await admin
@@ -1804,6 +1838,8 @@ export async function reconcileHousehold(
       .select("event_id")
       .eq("family_id", familyId);
     const linkedIds = new Set((linked ?? []).map((l: { event_id: string }) => l.event_id));
+    // read-only Apple/iCloud subscription events are never pushed outbound
+    const subscriptionIds = await subscriptionSourceIds(admin, familyId);
 
     let repaired = 0;
     for (const candidate of (candidates ?? []) as {
@@ -1811,8 +1847,11 @@ export async function reconcileHousehold(
       start_at: string;
       recurrence_rule: string | null;
       all_day: boolean;
+      calendar_source_id: string | null;
     }[]) {
+      if (candidate.calendar_source_id && subscriptionIds.has(candidate.calendar_source_id)) continue;
       if (!candidate.recurrence_rule && candidate.start_at < timeMin) continue;
+
       if (linkedIds.has(candidate.id)) {
         const { pruned } = await pruneStaleLinks(
           admin,

@@ -665,3 +665,50 @@ export const deleteBulkMatchingEvents = createServerFn({ method: "POST" })
       data.targets,
     );
   });
+
+/**
+ * Owner-only repair for Apple/iCloud subscription events that were exported to
+ * Google before subscription sources were excluded from outbound push.
+ *
+ * Deletes only the Google copies (and their link rows). The Apple-sourced event
+ * inside the app is preserved, and the Apple source calendar is never touched.
+ */
+export const detachSubscriptionEventsFromGoogle = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ events: number; google_deleted: number }> => {
+    const { resolveOwnedFamily } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can run calendar maintenance");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { pushEventDeletion, subscriptionSourceIds } = await import("@/lib/google/sync.server");
+
+    const sourceIds = [...(await subscriptionSourceIds(supabaseAdmin as never, family))];
+    if (sourceIds.length === 0) return { events: 0, google_deleted: 0 };
+
+    const { data: rows } = await supabaseAdmin
+      .from("events")
+      .select("id")
+      .eq("family_id", family)
+      .in("calendar_source_id", sourceIds);
+    const eventIds = ((rows ?? []) as { id: string }[]).map((r) => r.id);
+    if (eventIds.length === 0) return { events: 0, google_deleted: 0 };
+
+    const { data: links } = await supabaseAdmin
+      .from("event_sync_links")
+      .select("id, google_event_id, calendar_source_id")
+      .eq("family_id", family)
+      .in("event_id", eventIds);
+    const linkRows = (links ?? []) as {
+      id: string;
+      google_event_id: string;
+      calendar_source_id: string;
+    }[];
+    if (linkRows.length === 0) return { events: eventIds.length, google_deleted: 0 };
+
+    await pushEventDeletion(supabaseAdmin as never, family, linkRows);
+    await supabaseAdmin
+      .from("event_sync_links")
+      .delete()
+      .in("id", linkRows.map((l) => l.id));
+    return { events: eventIds.length, google_deleted: linkRows.length };
+  });
