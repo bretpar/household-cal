@@ -7,11 +7,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   backfillGoogleSource,
+  deleteBulkMatchingEvents,
   diagnoseGoogleDstRepair,
   diagnoseGoogleInbound,
   getSyncSettings,
   inspectOccurrenceRows,
+  previewBulkDeleteMatchingEvents,
   reapplyGoogleInboundEvent,
   repairGoogleRecurrence,
   unlockCalendarMaintenance,
@@ -23,14 +36,14 @@ const UNLOCK_DURATION_MS = 30 * 60 * 1000;
 /**
  * Owner-only Google Calendar maintenance, hidden behind a support code.
  *
- * Exposes only the safe, non-destructive tools: read-only inbound diagnostic,
- * recurrence repair and bounded backfill. Every action is additionally
+ * Exposes repair/diagnostic tools plus one strongly confirmed cleanup tool.
+ * Every action is additionally
  * authorized server-side against the caller's owned household, and the calendar
  * list comes from that same household's connected Google sources. The unlock
  * lives in component state only, so it disappears on sign-out or reload and
  * auto-locks after 30 minutes.
  *
- * No QA/reset/destructive tooling belongs here.
+ * The QA reset remains separately restricted to the dedicated QA household.
  */
 export function GoogleCalendarMaintenance({ children }: { children?: ReactNode }) {
   const loadSettings = useServerFn(getSyncSettings);
@@ -146,10 +159,177 @@ export function GoogleCalendarMaintenance({ children }: { children?: ReactNode }
         Safe repair tools for this household&rsquo;s connected Google calendars.
       </p>
       <RecurrenceRepair />
+      <BulkDeleteMatchingEvents calendars={calendars} />
       <GoogleInboundDiagnostic calendars={calendars} />
       <OccurrenceRowInspector />
       <DstRepairInspector />
       {children}
+    </div>
+  );
+}
+
+function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }) {
+  const queryClient = useQueryClient();
+  const previewFn = useServerFn(previewBulkDeleteMatchingEvents);
+  const deleteFn = useServerFn(deleteBulkMatchingEvents);
+  const today = new Date().toISOString().slice(0, 10);
+  const [filters, setFilters] = useState({
+    source_id: calendars[0]?.id ?? "",
+    title: "",
+    start_date: today,
+    end_date: today,
+    start_time: "",
+    end_time: "",
+  });
+  const [preview, setPreview] = useState<Awaited<ReturnType<typeof previewFn>> | null>(null);
+  const [completion, setCompletion] = useState<Awaited<ReturnType<typeof deleteFn>> | null>(null);
+
+  const input = {
+    ...filters,
+    start_time: filters.start_time || null,
+    end_time: filters.end_time || null,
+  };
+  const change = (name: keyof typeof filters, value: string) => {
+    setFilters((current) => ({ ...current, [name]: value }));
+    setPreview(null);
+    setCompletion(null);
+  };
+  const previewMutation = useMutation({
+    mutationFn: () => previewFn({ data: input }),
+    onSuccess: (result) => {
+      setPreview(result);
+      setCompletion(null);
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Could not preview matches"),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: () => {
+      if (!preview) throw new Error("Preview matches before deleting");
+      return deleteFn({ data: { ...input, preview_token: preview.preview_token } });
+    },
+    onSuccess: async (result) => {
+      setCompletion(result);
+      setPreview(null);
+      await queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
+      toast.success("Bulk deletion finished");
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Bulk deletion failed"),
+  });
+  const ready = Boolean(
+    filters.source_id && filters.title.trim() && filters.start_date && filters.end_date,
+  );
+
+  return (
+    <div className="space-y-4 rounded-3xl border border-destructive/30 bg-card p-4">
+      <div>
+        <h3 className="text-base font-bold">Bulk Delete Matching Events</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Preview and remove matching standalone events from Google and this calendar. Repeating
+          events are excluded.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="bulk-delete-calendar">Calendar</Label>
+          <select
+            id="bulk-delete-calendar"
+            value={filters.source_id}
+            onChange={(event) => change("source_id", event.target.value)}
+            className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+          >
+            {calendars.length === 0 ? <option value="">No connected calendars</option> : null}
+            {calendars.map((calendar) => (
+              <option key={calendar.id} value={calendar.id}>{calendar.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="bulk-delete-title">Event title</Label>
+          <Input id="bulk-delete-title" value={filters.title} onChange={(event) => change("title", event.target.value)} placeholder="Exact title, such as Michelle" className="h-11 rounded-xl" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="bulk-delete-start-date">Start date</Label>
+          <Input id="bulk-delete-start-date" type="date" value={filters.start_date} onChange={(event) => change("start_date", event.target.value)} className="h-11 rounded-xl" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="bulk-delete-end-date">End date</Label>
+          <Input id="bulk-delete-end-date" type="date" value={filters.end_date} onChange={(event) => change("end_date", event.target.value)} className="h-11 rounded-xl" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="bulk-delete-start-time">Start time (optional)</Label>
+          <Input id="bulk-delete-start-time" type="time" value={filters.start_time} onChange={(event) => change("start_time", event.target.value)} className="h-11 rounded-xl" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="bulk-delete-end-time">End time (optional)</Label>
+          <Input id="bulk-delete-end-time" type="time" value={filters.end_time} onChange={(event) => change("end_time", event.target.value)} className="h-11 rounded-xl" />
+        </div>
+      </div>
+      <Button type="button" variant="outline" className="h-11 rounded-full font-bold" disabled={!ready || previewMutation.isPending} onClick={() => previewMutation.mutate()}>
+        {previewMutation.isPending ? "Previewing…" : "Preview matches"}
+      </Button>
+
+      {preview ? (
+        <div className="space-y-3 rounded-2xl border border-border-soft bg-background p-3">
+          <p className="font-bold">{preview.total} matching event{preview.total === 1 ? "" : "s"}</p>
+          <div className="max-h-72 space-y-2 overflow-y-auto">
+            {preview.items.map((item) => (
+              <div key={item.key} className="rounded-xl border border-border-soft p-3 text-sm">
+                <div className="flex flex-wrap justify-between gap-2">
+                  <span className="font-bold">{item.title}</span>
+                  <span className="text-xs font-bold text-muted-foreground">{item.exists_in}</span>
+                </div>
+                <p className="text-muted-foreground">
+                  {item.date}{item.start_time ? ` · ${item.start_time}${item.end_time ? `–${item.end_time}` : ""}` : " · All day"}
+                </p>
+                <p className="text-xs text-muted-foreground">{item.calendar_name}</p>
+              </div>
+            ))}
+          </div>
+          {preview.total > 0 ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="destructive" className="h-11 rounded-full font-bold">Review deletion</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete {preview.total} matching events?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This removes the previewed standalone events from Google and Our Family Calendar.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <dl className="grid gap-2 rounded-xl border border-border-soft p-3 text-sm">
+                  <Row label="Calendar" value={preview.calendar.name} />
+                  <Row label="Title" value={preview.filters.title} />
+                  <Row label="Date range" value={`${preview.filters.start_date} – ${preview.filters.end_date}`} />
+                  <Row label="Total" value={String(preview.total)} />
+                </dl>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>
+                    Delete {preview.total} matching events
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : null}
+        </div>
+      ) : null}
+
+      {completion ? (
+        <div className="space-y-2 rounded-2xl border border-border-soft bg-background p-3 text-sm">
+          <p className="font-bold">Deletion complete</p>
+          <p>Deleted from Google: {completion.deleted_from_google}</p>
+          <p>Deleted from OFC: {completion.deleted_from_ofc}</p>
+          {completion.failures.length > 0 ? (
+            <div className="space-y-1 text-destructive">
+              <p className="font-bold">Needs attention: {completion.failures.length}</p>
+              {completion.failures.map((failure, index) => <p key={`${failure.date}-${failure.title}-${index}`}>{failure.date} · {failure.title}: {failure.message}</p>)}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
