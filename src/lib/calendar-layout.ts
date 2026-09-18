@@ -38,8 +38,12 @@ export const CALENDAR_TOKENS = {
     border: "border border-border-soft",
     gapPx: 2,
   },
-  /** Below this rendered width a card is too narrow to stay readable. */
+  /** Preferred readable width for a card that has the column to itself. */
   minCardWidthPx: 116,
+  /** Absolute floor for an overlap column: still readable and tappable. Cards
+   *  are narrowed down to this before any event is pushed into "+N more". */
+  minOverlapColumnPx: 56,
+
   /** Content thresholds, measured against the card's rendered box. */
   content: {
     timeMinHeightPx: 40,
