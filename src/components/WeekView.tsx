@@ -576,11 +576,16 @@ export function WeekView({
                                         onClick={() => openOccurrence(hiddenOccurrence)}
                                       >
                                         <span className="block truncate font-medium">
-                                          {hiddenOccurrence.title}
+                                          {hiddenOccurrence.event.title}
                                         </span>
                                         <span className="block text-[11px] text-muted-foreground">
-                                          {formatTimeRange(hiddenOccurrence)}
+                                          {formatTimeRange(
+                                            hiddenOccurrence.start,
+                                            hiddenOccurrence.end,
+                                            false,
+                                          )}
                                         </span>
+
                                       </button>
                                     </li>
                                   ))}
