@@ -30,6 +30,11 @@
 - [x] Add explicit Start and End date/time rows that preserve overnight and multi-day events.
 - [x] Group All day and Repeats into one compact secondary control row.
 
+## Apple subscription display
+- [x] Add per-subscription Event or Background display style, defaulting new subscriptions to Event.
+- [x] Reuse the shared background layer without changing Apple importing, read-only protection, or Google sync.
+- [x] Keep shared overflow markers unique per overlap group and hidden occurrence.
+
 ## Mobile calendar readability
 - [x] Remove the temporary caregiver coverage summary from Today without changing coverage data.
 - [x] Stack overlapping mobile 3-Day events at readable width, with compact overflow for dense groups.
