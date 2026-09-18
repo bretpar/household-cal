@@ -35,6 +35,12 @@ export interface GoogleEvent {
   originalStartTime?: GoogleDateTime | null;
   etag?: string;
   updated?: string;
+  /**
+   * Private app metadata Google echoes back untouched. `ofc_event_id` marks the
+   * app event that created this Google event, so the immediate inbound echo of
+   * an outbound create is recognised even before its sync link is persisted.
+   */
+  extendedProperties?: { private?: Record<string, string> | null } | null;
 }
 
 /** One Google recurrence series that represents part of a logical app event. */

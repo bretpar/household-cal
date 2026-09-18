@@ -727,6 +727,10 @@ function branchBody(
     event.all_day ? null : { startAt: anchored.startAt, timeZone },
   );
   return {
+    // Deterministic app-origin marker: Google echoes this back on the inbound
+    // pass, so a brand-new Google event created by this app is reconciled onto
+    // the originating app event instead of being imported as a second copy.
+    extendedProperties: { private: { ofc_event_id: event.id, ofc_family_id: event.family_id } },
     summary: googleTitle(event.title, branchInitials(branch, initials), includeInitials),
     description: event.notes ?? "",
     location: event.location ?? "",
@@ -1204,8 +1208,25 @@ export async function applyGoogleEvent(
       .eq("external_event_id", g.id)
       .limit(1)
       .maybeSingle();
+    // The self-originated echo of an outbound create: Google returns our own
+    // marker, so the originating row is adopted even when its sync link has not
+    // landed yet. Nothing is deleted or replaced — the same app event id, its
+    // recurrence, classification and calendar assignment all stay in place.
+    const markedId = g.extendedProperties?.private?.["ofc_event_id"] ?? null;
+    let originId: string | undefined;
+    if (markedId) {
+      const { data: origin } = await admin
+        .from("events")
+        .select("id")
+        .eq("family_id", familyId)
+        .eq("id", markedId)
+        .maybeSingle();
+      originId = (origin?.id as string | undefined) ?? undefined;
+    }
     const recovered =
-      (knownLink?.event_id as string | undefined) ?? (existingLocal?.id as string | undefined);
+      (knownLink?.event_id as string | undefined) ??
+      (existingLocal?.id as string | undefined) ??
+      originId;
 
     const newId = recovered ?? (await createLocalEvent(admin, source, g, initials, null));
     await admin.from("event_sync_links").upsert(

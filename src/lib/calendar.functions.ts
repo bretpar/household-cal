@@ -173,7 +173,14 @@ export const getEventSyncState = createServerFn({ method: "GET" })
         .select("id, family_id")
         .eq("id", data.event_id)
         .maybeSingle();
-      if (!event) return { state: "unlinked", error: null };
+      // The row must still be there. A newly saved event that has vanished is a
+      // real failure, never a quiet success.
+      if (!event) {
+        return {
+          state: "failed",
+          error: "The saved event is no longer on the calendar. Please try again.",
+        };
+      }
 
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { data: links } = await supabaseAdmin
