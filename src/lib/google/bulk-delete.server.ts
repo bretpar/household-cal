@@ -4,9 +4,12 @@ import {
   eventMatchesFilters,
   previewIdentity,
   statusReason,
+  targetFromPreviewItem,
+  targetIdentity,
   type BulkDeleteComparableEvent,
   type BulkDeleteFilters,
   type BulkDeletePreviewItem,
+  type BulkDeleteTarget,
   type RecurrenceStatus,
 } from "@/lib/google/bulk-delete";
 import { fromGoogleTimes, type GoogleEvent } from "@/lib/google/mapping";
@@ -51,14 +54,17 @@ export interface BulkDeletePreview {
   protected_total: number;
   excluded_total: number;
   items: BulkDeletePreviewItem[];
+  eligible_targets: BulkDeleteTarget[];
   preview_token: string;
 }
 
 export interface BulkDeleteCompletion {
+  requested: number;
   deleted_from_google: number;
   deleted_from_ofc: number;
   skipped: number;
-  failures: { title: string; date: string; message: string }[];
+  failed: number;
+  failures: { event_id: string; title: string; date: string; message: string }[];
 }
 
 function zonedParts(iso: string, timeZone: string): { date: string; time: string } {
@@ -380,6 +386,7 @@ export async function previewBulkDelete(
   ).length;
   const excluded_total = items.length - eligible_total - protected_total;
   const preview_token = await hashPreview(filters, previewIdentity(items));
+  const eligible_targets = items.filter((item) => item.eligible).map(targetFromPreviewItem);
   return {
     filters,
     calendar: { id: source.id, name: source.name },
@@ -389,6 +396,7 @@ export async function previewBulkDelete(
     protected_total,
     excluded_total,
     items,
+    eligible_targets,
     preview_token,
   };
 }
@@ -398,26 +406,33 @@ export async function deleteBulkMatches(
   familyId: string,
   filters: BulkDeleteFilters,
   expectedPreviewToken: string,
+  confirmedTargets: BulkDeleteTarget[],
 ): Promise<BulkDeleteCompletion> {
   const preview = await previewBulkDelete(admin, familyId, filters);
   if (preview.preview_token !== expectedPreviewToken) {
     throw new Error("Matches changed since preview. Preview again before deleting.");
+  }
+  if (targetIdentity(preview.eligible_targets) !== targetIdentity(confirmedTargets)) {
+    throw new Error("Eligible event IDs changed since preview. Preview again before deleting.");
   }
   const source = await resolveSource(admin, familyId, filters.source_id);
   const connection = await getConnection(admin, familyId);
   if (!connection) throw new Error("Google Calendar is not connected");
 
   const result: BulkDeleteCompletion = {
+    requested: confirmedTargets.length,
     deleted_from_google: 0,
     deleted_from_ofc: 0,
     skipped: preview.items.filter((item) => !item.eligible).length,
+    failed: 0,
     failures: [],
   };
 
-  for (const item of preview.items) {
-    if (!item.eligible) continue;
+  for (const target of confirmedTargets) {
+    let activeEventId = target.ofc_event_id ?? target.google_event_ids[0] ?? target.key;
     try {
-      for (const googleEventId of item.google_event_ids) {
+      for (const googleEventId of target.google_event_ids) {
+        activeEventId = googleEventId;
         await google.deleteEvent(
           connection.connectionKey,
           source.external_calendar_id,
@@ -433,23 +448,46 @@ export async function deleteBulkMatches(
           .eq("google_event_id", googleEventId);
         if (linkError) throw linkError;
       }
-      if (item.ofc_event_id) {
-        const { error } = await admin
+      if (target.ofc_event_id) {
+        activeEventId = target.ofc_event_id;
+        const { error: linkError } = await admin
+          .from("event_sync_links")
+          .delete()
+          .eq("family_id", familyId)
+          .eq("calendar_source_id", source.id)
+          .eq("event_id", target.ofc_event_id);
+        if (linkError) throw linkError;
+        const { data: deletedRows, error } = await admin
           .from("events")
           .delete()
-          .eq("id", item.ofc_event_id)
+          .eq("id", target.ofc_event_id)
           .eq("family_id", familyId)
-          .eq("calendar_source_id", source.id);
+          .eq("calendar_source_id", source.id)
+          .select("id");
         if (error) throw error;
+        if (!deletedRows?.some((row: { id: string }) => row.id === target.ofc_event_id)) {
+          throw new Error("The previewed OFC event was not deleted");
+        }
         result.deleted_from_ofc += 1;
       }
     } catch (error) {
+      result.failed += 1;
       result.failures.push({
-        title: item.title,
-        date: item.date,
+        event_id: activeEventId,
+        title: target.title,
+        date: target.date,
         message: error instanceof Error ? error.message : "Delete failed",
       });
     }
   }
+  console.info("[bulk-delete] completed", {
+    family_id: familyId,
+    calendar_source_id: source.id,
+    requested: result.requested,
+    deleted_from_google: result.deleted_from_google,
+    deleted_from_ofc: result.deleted_from_ofc,
+    skipped: result.skipped,
+    failed: result.failed,
+  });
   return result;
 }

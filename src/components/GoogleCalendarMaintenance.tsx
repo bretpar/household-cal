@@ -184,6 +184,7 @@ function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }
   const [allFuture, setAllFuture] = useState(false);
   const [preview, setPreview] = useState<Awaited<ReturnType<typeof previewFn>> | null>(null);
   const [completion, setCompletion] = useState<Awaited<ReturnType<typeof deleteFn>> | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const input = {
     ...filters,
@@ -213,12 +214,20 @@ function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }
   const deleteMutation = useMutation({
     mutationFn: () => {
       if (!preview) throw new Error("Preview matches before deleting");
-      return deleteFn({ data: { ...input, preview_token: preview.preview_token } });
+      return deleteFn({
+        data: {
+          ...input,
+          preview_token: preview.preview_token,
+          targets: preview.eligible_targets,
+        },
+      });
     },
     onSuccess: async (result) => {
       setCompletion(result);
-      setPreview(null);
+      setDeleteOpen(false);
       await queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
+      const refreshed = await previewFn({ data: input });
+      setPreview(refreshed);
       toast.success("Bulk deletion finished");
     },
     onError: (error: unknown) =>
@@ -328,7 +337,7 @@ function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }
             ))}
           </div>
           {preview.eligible_total > 0 ? (
-            <AlertDialog>
+            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
               <AlertDialogTrigger asChild>
                 <Button type="button" variant="destructive" className="h-11 rounded-full font-bold">Review deletion</Button>
               </AlertDialogTrigger>
@@ -350,8 +359,15 @@ function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }
                 </dl>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>
-                    Delete all {preview.eligible_total} matching events
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    disabled={deleteMutation.isPending}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      deleteMutation.mutate();
+                    }}
+                  >
+                    {deleteMutation.isPending ? "Deleting…" : `Delete all ${preview.eligible_total} matching events`}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -363,14 +379,15 @@ function BulkDeleteMatchingEvents({ calendars }: { calendars: CalendarOption[] }
       {completion ? (
         <div className="space-y-2 rounded-2xl border border-border-soft bg-background p-3 text-sm">
           <p className="font-bold">Deletion complete</p>
+          <p>Requested: {completion.requested}</p>
           <p>Deleted from Google: {completion.deleted_from_google}</p>
           <p>Deleted from OFC: {completion.deleted_from_ofc}</p>
           <p>Protected or skipped: {completion.skipped}</p>
-          <p>Failed: {completion.failures.length}</p>
+          <p>Failed: {completion.failed}</p>
           {completion.failures.length > 0 ? (
             <div className="space-y-1 text-destructive">
               <p className="font-bold">Needs attention: {completion.failures.length}</p>
-              {completion.failures.map((failure, index) => <p key={`${failure.date}-${failure.title}-${index}`}>{failure.date} · {failure.title}: {failure.message}</p>)}
+              {completion.failures.map((failure, index) => <p key={`${failure.event_id}-${index}`}>{failure.event_id} · {failure.date} · {failure.title}: {failure.message}</p>)}
             </div>
           ) : null}
         </div>

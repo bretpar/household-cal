@@ -33,6 +33,15 @@ export interface BulkDeletePreviewItem {
   ofc_event_id: string | null;
 }
 
+/** Stable destructive payload copied from an eligible preview row. */
+export interface BulkDeleteTarget {
+  key: string;
+  title: string;
+  date: string;
+  google_event_ids: string[];
+  ofc_event_id: string | null;
+}
+
 function validGeneratedInitialSuffix(suffix: string, initials: string[]): boolean {
   const allowed = new Set(initials.map((initial) => initial.trim().toUpperCase()).filter(Boolean));
   const parts = suffix.split(" & ").map((part) => part.trim().toUpperCase());
@@ -103,6 +112,31 @@ export function previewIdentity(items: BulkDeletePreviewItem[]): string {
         item.eligible ? "eligible" : "protected",
         item.ofc_event_id ?? "",
         ...item.google_event_ids.slice().sort(),
+      ].join("|"),
+    )
+    .sort()
+    .join("\n");
+}
+
+export function targetFromPreviewItem(item: BulkDeletePreviewItem): BulkDeleteTarget {
+  return {
+    key: item.key,
+    title: item.title,
+    date: item.date,
+    google_event_ids: item.google_event_ids.slice().sort(),
+    ofc_event_id: item.ofc_event_id,
+  };
+}
+
+export function targetIdentity(targets: BulkDeleteTarget[]): string {
+  return targets
+    .map((target) =>
+      [
+        target.key,
+        target.title,
+        target.date,
+        target.ofc_event_id ?? "",
+        ...target.google_event_ids.slice().sort(),
       ].join("|"),
     )
     .sort()

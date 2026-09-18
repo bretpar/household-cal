@@ -4,6 +4,8 @@ import {
   classifyRecurrence,
   eventMatchesFilters,
   previewIdentity,
+  targetFromPreviewItem,
+  targetIdentity,
   titleMatchesFilter,
   type BulkDeleteFilters,
 } from "../src/lib/google/bulk-delete";
@@ -92,5 +94,33 @@ describe("bulk delete matching", () => {
       previewIdentity([{ ...item, google_event_ids: ["google-two"] }]),
     );
     expect(previewIdentity([item])).not.toBe(previewIdentity([{ ...item, eligible: false }]));
+  });
+
+  it("creates stable deletion targets from eligible detached preview rows", () => {
+    const item = {
+      key: "ofc:one",
+      title: "Michelle",
+      date: "2027-01-04",
+      start_time: "07:30",
+      end_time: "17:00",
+      calendar_name: "Babysitter Calendar",
+      exists_in: "OFC" as const,
+      recurrence_status: "detached" as const,
+      eligible: true,
+      reason: "Detached instance of a broken series",
+      google_event_ids: [] as string[],
+      ofc_event_id: "one",
+    };
+    const target = targetFromPreviewItem(item);
+    expect(target).toEqual({
+      key: "ofc:one",
+      title: "Michelle",
+      date: "2027-01-04",
+      google_event_ids: [],
+      ofc_event_id: "one",
+    });
+    expect(targetIdentity([target])).not.toBe(
+      targetIdentity([{ ...target, ofc_event_id: "different" }]),
+    );
   });
 });
