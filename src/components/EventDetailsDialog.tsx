@@ -36,10 +36,23 @@ import {
   type Occurrence,
 } from "@/lib/family-data";
 
-const SCOPE_OPTIONS: { id: RecurrenceScope; label: string }[] = [
-  { id: "this", label: "This event" },
-  { id: "future", label: "This and future events" },
-  { id: "series", label: "Entire series" },
+/** Explicit save choices for a recurring series, asked only after "Save changes". */
+const SAVE_OPTIONS: { id: RecurrenceScope; label: string; hint: string }[] = [
+  {
+    id: "this",
+    label: "Apply to this event only",
+    hint: "Updates only this occurrence. The rest of the series stays unchanged.",
+  },
+  {
+    id: "future",
+    label: "Apply to this and future events",
+    hint: "Updates this occurrence and every later occurrence. Past occurrences stay unchanged.",
+  },
+  {
+    id: "series",
+    label: "Apply to entire series",
+    hint: "Updates every occurrence in this repeating event.",
+  },
 ];
 
 /** Explicit delete choices for a recurring series. */
@@ -61,7 +74,7 @@ const DELETE_OPTIONS: { id: RecurrenceScope; label: string; hint: string }[] = [
   },
 ];
 
-type Mode = "details" | "edit" | "delete";
+type Mode = "details" | "edit" | "delete" | "save-scope";
 
 /**
  * Prefills a dragged occurrence's proposed time. The duration is preserved and
@@ -102,7 +115,6 @@ export function EventDetailsDialog() {
   } = useCalendar();
 
   const [mode, setMode] = useState<Mode>("details");
-  const [scope, setScope] = useState<RecurrenceScope>("this");
   const [state, setState] = useState<EventFormState | null>(null);
   const [busy, setBusy] = useState(false);
   // Inline copy of the validation message so a blocked save is never silent.
@@ -113,10 +125,6 @@ export function EventDetailsDialog() {
     if (activeOccurrence) {
       // A touch drag lands straight in the edit form with the proposed time filled in.
       setMode(proposedStart ? "edit" : "details");
-      // Recurring events default to the whole series so a quick save can never
-      // detach a single occurrence by accident; a detached one-off (no rule on
-      // its own row) has no scope choice at all.
-      setScope(activeOccurrence.event.recurrence_rule ? "series" : "this");
       const base = formStateFromOccurrence(activeOccurrence);
       setState(proposedStart ? withProposedStart(base, activeOccurrence, proposedStart) : base);
     }
@@ -143,7 +151,10 @@ export function EventDetailsDialog() {
     }));
 
 
-  const saveEdit = async () => {
+  // Save tap: validate first; repeating events choose a scope in the follow-up
+  // sheet instead of saving immediately, so a save can never silently detach
+  // one occurrence.
+  const requestSave = () => {
     if (!state) return;
     const error = validateFormState(state);
     setFormError(error);
@@ -151,6 +162,15 @@ export function EventDetailsDialog() {
       toast.error(error);
       return;
     }
+    if (needsScope) {
+      setMode("save-scope");
+    } else {
+      void saveEdit("this");
+    }
+  };
+
+  const saveEdit = async (scope: RecurrenceScope) => {
+    if (!state) return;
     await runGuardedMutation({
       busy,
       setBusy,
@@ -191,30 +211,6 @@ export function EventDetailsDialog() {
   };
 
 
-
-  // Kept at the top of the edit form so the scope is never below the fold.
-  const scopePicker = needsScope ? (
-    <div className="space-y-2 rounded-2xl bg-surface-muted p-3">
-      <p className="text-sm font-bold">Apply changes to:</p>
-      <div className="flex flex-col gap-2">
-        {SCOPE_OPTIONS.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            aria-pressed={scope === option.id}
-            onClick={() => setScope(option.id)}
-            className={
-              scope === option.id
-                ? "flex h-11 items-center rounded-xl bg-secondary px-3 text-sm font-bold ring-2 ring-primary"
-                : "flex h-11 items-center rounded-xl bg-background px-3 text-sm font-semibold text-muted-foreground"
-            }
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  ) : null;
 
   return (
     <Dialog open onOpenChange={(next) => (next ? null : closeOccurrence())}>
@@ -339,7 +335,6 @@ export function EventDetailsDialog() {
 
             {state ? (
               <div className="-mx-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 pb-24 max-sm:pb-[max(7rem,env(safe-area-inset-bottom)+4rem)] sm:-mx-6 sm:px-6">
-                {scopePicker}
                 <EventFormFields
                   state={state}
                   onChange={(next) => {
@@ -381,12 +376,49 @@ export function EventDetailsDialog() {
               <Button
                 type="button"
                 className="h-11 rounded-full px-6 font-bold"
-                onClick={() => void saveEdit()}
+                onClick={requestSave}
                 disabled={busy}
               >
                 {busy ? "Saving…" : "Save changes"}
               </Button>
 
+            </DialogFooter>
+          </>
+        ) : mode === "save-scope" ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Apply changes to {event.title}?</DialogTitle>
+              <DialogDescription>
+                This event repeats. Choose how much of the series to update.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="-mx-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-4 sm:-mx-6 sm:px-6">
+              {SAVE_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void saveEdit(option.id)}
+                  className="rounded-2xl bg-surface-muted px-4 py-3 text-left transition-colors hover:bg-secondary disabled:opacity-60"
+                >
+                  <span className="block text-sm font-bold">{option.label}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {option.hint}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                type="button"
+                className="h-11 rounded-full"
+                onClick={() => setMode("edit")}
+              >
+                Cancel
+              </Button>
             </DialogFooter>
           </>
         ) : (
