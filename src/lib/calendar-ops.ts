@@ -148,8 +148,11 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     active: s.active,
     is_main: s.is_main ?? false,
     selectable_in_email: s.selectable_in_email ?? false,
+    color: s.color ?? null,
+    subscription_member_id: s.subscription_member_id ?? null,
   }));
   const displayModeOf = new Map(sources.map((s) => [s.id, s.display_mode]));
+  const sourceById = new Map(sources.map((s) => [s.id, s]));
 
   const members: FamilyMember[] = (membersRes.data ?? []).map((m: any) => ({
     id: m.id,
@@ -163,12 +166,17 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     sort_order: m.sort_order,
   }));
 
-  const events: CalendarEvent[] = (eventsRes.data ?? []).map((e: any) => ({
+  const events: CalendarEvent[] = (eventsRes.data ?? []).map((e: any) => {
+    const source = e.calendar_source_id ? sourceById.get(e.calendar_source_id) : undefined;
+    return {
     id: e.id,
     family_id: e.family_id,
     calendar_source_id: e.calendar_source_id,
     display_mode:
       (e.calendar_source_id ? displayModeOf.get(e.calendar_source_id) : "events") ?? "events",
+    // Subscription feeds (Apple/iCloud) are strictly read-only in the app.
+    read_only: source?.provider === "ics",
+    source_color: source?.provider === "ics" ? (source.color ?? null) : null,
     title: e.title,
     start_at: e.start_at,
     end_at: e.end_at,
@@ -193,7 +201,8 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     ),
     member_ids: (e.event_members ?? []).map((l: { family_member_id: string }) => l.family_member_id),
 
-  }));
+    };
+  });
 
   const activities: FamilyActivity[] = (activitiesRes.data ?? []).map((a: any) => ({
     id: a.id,
@@ -277,6 +286,31 @@ export async function defaultEventSource(db: Db, familyId: string): Promise<stri
     .order("sort_order", { ascending: true })
     .limit(1);
   return data?.[0]?.id ?? null;
+}
+
+/**
+ * Events imported from a read-only subscription (Apple/iCloud) can never be
+ * edited or deleted inside the app — Apple Calendar owns them. Enforced here as
+ * well as in the interface, so a stale page cannot bypass it.
+ */
+export async function assertEventEditable(db: Db, eventId: string): Promise<void> {
+  const { data } = await db
+    .from("events")
+    .select("calendar_source_id")
+    .eq("id", eventId)
+    .maybeSingle();
+  const sourceId = (data?.calendar_source_id ?? null) as string | null;
+  if (!sourceId) return;
+  const { data: source } = await db
+    .from("calendar_sources")
+    .select("provider")
+    .eq("id", sourceId)
+    .maybeSingle();
+  if (source?.provider === "ics") {
+    throw new Error(
+      "This event is synced from Apple Calendar and is read only here. Make changes in Apple Calendar.",
+    );
+  }
 }
 
 export async function insertEvent(

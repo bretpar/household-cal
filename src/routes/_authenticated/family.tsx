@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { AppleCalendarSubscriptions } from "@/components/AppleCalendarSubscriptions";
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
 import { CalendarSyncSettings } from "@/components/CalendarSyncSettings";
 import { DeveloperTools } from "@/components/DeveloperTools";
@@ -118,10 +119,11 @@ function FamilyPage() {
 
         <SettingsSection
           title="Calendars & Sync"
-          description="Google connection, synced calendars, timezone and schedule summaries"
+          description="Google connection, Apple subscriptions, synced calendars, timezone and schedule summaries"
           icon={<RefreshCw className="h-5 w-5" aria-hidden />}
         >
           <CalendarSyncSettings />
+          <AppleCalendarSubscriptions />
           <EmailSummarySettings />
         </SettingsSection>
 
