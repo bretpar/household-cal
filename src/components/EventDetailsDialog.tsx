@@ -335,7 +335,6 @@ export function EventDetailsDialog() {
 
             {state ? (
               <div className="-mx-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 pb-24 max-sm:pb-[max(7rem,env(safe-area-inset-bottom)+4rem)] sm:-mx-6 sm:px-6">
-                {scopePicker}
                 <EventFormFields
                   state={state}
                   onChange={(next) => {
@@ -377,7 +376,7 @@ export function EventDetailsDialog() {
               <Button
                 type="button"
                 className="h-11 rounded-full px-6 font-bold"
-                onClick={() => void saveEdit()}
+                onClick={requestSave}
                 disabled={busy}
               >
                 {busy ? "Saving…" : "Save changes"}
