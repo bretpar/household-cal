@@ -27,6 +27,8 @@ import {
   exceptionEventFields,
   fromGoogleRecurrence,
   isExceptionLink,
+  isInstanceEventId,
+
   missingBranchKeys,
   obsoleteBranchLinks,
   occurrenceWallClockDrifted,

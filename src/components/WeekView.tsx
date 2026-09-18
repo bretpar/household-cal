@@ -17,8 +17,10 @@ import {
   planEventContent,
   topForTime,
 } from "@/lib/calendar-layout";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useReschedule } from "@/components/useReschedule";
 import { useTimeGridDrag } from "@/hooks/use-time-grid-drag";
+
 import {
   expandOccurrences,
   formatTimeRange,
@@ -545,22 +547,48 @@ export function WeekView({
                       return (
                         <>
                           {layout.overflow.map((group) => (
-                            <button
-                              key={`more-${group.cluster}-${group.segment}`}
-                              type="button"
-                              className={cn(
-                                "pointer-events-auto absolute right-0 z-30 h-6 max-w-[70%] truncate border border-border-soft bg-surface px-1.5 text-xs font-semibold text-muted-foreground",
-                                CALENDAR_TOKENS.card.radius,
-                              )}
-                              style={{ top: group.top }}
-                              onClick={() => openOccurrence(group.hidden[0]!)}
-                              aria-label={`${group.hidden.length} more overlapping ${
-                                group.hidden.length === 1 ? "event" : "events"
-                              }`}
-                            >
-                              +{group.hidden.length} more
-                            </button>
+                            <Popover key={`more-${group.cluster}-${group.segment}`}>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  className={cn(
+                                    "pointer-events-auto absolute right-0 z-30 h-6 max-w-[70%] truncate border border-border-soft bg-surface px-1.5 text-xs font-semibold text-muted-foreground",
+                                    CALENDAR_TOKENS.card.radius,
+                                  )}
+                                  style={{ top: group.top }}
+                                  aria-label={`${group.hidden.length} more overlapping ${
+                                    group.hidden.length === 1 ? "event" : "events"
+                                  }`}
+                                >
+                                  +{group.hidden.length} more
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                align="end"
+                                className="pointer-events-auto z-50 w-56 p-1"
+                              >
+                                <ul className="space-y-0.5">
+                                  {group.hidden.map((hiddenOccurrence) => (
+                                    <li key={hiddenOccurrence.key}>
+                                      <button
+                                        type="button"
+                                        className="w-full rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted"
+                                        onClick={() => openOccurrence(hiddenOccurrence)}
+                                      >
+                                        <span className="block truncate font-medium">
+                                          {hiddenOccurrence.title}
+                                        </span>
+                                        <span className="block text-[11px] text-muted-foreground">
+                                          {formatTimeRange(hiddenOccurrence)}
+                                        </span>
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </PopoverContent>
+                            </Popover>
                           ))}
+
 
                           {layout.foreground.map((placement) => {
                             const o = placement.occurrence;
