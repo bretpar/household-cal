@@ -4,14 +4,19 @@ import { layoutTimedEvents } from "@/lib/calendar-layout";
 import type { CalendarEvent, Occurrence } from "@/lib/family-data";
 
 function occurrence(key: string, startHour: number, endHour: number): Occurrence {
+  const atHour = (hour: number) => {
+    const date = new Date(2026, 8, 17, 0, 0, 0, 0);
+    date.setMinutes(hour * 60);
+    return date;
+  };
   const event: CalendarEvent = {
     id: key,
     family_id: "family",
     calendar_source_id: null,
     display_mode: "events",
     title: key,
-    start_at: new Date(2026, 8, 17, startHour).toISOString(),
-    end_at: new Date(2026, 8, 17, endHour).toISOString(),
+    start_at: atHour(startHour).toISOString(),
+    end_at: atHour(endHour).toISOString(),
     all_day: false,
     location: null,
     notes: null,
@@ -29,8 +34,8 @@ function occurrence(key: string, startHour: number, endHour: number): Occurrence
   return {
     key,
     event,
-    start: new Date(2026, 8, 17, startHour),
-    end: new Date(2026, 8, 17, endHour),
+    start: atHour(startHour),
+    end: atHour(endHour),
     member_ids: [],
   };
 }
