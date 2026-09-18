@@ -40,6 +40,13 @@ const AREA_INSET_PX = 6;
 const topFor = topForTime;
 const heightFor = heightForOccurrence;
 
+/** "8a" / "12p" style hour label for the shared time gutter. */
+function hourLabel(hour: number): string {
+  const at = new Date();
+  at.setHours(hour, 0, 0, 0);
+  return format(at, "ha").toLowerCase().replace("m", "");
+}
+
 
 export function WeekView({
   anchor,
