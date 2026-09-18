@@ -175,6 +175,8 @@ export interface ForegroundPlacement {
   lane: number;
   /** Stable segment identity. One occurrence may have several width segments. */
   segment: number;
+  startsEvent: boolean;
+  endsEvent: boolean;
   /** Content appears once, on the first segment where this event is visible. */
   showContent: boolean;
   top: number;
@@ -292,14 +294,25 @@ export function layoutTimedEvents({
       visible.forEach((item, visibleLane) => {
         const showContent = !shownContent.has(item.occurrence.key);
         shownContent.add(item.occurrence.key);
+        const startsEvent = segmentStart === item.occurrence.start.getTime();
+        const endsEvent = segmentEnd === item.occurrence.end.getTime();
+        const segmentHeight = endsEvent
+          ? Math.max(
+              heightForMinutes((segmentEnd - segmentStart) / 60_000),
+              topForTime(item.occurrence.start) + heightForOccurrence(item.occurrence) -
+                topForTime(segmentStartDate),
+            )
+          : heightForMinutes((segmentEnd - segmentStart) / 60_000);
         results.push({
           occurrence: item.occurrence,
           cluster,
           lane: visibleLane,
           segment,
+          startsEvent,
+          endsEvent,
           showContent,
           top: topForTime(segmentStartDate),
-          height: heightForMinutes((segmentEnd - segmentStart) / 60_000),
+          height: segmentHeight,
           leftPct: areaLeftPct + visibleLane * laneWidthPct,
           widthPct: laneWidthPct,
           widthPx: Math.max(
