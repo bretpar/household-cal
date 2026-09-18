@@ -1830,7 +1830,7 @@ export async function reconcileHousehold(
     const { timeMin, timeMax } = syncWindow(new Date(), false);
     const { data: candidates } = await admin
       .from("events")
-      .select("id, start_at, recurrence_rule, all_day")
+      .select("id, start_at, recurrence_rule, all_day, calendar_source_id")
       .eq("family_id", familyId)
       .lte("start_at", timeMax);
     const { data: linked } = await admin
@@ -1838,6 +1838,8 @@ export async function reconcileHousehold(
       .select("event_id")
       .eq("family_id", familyId);
     const linkedIds = new Set((linked ?? []).map((l: { event_id: string }) => l.event_id));
+    // read-only Apple/iCloud subscription events are never pushed outbound
+    const subscriptionIds = await subscriptionSourceIds(admin, familyId);
 
     let repaired = 0;
     for (const candidate of (candidates ?? []) as {
@@ -1845,8 +1847,11 @@ export async function reconcileHousehold(
       start_at: string;
       recurrence_rule: string | null;
       all_day: boolean;
+      calendar_source_id: string | null;
     }[]) {
+      if (candidate.calendar_source_id && subscriptionIds.has(candidate.calendar_source_id)) continue;
       if (!candidate.recurrence_rule && candidate.start_at < timeMin) continue;
+
       if (linkedIds.has(candidate.id)) {
         const { pruned } = await pruneStaleLinks(
           admin,
