@@ -489,7 +489,6 @@ export function WeekView({
                             ? cn(
                                 "border-border-soft",
                                 eventTintClass(appearance),
-                                eventAccentClass(appearance),
                               )
                             : cn(
                                 "border-coverage-strong/40 border-l-coverage-strong",
@@ -500,6 +499,16 @@ export function WeekView({
                         )}
                         style={{ top: bg.top, height: bg.height }}
                       >
+                        {isSubscriptionEvent ? (
+                          <span
+                            className={cn(
+                              "pointer-events-none absolute inset-y-0 left-0 z-10",
+                              CALENDAR_TOKENS.card.railWidth,
+                              eventAccentClass(appearance),
+                            )}
+                            aria-hidden
+                          />
+                        ) : null}
                         <div
                           className={cn(
                             "pointer-events-none absolute inset-x-0 top-0",
