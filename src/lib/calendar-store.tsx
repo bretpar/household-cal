@@ -67,12 +67,14 @@ interface CalendarStore {
   /** effective household category id for an event (legacy/stale-safe); null = Uncategorized */
   resolvedCategoryIdFor: (ref: CategoryRef) => string | null;
 
-  addEvent: (draft: EventDraft) => Promise<void>;
+  /** Resolves once the household save is authoritative; Google may still be syncing. */
+  addEvent: (draft: EventDraft) => Promise<EventSaveResult>;
   updateEvent: (
     occurrence: Occurrence,
     draft: EventDraft,
     scope: RecurrenceScope,
-  ) => Promise<void>;
+  ) => Promise<EventSaveResult>;
+
   deleteEvent: (occurrence: Occurrence, scope: RecurrenceScope) => Promise<void>;
 
   selectedMembers: MemberId[];
