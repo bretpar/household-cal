@@ -135,6 +135,7 @@ export interface SourceRow {
   sync_status?: string;
   sync_failure_count?: number;
   app_managed_calendar?: boolean;
+  display_mode?: string;
 }
 
 interface EventRow {
@@ -219,7 +220,7 @@ async function googleSources(admin: Admin, familyId: string): Promise<SourceRow[
   const { data } = await admin
     .from("calendar_sources")
     .select(
-      "id, family_id, name, external_calendar_id, is_main, google_sync_token, google_channel_id, google_channel_resource_id, sync_status, sync_failure_count, app_managed_calendar",
+      "id, family_id, name, external_calendar_id, is_main, google_sync_token, google_channel_id, google_channel_resource_id, sync_status, sync_failure_count, app_managed_calendar, display_mode",
     )
     .eq("family_id", familyId)
     .eq("provider", "google")
@@ -1603,7 +1604,10 @@ async function createLocalEvent(
       all_day: times.all_day,
       location: g.location ?? null,
       notes: g.description ?? null,
-      event_type: "other",
+      // A background-coverage calendar (babysitter) imports as childcare so the
+      // occurrence keeps its coverage classification; its own Google title is
+      // preserved either way.
+      event_type: source.display_mode === "coverage_background" ? "childcare" : "other",
       recurrence_rule: localRuleFromGoogle(rec),
       recurrence_until: rec.until,
       excluded_dates: rec.excludedDates,

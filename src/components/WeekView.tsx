@@ -104,8 +104,13 @@ export function WeekView({
   /** Childcare joins the soft care-coverage layer instead of competing as a card. */
   const isCareLayer = (o: Occurrence) =>
     isCoverage(o.event) || (isChildcare(o.event) && !o.event.all_day);
+  /**
+   * The event's own title is the label. The source calendar name is only a
+   * fallback for a genuinely untitled event, so a Google event called
+   * "Michelle" never renders as "Babysitter Calendar".
+   */
   const careLabel = (o: Occurrence) =>
-    isChildcare(o.event) ? o.event.title : sourceName(o.event.calendar_source_id);
+    o.event.title.trim() || sourceName(o.event.calendar_source_id);
   /** Rolling window: the selected date is always the left-most column. */
   const visibleColumns = scaleDays ?? days;
   const start = anchor;
