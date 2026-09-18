@@ -163,6 +163,8 @@ export async function previewBulkDelete(
   filters: BulkDeleteFilters,
 ): Promise<BulkDeletePreview> {
   const source = await resolveSource(admin, familyId, filters.source_id);
+  const externalCalendarId = source.external_calendar_id;
+  if (!externalCalendarId) throw new Error("Choose a connected Google calendar");
   const connection = await getConnection(admin, familyId);
   if (!connection) throw new Error("Google Calendar is not connected");
 
@@ -182,7 +184,7 @@ export async function previewBulkDelete(
       .lt("start_at", timeMax),
     google.listEventsInRange(
       connection.connectionKey,
-      source.external_calendar_id,
+      externalCalendarId,
       timeMin,
       timeMax,
     ),
@@ -284,6 +286,8 @@ export async function deleteBulkMatches(
     throw new Error("Matches changed since preview. Preview again before deleting.");
   }
   const source = await resolveSource(admin, familyId, filters.source_id);
+  const externalCalendarId = source.external_calendar_id;
+  if (!externalCalendarId) throw new Error("Choose a connected Google calendar");
   const connection = await getConnection(admin, familyId);
   if (!connection) throw new Error("Google Calendar is not connected");
 
@@ -295,7 +299,7 @@ export async function deleteBulkMatches(
   for (const item of preview.items) {
     try {
       for (const googleEventId of item.google_event_ids) {
-        await google.deleteEvent(connection.connectionKey, source.external_calendar_id as string, googleEventId);
+        await google.deleteEvent(connection.connectionKey, externalCalendarId, googleEventId);
         result.deleted_from_google += 1;
       }
       if (item.ofc_event_id) {
