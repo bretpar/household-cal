@@ -36,10 +36,23 @@ import {
   type Occurrence,
 } from "@/lib/family-data";
 
-const SCOPE_OPTIONS: { id: RecurrenceScope; label: string }[] = [
-  { id: "this", label: "This event" },
-  { id: "future", label: "This and future events" },
-  { id: "series", label: "Entire series" },
+/** Explicit save choices for a recurring series, asked only after "Save changes". */
+const SAVE_OPTIONS: { id: RecurrenceScope; label: string; hint: string }[] = [
+  {
+    id: "this",
+    label: "Apply to this event only",
+    hint: "Updates only this occurrence. The rest of the series stays unchanged.",
+  },
+  {
+    id: "future",
+    label: "Apply to this and future events",
+    hint: "Updates this occurrence and every later occurrence. Past occurrences stay unchanged.",
+  },
+  {
+    id: "series",
+    label: "Apply to entire series",
+    hint: "Updates every occurrence in this repeating event.",
+  },
 ];
 
 /** Explicit delete choices for a recurring series. */
@@ -102,7 +115,6 @@ export function EventDetailsDialog() {
   } = useCalendar();
 
   const [mode, setMode] = useState<Mode>("details");
-  const [scope, setScope] = useState<RecurrenceScope>("this");
   const [state, setState] = useState<EventFormState | null>(null);
   const [busy, setBusy] = useState(false);
   // Inline copy of the validation message so a blocked save is never silent.
