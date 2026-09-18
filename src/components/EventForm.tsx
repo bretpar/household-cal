@@ -311,6 +311,7 @@ function DatePickerField({
   onChange: (value: string) => void;
 }) {
   const coarse = useCoarsePointer();
+  const [open, setOpen] = useState(false);
   const selected = value ? new Date(`${value}T00:00`) : undefined;
 
   if (coarse !== false) {
@@ -318,7 +319,7 @@ function DatePickerField({
   }
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           id={id}
@@ -337,10 +338,11 @@ function DatePickerField({
       >
         <Calendar
           mode="single"
-          selected={selected}
-          defaultMonth={selected}
+          {...(selected ? { selected, defaultMonth: selected } : {})}
           onSelect={(date) => {
-            if (date) onChange(format(date, "yyyy-MM-dd"));
+            if (!date) return;
+            onChange(format(date, "yyyy-MM-dd"));
+            setOpen(false);
           }}
           initialFocus
           className="pointer-events-auto p-3"

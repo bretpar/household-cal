@@ -171,6 +171,7 @@ function DesktopTimeField({
         <div
           ref={listRef}
           className="mt-2 max-h-56 touch-pan-y overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]"
+          onWheel={(event) => event.stopPropagation()}
         >
           {OPTIONS.map((option) => {
             const selected = option === normalized;
