@@ -113,7 +113,10 @@ export function EventDetailsDialog() {
     if (activeOccurrence) {
       // A touch drag lands straight in the edit form with the proposed time filled in.
       setMode(proposedStart ? "edit" : "details");
-      setScope("this");
+      // Recurring events default to the whole series so a quick save can never
+      // detach a single occurrence by accident; a detached one-off (no rule on
+      // its own row) has no scope choice at all.
+      setScope(activeOccurrence.event.recurrence_rule ? "series" : "this");
       const base = formStateFromOccurrence(activeOccurrence);
       setState(proposedStart ? withProposedStart(base, activeOccurrence, proposedStart) : base);
     }
@@ -189,9 +192,10 @@ export function EventDetailsDialog() {
 
 
 
+  // Kept at the top of the edit form so the scope is never below the fold.
   const scopePicker = needsScope ? (
-    <div className="space-y-2">
-      <p className="text-sm font-semibold">Apply to</p>
+    <div className="space-y-2 rounded-2xl bg-surface-muted p-3">
+      <p className="text-sm font-bold">Apply changes to:</p>
       <div className="flex flex-col gap-2">
         {SCOPE_OPTIONS.map((option) => (
           <button
@@ -202,7 +206,7 @@ export function EventDetailsDialog() {
             className={
               scope === option.id
                 ? "flex h-11 items-center rounded-xl bg-secondary px-3 text-sm font-bold ring-2 ring-primary"
-                : "flex h-11 items-center rounded-xl bg-surface-muted px-3 text-sm font-semibold text-muted-foreground"
+                : "flex h-11 items-center rounded-xl bg-background px-3 text-sm font-semibold text-muted-foreground"
             }
           >
             {option.label}
@@ -335,6 +339,7 @@ export function EventDetailsDialog() {
 
             {state ? (
               <div className="-mx-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 pb-24 max-sm:pb-[max(7rem,env(safe-area-inset-bottom)+4rem)] sm:-mx-6 sm:px-6">
+                {scopePicker}
                 <EventFormFields
                   state={state}
                   onChange={(next) => {
@@ -343,7 +348,6 @@ export function EventDetailsDialog() {
                   }}
                   idPrefix="edit"
                 />
-                {scopePicker}
                 <div className="border-t pt-4">
                   <Button
                     variant="ghost"
