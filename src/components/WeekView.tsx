@@ -319,18 +319,17 @@ export function WeekView({
                     {...dragProps(o)}
                     onClick={() => openOccurrence(o)}
                     className={cn(
-                      "flex w-full items-center gap-1.5 rounded-md text-left opacity-80 transition-opacity hover:opacity-100",
-                      EVENT_TYPE_SCALE[viewScale].padding.tiny,
+                      "flex w-full items-center gap-1.5 px-1.5 py-px text-left opacity-80 transition-opacity hover:opacity-100",
+                      CALENDAR_TOKENS.card.radius,
                       draggingKey === o.key && "opacity-40",
                       eventTintClass(categoryAppearanceFor(o.event)),
                     )}
                   >
-                    <span
-                      className={cn("min-w-0 flex-1 truncate", EVENT_TYPE_SCALE[viewScale].title)}
-                    >
+                    <span className={cn("min-w-0 flex-1 truncate", bandScale.title)}>
                       {o.event.title}
                     </span>
-                    <MemberBadgeRow ids={o.member_ids} size={EVENT_TYPE_SCALE[viewScale].badge} />
+                    <MemberBadgeRow ids={o.member_ids} size={bandScale.badge} />
+
                   </button>
                 ))}
               </div>
