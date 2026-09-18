@@ -347,7 +347,7 @@ export function EventDetailsDialog() {
                     setState(next);
                   }}
                   idPrefix="edit"
-                 />
+                />
                 <div className="border-t pt-4">
                   <Button
                     variant="ghost"
