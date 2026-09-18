@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { CalendarDays, Copy, MapPin, NotebookPen, Pencil, Repeat, Trash2 } from "lucide-react";
+import { CalendarDays, Copy, Lock, MapPin, NotebookPen, Pencil, Repeat, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { reportEventSaved } from "@/lib/google-sync-feedback";

@@ -66,16 +66,19 @@ export function useReschedule() {
 
 
 
+  /** Read-only subscription events (Apple/iCloud) can never be moved here. */
+  const movable = (occurrence: Occurrence) => canEdit && occurrence.event.read_only !== true;
+
   /** Commit a new start time from a touch drag (recurring events ask scope first). */
   const requestMove = (occurrence: Occurrence, start: Date) => {
-    if (!canEdit) return;
+    if (!movable(occurrence)) return;
     if (start.getTime() === occurrence.start.getTime()) return;
     if (isRecurring(occurrence)) setPending({ occurrence, start });
     else void apply(occurrence, start, "series");
   };
 
   const dragProps = (occurrence: Occurrence) =>
-    canEdit
+    movable(occurrence)
       ? {
           draggable: true,
           onDragStart: (e: DragEvent) => {
@@ -104,7 +107,7 @@ export function useReschedule() {
           },
           onDrop: (e: DragEvent<HTMLElement>) => {
             const occurrence = dragged.current;
-            if (!occurrence) return;
+            if (!occurrence || !movable(occurrence)) return;
             e.preventDefault();
             e.stopPropagation();
             dragged.current = null;
