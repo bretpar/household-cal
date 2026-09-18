@@ -43,6 +43,17 @@ export type EventDraft = Omit<EventInput, "calendar_source_id"> & {
   calendar_source_id?: string | null;
 };
 
+/**
+ * Outcome of an authoritative household save. `google_sync` reports whether the
+ * outbound Google push already finished ("synced") or is still running
+ * ("pending") — the household save itself is complete either way.
+ */
+export interface EventSaveResult {
+  event_id: string;
+  google_sync: "synced" | "pending";
+}
+
+
 interface CalendarStore {
   loading: boolean;
   family: Family | null;
