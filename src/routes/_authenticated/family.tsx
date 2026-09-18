@@ -118,10 +118,11 @@ function FamilyPage() {
 
         <SettingsSection
           title="Calendars & Sync"
-          description="Google connection, synced calendars, timezone and schedule summaries"
+          description="Google connection, Apple subscriptions, synced calendars, timezone and schedule summaries"
           icon={<RefreshCw className="h-5 w-5" aria-hidden />}
         >
           <CalendarSyncSettings />
+          <AppleCalendarSubscriptions />
           <EmailSummarySettings />
         </SettingsSection>
 
