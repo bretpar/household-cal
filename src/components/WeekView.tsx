@@ -526,7 +526,7 @@ export function WeekView({
                     const density = densityForHeight(viewScale, labelHeight);
                     const isChildcareEvent = isChildcare(o.event);
                     // Desktop/tablet keeps one label at the top-left. Foreground
-                    // activities make room horizontally instead of duplicating it.
+                    // activities remain in their normal lanes above this layer.
                     const labelTextEnd = new Date(
                       o.start.getTime() + (Math.min(labelHeight, 30) / HOUR_PX) * 60 * 60_000,
                     );
@@ -665,16 +665,6 @@ export function WeekView({
                        const mobileDayLeft =
                          100 - backgroundForegroundWidth +
                          Math.min(foregroundSlot, 1) * mobileDayWidth;
-                        const desktopLabelCoverage = !isMobile
-                          ? coverage.find((background) => {
-                              const labelMinutes =
-                                (Math.min(heightFor(background), 30) / HOUR_PX) * 60;
-                              const labelEnd = new Date(
-                                background.start.getTime() + labelMinutes * 60_000,
-                              );
-                              return o.start < labelEnd && o.end > background.start;
-                            })
-                          : undefined;
                        const cascadeLeft = lane === 0 ? 0 : lane === 1 ? 22 : 37;
                       return (
                         <div
@@ -712,15 +702,11 @@ export function WeekView({
                                 // widths and summarize denser overlaps instead of squeezing.
                                  left: mobileDay && mobileDayCoverage.length
                                   ? `${mobileDayLeft}%`
-                                   : desktopLabelCoverage
-                                     ? `calc(clamp(96px, 38%, 132px) + (${lane} * (100% - clamp(96px, 38%, 132px)) / ${laneCount}))`
                                   : cascadeMobileTimed
                                     ? `${cascadeLeft}%`
                                  : `${(lane / laneCount) * 100}%`,
                                 width: mobileDay && mobileDayCoverage.length
                                   ? `calc(${mobileDayWidth}% - 2px)`
-                                   : desktopLabelCoverage
-                                     ? `calc((100% - clamp(96px, 38%, 132px)) / ${laneCount} - 2px)`
                                   : cascadeMobileTimed
                                     ? `calc(${100 - cascadeLeft}% - 2px)`
                                 : `calc(${100 / laneCount}% - 2px)`,
