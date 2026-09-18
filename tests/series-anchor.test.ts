@@ -29,7 +29,8 @@ function occurrence(overrides: {
 }
 
 function state(date: string): EventFormState {
-  return { date, startTime: "09:00", endTime: "10:00" } as EventFormState;
+  // The real form always carries an endDate (same-day by default).
+  return { date, endDate: date, startTime: "09:00", endTime: "10:00" } as EventFormState;
 }
 
 describe("stateForSeriesScope", () => {
