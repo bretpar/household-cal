@@ -525,31 +525,14 @@ export function WeekView({
                     const labelHeight = Math.min(blockHeight, 56);
                     const density = densityForHeight(viewScale, labelHeight);
                     const isChildcareEvent = isChildcare(o.event);
-                    // Desktop/tablet: if a foreground activity sits on top of the
-                    // coverage label, repeat a quiet continuation label in the first
-                    // exposed background space so the shift stays identifiable.
-                    // Only the title/time text rows decide: a foreground event
-                    // that merely overlaps the bottom of the label area leaves
-                    // the title readable, so no continuation label is needed.
+                    // Desktop/tablet keeps one label at the top-left. Foreground
+                    // activities make room horizontally instead of duplicating it.
                     const labelTextEnd = new Date(
                       o.start.getTime() + (Math.min(labelHeight, 30) / HOUR_PX) * 60 * 60_000,
                     );
-                    const obscuring = isMobile
-                      ? []
-                      : visible.filter((f) => f.start < labelTextEnd && f.end > o.start);
-                    let continuation: { top: number; height: number } | null = null;
-                    if (obscuring.length) {
-                      const resumeAt = new Date(
-                        Math.max(...obscuring.map((f) => f.end.getTime())),
-                      );
-                      if (resumeAt < o.end) {
-                        const offset = topFor(resumeAt) - topFor(o.start);
-                        const remaining = blockHeight - offset;
-                        if (remaining >= 24) {
-                          continuation = { top: offset, height: Math.min(remaining, 56) };
-                        }
-                      }
-                    }
+                    const desktopLabelObscured =
+                      !isMobile &&
+                      visible.some((f) => f.start < labelTextEnd && f.end > o.start);
                     return (
                       <div
                         key={o.key}
@@ -584,7 +567,10 @@ export function WeekView({
                           className={cn(
                             "pointer-events-none absolute inset-x-0 top-0 text-coverage-foreground",
                           )}
-                          style={{ height: labelHeight }}
+                          style={{
+                            height: labelHeight,
+                            width: desktopLabelObscured ? "clamp(96px, 38%, 132px)" : undefined,
+                          }}
                         >
                           <CalendarEventContent
                             occurrence={o}
@@ -594,20 +580,6 @@ export function WeekView({
                             title={careLabel(o)}
                           />
                         </div>
-                        {continuation ? (
-                          <div
-                            className="pointer-events-none absolute inset-x-0 text-coverage-foreground/90"
-                            style={{ top: continuation.top, height: continuation.height }}
-                          >
-                            <CalendarEventContent
-                              occurrence={o}
-                              view={viewScale}
-                              density={densityForHeight(viewScale, continuation.height)}
-                              muted
-                              title={careLabel(o)}
-                            />
-                          </div>
-                        ) : null}
                       </div>
                     );
                   })}
@@ -699,6 +671,16 @@ export function WeekView({
                        const mobileDayLeft =
                          100 - backgroundForegroundWidth +
                          Math.min(foregroundSlot, 1) * mobileDayWidth;
+                        const desktopLabelCoverage = !isMobile
+                          ? coverage.find((background) => {
+                              const labelMinutes =
+                                (Math.min(heightFor(background), 30) / HOUR_PX) * 60;
+                              const labelEnd = new Date(
+                                background.start.getTime() + labelMinutes * 60_000,
+                              );
+                              return o.start < labelEnd && o.end > background.start;
+                            })
+                          : undefined;
                        const cascadeLeft = lane === 0 ? 0 : lane === 1 ? 22 : 37;
                       return (
                         <div
@@ -734,13 +716,17 @@ export function WeekView({
                               height: isMobile ? Math.max(44, blockHeight) : blockHeight,
                                 // Mobile Day and 3-Day share three readable cascading
                                 // widths and summarize denser overlaps instead of squeezing.
-                                left: mobileDay && mobileDayCoverage.length
+                                 left: mobileDay && mobileDayCoverage.length
                                   ? `${mobileDayLeft}%`
+                                   : desktopLabelCoverage
+                                     ? `calc(clamp(96px, 38%, 132px) + (${lane} * (100% - clamp(96px, 38%, 132px)) / ${laneCount}))`
                                   : cascadeMobileTimed
                                     ? `${cascadeLeft}%`
                                  : `${(lane / laneCount) * 100}%`,
                                 width: mobileDay && mobileDayCoverage.length
                                   ? `calc(${mobileDayWidth}% - 2px)`
+                                   : desktopLabelCoverage
+                                     ? `calc((100% - clamp(96px, 38%, 132px)) / ${laneCount} - 2px)`
                                   : cascadeMobileTimed
                                     ? `calc(${100 - cascadeLeft}% - 2px)`
                                 : `calc(${100 / laneCount}% - 2px)`,
