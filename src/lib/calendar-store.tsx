@@ -209,10 +209,11 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       resolvedCategoryIdFor: (ref) => resolvedCategoryId(data?.categories ?? [], ref),
 
       addEvent: async (draft) => {
-        await createMutation.mutateAsync(draft);
+        const result = await createMutation.mutateAsync(draft);
+        return { event_id: result.id, google_sync: result.google_sync };
       },
       updateEvent: async (occurrence, draft, scope) => {
-        await updateMutation.mutateAsync({
+        const result = await updateMutation.mutateAsync({
           event_id: occurrence.event.id,
           occurrence_day: dayKey(occurrence.start),
           scope,
@@ -221,7 +222,9 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
             ...draft,
           } as EventInput,
         });
+        return { event_id: occurrence.event.id, google_sync: result.google_sync };
       },
+
       deleteEvent: async (occurrence, scope) => {
         await deleteMutation.mutateAsync({
           event_id: occurrence.event.id,
