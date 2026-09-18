@@ -429,8 +429,10 @@ export async function deleteBulkMatches(
   };
 
   for (const target of confirmedTargets) {
+    let activeEventId = target.ofc_event_id ?? target.google_event_ids[0] ?? target.key;
     try {
       for (const googleEventId of target.google_event_ids) {
+        activeEventId = googleEventId;
         await google.deleteEvent(
           connection.connectionKey,
           source.external_calendar_id,
@@ -447,6 +449,7 @@ export async function deleteBulkMatches(
         if (linkError) throw linkError;
       }
       if (target.ofc_event_id) {
+        activeEventId = target.ofc_event_id;
         const { error: linkError } = await admin
           .from("event_sync_links")
           .delete()
@@ -454,19 +457,23 @@ export async function deleteBulkMatches(
           .eq("calendar_source_id", source.id)
           .eq("event_id", target.ofc_event_id);
         if (linkError) throw linkError;
-        const { error } = await admin
+        const { data: deletedRows, error } = await admin
           .from("events")
           .delete()
           .eq("id", target.ofc_event_id)
           .eq("family_id", familyId)
-          .eq("calendar_source_id", source.id);
+          .eq("calendar_source_id", source.id)
+          .select("id");
         if (error) throw error;
+        if (!deletedRows?.some((row: { id: string }) => row.id === target.ofc_event_id)) {
+          throw new Error("The previewed OFC event was not deleted");
+        }
         result.deleted_from_ofc += 1;
       }
     } catch (error) {
       result.failed += 1;
       result.failures.push({
-        event_id: target.ofc_event_id ?? target.google_event_ids.join(", ") ?? target.key,
+        event_id: activeEventId,
         title: target.title,
         date: target.date,
         message: error instanceof Error ? error.message : "Delete failed",
