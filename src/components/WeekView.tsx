@@ -226,6 +226,7 @@ export function WeekView({
   // In strip mode a single element scrolls both axes, so the sticky hour gutter
   // and sticky day headers stay pinned to the viewport instead of the wide track.
   const setStripHost = (node: HTMLDivElement | null) => {
+    trackRef.current = node;
     scrollRef.current = strip ? node : scrollRef.current;
     if (typeof scrollHostRef === "function") scrollHostRef(node);
     else if (scrollHostRef && typeof scrollHostRef === "object")
@@ -240,7 +241,8 @@ export function WeekView({
     <>
       {dialog}
       <div
-        ref={strip ? setStripHost : scrollHostRef}
+        ref={setStripHost}
+
         onScroll={strip ? trackScroll : undefined}
         style={strip ? { touchAction: dragging ? "none" : "pan-y" } : undefined}
         className={cn(
