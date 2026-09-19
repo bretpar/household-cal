@@ -1927,21 +1927,43 @@ export async function reconcileHousehold(
         }
       }
 
-      // One unpushable event must not abort the whole household's pass.
+      // One unpushable event must not abort the whole household's pass — but it
+      // must never be counted as repaired either, or the run reports success
+      // while the event is still missing from Google.
       try {
-        await pushEvent(admin, familyId, candidate.id);
-        repaired += 1;
+        const outcome = await pushEvent(admin, familyId, candidate.id);
+        if (outcome.skipped) {
+          if (!BENIGN_PUSH_SKIPS.has(outcome.skipped)) {
+            unsynced += 1;
+            failures.push(`${candidate.id}: ${outcome.skipped}`);
+          }
+        } else if ((outcome.pushed ?? 0) > 0) {
+          repaired += 1;
+        } else {
+          unsynced += 1;
+          failures.push(`${candidate.id}: no_google_event_written`);
+        }
       } catch (error) {
+        unsynced += 1;
+        failures.push(`${candidate.id}: ${error instanceof Error ? error.message : "unknown_error"}`);
         console.error("[google-sync] reconcile push failed", candidate.id, error);
       }
     }
 
 
     await ensureWatchChannels(admin, conn, sources);
-    await touchSynced(admin, familyId);
-    return { applied, repaired };
+    // last_synced_at only advances for a pass where every eligible event landed.
+    if (unsynced === 0) await touchSynced(admin, familyId);
+    return { applied, repaired, unsynced, failures };
   });
-  return result as { applied?: number; repaired?: number; skipped?: string };
+  return result as {
+    applied?: number;
+    repaired?: number;
+    unsynced?: number;
+    failures?: string[];
+    skipped?: string;
+  };
+
 }
 
 /**
