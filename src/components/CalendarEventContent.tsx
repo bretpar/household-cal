@@ -24,6 +24,7 @@ export function CalendarEventContent({
   muted = false,
   title,
   plan: planOverride,
+  forceTime = false,
   className,
 }: {
   occurrence: Occurrence;
@@ -36,6 +37,8 @@ export function CalendarEventContent({
   /** Override the label (coverage blocks show their calendar name). */
   title?: string;
   plan?: EventContentPlan | undefined;
+  /** Coverage labels always state their range so the end time is never hidden. */
+  forceTime?: boolean;
   className?: string;
 }) {
   const label = title ?? occurrence.event.title;
@@ -45,6 +48,8 @@ export function CalendarEventContent({
     planOverride ?? planEventContent({ width, height, badgeCount });
   const scale = EVENT_TEXT_SCALE[plan.scale];
   const timeTone = eventTimeToneClass(muted);
+  const showTime = plan.showTime || forceTime;
+
 
   return (
     <div className={cn("flex h-full min-w-0 flex-col gap-px", plan.padding, className)}>
