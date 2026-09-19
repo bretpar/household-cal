@@ -540,12 +540,13 @@ export function WeekView({
                     );
 
                   })}
+                  </div>
 
                   {/* Foreground timed events: one shared layout engine for every
                     view and screen size. Lanes are only shared with other
                     foreground events; the background layer never takes a lane. */}
                   <div
-                    className="pointer-events-none absolute inset-y-0 z-0"
+                    className="pointer-events-none absolute inset-y-0 z-10"
                     style={{ left: 4, right: 2 }}
                   >
                     {(() => {
