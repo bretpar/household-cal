@@ -1854,7 +1854,14 @@ export async function pullSelectedSources(
 export async function reconcileHousehold(
   admin: Admin,
   familyId: string,
-): Promise<{ applied?: number; repaired?: number; skipped?: string }> {
+): Promise<{
+  applied?: number;
+  repaired?: number;
+  unsynced?: number;
+  failures?: string[];
+  skipped?: string;
+}> {
+
   const result = await guard(admin, familyId, async () => {
     const conn = await getConnection(admin, familyId);
     if (!conn) return { skipped: "not_connected" };
