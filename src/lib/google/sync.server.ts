@@ -1884,6 +1884,9 @@ export async function reconcileHousehold(
     const subscriptionIds = await subscriptionSourceIds(admin, familyId);
 
     let repaired = 0;
+    let unsynced = 0;
+    const failures: string[] = [];
+
     for (const candidate of (candidates ?? []) as {
       id: string;
       start_at: string;
