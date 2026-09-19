@@ -451,7 +451,7 @@ export function WeekView({
                   {/* Live current-time indicator for today only. */}
                   {isSameDay(day, now) && (
                     <div
-                      className="pointer-events-none absolute inset-x-0 z-10"
+                      className="pointer-events-none absolute inset-x-0 z-20"
                       style={{ top: nowTop }}
                       aria-hidden
                     >
@@ -460,9 +460,11 @@ export function WeekView({
                     </div>
                   )}
 
-                  {/* Background coverage layer (babysitter / childcare): one
-                    full-width block for its true duration, muted styling, one
-                    single top-left label, always clickable where exposed. */}
+                  {/* Background coverage layer (babysitter / work shifts / any
+                    calendar set to Background): isolated so its internal step
+                    tiers stack only against each other and can never paint over
+                    foreground activity cards. */}
+                  <div className="pointer-events-none absolute inset-0 isolate z-0">
                   {layoutBackground(coverage, visible).map((bg) => {
                     const o = bg.occurrence;
                     const moving = draggingKey === o.key || ghost?.occurrence?.key === o.key;
@@ -538,12 +540,13 @@ export function WeekView({
                     );
 
                   })}
+                  </div>
 
                   {/* Foreground timed events: one shared layout engine for every
                     view and screen size. Lanes are only shared with other
                     foreground events; the background layer never takes a lane. */}
                   <div
-                    className="pointer-events-none absolute inset-y-0 z-0"
+                    className="pointer-events-none absolute inset-y-0 z-10"
                     style={{ left: 4, right: 2 }}
                   >
                     {(() => {
