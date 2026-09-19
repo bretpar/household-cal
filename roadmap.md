@@ -20,6 +20,8 @@
 - [x] Group routine settings into consistent collapsed Household, Calendars & Sync, Event Settings, and Account sections.
 - [x] Keep all repair, diagnostic, and QA controls inside locked, collapsed Maintenance.
 - [x] Preserve normal sync status, account/calendar controls, and informational timezone mismatch notices.
+- [x] Remove duplicate calendar visibility controls and consolidate persistent Event/Background choices into a compact Calendar Appearance list.
+- [x] Replace the week-start switch with a Sunday/Monday segmented choice and separate Maintenance under Advanced.
 
 ## Durable manual Google sync
 - [x] Queue accepted manual syncs through the existing durable scheduled-callback mechanism.

@@ -2,7 +2,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   CalendarCog,
-  ChevronRight,
   Eye,
   House,
   LockKeyhole,
@@ -14,6 +13,7 @@ import {
 
 import { AppShell } from "@/components/AppShell";
 import { AppleCalendarSubscriptions } from "@/components/AppleCalendarSubscriptions";
+import { CalendarAppearanceSettings } from "@/components/CalendarAppearanceSettings";
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
 import { CalendarSyncSettings } from "@/components/CalendarSyncSettings";
 import { DeveloperTools } from "@/components/DeveloperTools";
@@ -26,7 +26,6 @@ import { MemberBadge } from "@/components/MemberBadge";
 import { SettingsSection } from "@/components/SettingsSection";
 import { WeekStartSetting } from "@/components/WeekStartSetting";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useCalendar } from "@/lib/calendar-store";
 
@@ -60,7 +59,7 @@ const ROLE_LABEL: Record<string, string> = {
 function FamilyPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { members, sources, family, role } = useCalendar();
+  const { members, family, role } = useCalendar();
   const caregivers = members.filter((m) => m.role === "caregiver");
 
   const signOut = async () => {
@@ -139,41 +138,9 @@ function FamilyPage() {
           </h2>
           <div className="divide-y divide-border-soft overflow-hidden rounded-3xl border border-border-soft bg-card">
             <CalendarDefaultViewSetting />
-            {sources.map((source) => (
-              <div
-                key={source.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold">Show “{source.name}” on the calendar</p>
-                  <p className="text-xs text-muted-foreground">
-                    {source.display_mode === "coverage_background"
-                      ? "Drawn as background coverage shading instead of event cards"
-                      : "Drawn as normal event cards"}{" "}
-                    · Not active yet — use the member and category filters on the calendar
-                  </p>
-                </div>
-                <Switch
-                  checked={source.active}
-                  disabled
-                  aria-label={`Show ${source.name} on the calendar`}
-                />
-              </div>
-            ))}
             <WeekStartSetting />
-            <Link
-              to="/preferences"
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4 transition-colors hover:bg-surface-muted"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold">All my preferences</p>
-                <p className="text-xs text-muted-foreground">
-                  Week start day and default view, saved to your account
-                </p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
-            </Link>
           </div>
+          <CalendarAppearanceSettings />
         </SettingsSection>
 
         <SettingsSection
@@ -198,16 +165,21 @@ function FamilyPage() {
           </Button>
         </SettingsSection>
 
-        <SettingsSection
-          title="Maintenance"
-          description="Locked diagnostics, repairs and QA tools"
-          icon={<LockKeyhole className="h-5 w-5" aria-hidden />}
-          tone="muted"
-        >
-          <GoogleCalendarMaintenance>
-            <DeveloperTools />
-          </GoogleCalendarMaintenance>
-        </SettingsSection>
+        <section className="space-y-3 border-t border-border-soft pt-5">
+          <p className="px-1 text-xs font-bold tracking-wide text-muted-foreground uppercase">
+            Advanced
+          </p>
+          <SettingsSection
+            title="Maintenance"
+            description="Locked diagnostics, repairs and QA tools"
+            icon={<LockKeyhole className="h-5 w-5" aria-hidden />}
+            tone="muted"
+          >
+            <GoogleCalendarMaintenance>
+              <DeveloperTools />
+            </GoogleCalendarMaintenance>
+          </SettingsSection>
+        </section>
 
         <footer className="space-y-2 rounded-3xl border border-dashed border-border bg-surface-muted/50 p-4 text-center">
           <nav className="flex items-center justify-center gap-4 text-sm font-semibold">
