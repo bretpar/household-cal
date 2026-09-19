@@ -2003,7 +2003,19 @@ export async function runAcceptedManualSync(
         attemptId,
         skipped: result.skipped,
       });
+    } else if ((result as { unsynced?: number }).unsynced) {
+      // A pass that pulled fine but left an eligible event out of Google is not
+      // a successful sync: keep the error so it cannot look "recently synced".
+      const detail = (result as { failures?: string[] }).failures ?? [];
+      failure = `${(result as { unsynced?: number }).unsynced} event(s) couldn’t sync to Google. Try again.`;
+      thrown = new Error(failure);
+      console.error("[google-sync] manual reconciliation incomplete", {
+        familyId,
+        attemptId,
+        failures: detail.slice(0, 20),
+      });
     } else {
+
       console.log("[google-sync] manual reconciliation completed", { familyId, attemptId });
     }
   } catch (error) {
