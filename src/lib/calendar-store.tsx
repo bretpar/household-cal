@@ -45,13 +45,15 @@ export type EventDraft = Omit<EventInput, "calendar_source_id"> & {
 
 /**
  * Outcome of an authoritative household save. `google_sync` reports whether the
- * outbound Google push already finished ("synced") or is still running
- * ("pending") — the household save itself is complete either way.
+ * outbound Google push finished ("synced"), is still running ("pending"), had
+ * nothing to mirror ("unlinked") or genuinely failed ("failed") — the household
+ * save itself is complete either way.
  */
 export interface EventSaveResult {
   event_id: string;
-  google_sync: "synced" | "pending";
+  google_sync: "synced" | "pending" | "unlinked" | "failed";
 }
+
 
 
 interface CalendarStore {

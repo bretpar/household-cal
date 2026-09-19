@@ -306,9 +306,25 @@ async function pruneStaleLinks(
 }
 
 /**
+ * Skip reasons that mean "this event was never meant to reach Google", as
+ * opposed to a real outbound failure that must be surfaced and kept.
+ */
+export const BENIGN_PUSH_SKIPS = new Set([
+  "not_connected",
+  "no_google_calendar",
+  "read_only_subscription",
+  "google_owned_exception",
+  "event_not_found",
+]);
+
+/**
  * Leaves a breadcrumb when a push did not reach Google, so a silently unsynced
  * event is visible instead of invisible. Never throws: diagnostics must not
  * affect the local save.
+ *
+ * When the event has no event_sync_links row at all (the worst case: Google
+ * never got the event, so there is nothing to annotate), the reason is kept on
+ * the event's own calendar source, which the header sync chip already reads.
  */
 async function recordPushDiagnostic(
   admin: Admin,
@@ -317,16 +333,36 @@ async function recordPushDiagnostic(
   reason: string,
 ): Promise<void> {
   console.warn("[google-sync] push not completed", eventId, reason);
+  const detail = reason.slice(0, 400);
   try {
-    await admin
+    const { data: links } = await admin
       .from("event_sync_links")
-      .update({ sync_error: reason.slice(0, 500) })
+      .update({ sync_error: detail })
       .eq("family_id", familyId)
-      .eq("event_id", eventId);
+      .eq("event_id", eventId)
+      .select("id");
+    if ((links ?? []).length > 0) return;
+
+    const { data: event } = await admin
+      .from("events")
+      .select("calendar_source_id")
+      .eq("id", eventId)
+      .maybeSingle();
+    const sourceId = (event as { calendar_source_id: string | null } | null)?.calendar_source_id;
+    if (!sourceId) return;
+    await admin
+      .from("calendar_sources")
+      .update({
+        sync_status: "needs_attention",
+        sync_error: `Event ${eventId} did not reach Google: ${detail}`.slice(0, 500),
+      })
+      .eq("family_id", familyId)
+      .eq("id", sourceId);
   } catch (error) {
     console.error("[google-sync] diagnostic write failed", error);
   }
 }
+
 
 /**
  * Version of the body we send to Google. Bumped when the generated recurrence
@@ -1818,7 +1854,14 @@ export async function pullSelectedSources(
 export async function reconcileHousehold(
   admin: Admin,
   familyId: string,
-): Promise<{ applied?: number; repaired?: number; skipped?: string }> {
+): Promise<{
+  applied?: number;
+  repaired?: number;
+  unsynced?: number;
+  failures?: string[];
+  skipped?: string;
+}> {
+
   const result = await guard(admin, familyId, async () => {
     const conn = await getConnection(admin, familyId);
     if (!conn) return { skipped: "not_connected" };
@@ -1848,6 +1891,9 @@ export async function reconcileHousehold(
     const subscriptionIds = await subscriptionSourceIds(admin, familyId);
 
     let repaired = 0;
+    let unsynced = 0;
+    const failures: string[] = [];
+
     for (const candidate of (candidates ?? []) as {
       id: string;
       start_at: string;
@@ -1891,21 +1937,43 @@ export async function reconcileHousehold(
         }
       }
 
-      // One unpushable event must not abort the whole household's pass.
+      // One unpushable event must not abort the whole household's pass — but it
+      // must never be counted as repaired either, or the run reports success
+      // while the event is still missing from Google.
       try {
-        await pushEvent(admin, familyId, candidate.id);
-        repaired += 1;
+        const outcome = await pushEvent(admin, familyId, candidate.id);
+        if (outcome.skipped) {
+          if (!BENIGN_PUSH_SKIPS.has(outcome.skipped)) {
+            unsynced += 1;
+            failures.push(`${candidate.id}: ${outcome.skipped}`);
+          }
+        } else if ((outcome.pushed ?? 0) > 0) {
+          repaired += 1;
+        } else {
+          unsynced += 1;
+          failures.push(`${candidate.id}: no_google_event_written`);
+        }
       } catch (error) {
+        unsynced += 1;
+        failures.push(`${candidate.id}: ${error instanceof Error ? error.message : "unknown_error"}`);
         console.error("[google-sync] reconcile push failed", candidate.id, error);
       }
     }
 
 
     await ensureWatchChannels(admin, conn, sources);
-    await touchSynced(admin, familyId);
-    return { applied, repaired };
+    // last_synced_at only advances for a pass where every eligible event landed.
+    if (unsynced === 0) await touchSynced(admin, familyId);
+    return { applied, repaired, unsynced, failures };
   });
-  return result as { applied?: number; repaired?: number; skipped?: string };
+  return result as {
+    applied?: number;
+    repaired?: number;
+    unsynced?: number;
+    failures?: string[];
+    skipped?: string;
+  };
+
 }
 
 /**
@@ -1935,7 +2003,19 @@ export async function runAcceptedManualSync(
         attemptId,
         skipped: result.skipped,
       });
+    } else if ((result as { unsynced?: number }).unsynced) {
+      // A pass that pulled fine but left an eligible event out of Google is not
+      // a successful sync: keep the error so it cannot look "recently synced".
+      const detail = (result as { failures?: string[] }).failures ?? [];
+      failure = `${(result as { unsynced?: number }).unsynced} event(s) couldn’t sync to Google. Try again.`;
+      thrown = new Error(failure);
+      console.error("[google-sync] manual reconciliation incomplete", {
+        familyId,
+        attemptId,
+        failures: detail.slice(0, 20),
+      });
     } else {
+
       console.log("[google-sync] manual reconciliation completed", { familyId, attemptId });
     }
   } catch (error) {
