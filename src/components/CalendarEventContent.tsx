@@ -66,7 +66,7 @@ export function CalendarEventContent({
           />
         ) : null}
       </div>
-      {plan.showTime ? (
+      {showTime ? (
         <span className={cn("block truncate text-left", scale.time, timeTone)}>{time}</span>
       ) : null}
     </div>
