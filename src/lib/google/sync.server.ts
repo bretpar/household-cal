@@ -306,9 +306,25 @@ async function pruneStaleLinks(
 }
 
 /**
+ * Skip reasons that mean "this event was never meant to reach Google", as
+ * opposed to a real outbound failure that must be surfaced and kept.
+ */
+export const BENIGN_PUSH_SKIPS = new Set([
+  "not_connected",
+  "no_google_calendar",
+  "read_only_subscription",
+  "google_owned_exception",
+  "event_not_found",
+]);
+
+/**
  * Leaves a breadcrumb when a push did not reach Google, so a silently unsynced
  * event is visible instead of invisible. Never throws: diagnostics must not
  * affect the local save.
+ *
+ * When the event has no event_sync_links row at all (the worst case: Google
+ * never got the event, so there is nothing to annotate), the reason is kept on
+ * the event's own calendar source, which the header sync chip already reads.
  */
 async function recordPushDiagnostic(
   admin: Admin,
@@ -317,16 +333,36 @@ async function recordPushDiagnostic(
   reason: string,
 ): Promise<void> {
   console.warn("[google-sync] push not completed", eventId, reason);
+  const detail = reason.slice(0, 400);
   try {
-    await admin
+    const { data: links } = await admin
       .from("event_sync_links")
-      .update({ sync_error: reason.slice(0, 500) })
+      .update({ sync_error: detail })
       .eq("family_id", familyId)
-      .eq("event_id", eventId);
+      .eq("event_id", eventId)
+      .select("id");
+    if ((links ?? []).length > 0) return;
+
+    const { data: event } = await admin
+      .from("events")
+      .select("calendar_source_id")
+      .eq("id", eventId)
+      .maybeSingle();
+    const sourceId = (event as { calendar_source_id: string | null } | null)?.calendar_source_id;
+    if (!sourceId) return;
+    await admin
+      .from("calendar_sources")
+      .update({
+        sync_status: "needs_attention",
+        sync_error: `Event ${eventId} did not reach Google: ${detail}`.slice(0, 500),
+      })
+      .eq("family_id", familyId)
+      .eq("id", sourceId);
   } catch (error) {
     console.error("[google-sync] diagnostic write failed", error);
   }
 }
+
 
 /**
  * Version of the body we send to Google. Bumped when the generated recurrence
