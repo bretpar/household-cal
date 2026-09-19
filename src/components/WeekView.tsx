@@ -469,7 +469,9 @@ export function WeekView({
                     const isChildcareEvent = isChildcare(o.event);
                     const isSubscriptionEvent = o.event.read_only && Boolean(o.event.source_color);
                     const appearance = categoryAppearanceFor(o.event);
-                    const labelWidthPx = bg.labelWidth ? 120 : areaWidth;
+                    const labelWidthPx = bg.labelWidth
+                      ? 120
+                      : Math.max(64, areaWidth - bg.indentPx);
                     return (
                       <div
                         key={o.key}
@@ -486,7 +488,7 @@ export function WeekView({
                           }
                         }}
                         className={cn(
-                          "absolute inset-x-0 border-y border-l-[3px]",
+                          "absolute right-0 border-y border-l-[3px]",
                           isSubscriptionEvent
                             ? cn(
                                 "border-border-soft",
@@ -499,7 +501,12 @@ export function WeekView({
                           "pointer-events-auto cursor-pointer",
                           moving && "ring-2 ring-coverage-strong/70 ring-inset",
                         )}
-                        style={{ top: bg.top, height: bg.height }}
+                        style={{
+                          top: bg.top,
+                          height: bg.height,
+                          left: bg.indentPx,
+                          zIndex: bg.tier,
+                        }}
                       >
                         {isSubscriptionEvent ? (
                           <span
@@ -523,11 +530,13 @@ export function WeekView({
                             width={labelWidthPx}
                             height={bg.labelHeight}
                             muted
+                            forceTime
                             title={careLabel(o)}
                           />
                         </div>
                       </div>
                     );
+
                   })}
 
                   {/* Foreground timed events: one shared layout engine for every

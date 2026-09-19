@@ -108,12 +108,40 @@ export interface BackgroundPlacement {
   labelHeight: number;
   /** Narrow the label box when a foreground card sits over the label area. */
   labelWidth: string | undefined;
+  /** Small left inset (Apple-style step) so an earlier background block's rail
+   *  stays visible underneath a later overlapping one. */
+  indentPx: number;
+  /** Stacking order within the background layer: deeper tiers paint on top. */
+  tier: number;
 }
+
+/** Left step per overlapping background tier — just enough to read the rail. */
+export const BACKGROUND_INDENT_PX = 12;
+/** Beyond this the step stops growing so labels keep their room. */
+const BACKGROUND_MAX_TIER = 3;
 
 export function layoutBackground(
   coverage: Occurrence[],
   foreground: Occurrence[],
 ): BackgroundPlacement[] {
+  /** Tier = how many earlier background blocks this one still overlaps. */
+  const ordered = [...coverage].sort(
+    (a, b) =>
+      a.start.getTime() - b.start.getTime() ||
+      b.end.getTime() - b.start.getTime() - (a.end.getTime() - a.start.getTime()) ||
+      a.key.localeCompare(b.key),
+  );
+  const tiers = new Map<string, number>();
+  ordered.forEach((o, index) => {
+    const overlapping = ordered
+      .slice(0, index)
+      .filter((prev) => prev.start < o.end && prev.end > o.start);
+    const used = new Set(overlapping.map((prev) => tiers.get(prev.key) ?? 0));
+    let tier = 0;
+    while (used.has(tier) && tier < BACKGROUND_MAX_TIER) tier += 1;
+    tiers.set(o.key, tier);
+  });
+
   return coverage.map((o) => {
     const height = heightForOccurrence(o);
     const labelHeight = Math.min(height, CALENDAR_TOKENS.background.labelHeightPx);
@@ -124,15 +152,19 @@ export function layoutBackground(
           3_600_000,
     );
     const obscured = foreground.some((f) => f.start < labelTextEnd && f.end > o.start);
+    const tier = tiers.get(o.key) ?? 0;
     return {
       occurrence: o,
       top: topForTime(o.start),
       height,
       labelHeight,
       labelWidth: obscured ? "clamp(96px, 38%, 132px)" : undefined,
+      indentPx: tier * BACKGROUND_INDENT_PX,
+      tier,
     };
   });
 }
+
 
 /* ------------------------------------------------------- foreground layout */
 
