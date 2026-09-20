@@ -951,12 +951,19 @@ export async function pushEvent(
           );
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          const unusableTarget = /\[(400|404|410)\]/.test(message);
-          if (!unusableTarget) throw error;
-          // The stored Google target can no longer accept a write: typically an
-          // instance/exception id whose master series no longer exists. Retrying
-          // it forever can never succeed, so the dead link is dropped and the
-          // event is re-created as a fresh Google event that this app owns.
+          const rejected = /\[(400|404|410)\]/.test(message);
+          if (!rejected) throw error;
+          // A rejected write is only allowed to re-create the event when Google
+          // confirms the stored target is really gone. A 400 badRequest on a
+          // live event means the payload was unacceptable, not that the target
+          // vanished: dropping the link there would orphan the live Google
+          // event and insert a duplicate series.
+          const state = await google.getEventState(
+            conn.connectionKey,
+            target.external_calendar_id!,
+            link.google_event_id,
+          );
+          if (state === "live") throw error;
           console.warn(
             "[google-sync] dropping unusable Google link",
             link.google_event_id,
@@ -969,6 +976,7 @@ export async function pushEvent(
             body,
           );
         }
+
       } else {
         saved = await google.insertEvent(conn.connectionKey, target.external_calendar_id!, body);
       }
