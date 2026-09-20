@@ -942,12 +942,33 @@ export async function pushEvent(
             ? Object.fromEntries(Object.entries(body).filter(([key]) => key !== "recurrence"))
             : body;
 
-        saved = await google.patchEvent(
-          conn.connectionKey,
-          target.external_calendar_id!,
-          link.google_event_id,
-          patchBody,
-        );
+        try {
+          saved = await google.patchEvent(
+            conn.connectionKey,
+            target.external_calendar_id!,
+            link.google_event_id,
+            patchBody,
+          );
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          const unusableTarget = /\[(400|404|410)\]/.test(message);
+          if (!unusableTarget) throw error;
+          // The stored Google target can no longer accept a write: typically an
+          // instance/exception id whose master series no longer exists. Retrying
+          // it forever can never succeed, so the dead link is dropped and the
+          // event is re-created as a fresh Google event that this app owns.
+          console.warn(
+            "[google-sync] dropping unusable Google link",
+            link.google_event_id,
+            message.slice(0, 200),
+          );
+          await admin.from("event_sync_links").delete().eq("id", link.id);
+          saved = await google.insertEvent(
+            conn.connectionKey,
+            target.external_calendar_id!,
+            body,
+          );
+        }
       } else {
         saved = await google.insertEvent(conn.connectionKey, target.external_calendar_id!, body);
       }
@@ -988,7 +1009,9 @@ export async function pushEvent(
     return { pushed };
   });
   const outcome = result as { pushed?: number; skipped?: string };
-  if (outcome.skipped && outcome.skipped !== "event_not_found") {
+  // Benign skips ("nothing to mirror") are not failures: recording them would
+  // flag a perfectly healthy calendar as needing attention.
+  if (outcome.skipped && !BENIGN_PUSH_SKIPS.has(outcome.skipped)) {
     await recordPushDiagnostic(admin, familyId, eventId, outcome.skipped);
   }
   return outcome;
