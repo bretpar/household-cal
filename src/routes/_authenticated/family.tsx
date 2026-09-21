@@ -45,6 +45,8 @@ export const Route = createFileRoute("/_authenticated/family")({
         property: "og:description",
         content: "Manage who is on the calendar, their colors and their access level.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: FamilyPage,
