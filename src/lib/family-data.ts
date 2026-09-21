@@ -79,8 +79,10 @@ export interface CalendarSource {
   is_main: boolean;
   /** Whether this source may be included as a recipient's summary calendar. */
   selectable_in_email: boolean;
-  /** subscription colour used for every event imported from this source (ics only) */
+  /** appearance colour used for every event imported from this source */
   color?: MemberColor | null;
+  /** optional appearance icon key for events from this source; null = none */
+  display_icon?: string | null;
   /** family member every imported event is assigned to (ics only) */
   subscription_member_id?: string | null;
 }
@@ -116,8 +118,12 @@ export interface CalendarEvent {
   display_mode: DisplayMode;
   /** true for events imported from a read-only subscription (Apple/iCloud) */
   read_only: boolean;
-  /** subscription colour, when the event came from a read-only subscription */
+  /** appearance colour of the calendar this event came from */
   source_color?: MemberColor | null;
+  /** appearance icon key of the calendar this event came from */
+  source_icon?: string | null;
+  /** name of the calendar this event came from */
+  source_name?: string | null;
   title: string;
   start_at: string;
   end_at: string;
