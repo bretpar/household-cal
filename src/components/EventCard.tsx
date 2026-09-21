@@ -13,6 +13,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { calendarIconComponent } from "@/lib/calendar-icons";
 import { useCalendar } from "@/lib/calendar-store";
 import { eventAccentClass, eventTintClass } from "@/lib/event-colors";
 import { EVENT_TYPE_SCALE } from "@/lib/event-typography";
@@ -78,8 +79,9 @@ export function EventCard({
 }) {
   const { openOccurrence, categoryAppearanceFor } = useCalendar();
   const { event, start, end } = occurrence;
-  const Icon = eventTypeIcons[event.event_type];
   const appearance = categoryAppearanceFor(event);
+  // A calendar's own chosen icon replaces the generic type icon on compact rows.
+  const Icon = calendarIconComponent(appearance.icon) ?? eventTypeIcons[event.event_type];
 
   return (
     <button
