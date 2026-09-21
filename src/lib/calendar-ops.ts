@@ -149,6 +149,7 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     is_main: s.is_main ?? false,
     selectable_in_email: s.selectable_in_email ?? false,
     color: s.color ?? null,
+    display_icon: s.display_icon ?? null,
     subscription_member_id: s.subscription_member_id ?? null,
   }));
   const displayModeOf = new Map(sources.map((s) => [s.id, s.display_mode]));
@@ -176,7 +177,10 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
       (e.calendar_source_id ? displayModeOf.get(e.calendar_source_id) : "events") ?? "events",
     // Subscription feeds (Apple/iCloud) are strictly read-only in the app.
     read_only: source?.provider === "ics",
-    source_color: source?.provider === "ics" ? (source.color ?? null) : null,
+    // Presentation metadata from the calendar's own appearance settings.
+    source_color: (source?.color ?? null) as MemberColor | null,
+    source_icon: source?.display_icon ?? null,
+    source_name: source?.name ?? null,
     title: e.title,
     start_at: e.start_at,
     end_at: e.end_at,
