@@ -103,9 +103,14 @@ export function WeekView({
   const [measuredWidth, setMeasuredWidth] = useState(0);
 
   const sourceName = (id: string | null) => sources.find((s) => s.id === id)?.name ?? "Coverage";
-  /** Childcare joins the soft care-coverage layer instead of competing as a card. */
+  /**
+   * Childcare joins the soft care-coverage layer instead of competing as a card.
+   * All-day entries never join it: they own a whole calendar date, so they
+   * belong in the all-day band rather than the hourly grid.
+   */
   const isCareLayer = (o: Occurrence) =>
-    isCoverage(o.event) || (isChildcare(o.event) && !o.event.all_day);
+    !o.event.all_day && (isCoverage(o.event) || isChildcare(o.event));
+
   /**
    * The event's own title is the label. The source calendar name is only a
    * fallback for a genuinely untitled event, so a Google event called
