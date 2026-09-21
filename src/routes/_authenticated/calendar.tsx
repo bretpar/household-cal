@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { addDays, addMonths, format, startOfWeek } from "date-fns";
+import {
+  addDays,
+  addMonths,
+  differenceInCalendarDays,
+  format,
+  startOfDay,
+  startOfWeek,
+} from "date-fns";
+
 import { ChevronLeft, ChevronRight, Menu } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
@@ -253,6 +261,35 @@ function CalendarPage() {
     setVisibleDate(null);
   }, [mode, anchor]);
 
+  // Last single day the user was looking at. Week view anchors on a week
+  // boundary, so this is what Week -> Day restores instead of the week's first
+  // column (which would open Sunday when the user is focused on Monday).
+  const dayFocusRef = useRef<Date>(startOfDay(new Date()));
+  useEffect(() => {
+    if (mode === "week") return;
+    dayFocusRef.current = startOfDay(anchor);
+  }, [mode, anchor]);
+
+  /** Switch view, keeping the focused calendar date rather than the week start. */
+  const changeView = (next: ViewMode) => {
+    if (next === "day" && mode === "week") {
+      const inRange = (day: Date) => {
+        const offset = differenceInCalendarDays(startOfDay(day), startOfDay(anchor));
+        return offset >= 0 && offset < weekDays;
+      };
+      const today = startOfDay(new Date());
+      const focus = inRange(today)
+        ? today
+        : inRange(dayFocusRef.current)
+          ? dayFocusRef.current
+          : startOfDay(anchor);
+      setAnchor(focus);
+    }
+    if (next === "month" || next === "day") portraitViewRef.current = next;
+    setView(next);
+  };
+
+
   const labelFor = (at: Date) => {
     if (mode === "month") return format(at, "MMMM yyyy");
     if (mode !== "week") return format(at, "EEEE, MMM d");
@@ -439,10 +476,8 @@ function CalendarPage() {
           </Button>
           <Select
             value={mode}
-            onValueChange={(next: ViewMode) => {
-              if (next === "month" || next === "day") portraitViewRef.current = next;
-              setView(next);
-            }}
+            onValueChange={(next: ViewMode) => changeView(next)}
+
           >
             <SelectTrigger className="h-8 w-[5.75rem] shrink-0 rounded-full border-border-soft bg-surface px-2 text-xs font-semibold shadow-none">
               <SelectValue />
@@ -501,7 +536,7 @@ function CalendarPage() {
                 <button
                   key={v}
                   type="button"
-                  onClick={() => setView(v)}
+                  onClick={() => changeView(v)}
                   className={cn(
                     "h-9 rounded-full px-3.5 text-sm font-semibold transition-colors sm:px-4",
                     view === v ? "bg-surface text-foreground shadow-soft" : "text-muted-foreground",
@@ -522,10 +557,8 @@ function CalendarPage() {
               <button
                 key={v}
                 type="button"
-                onClick={() => {
-                  if (v === "month" || v === "day") portraitViewRef.current = v;
-                  setView(v);
-                }}
+                onClick={() => changeView(v)}
+
                 className={cn(
                   "h-8 flex-1 rounded-full text-xs font-semibold transition-colors",
                   view === v ? "bg-surface text-foreground shadow-soft" : "text-muted-foreground",

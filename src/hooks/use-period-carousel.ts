@@ -88,10 +88,51 @@ export function usePeriodCarousel({
     commitRef.current(direction);
   }, [clearSettleTimer]);
 
+  // The centre page is the current period. On first mount the track may still
+  // be unmeasured (clientWidth 0), in which case the initial centring is a
+  // no-op and the left page — the *previous* day — would stay on screen while
+  // the header shows the anchor. Re-centre whenever the track's width becomes
+  // known and nothing else owns the scroll position.
+  useLayoutEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    let frame: number | null = null;
+    let attempts = 0;
+    /** @returns true once the centre page is actually the visible one */
+    const centerIfIdle = (): boolean => {
+      if (busyRef.current || pendingRebase.current || draggingX.current) return true;
+      const width = node.clientWidth;
+      // Not laid out yet, or the three pages have no width to scroll through.
+      if (width <= 0 || node.scrollWidth < width * 2) return false;
+      if (Math.abs(node.scrollLeft - width) < 1) return true;
+      centerWithoutAnimation();
+      return Math.abs(node.scrollLeft - width) < 1;
+    };
+    const retry = () => {
+      frame = null;
+      if (centerIfIdle() || attempts++ > 30) return;
+      frame = requestAnimationFrame(retry);
+    };
+    retry();
+    const observer = new ResizeObserver(() => {
+      attempts = 0;
+      if (frame == null) frame = requestAnimationFrame(retry);
+    });
+    observer.observe(node);
+    return () => {
+      if (frame != null) cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+    // rebaseKey changes whenever the view or anchor does, which is also when the
+    // three-page track mounts — this effect must re-attach then.
+  }, [centerWithoutAnimation, rebaseKey]);
+
+
+
   useEffect(() => {
     const node = containerRef.current;
     if (!node) return;
-    centerWithoutAnimation();
+
 
     const scheduleSettle = () => {
       if (suppressScroll.current || pendingRebase.current || draggingX.current) return;
