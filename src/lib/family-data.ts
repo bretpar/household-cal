@@ -339,6 +339,41 @@ export function dayKey(day: Date): string {
   return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * Reads a `yyyy-MM-dd` calendar date as a *local* date. Never use
+ * `new Date("2026-09-30")` for calendar dates: that is parsed as UTC midnight
+ * and lands on the previous day west of Greenwich.
+ */
+export function localDateFromKey(key: string): Date {
+  const [y, m, d] = key.slice(0, 10).split("-").map(Number);
+  return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+}
+
+/**
+ * The calendar date an event begins on.
+ *
+ * All-day rows (Google `start.date`, ICS `DATE` values) are stored at UTC
+ * midnight, so their calendar date is the date part of the stored value — it
+ * must never be shifted into the viewer's timezone. Timed events keep their
+ * real instant.
+ */
+export function eventStartDay(event: Pick<CalendarEvent, "start_at" | "all_day">): Date {
+  return event.all_day
+    ? localDateFromKey(event.start_at)
+    : startOfDay(new Date(event.start_at));
+}
+
+/** Inclusive last calendar date of an event (all-day ranges can span days). */
+export function eventEndDay(
+  event: Pick<CalendarEvent, "start_at" | "end_at" | "all_day">,
+): Date {
+  if (!event.all_day) return startOfDay(new Date(event.end_at));
+  const end = localDateFromKey(event.end_at);
+  const start = localDateFromKey(event.start_at);
+  return end < start ? start : end;
+}
+
+
 /** Zero-based index of a day inside the series, or null when it isn't a hit. */
 function occurrenceIndex(start: Date, day: Date, rule: ParsedRule): number | null {
   if (rule.freq === "DAILY") {
