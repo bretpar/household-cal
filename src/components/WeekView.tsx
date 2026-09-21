@@ -474,7 +474,10 @@ export function WeekView({
                     const o = bg.occurrence;
                     const moving = draggingKey === o.key || ghost?.occurrence?.key === o.key;
                     const isChildcareEvent = isChildcare(o.event);
-                    const isSubscriptionEvent = o.event.read_only && Boolean(o.event.source_color);
+                    // Connected/imported calendars paint with their own chosen
+                    // colour (automatically muted in Background mode); local
+                    // household coverage keeps the coverage shading.
+                    const isSubscriptionEvent = Boolean(o.event.source_color);
                     const appearance = categoryAppearanceFor(o.event);
                     const labelWidthPx = bg.labelWidth
                       ? 120
