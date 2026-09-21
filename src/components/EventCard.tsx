@@ -47,6 +47,7 @@ export function EventPill({
   const { event } = occurrence;
   const appearance = categoryAppearanceFor(event);
   const scale = EVENT_TYPE_SCALE.month;
+  const PillIcon = calendarIconComponent(appearance.icon);
   return (
     <button
       type="button"
@@ -59,9 +60,17 @@ export function EventPill({
         "flex w-full items-center gap-1 rounded-lg text-left",
         // Month typography is one fixed scale; only the padding tightens.
         compact ? scale.padding.tiny : scale.padding.medium,
-        muted ? "bg-coverage/60 text-coverage-foreground" : eventTintClass(appearance),
+        // A calendar set to Background already carries its own muted tint.
+        appearance.muted
+          ? cn(eventTintClass(appearance), "text-muted-foreground")
+          : muted
+            ? "bg-coverage/60 text-coverage-foreground"
+            : eventTintClass(appearance),
       )}
     >
+      {PillIcon && !compact ? (
+        <PillIcon className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+      ) : null}
       <span className={cn("min-w-0 flex-1 truncate", scale.title)}>{event.title}</span>
       <MemberBadgeRow ids={occurrence.member_ids} size={scale.badge} />
     </button>
