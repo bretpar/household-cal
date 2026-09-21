@@ -50,6 +50,10 @@ export interface CategoryAppearance {
   swatch: string;
   /** soft tint class */
   soft: string;
+  /** optional appearance icon key inherited from the source calendar */
+  icon?: string | null;
+  /** true when this is a muted "Background" calendar treatment */
+  muted?: boolean;
 }
 
 export function resolveCategory(
@@ -64,8 +68,16 @@ export function resolveCategory(
 export type CategorizableEvent = {
   category_id?: string | null;
   event_type?: EventType | null;
-  /** read-only subscription colour; when set it owns the card appearance */
+  /** appearance colour of the source calendar */
   source_color?: MemberColor | null;
+  /** appearance icon key of the source calendar */
+  source_icon?: string | null;
+  /** source calendar name, used as the appearance label */
+  source_name?: string | null;
+  /** true for read-only subscription imports (Apple/iCloud) */
+  read_only?: boolean;
+  /** "coverage_background" renders the source colour muted */
+  display_mode?: string | null;
 };
 
 /** Accepts a bare category id or a whole event row. */
