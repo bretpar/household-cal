@@ -88,10 +88,31 @@ export function usePeriodCarousel({
     commitRef.current(direction);
   }, [clearSettleTimer]);
 
+  // The centre page is the current period. On first mount the track may still
+  // be unmeasured (clientWidth 0), in which case the initial centring is a
+  // no-op and the left page — the *previous* day — would stay on screen while
+  // the header shows the anchor. Re-centre whenever the track's width becomes
+  // known and nothing else owns the scroll position.
+  useLayoutEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const centerIfIdle = () => {
+      if (busyRef.current || pendingRebase.current || draggingX.current) return;
+      const width = node.clientWidth;
+      if (width <= 0) return;
+      if (Math.abs(node.scrollLeft - width) < 1) return;
+      centerWithoutAnimation();
+    };
+    centerIfIdle();
+    const observer = new ResizeObserver(centerIfIdle);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [centerWithoutAnimation]);
+
   useEffect(() => {
     const node = containerRef.current;
     if (!node) return;
-    centerWithoutAnimation();
+
 
     const scheduleSettle = () => {
       if (suppressScroll.current || pendingRebase.current || draggingX.current) return;
