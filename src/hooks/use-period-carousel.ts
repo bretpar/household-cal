@@ -96,18 +96,35 @@ export function usePeriodCarousel({
   useLayoutEffect(() => {
     const node = containerRef.current;
     if (!node) return;
-    const centerIfIdle = () => {
-      if (busyRef.current || pendingRebase.current || draggingX.current) return;
+    let frame: number | null = null;
+    let attempts = 0;
+    /** @returns true once the centre page is actually the visible one */
+    const centerIfIdle = (): boolean => {
+      if (busyRef.current || pendingRebase.current || draggingX.current) return true;
       const width = node.clientWidth;
-      if (width <= 0) return;
-      if (Math.abs(node.scrollLeft - width) < 1) return;
+      // Not laid out yet, or the three pages have no width to scroll through.
+      if (width <= 0 || node.scrollWidth < width * 2) return false;
+      if (Math.abs(node.scrollLeft - width) < 1) return true;
       centerWithoutAnimation();
+      return Math.abs(node.scrollLeft - width) < 1;
     };
-    centerIfIdle();
-    const observer = new ResizeObserver(centerIfIdle);
+    const retry = () => {
+      frame = null;
+      if (centerIfIdle() || attempts++ > 30) return;
+      frame = requestAnimationFrame(retry);
+    };
+    retry();
+    const observer = new ResizeObserver(() => {
+      attempts = 0;
+      if (frame == null) frame = requestAnimationFrame(retry);
+    });
     observer.observe(node);
-    return () => observer.disconnect();
+    return () => {
+      if (frame != null) cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
   }, [centerWithoutAnimation]);
+
 
   useEffect(() => {
     const node = containerRef.current;
