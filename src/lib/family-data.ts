@@ -339,6 +339,41 @@ export function dayKey(day: Date): string {
   return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * Reads a `yyyy-MM-dd` calendar date as a *local* date. Never use
+ * `new Date("2026-09-30")` for calendar dates: that is parsed as UTC midnight
+ * and lands on the previous day west of Greenwich.
+ */
+export function localDateFromKey(key: string): Date {
+  const [y, m, d] = key.slice(0, 10).split("-").map(Number);
+  return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+}
+
+/**
+ * The calendar date an event begins on.
+ *
+ * All-day rows (Google `start.date`, ICS `DATE` values) are stored at UTC
+ * midnight, so their calendar date is the date part of the stored value — it
+ * must never be shifted into the viewer's timezone. Timed events keep their
+ * real instant.
+ */
+export function eventStartDay(event: Pick<CalendarEvent, "start_at" | "all_day">): Date {
+  return event.all_day
+    ? localDateFromKey(event.start_at)
+    : startOfDay(new Date(event.start_at));
+}
+
+/** Inclusive last calendar date of an event (all-day ranges can span days). */
+export function eventEndDay(
+  event: Pick<CalendarEvent, "start_at" | "end_at" | "all_day">,
+): Date {
+  if (!event.all_day) return startOfDay(new Date(event.end_at));
+  const end = localDateFromKey(event.end_at);
+  const start = localDateFromKey(event.start_at);
+  return end < start ? start : end;
+}
+
+
 /** Zero-based index of a day inside the series, or null when it isn't a hit. */
 function occurrenceIndex(start: Date, day: Date, rule: ParsedRule): number | null {
   if (rule.freq === "DAILY") {
@@ -365,11 +400,19 @@ function occurrenceIndex(start: Date, day: Date, rule: ParsedRule): number | nul
 }
 
 function occursOn(event: CalendarEvent, day: Date): boolean {
-  const start = new Date(event.start_at);
+  const start = eventStartDay(event);
   const rule = parseRule(event.recurrence_rule);
   if (event.excluded_dates?.includes(dayKey(day))) return false;
   if (event.recurrence_until && dayKey(day) > event.recurrence_until) return false;
-  if (!rule) return isSameDay(start, day);
+  if (!rule) {
+    // A single all-day entry may cover a range of calendar dates.
+    if (event.all_day) {
+      const key = dayKey(day);
+      return key >= dayKey(start) && key <= dayKey(eventEndDay(event));
+    }
+    return isSameDay(start, day);
+  }
+
   if (differenceInCalendarDays(day, startOfDay(start)) < 0) return false;
 
   const index = occurrenceIndex(start, day, rule);
@@ -453,10 +496,22 @@ export function expandOccurrences(
     for (const event of events) {
       if (!occursOn(event, day)) continue;
       if (!hasParticipantsOn(event, day)) continue;
-      const baseStart = new Date(event.start_at);
-      const start = new Date(day);
-      start.setHours(baseStart.getHours(), baseStart.getMinutes(), 0, 0);
-      const end = new Date(start.getTime() + durationOf(event));
+      // All-day entries own the whole local calendar day: no artificial clock
+      // time, so they stay in the all-day band instead of the hourly grid.
+      let start: Date;
+      let end: Date;
+      if (event.all_day) {
+        start = new Date(day);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(start);
+        end.setHours(23, 59, 59, 0);
+      } else {
+        const baseStart = new Date(event.start_at);
+        start = new Date(day);
+        start.setHours(baseStart.getHours(), baseStart.getMinutes(), 0, 0);
+        end = new Date(start.getTime() + durationOf(event));
+      }
+
       result.push({
         key: `${event.id}-${start.toISOString()}`,
         event,
