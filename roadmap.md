@@ -22,6 +22,12 @@
 - [x] Preserve normal sync status, account/calendar controls, and informational timezone mismatch notices.
 - [x] Remove duplicate calendar visibility controls and consolidate persistent Event/Background choices into a compact Calendar Appearance list.
 - [x] Replace the week-start switch with a Sunday/Monday segmented choice and separate Maintenance under Advanced.
+- [x] Polish the hierarchy into Calendar, Sync & Integrations, Notifications / Emails, Household, Account, and locked Advanced / Maintenance.
+
+## Shared event-card polish
+- [x] Prioritize title, compact time, then member badges across Day, 3-Day, and Week.
+- [x] Prefer another readable narrow event column before shared overflow, without changing stable lane behavior.
+- [x] Keep Start and End controls stacked on narrow screens and compact side-by-side on larger screens.
 
 ## Durable manual Google sync
 - [x] Queue accepted manual syncs through the existing durable scheduled-callback mechanism.

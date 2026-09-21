@@ -1,13 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
-  CalendarCog,
+  BellRing,
+  CalendarDays,
   Eye,
   House,
   LockKeyhole,
   LogOut,
-  RefreshCw,
-  SlidersHorizontal,
+  Unplug,
   UserRound,
 } from "lucide-react";
 
@@ -45,6 +45,8 @@ export const Route = createFileRoute("/_authenticated/family")({
         property: "og:description",
         content: "Manage who is on the calendar, their colors and their access level.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: FamilyPage,
@@ -72,18 +74,47 @@ function FamilyPage() {
   return (
 
     <AppShell>
-      <div className="space-y-6">
+      <div className="space-y-5">
         <header>
-          <h1 className="text-2xl font-bold sm:text-3xl">{family?.name ?? "Family"}</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Settings</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Everyone on the calendar, their color and what they can do.
-            {role ? ` You are signed in as ${ROLE_LABEL[role] ?? role}.` : ""}
+            Manage {family?.name ?? "your family"}'s calendar, connections and household.
           </p>
         </header>
 
         <SettingsSection
+          title="Calendar"
+          description="Default view, week layout, categories and appearance"
+          icon={<CalendarDays className="h-5 w-5" aria-hidden />}
+        >
+          <div className="divide-y divide-border-soft overflow-hidden rounded-2xl border border-border-soft bg-card">
+            <CalendarDefaultViewSetting />
+            <WeekStartSetting />
+          </div>
+          <CalendarAppearanceSettings />
+          <EventCategorySettings />
+        </SettingsSection>
+
+        <SettingsSection
+          title="Sync & Integrations"
+          description="Connect and manage Google and Apple calendars"
+          icon={<Unplug className="h-5 w-5" aria-hidden />}
+        >
+          <CalendarSyncSettings />
+          <AppleCalendarSubscriptions />
+        </SettingsSection>
+
+        <SettingsSection
+          title="Notifications / Emails"
+          description="Schedule helpful calendar summaries"
+          icon={<BellRing className="h-5 w-5" aria-hidden />}
+        >
+          <EmailSummarySettings />
+        </SettingsSection>
+
+        <SettingsSection
           title="Household"
-          description="Family members, colors, users, invitations and access"
+          description="Family members, colors, invitations and access"
           icon={<House className="h-5 w-5" aria-hidden />}
         >
           <FamilyMemberSettings />
@@ -96,16 +127,16 @@ function FamilyPage() {
               {caregivers.map((caregiver) => (
                 <article
                   key={caregiver.id}
-                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-3xl border border-dashed border-border bg-coverage/60 p-4"
+                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-dashed border-border bg-coverage/60 p-4"
                 >
                   <MemberBadge id={caregiver.id} size="lg" />
                   <div className="min-w-0">
                     <h4 className="truncate text-base font-bold">{caregiver.name}</h4>
                     <p className="text-xs font-semibold text-muted-foreground">
-                      Shown as coverage shading, not events
+                      Appears as background coverage
                     </p>
                   </div>
-                  <span className="flex items-center gap-1 rounded-full bg-surface px-3 py-1.5 text-[11px] font-bold text-muted-foreground">
+                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-surface px-3 py-1.5 text-[11px] font-bold text-muted-foreground">
                     <Eye className="h-3.5 w-3.5" aria-hidden />
                     View only
                   </span>
@@ -114,33 +145,6 @@ function FamilyPage() {
             </section>
           ) : null}
           <HouseholdAccess />
-        </SettingsSection>
-
-        <SettingsSection
-          title="Calendars & Sync"
-          description="Google connection, Apple subscriptions, synced calendars, timezone and schedule summaries"
-          icon={<RefreshCw className="h-5 w-5" aria-hidden />}
-        >
-          <CalendarSyncSettings />
-          <AppleCalendarSubscriptions />
-          <EmailSummarySettings />
-        </SettingsSection>
-
-        <SettingsSection
-          title="Event Settings"
-          description="Categories and calendar display preferences"
-          icon={<SlidersHorizontal className="h-5 w-5" aria-hidden />}
-        >
-          <EventCategorySettings />
-          <h2 className="flex items-center gap-2 text-sm font-bold tracking-wide text-muted-foreground uppercase">
-            <CalendarCog className="h-4 w-4" aria-hidden />
-            Calendar preferences
-          </h2>
-          <div className="divide-y divide-border-soft overflow-hidden rounded-3xl border border-border-soft bg-card">
-            <CalendarDefaultViewSetting />
-            <WeekStartSetting />
-          </div>
-          <CalendarAppearanceSettings />
         </SettingsSection>
 
         <SettingsSection
@@ -165,13 +169,10 @@ function FamilyPage() {
           </Button>
         </SettingsSection>
 
-        <section className="space-y-3 border-t border-border-soft pt-5">
-          <p className="px-1 text-xs font-bold tracking-wide text-muted-foreground uppercase">
-            Advanced
-          </p>
+        <section className="border-t border-border-soft pt-5">
           <SettingsSection
-            title="Maintenance"
-            description="Locked diagnostics, repairs and QA tools"
+            title="Advanced / Maintenance"
+            description="Locked troubleshooting and support tools"
             icon={<LockKeyhole className="h-5 w-5" aria-hidden />}
             tone="muted"
           >

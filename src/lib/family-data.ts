@@ -503,3 +503,22 @@ export function formatTimeRange(start: Date, end: Date, allDay: boolean): string
   };
   return `${fmt(start)}–${fmt(end)}`;
 }
+
+/** Compact timeline-only range: omit the first meridiem when both ends share it. */
+export function formatCompactTimeRange(start: Date, end: Date, allDay: boolean): string {
+  if (allDay) return "All day";
+  const part = (date: Date) => {
+    const hour = date.getHours();
+    const minute = date.getMinutes();
+    const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+    return {
+      clock: minute === 0 ? `${displayHour}` : `${displayHour}:${String(minute).padStart(2, "0")}`,
+      meridiem: hour < 12 ? "a" : "p",
+    };
+  };
+  const from = part(start);
+  const to = part(end);
+  return from.meridiem === to.meridiem
+    ? `${from.clock}–${to.clock}${to.meridiem}`
+    : `${from.clock}${from.meridiem}–${to.clock}${to.meridiem}`;
+}

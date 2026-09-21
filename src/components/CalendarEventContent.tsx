@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { MemberBadgeRow } from "@/components/MemberBadge";
-import { formatTimeRange, type Occurrence } from "@/lib/family-data";
+import { formatCompactTimeRange, type Occurrence } from "@/lib/family-data";
 import { eventTimeToneClass } from "@/lib/event-typography";
 import {
   EVENT_TEXT_SCALE,
@@ -42,7 +42,11 @@ export function CalendarEventContent({
   className?: string;
 }) {
   const label = title ?? occurrence.event.title;
-  const time = formatTimeRange(occurrence.start, occurrence.end, occurrence.event.all_day);
+  const time = formatCompactTimeRange(
+    occurrence.start,
+    occurrence.end,
+    occurrence.event.all_day,
+  );
   const badgeCount = occurrence.member_ids.length;
   const plan =
     planOverride ?? planEventContent({ width, height, badgeCount });
@@ -53,21 +57,23 @@ export function CalendarEventContent({
 
   return (
     <div className={cn("flex h-full min-w-0 flex-col gap-px", plan.padding, className)}>
-      <div className="flex min-w-0 items-start gap-1">
-        <span className={cn("min-w-0 flex-1 line-clamp-2 text-left", scale.title)}>
-          {label}
-        </span>
-        {plan.showBadges ? (
+      <span className={cn("min-w-0 line-clamp-2 text-left", scale.title)}>{label}</span>
+      {showTime || plan.showBadges ? (
+        <div className="flex min-w-0 items-center gap-1">
+          {showTime ? (
+            <span className={cn("min-w-0 flex-1 truncate text-left", scale.time, timeTone)}>
+              {time}
+            </span>
+          ) : null}
+          {plan.showBadges ? (
           <MemberBadgeRow
             ids={occurrence.member_ids}
             size={scale.badge}
             maxVisible={plan.maxBadges}
             className="pointer-events-none shrink-0"
           />
-        ) : null}
-      </div>
-      {showTime ? (
-        <span className={cn("block truncate text-left", scale.time, timeTone)}>{time}</span>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
