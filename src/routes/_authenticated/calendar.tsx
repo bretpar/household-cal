@@ -261,6 +261,35 @@ function CalendarPage() {
     setVisibleDate(null);
   }, [mode, anchor]);
 
+  // Last single day the user was looking at. Week view anchors on a week
+  // boundary, so this is what Week -> Day restores instead of the week's first
+  // column (which would open Sunday when the user is focused on Monday).
+  const dayFocusRef = useRef<Date>(startOfDay(new Date()));
+  useEffect(() => {
+    if (mode === "week") return;
+    dayFocusRef.current = startOfDay(anchor);
+  }, [mode, anchor]);
+
+  /** Switch view, keeping the focused calendar date rather than the week start. */
+  const changeView = (next: ViewMode) => {
+    if (next === "day" && mode === "week") {
+      const inRange = (day: Date) => {
+        const offset = differenceInCalendarDays(startOfDay(day), startOfDay(anchor));
+        return offset >= 0 && offset < weekDays;
+      };
+      const today = startOfDay(new Date());
+      const focus = inRange(today)
+        ? today
+        : inRange(dayFocusRef.current)
+          ? dayFocusRef.current
+          : startOfDay(anchor);
+      setAnchor(focus);
+    }
+    if (next === "month" || next === "day") portraitViewRef.current = next;
+    setView(next);
+  };
+
+
   const labelFor = (at: Date) => {
     if (mode === "month") return format(at, "MMMM yyyy");
     if (mode !== "week") return format(at, "EEEE, MMM d");
