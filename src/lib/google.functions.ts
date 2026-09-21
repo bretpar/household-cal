@@ -259,6 +259,20 @@ export const setCalendarDisplayMode = createServerFn({ method: "POST" })
     return setDisplayMode(family, data.source_id, data.display_mode);
   });
 
+/** Presentation metadata only — never written back to Google. */
+export const setCalendarAppearance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { source_id: string; color: string; icon: string | null }) => input)
+  .handler(async ({ data, context }) => {
+    const { assertCalendarColor, assertCalendarIcon } = await import("@/lib/calendar-appearance");
+    const color = assertCalendarColor(data.color);
+    const icon = assertCalendarIcon(data.icon);
+    const { resolveOwnedFamily, setAppearance } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can configure calendar sync");
+    return setAppearance(family, data.source_id, color, icon);
+  });
+
 export const setMainCalendarSlot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { source_id: string }) => input)

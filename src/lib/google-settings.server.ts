@@ -264,6 +264,25 @@ export async function setDisplayMode(
   return { ok: true };
 }
 
+/**
+ * Presentation-only: the colour/icon OFC paints this calendar's events with.
+ * The Google calendar itself (its colour, name and events) is never touched.
+ */
+export async function setAppearance(
+  familyId: string,
+  sourceId: string,
+  color: string,
+  icon: string | null,
+): Promise<{ ok: true }> {
+  const { error } = await supabaseAdmin
+    .from("calendar_sources")
+    .update({ color, display_icon: icon })
+    .eq("id", sourceId)
+    .eq("family_id", familyId);
+  if (error) throw error;
+  return { ok: true };
+}
+
 export async function setGoogleEventInitials(
   familyId: string,
   includeInitials: boolean,
