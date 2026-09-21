@@ -53,3 +53,8 @@
 ## Landing page redesign
 - [x] Rebuild signed-out homepage with requested sections, real product screenshots, FAQ/JSON-LD, and improved SEO/OG metadata.
 - [x] Ship a polished mobile layout alongside desktop: stacked hero, responsive comparison, phone showcase, compact header/CTAs.
+
+## Calendar appearance (colour + icon per calendar)
+- Done: per-calendar colour (curated palette) and optional icon for Google + Apple calendars, stored on calendar_sources (color, display_icon).
+- Done: shared appearanceForEvent resolves colour/icon for every view; Background calendars auto-render the muted form of the same colour (no extra opacity setting).
+- Done: settings controls in Calendar > Calendar appearance; presentation metadata only, never pushed to Google/Apple.
