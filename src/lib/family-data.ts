@@ -496,10 +496,22 @@ export function expandOccurrences(
     for (const event of events) {
       if (!occursOn(event, day)) continue;
       if (!hasParticipantsOn(event, day)) continue;
-      const baseStart = new Date(event.start_at);
-      const start = new Date(day);
-      start.setHours(baseStart.getHours(), baseStart.getMinutes(), 0, 0);
-      const end = new Date(start.getTime() + durationOf(event));
+      // All-day entries own the whole local calendar day: no artificial clock
+      // time, so they stay in the all-day band instead of the hourly grid.
+      let start: Date;
+      let end: Date;
+      if (event.all_day) {
+        start = new Date(day);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(start);
+        end.setHours(23, 59, 59, 0);
+      } else {
+        const baseStart = new Date(event.start_at);
+        start = new Date(day);
+        start.setHours(baseStart.getHours(), baseStart.getMinutes(), 0, 0);
+        end = new Date(start.getTime() + durationOf(event));
+      }
+
       result.push({
         key: `${event.id}-${start.toISOString()}`,
         event,
