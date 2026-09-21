@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { addDays, addMonths, format, startOfWeek } from "date-fns";
+import {
+  addDays,
+  addMonths,
+  differenceInCalendarDays,
+  format,
+  startOfDay,
+  startOfWeek,
+} from "date-fns";
+
 import { ChevronLeft, ChevronRight, Menu } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
