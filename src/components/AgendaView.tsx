@@ -79,7 +79,7 @@ export function AgendaView({
                 <span
                   className={`shrink-0 truncate ${EVENT_TYPE_SCALE.day.time} ${eventTimeToneClass(true)}`}
                 >
-                  {formatTimeRange(o.start, o.end, false)}
+                  {formatTimeRange(o.start, o.end, o.event.all_day)}
                 </span>
               </button>
             ))}
