@@ -12,6 +12,10 @@
  */
 
 import { MEMBER_COLORS, styleForColor, type EventType, type MemberColor } from "@/lib/family-data";
+import {
+  MUTED_CALENDAR_ACCENT,
+  MUTED_CALENDAR_TINT,
+} from "@/lib/calendar-appearance";
 
 export const MAX_CUSTOM_CATEGORIES = 7;
 
@@ -136,20 +140,37 @@ export function categoryAppearance(category: EventCategory | null): CategoryAppe
 }
 
 /**
- * Events imported from a read-only subscription are coloured by the colour the
- * household picked for that subscription, not by a household category — there is
- * no way to categorise them, since nothing about them can be edited here.
+ * Single source of truth for the colour/icon of one event card, on every view.
+ *
+ * Order:
+ * 1. a read-only subscription import always wears its calendar's colour — there
+ *    is no way to categorise it, since nothing about it can be edited here
+ * 2. an event from a connected calendar with no household category wears that
+ *    calendar's colour, so each calendar stays recognisable
+ * 3. otherwise the household category owns the card
+ *
+ * Calendars set to "Background" get the muted form of the same colour
+ * automatically — never a second, separately configured shade.
  */
 export function appearanceForEvent(
   categories: EventCategory[],
   ref: CategoryRef,
 ): CategoryAppearance {
-  const subscriptionColor = refToEvent(ref).source_color;
-  if (subscriptionColor) {
-    const style = styleForColor(subscriptionColor);
-    return { label: "Apple Calendar", swatch: style.dot, soft: style.soft };
+  const event = refToEvent(ref);
+  const category = resolveEventCategory(categories, ref);
+  const sourceColor = event.source_color;
+  if (sourceColor && (event.read_only || !category)) {
+    const style = styleForColor(sourceColor);
+    const muted = event.display_mode === "coverage_background";
+    return {
+      label: event.source_name ?? (event.read_only ? "Apple Calendar" : "Calendar"),
+      swatch: muted ? MUTED_CALENDAR_ACCENT[sourceColor] : style.dot,
+      soft: muted ? MUTED_CALENDAR_TINT[sourceColor] : style.soft,
+      icon: event.source_icon ?? null,
+      muted,
+    };
   }
-  return categoryAppearance(resolveEventCategory(categories, ref));
+  return { ...categoryAppearance(category), icon: event.source_icon ?? null };
 }
 
 
