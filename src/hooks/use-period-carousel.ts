@@ -123,7 +123,10 @@ export function usePeriodCarousel({
       if (frame != null) cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [centerWithoutAnimation]);
+    // rebaseKey changes whenever the view or anchor does, which is also when the
+    // three-page track mounts — this effect must re-attach then.
+  }, [centerWithoutAnimation, rebaseKey]);
+
 
 
   useEffect(() => {
