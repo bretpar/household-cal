@@ -13,6 +13,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { calendarIconComponent } from "@/lib/calendar-icons";
 import { useCalendar } from "@/lib/calendar-store";
 import { eventAccentClass, eventTintClass } from "@/lib/event-colors";
 import { EVENT_TYPE_SCALE } from "@/lib/event-typography";
@@ -46,6 +47,7 @@ export function EventPill({
   const { event } = occurrence;
   const appearance = categoryAppearanceFor(event);
   const scale = EVENT_TYPE_SCALE.month;
+  const PillIcon = calendarIconComponent(appearance.icon);
   return (
     <button
       type="button"
@@ -58,9 +60,17 @@ export function EventPill({
         "flex w-full items-center gap-1 rounded-lg text-left",
         // Month typography is one fixed scale; only the padding tightens.
         compact ? scale.padding.tiny : scale.padding.medium,
-        muted ? "bg-coverage/60 text-coverage-foreground" : eventTintClass(appearance),
+        // A calendar set to Background already carries its own muted tint.
+        appearance.muted
+          ? cn(eventTintClass(appearance), "text-muted-foreground")
+          : muted
+            ? "bg-coverage/60 text-coverage-foreground"
+            : eventTintClass(appearance),
       )}
     >
+      {PillIcon && !compact ? (
+        <PillIcon className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+      ) : null}
       <span className={cn("min-w-0 flex-1 truncate", scale.title)}>{event.title}</span>
       <MemberBadgeRow ids={occurrence.member_ids} size={scale.badge} />
     </button>
@@ -78,8 +88,9 @@ export function EventCard({
 }) {
   const { openOccurrence, categoryAppearanceFor } = useCalendar();
   const { event, start, end } = occurrence;
-  const Icon = eventTypeIcons[event.event_type];
   const appearance = categoryAppearanceFor(event);
+  // A calendar's own chosen icon replaces the generic type icon on compact rows.
+  const Icon = calendarIconComponent(appearance.icon) ?? eventTypeIcons[event.event_type];
 
   return (
     <button

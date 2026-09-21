@@ -100,6 +100,7 @@ export type Database = {
           app_managed_calendar: boolean
           color: string | null
           created_at: string
+          display_icon: string | null
           display_mode: Database["public"]["Enums"]["calendar_display_mode"]
           external_calendar_id: string | null
           family_id: string
@@ -128,6 +129,7 @@ export type Database = {
           app_managed_calendar?: boolean
           color?: string | null
           created_at?: string
+          display_icon?: string | null
           display_mode?: Database["public"]["Enums"]["calendar_display_mode"]
           external_calendar_id?: string | null
           family_id: string
@@ -156,6 +158,7 @@ export type Database = {
           app_managed_calendar?: boolean
           color?: string | null
           created_at?: string
+          display_icon?: string | null
           display_mode?: Database["public"]["Enums"]["calendar_display_mode"]
           external_calendar_id?: string | null
           family_id?: string

@@ -10,16 +10,33 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FAMILY_BUNDLE_KEY, useCalendar } from "@/lib/calendar-store";
-import type { CalendarSource, DisplayMode } from "@/lib/family-data";
-import { setCalendarDisplayMode } from "@/lib/google.functions";
-import { updateIcsSubscriptionDisplayMode } from "@/lib/ics.functions";
+import {
+  CALENDAR_COLORS,
+  CALENDAR_ICON_KEYS,
+  CALENDAR_ICON_LABELS,
+  CALENDAR_ICON_NONE,
+  defaultCalendarColor,
+} from "@/lib/calendar-appearance";
+import { calendarIconComponent } from "@/lib/calendar-icons";
+import { styleForColor, type CalendarSource, type DisplayMode, type MemberColor } from "@/lib/family-data";
+import { setCalendarAppearance, setCalendarDisplayMode } from "@/lib/google.functions";
+import {
+  updateIcsSubscriptionAppearance,
+  updateIcsSubscriptionDisplayMode,
+} from "@/lib/ics.functions";
+import { cn } from "@/lib/utils";
 
-/** Persistent presentation choices only; calendar visibility stays in Calendar filters. */
+/**
+ * Persistent presentation choices only; calendar visibility stays in Calendar
+ * filters and nothing here is written back to Google or Apple.
+ */
 export function CalendarAppearanceSettings() {
   const queryClient = useQueryClient();
   const { sources, canEdit, isOwner } = useCalendar();
   const updateCalendarMode = useServerFn(setCalendarDisplayMode);
   const updateAppleMode = useServerFn(updateIcsSubscriptionDisplayMode);
+  const updateCalendarLook = useServerFn(setCalendarAppearance);
+  const updateAppleLook = useServerFn(updateIcsSubscriptionAppearance);
 
   const appearanceSources = sources.filter(
     (source) =>
@@ -28,6 +45,12 @@ export function CalendarAppearanceSettings() {
         source.provider === "ics" ||
         source.display_mode === "coverage_background"),
   );
+
+  const refresh = async () => {
+    await queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+    await queryClient.invalidateQueries({ queryKey: ["calendar-sync"] });
+    await queryClient.invalidateQueries({ queryKey: ["apple-subscriptions"] });
+  };
 
   const mutation = useMutation({
     mutationFn: async ({ source, displayMode }: { source: CalendarSource; displayMode: DisplayMode }) => {
@@ -40,14 +63,36 @@ export function CalendarAppearanceSettings() {
     },
     onSuccess: async () => {
       toast.success("Calendar appearance updated");
-      await queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
-      await queryClient.invalidateQueries({ queryKey: ["calendar-sync"] });
-      await queryClient.invalidateQueries({ queryKey: ["apple-subscriptions"] });
+      await refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const lookMutation = useMutation({
+    mutationFn: async ({
+      source,
+      color,
+      icon,
+    }: {
+      source: CalendarSource;
+      color: MemberColor;
+      icon: string | null;
+    }) => {
+      if (source.provider === "ics") {
+        return updateAppleLook({ data: { id: source.id, color, icon } });
+      }
+      return updateCalendarLook({ data: { source_id: source.id, color, icon } });
+    },
+    onSuccess: async () => {
+      toast.success("Calendar appearance updated");
+      await refresh();
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   if (appearanceSources.length === 0) return null;
+
+  const busy = mutation.isPending || lookMutation.isPending;
 
   return (
     <section className="space-y-2">
@@ -55,38 +100,111 @@ export function CalendarAppearanceSettings() {
         Calendar appearance
       </h3>
       <div className="divide-y divide-border-soft overflow-hidden rounded-2xl border border-border-soft bg-card">
-        {appearanceSources.map((source) => {
+        {appearanceSources.map((source, index) => {
           const editable = source.provider === "ics" ? canEdit : isOwner;
+          const color = (source.color ?? defaultCalendarColor(index)) as MemberColor;
+          const iconValue = source.display_icon ?? CALENDAR_ICON_NONE;
+          const SelectedIcon = calendarIconComponent(source.display_icon);
+          const isLocal = source.provider === "local";
           return (
-            <div
-              key={source.id}
-              className="grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2"
-            >
-              <p className="min-w-0 text-sm font-semibold leading-snug">{source.name}</p>
-              <Select
-                value={source.display_mode}
-                disabled={!editable || mutation.isPending}
-                onValueChange={(displayMode: DisplayMode) =>
-                  mutation.mutate({ source, displayMode })
-                }
-              >
-                <SelectTrigger
-                  className="h-9 w-32 rounded-lg text-xs"
-                  aria-label={`Appearance for ${source.name}`}
+            <div key={source.id} className="space-y-2 px-3 py-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  className={cn("h-6 w-6 shrink-0 rounded-lg", styleForColor(color).dot)}
+                  aria-hidden
+                />
+                <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-snug">
+                  {source.name}
+                </p>
+                <Select
+                  value={source.display_mode}
+                  disabled={!editable || busy}
+                  onValueChange={(displayMode: DisplayMode) =>
+                    mutation.mutate({ source, displayMode })
+                  }
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="events">Events</SelectItem>
-                  <SelectItem value="coverage_background">Background</SelectItem>
-                </SelectContent>
-              </Select>
+                  <SelectTrigger
+                    className="h-9 w-32 rounded-lg text-xs"
+                    aria-label={`Display style for ${source.name}`}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="events">Events</SelectItem>
+                    <SelectItem value="coverage_background">Background</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {isLocal ? null : (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pl-8">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {CALENDAR_COLORS.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        disabled={!editable || busy}
+                        aria-label={`Use the ${option} color for ${source.name}`}
+                        aria-pressed={color === option}
+                        onClick={() =>
+                          lookMutation.mutate({
+                            source,
+                            color: option,
+                            icon: source.display_icon ?? null,
+                          })
+                        }
+                        className={cn(
+                          "h-6 w-6 rounded-full ring-offset-2 transition disabled:opacity-50",
+                          styleForColor(option).dot,
+                          color === option ? "ring-2 ring-ring" : "",
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <Select
+                    value={iconValue}
+                    disabled={!editable || busy}
+                    onValueChange={(next) =>
+                      lookMutation.mutate({
+                        source,
+                        color,
+                        icon: next === CALENDAR_ICON_NONE ? null : next,
+                      })
+                    }
+                  >
+                    <SelectTrigger
+                      className="h-9 w-36 rounded-lg text-xs"
+                      aria-label={`Icon for ${source.name}`}
+                    >
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        {SelectedIcon ? <SelectedIcon className="h-3.5 w-3.5" aria-hidden /> : null}
+                        <SelectValue />
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={CALENDAR_ICON_NONE}>No icon</SelectItem>
+                      {CALENDAR_ICON_KEYS.map((key) => {
+                        const Icon = calendarIconComponent(key);
+                        return (
+                          <SelectItem key={key} value={key}>
+                            <span className="flex items-center gap-2">
+                              {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
+                              {CALENDAR_ICON_LABELS[key]}
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
       <p className="px-1 text-xs leading-relaxed text-muted-foreground">
-        Choose how these calendars appear. Visibility is controlled from Calendar filters.
+        Pick a colour and an optional icon for each calendar. Background calendars use a softer
+        version of the same colour. Visibility is controlled from Calendar filters.
       </p>
     </section>
   );

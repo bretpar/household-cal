@@ -249,6 +249,38 @@ export const updateIcsSubscriptionDisplayMode = createServerFn({ method: "POST" 
     return { ok: true };
   });
 
+/**
+ * Presentation metadata only. The subscribed Apple calendar is never modified —
+ * this just changes how OFC paints its (still read-only) events.
+ */
+export const updateIcsSubscriptionAppearance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string; color: string; icon: string | null }) => ({
+    id: String(data.id ?? ""),
+    color: data.color,
+    icon: data.icon ?? null,
+  }))
+  .handler(async ({ data, context }) => {
+    const { assertCalendarIcon } = await import("@/lib/calendar-appearance");
+    const color = assertColor(data.color);
+    const icon = assertCalendarIcon(data.icon);
+
+    const db = context.supabase as unknown as Db;
+    const familyId = await resolveWritableFamily(db, context.userId);
+    const { data: source, error } = await db
+      .from("calendar_sources")
+      .update({ color, display_icon: icon })
+      .eq("id", data.id)
+      .eq("family_id", familyId)
+      .eq("provider", "ics")
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    if (!source) throw new Error("That calendar subscription no longer exists");
+
+    return { ok: true };
+  });
+
 export const removeIcsSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { id: string }) => ({ id: String(data.id ?? "") }))
