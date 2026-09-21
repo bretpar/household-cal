@@ -400,11 +400,19 @@ function occurrenceIndex(start: Date, day: Date, rule: ParsedRule): number | nul
 }
 
 function occursOn(event: CalendarEvent, day: Date): boolean {
-  const start = new Date(event.start_at);
+  const start = eventStartDay(event);
   const rule = parseRule(event.recurrence_rule);
   if (event.excluded_dates?.includes(dayKey(day))) return false;
   if (event.recurrence_until && dayKey(day) > event.recurrence_until) return false;
-  if (!rule) return isSameDay(start, day);
+  if (!rule) {
+    // A single all-day entry may cover a range of calendar dates.
+    if (event.all_day) {
+      const key = dayKey(day);
+      return key >= dayKey(start) && key <= dayKey(eventEndDay(event));
+    }
+    return isSameDay(start, day);
+  }
+
   if (differenceInCalendarDays(day, startOfDay(start)) < 0) return false;
 
   const index = occurrenceIndex(start, day, rule);
