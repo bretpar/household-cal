@@ -42,13 +42,13 @@ export const CALENDAR_TOKENS = {
   minCardWidthPx: 116,
   /** Absolute floor for an overlap column: still readable and tappable. Cards
    *  are narrowed down to this before any event is pushed into "+N more". */
-  minOverlapColumnPx: 56,
+  minOverlapColumnPx: 52,
 
   /** Content thresholds, measured against the card's rendered box. */
   content: {
     timeMinHeightPx: 40,
-    timeMinWidthPx: 84,
-    badgesMinWidthPx: 62,
+    timeMinWidthPx: 64,
+    badgesMinWidthPx: 116,
     badgeWidthPx: 20,
     badgeReserveWidthPx: 58,
   },
@@ -402,7 +402,8 @@ export function planEventContent({
   const fits = Math.floor(
     Math.max(0, width - c.badgeReserveWidthPx) / c.badgeWidthPx,
   );
-  const showBadges = width >= c.badgesMinWidthPx && fits >= 1 && badgeCount > 0;
+  const showBadges =
+    showTime && width >= c.badgesMinWidthPx && fits >= 1 && badgeCount > 0;
   const maxBadges = showBadges && fits < badgeCount ? Math.max(1, fits) : undefined;
   const padding =
     height >= 54 ? "px-1.5 py-1" : height >= 36 ? "px-1.5 py-0.5" : "px-1.5 py-px";

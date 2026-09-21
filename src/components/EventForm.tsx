@@ -638,7 +638,7 @@ export function EventFormFields({
             className={cn(
               "date-row grid min-w-0 grid-cols-1 gap-2",
               !state.allDay &&
-                "min-[520px]:grid-cols-[minmax(0,1.08fr)_minmax(0,.92fr)]",
+                "min-[520px]:grid-cols-[minmax(0,1.15fr)_minmax(10rem,.85fr)]",
             )}
           >
           <DatePickerField
@@ -671,7 +671,7 @@ export function EventFormFields({
             className={cn(
               "date-row grid min-w-0 grid-cols-1 gap-2",
               !state.allDay &&
-                "min-[520px]:grid-cols-[minmax(0,1.08fr)_minmax(0,.92fr)]",
+                "min-[520px]:grid-cols-[minmax(0,1.15fr)_minmax(10rem,.85fr)]",
             )}
           >
             <DatePickerField
