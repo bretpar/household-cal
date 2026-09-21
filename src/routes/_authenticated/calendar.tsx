@@ -476,10 +476,8 @@ function CalendarPage() {
           </Button>
           <Select
             value={mode}
-            onValueChange={(next: ViewMode) => {
-              if (next === "month" || next === "day") portraitViewRef.current = next;
-              setView(next);
-            }}
+            onValueChange={(next: ViewMode) => changeView(next)}
+
           >
             <SelectTrigger className="h-8 w-[5.75rem] shrink-0 rounded-full border-border-soft bg-surface px-2 text-xs font-semibold shadow-none">
               <SelectValue />
@@ -538,7 +536,7 @@ function CalendarPage() {
                 <button
                   key={v}
                   type="button"
-                  onClick={() => setView(v)}
+                  onClick={() => changeView(v)}
                   className={cn(
                     "h-9 rounded-full px-3.5 text-sm font-semibold transition-colors sm:px-4",
                     view === v ? "bg-surface text-foreground shadow-soft" : "text-muted-foreground",
@@ -559,10 +557,8 @@ function CalendarPage() {
               <button
                 key={v}
                 type="button"
-                onClick={() => {
-                  if (v === "month" || v === "day") portraitViewRef.current = v;
-                  setView(v);
-                }}
+                onClick={() => changeView(v)}
+
                 className={cn(
                   "h-8 flex-1 rounded-full text-xs font-semibold transition-colors",
                   view === v ? "bg-surface text-foreground shadow-soft" : "text-muted-foreground",
