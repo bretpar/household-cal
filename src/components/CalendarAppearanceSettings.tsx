@@ -106,6 +106,10 @@ export function CalendarAppearanceSettings() {
           const iconValue = source.display_icon ?? CALENDAR_ICON_NONE;
           const SelectedIcon = calendarIconComponent(source.display_icon);
           const isLocal = source.provider === "local";
+          const background = source.display_mode === "coverage_background";
+          const previewTint = background
+            ? MUTED_CALENDAR_TINT[color]
+            : styleForColor(color).soft;
           return (
             <div key={source.id} className="space-y-2 px-3 py-3">
               <div className="flex min-w-0 items-center gap-2">
@@ -124,17 +128,36 @@ export function CalendarAppearanceSettings() {
                   }
                 >
                   <SelectTrigger
-                    className="h-9 w-32 rounded-lg text-xs"
+                    className="h-9 w-40 rounded-lg text-xs"
                     aria-label={`Display style for ${source.name}`}
                   >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="events">Events</SelectItem>
-                    <SelectItem value="coverage_background">Background</SelectItem>
+                    <SelectItem value="events">Events (front)</SelectItem>
+                    <SelectItem value="coverage_background">Background layer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="flex items-center gap-2 pl-8">
+                <span
+                  className={cn(
+                    "flex min-w-0 max-w-[16rem] items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold",
+                    previewTint,
+                    background && "text-muted-foreground",
+                  )}
+                >
+                  {SelectedIcon ? <SelectedIcon className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+                  <span className="truncate">{source.name}</span>
+                </span>
+                <span className="text-[11px] leading-snug text-muted-foreground">
+                  {background
+                    ? "Sits softly behind family events"
+                    : "Shows as a normal event card"}
+                </span>
+              </div>
+
 
               {isLocal ? null : (
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pl-8">
