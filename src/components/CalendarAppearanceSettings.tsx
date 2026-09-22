@@ -228,9 +228,12 @@ export function CalendarAppearanceSettings() {
         })}
       </div>
       <p className="px-1 text-xs leading-relaxed text-muted-foreground">
-        Pick a colour and an optional icon for each calendar. Background calendars use a softer
-        version of the same colour. Visibility is controlled from Calendar filters.
+        Pick a colour and symbol for each calendar. "Events (front)" shows normal cards;
+        "Background layer" shows softer blocks behind family events — useful for work shifts and
+        caregiver coverage. The preview shows exactly how it looks on Today and the calendar.
+        Visibility is controlled from Calendar filters.
       </p>
+
     </section>
   );
 }
