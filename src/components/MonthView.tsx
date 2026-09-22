@@ -218,12 +218,13 @@ export function MonthView({
                   >
                     <ClipboardPaste className="h-3.5 w-3.5" />
                   </button>
-                ) : coverage.length > 0 ? (
-                  <Baby
+                ) : coverageIcon ? (
+                  <coverageIcon.Icon
                     className="h-3.5 w-3.5 text-coverage-foreground"
-                    aria-label="Caregiver coverage"
+                    aria-label={coverageIcon.label}
                   />
                 ) : null}
+
               </div>
               <div className={fill ? "space-y-px" : "space-y-1"}>
                 {visible.slice(0, shownCount).map((occurrence) => (
