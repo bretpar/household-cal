@@ -13,8 +13,11 @@ import { Baby, ClipboardPaste } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { EventPill } from "@/components/EventCard";
+import { calendarIconComponent } from "@/lib/calendar-icons";
+import { useCalendar } from "@/lib/calendar-store";
 import { useReschedule } from "@/components/useReschedule";
 import { useLongPress } from "@/hooks/use-long-press";
+
 
 import {
   expandOccurrences,
