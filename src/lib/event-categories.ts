@@ -170,7 +170,12 @@ export function appearanceForEvent(
       muted,
     };
   }
-  return { ...categoryAppearance(category), icon: event.source_icon ?? null };
+  return {
+    ...categoryAppearance(category),
+    icon: event.source_icon ?? null,
+    muted: event.display_mode === "coverage_background",
+  };
+
 }
 
 
