@@ -92,3 +92,38 @@ export function AgendaView({
     </div>
   );
 }
+
+/**
+ * Background-layer row. The symbol and tint come from the calendar's own
+ * appearance settings; the caregiver face is only the fallback when no symbol
+ * has been chosen.
+ */
+function CoverageRow({ occurrence }: { occurrence: Occurrence }) {
+  const { openOccurrence, categoryAppearanceFor } = useCalendar();
+  const appearance = categoryAppearanceFor(occurrence.event);
+  const Icon = calendarIconComponent(appearance.icon) ?? Baby;
+  const tint = appearance.icon || appearance.muted ? eventTintClass(appearance) : "bg-coverage/60";
+
+  return (
+    <button
+      type="button"
+      title={appearance.label}
+      onClick={() => openOccurrence(occurrence)}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-muted-foreground",
+        tint,
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" aria-hidden />
+      <span className={`min-w-0 truncate ${EVENT_TYPE_SCALE.day.title}`}>
+        {occurrence.event.title}
+      </span>
+      <span
+        className={`shrink-0 truncate ${EVENT_TYPE_SCALE.day.time} ${eventTimeToneClass(true)}`}
+      >
+        {formatTimeRange(occurrence.start, occurrence.end, occurrence.event.all_day)}
+      </span>
+    </button>
+  );
+}
+
