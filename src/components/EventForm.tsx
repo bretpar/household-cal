@@ -445,9 +445,12 @@ export function draftFromFormState(
     : null;
   return {
     title: state.title.trim(),
-    start_at: state.allDay ? combine(state.date, "00:00") : combine(state.date, state.startTime),
+    // All-day entries are date-only: stored at UTC midnight (start) / UTC
+    // 23:59:59 on the inclusive last day, matching the Google/ICS convention so
+    // the calendar date never shifts through the viewer's timezone.
+    start_at: state.allDay ? `${state.date}T00:00:00.000Z` : combine(state.date, state.startTime),
     end_at: state.allDay
-      ? combine(state.endDate, "23:59")
+      ? `${state.endDate < state.date ? state.date : state.endDate}T23:59:59.000Z`
       : combine(state.endDate, state.endTime),
     all_day: state.allDay,
     location: state.location.trim() || null,

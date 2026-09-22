@@ -71,3 +71,28 @@ describe("date-only calendar values stay local calendar dates", () => {
     ]);
   });
 });
+
+describe("all-day events created inside the app", () => {
+  it("stores a single-day all-day event on one date only", async () => {
+    const { draftFromFormState, emptyFormState } = await import("@/components/EventForm");
+    const state = { ...emptyFormState(localDateFromKey("2026-09-21"), false), allDay: true, title: "Birthday" };
+    const draft = draftFromFormState(state);
+    const event = { ...allDayEvent("2026-09-21"), start_at: draft.start_at, end_at: draft.end_at };
+    const occurrences = expandOccurrences(
+      [event],
+      localDateFromKey("2026-09-19"),
+      localDateFromKey("2026-09-25"),
+    );
+    expect(occurrences.map((o) => dayKey(o.start))).toEqual(["2026-09-21"]);
+  });
+
+  it("reads legacy local-time all-day rows as one day", () => {
+    const event = {
+      ...allDayEvent("2026-09-21"),
+      start_at: new Date("2026-09-21T00:00").toISOString(),
+      end_at: new Date("2026-09-21T23:59").toISOString(),
+    };
+    expect(dayKey(eventStartDay(event))).toBe("2026-09-21");
+    expect(dayKey(eventEndDay(event))).toBe("2026-09-21");
+  });
+});
