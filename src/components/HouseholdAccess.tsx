@@ -194,9 +194,9 @@ export function HouseholdAccess() {
                   {m.is_self ? " (you)" : ""}
                 </span>
                 {isOwner ? (
-                  <span title="Account setup complete" className="shrink-0 text-success">
+                  <span title="Account set up" className="shrink-0 text-success">
                     <CircleCheck className="h-3.5 w-3.5" aria-hidden />
-                    <span className="sr-only">Account setup complete</span>
+                    <span className="sr-only">Account set up</span>
                   </span>
                 ) : null}
               </p>
