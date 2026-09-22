@@ -2,8 +2,11 @@ import { addDays, format, isSameDay, startOfDay } from "date-fns";
 import { Baby, ClipboardPaste } from "lucide-react";
 
 import { EventCard } from "@/components/EventCard";
+import { calendarIconComponent } from "@/lib/calendar-icons";
 import { useCalendar } from "@/lib/calendar-store";
+import { eventTintClass } from "@/lib/event-colors";
 import { EVENT_TYPE_SCALE, eventTimeToneClass } from "@/lib/event-typography";
+import { cn } from "@/lib/utils";
 import {
   expandOccurrences,
   formatTimeRange,
@@ -12,7 +15,9 @@ import {
   occurrenceMatchesFilter,
   type CalendarEvent,
   type MemberId,
+  type Occurrence,
 } from "@/lib/family-data";
+
 
 export function AgendaView({
   anchor,
