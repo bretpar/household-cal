@@ -364,9 +364,23 @@ export function localDateFromKey(key: string): Date {
  * real instant.
  */
 export function eventStartDay(event: Pick<CalendarEvent, "start_at" | "all_day">): Date {
-  return event.all_day
-    ? localDateFromKey(event.start_at)
-    : startOfDay(new Date(event.start_at));
+  return event.all_day ? allDayDate(event.start_at) : startOfDay(new Date(event.start_at));
+}
+
+/**
+ * The calendar date of one end of an all-day row.
+ *
+ * Date-only rows are stored at UTC midnight / UTC 23:59:59, so their date is
+ * the date part of the stored value. Older rows written by the in-app form
+ * stored a local wall-clock instant instead; those are recognised by their
+ * off-convention UTC time of day and read in the viewer's own timezone, so a
+ * one-day event never bleeds into the following day.
+ */
+function allDayDate(value: string): Date {
+  const instant = new Date(value);
+  const utcTime = value.slice(11, 19);
+  const dateOnlyConvention = utcTime === "00:00:00" || utcTime === "23:59:59";
+  return dateOnlyConvention ? localDateFromKey(value) : startOfDay(instant);
 }
 
 /** Inclusive last calendar date of an event (all-day ranges can span days). */
@@ -374,8 +388,8 @@ export function eventEndDay(
   event: Pick<CalendarEvent, "start_at" | "end_at" | "all_day">,
 ): Date {
   if (!event.all_day) return startOfDay(new Date(event.end_at));
-  const end = localDateFromKey(event.end_at);
-  const start = localDateFromKey(event.start_at);
+  const end = allDayDate(event.end_at);
+  const start = eventStartDay(event);
   return end < start ? start : end;
 }
 
