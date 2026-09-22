@@ -151,6 +151,17 @@ export function MonthView({
               .some((d) => d.getDate() === 1 && isSameMonth(d, month));
           const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
           const coverage = dayOccurrences.filter((o) => isCoverage(o.event));
+          // The day marker wears the background calendar's chosen symbol.
+          const coverageIcon = (() => {
+            const first = coverage[0];
+            if (!first) return null;
+            const appearance = categoryAppearanceFor(first.event);
+            return {
+              Icon: calendarIconComponent(appearance.icon) ?? Baby,
+              label: appearance.label,
+            };
+          })();
+
           const visible = dayOccurrences.filter(
             (o) => !isCoverage(o.event) && occurrenceMatchesFilter(o, selectedMembers),
           );
