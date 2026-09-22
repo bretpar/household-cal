@@ -71,23 +71,9 @@ export function AgendaView({
             </div>
 
             {coverage.map((o) => (
-              <button
-                key={o.key}
-                type="button"
-                onClick={() => openOccurrence(o)}
-                className="flex w-full items-center gap-2 rounded-2xl bg-coverage/60 px-3 py-2 text-left text-coverage-foreground"
-              >
-                <Baby className="h-4 w-4 shrink-0" aria-hidden />
-                <span className={`min-w-0 truncate ${EVENT_TYPE_SCALE.day.title}`}>
-                  {o.event.title}
-                </span>
-                <span
-                  className={`shrink-0 truncate ${EVENT_TYPE_SCALE.day.time} ${eventTimeToneClass(true)}`}
-                >
-                  {formatTimeRange(o.start, o.end, o.event.all_day)}
-                </span>
-              </button>
+              <CoverageRow key={o.key} occurrence={o} />
             ))}
+
 
             {visible.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-border bg-surface px-3 py-5 text-center text-sm text-muted-foreground">
