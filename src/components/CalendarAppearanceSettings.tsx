@@ -15,8 +15,10 @@ import {
   CALENDAR_ICON_KEYS,
   CALENDAR_ICON_LABELS,
   CALENDAR_ICON_NONE,
+  MUTED_CALENDAR_TINT,
   defaultCalendarColor,
 } from "@/lib/calendar-appearance";
+
 import { calendarIconComponent } from "@/lib/calendar-icons";
 import { styleForColor, type CalendarSource, type DisplayMode, type MemberColor } from "@/lib/family-data";
 import { setCalendarAppearance, setCalendarDisplayMode } from "@/lib/google.functions";
