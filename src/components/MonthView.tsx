@@ -13,8 +13,11 @@ import { Baby, ClipboardPaste } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { EventPill } from "@/components/EventCard";
+import { calendarIconComponent } from "@/lib/calendar-icons";
+import { useCalendar } from "@/lib/calendar-store";
 import { useReschedule } from "@/components/useReschedule";
 import { useLongPress } from "@/hooks/use-long-press";
+
 
 import {
   expandOccurrences,
@@ -54,6 +57,8 @@ export function MonthView({
   fill?: boolean;
 }) {
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
+  const { categoryAppearanceFor } = useCalendar();
+
   const WEEKDAYS = weekStartsOn === 0 ? SUNDAY_FIRST : MONDAY_FIRST;
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn });
   const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn });
@@ -146,6 +151,17 @@ export function MonthView({
               .some((d) => d.getDate() === 1 && isSameMonth(d, month));
           const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
           const coverage = dayOccurrences.filter((o) => isCoverage(o.event));
+          // The day marker wears the background calendar's chosen symbol.
+          const coverageIcon = (() => {
+            const first = coverage[0];
+            if (!first) return null;
+            const appearance = categoryAppearanceFor(first.event);
+            return {
+              Icon: calendarIconComponent(appearance.icon) ?? Baby,
+              label: appearance.label,
+            };
+          })();
+
           const visible = dayOccurrences.filter(
             (o) => !isCoverage(o.event) && occurrenceMatchesFilter(o, selectedMembers),
           );
@@ -213,12 +229,13 @@ export function MonthView({
                   >
                     <ClipboardPaste className="h-3.5 w-3.5" />
                   </button>
-                ) : coverage.length > 0 ? (
-                  <Baby
+                ) : coverageIcon ? (
+                  <coverageIcon.Icon
                     className="h-3.5 w-3.5 text-coverage-foreground"
-                    aria-label="Caregiver coverage"
+                    aria-label={coverageIcon.label}
                   />
                 ) : null}
+
               </div>
               <div className={fill ? "space-y-px" : "space-y-1"}>
                 {visible.slice(0, shownCount).map((occurrence) => (
