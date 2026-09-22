@@ -57,6 +57,8 @@ export function MonthView({
   fill?: boolean;
 }) {
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
+  const { categoryAppearanceFor } = useCalendar();
+
   const WEEKDAYS = weekStartsOn === 0 ? SUNDAY_FIRST : MONDAY_FIRST;
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn });
   const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn });
