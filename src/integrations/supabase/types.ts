@@ -997,6 +997,45 @@ export type Database = {
           },
         ]
       }
+      native_auth_handoffs: {
+        Row: {
+          challenge: string
+          code_expires_at: string | null
+          code_hash: string | null
+          completed_at: string | null
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          refresh_token_enc: string | null
+          user_id: string | null
+        }
+        Insert: {
+          challenge: string
+          code_expires_at?: string | null
+          code_hash?: string | null
+          completed_at?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          refresh_token_enc?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          challenge?: string
+          code_expires_at?: string | null
+          code_hash?: string | null
+          completed_at?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          refresh_token_enc?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

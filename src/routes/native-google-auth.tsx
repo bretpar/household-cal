@@ -4,16 +4,24 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
-import { NATIVE_AUTH_CALLBACK, isValidNativeState } from "@/lib/native-auth";
+import { completeNativeHandoff } from "@/lib/native-auth.functions";
+import {
+  NATIVE_AUTH_SCHEME_CALLBACK,
+  NATIVE_AUTH_UNIVERSAL_CALLBACK,
+  isValidNativeState,
+  isValidRequestId,
+} from "@/lib/native-auth";
 
 /**
- * Opened by the iOS app in the system browser. Runs the normal Google sign-in,
- * then returns the session to the app via its URL scheme. The browser copy of
- * the session is then cleared locally (the refresh token stays valid for the app).
+ * Opened by the iOS app in the system browser. Always performs a *fresh* Google
+ * sign-in (an existing browser session is never reused), exchanges it server-side
+ * for a one-time code bound to the app's verifier, and returns only that code.
  */
 export const Route = createFileRoute("/native-google-auth")({
-  validateSearch: (search: Record<string, unknown>): { state?: string } =>
-    isValidNativeState(search["state"]) ? { state: search["state"] } : {},
+  validateSearch: (search: Record<string, unknown>): { request?: string; state?: string } =>
+    isValidRequestId(search["request"]) && isValidNativeState(search["state"])
+      ? { request: search["request"], state: search["state"] }
+      : {},
   head: () => ({
     meta: [
       { title: "Signing in — Our Family Calendar" },
@@ -28,43 +36,64 @@ export const Route = createFileRoute("/native-google-auth")({
   component: NativeGoogleAuthPage,
 });
 
+function withParams(base: string, code: string, state: string) {
+  const u = new URL(base);
+  u.searchParams.set("code", code);
+  u.searchParams.set("state", state);
+  return u.toString();
+}
+
 function NativeGoogleAuthPage() {
-  const { state } = Route.useSearch();
+  const { request, state } = Route.useSearch();
   const [returnUrl, setReturnUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!state) {
+    if (!request || !state) {
       setError("This sign-in link is invalid. Please try again from the app.");
       return;
     }
+    const markerKey = `ofc-native-req-${request}`;
     let cancelled = false;
-    (async () => {
+
+    const finish = async () => {
       const { data } = await supabase.auth.getSession();
-      if (cancelled) return;
       const session = data.session;
-      if (!session) {
-        const result = await lovable.auth.signInWithOAuth("google", {
-          redirect_uri: `${window.location.origin}/native-google-auth?state=${state}`,
-        });
-        if (result.error) setError("Google sign-in failed. Please try again.");
-        return;
-      }
-      const hash = new URLSearchParams({
-        state,
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
+      sessionStorage.removeItem(markerKey);
+      if (!session) throw new Error("no session");
+      const { code } = await completeNativeHandoff({
+        data: { requestId: request, refreshToken: session.refresh_token },
       });
-      const url = `${NATIVE_AUTH_CALLBACK}#${hash.toString()}`;
-      // Drop the browser-side copy without revoking the tokens handed to the app.
+      // The server rotated this refresh token; drop the browser copy.
       await supabase.auth.signOut({ scope: "local" });
-      setReturnUrl(url);
-      window.location.href = url;
+      if (cancelled) return;
+      setReturnUrl(withParams(NATIVE_AUTH_UNIVERSAL_CALLBACK, code, state));
+      window.location.href = withParams(NATIVE_AUTH_SCHEME_CALLBACK, code, state);
+    };
+
+    (async () => {
+      try {
+        if (!sessionStorage.getItem(markerKey)) {
+          // First visit: never reuse an existing browser session.
+          sessionStorage.setItem(markerKey, "1");
+          await supabase.auth.signOut({ scope: "local" });
+          const result = await lovable.auth.signInWithOAuth("google", {
+            redirect_uri: `${window.location.origin}/native-google-auth?request=${request}&state=${state}`,
+          });
+          if (result.error) throw result.error;
+          if (result.redirected) return;
+        }
+        await finish();
+      } catch {
+        sessionStorage.removeItem(markerKey);
+        await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+        if (!cancelled) setError("Google sign-in failed. Please return to the app and try again.");
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [state]);
+  }, [request, state]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6 text-center">

@@ -1,77 +1,121 @@
 /**
- * Google sign-in for the iOS app shell.
+ * Google sign-in for the iOS app shell (PKCE-style handoff; no tokens in URLs).
  *
- * Google blocks OAuth inside embedded web views, so in the native app we:
- *  1. open /native-google-auth in the system browser (SFSafariViewController)
- *     with a one-time random `state`,
- *  2. that page runs the normal Lovable Cloud Google sign-in there,
- *  3. then hands the session back via the app's URL scheme
- *     (com.ourfamilycalendar.app://auth-callback#state=…&access_token=…&refresh_token=…),
- *  4. the app verifies `state`, closes the browser and calls setSession().
+ *  1. App creates a random verifier + state, registers sha256(verifier) with the server
+ *     and opens /native-google-auth?request=…&state=… in the system browser.
+ *  2. That page forces a fresh Google sign-in and gets a one-time code bound to the request.
+ *  3. The browser returns to the app with only ?code=…&state=… (Universal Link, or the
+ *     custom scheme as fallback). The code is worthless without the verifier.
+ *  4. The app validates the URL exactly, checks state/expiry, consumes its pending record,
+ *     and redeems code + verifier over HTTPS for a session.
  *
- * On the web none of this runs: isNativeApp() is false and the existing flow is used.
+ * On the web none of this runs: isNativeApp() is false.
  */
 import { Capacitor } from "@capacitor/core";
 
 import { supabase } from "@/integrations/supabase/client";
+import { redeemNativeHandoff, startNativeHandoff } from "@/lib/native-auth.functions";
 
 export const NATIVE_AUTH_SCHEME = "com.ourfamilycalendar.app";
-export const NATIVE_AUTH_CALLBACK = `${NATIVE_AUTH_SCHEME}://auth-callback`;
+export const NATIVE_AUTH_SCHEME_CALLBACK = `${NATIVE_AUTH_SCHEME}://auth-callback`;
+/** Universal Link return (different host from the sign-in page so Safari hands off on tap). */
+export const NATIVE_AUTH_UNIVERSAL_CALLBACK = "https://www.ourfamilycalendar.com/native-auth/callback";
+const UNIVERSAL_HOSTS = new Set(["www.ourfamilycalendar.com", "ourfamilycalendar.com"]);
 const WEB_ORIGIN = "https://ourfamilycalendar.com";
-const STATE_KEY = "ofc-native-google-state";
-const STATE_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
+const PENDING_KEY = "ofc-native-google-pending";
+const PENDING_TTL_MS = 10 * 60 * 1000;
+const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const STATE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isNativeApp(): boolean {
   return Capacitor.isNativePlatform();
 }
 
-export function isValidNativeState(state: unknown): state is string {
-  return typeof state === "string" && STATE_PATTERN.test(state);
-}
+export const isValidNativeState = (v: unknown): v is string => typeof v === "string" && STATE_PATTERN.test(v);
+export const isValidRequestId = (v: unknown): v is string => typeof v === "string" && UUID_PATTERN.test(v);
+export const isValidHandoffCode = (v: unknown): v is string => typeof v === "string" && TOKEN_PATTERN.test(v);
 
-function randomState(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+function b64url(bytes: Uint8Array): string {
+  let s = "";
+  bytes.forEach((b) => (s += String.fromCharCode(b)));
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
+const random = () => b64url(crypto.getRandomValues(new Uint8Array(32)));
+
+type Pending = { state: string; verifier: string; expiresAt: number };
 
 export async function startNativeGoogleSignIn(): Promise<void> {
-  const state = randomState();
-  localStorage.setItem(STATE_KEY, state);
+  const verifier = random();
+  const state = random();
+  const challenge = b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))));
+  const { requestId } = await startNativeHandoff({ data: { challenge } });
+  const pending: Pending = { state, verifier, expiresAt: Date.now() + PENDING_TTL_MS };
+  localStorage.setItem(PENDING_KEY, JSON.stringify(pending));
   const { Browser } = await import("@capacitor/browser");
-  await Browser.open({
-    url: `${WEB_ORIGIN}/native-google-auth?state=${state}`,
-    presentationStyle: "popover",
-  });
+  const url = new URL("/native-google-auth", WEB_ORIGIN);
+  url.searchParams.set("request", requestId);
+  url.searchParams.set("state", state);
+  await Browser.open({ url: url.toString(), presentationStyle: "popover" });
+}
+
+/** Exact parse of an incoming return URL. Returns code+state or null. */
+export function parseNativeCallback(raw: string): { code: string; state: string } | null {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  const isScheme =
+    u.protocol === `${NATIVE_AUTH_SCHEME}:` && u.host === "auth-callback" && (u.pathname === "" || u.pathname === "/");
+  const isUniversal =
+    u.protocol === "https:" && UNIVERSAL_HOSTS.has(u.host) && u.pathname === "/native-auth/callback" && !u.port;
+  if (!isScheme && !isUniversal) return null;
+  if (u.username || u.password || u.hash) return null;
+  const keys = [...u.searchParams.keys()];
+  if (keys.length !== 2) return null;
+  const code = u.searchParams.get("code");
+  const state = u.searchParams.get("state");
+  if (!isValidHandoffCode(code) || !isValidNativeState(state)) return null;
+  return { code, state };
+}
+
+function takePending(): Pending | null {
+  const raw = localStorage.getItem(PENDING_KEY);
+  localStorage.removeItem(PENDING_KEY); // single use, consumed on any callback
+  if (!raw) return null;
+  try {
+    const p = JSON.parse(raw) as Pending;
+    if (!isValidNativeState(p.state) || typeof p.verifier !== "string" || !(p.expiresAt > Date.now())) return null;
+    return p;
+  } catch {
+    return null;
+  }
 }
 
 let listenerInstalled = false;
 
-/** Install once at app start (native only). Resolves the handoff back from the browser. */
 export async function installNativeAuthListener(onSignedIn: () => void): Promise<void> {
   if (!isNativeApp() || listenerInstalled) return;
   listenerInstalled = true;
-  const [{ App }, { Browser }] = await Promise.all([
-    import("@capacitor/app"),
-    import("@capacitor/browser"),
-  ]);
+  const [{ App }, { Browser }] = await Promise.all([import("@capacitor/app"), import("@capacitor/browser")]);
   await App.addListener("appUrlOpen", async ({ url }) => {
-    if (!url.startsWith(NATIVE_AUTH_CALLBACK)) return;
+    const parsed = parseNativeCallback(url);
+    if (!parsed) return;
     await Browser.close().catch(() => {});
-    const params = new URLSearchParams(url.split("#")[1] ?? "");
-    const expected = localStorage.getItem(STATE_KEY);
-    localStorage.removeItem(STATE_KEY);
-    const state = params.get("state");
-    const access_token = params.get("access_token");
-    const refresh_token = params.get("refresh_token");
-    if (!expected || state !== expected || !access_token || !refresh_token) {
-      console.warn("[native-auth] Ignored sign-in callback with invalid state");
+    const pending = takePending();
+    if (!pending || pending.state !== parsed.state) {
+      console.warn("[native-auth] Ignored sign-in callback with invalid or expired state");
       return;
     }
-    const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-    if (error) {
-      console.error("[native-auth] setSession failed", error);
-      return;
+    try {
+      const tokens = await redeemNativeHandoff({ data: { code: parsed.code, verifier: pending.verifier } });
+      const { error } = await supabase.auth.setSession(tokens);
+      if (error) throw error;
+      onSignedIn();
+    } catch {
+      console.error("[native-auth] Sign-in handoff failed");
     }
-    onSignedIn();
   });
 }
