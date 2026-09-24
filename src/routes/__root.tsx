@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { installNativeAuthListener } from "@/lib/native-auth";
 
 
 function NotFoundComponent() {
@@ -143,6 +144,14 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+
+  useEffect(() => {
+    // iOS shell only: receive the Google sign-in handoff from the system browser.
+    void installNativeAuthListener(() => {
+      const redirect = new URLSearchParams(window.location.search).get("redirect");
+      window.location.assign(redirect?.startsWith("/") && !redirect.startsWith("//") ? redirect : "/today");
+    });
+  }, []);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {

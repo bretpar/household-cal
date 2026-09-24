@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, validatePassword } from "@/lib/password";
+import { isNativeApp, startNativeGoogleSignIn } from "@/lib/native-auth";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -129,6 +130,11 @@ function AuthPage() {
 
 
   const googleSignIn = async () => {
+    if (isNativeApp()) {
+      // iOS shell: Google blocks embedded web views; sign in via the system browser.
+      await startNativeGoogleSignIn().catch(() => toast.error("Google sign-in failed"));
+      return;
+    }
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: redirect
         ? `${window.location.origin}/auth?redirect=${encodeURIComponent(redirect)}`
