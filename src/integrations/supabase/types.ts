@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_deletion_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          google_revoke_failures: number
+          last_error: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          google_revoke_failures?: number
+          last_error?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          google_revoke_failures?: number
+          last_error?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       activities: {
         Row: {
           active: boolean
@@ -1132,6 +1162,15 @@ export type Database = {
     }
     Functions: {
       can_edit_family: { Args: { _family_id: string }; Returns: boolean }
+      delete_account_data: {
+        Args: {
+          _delete_households: string[]
+          _email: string
+          _transfers: Json
+          _user_id: string
+        }
+        Returns: Json
+      }
       enqueue_google_manual_sync: {
         Args: {
           _attempt_id: string
