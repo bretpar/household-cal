@@ -157,6 +157,15 @@ function FamilyPage() {
             <p className="mt-1 text-xs text-muted-foreground">
               {role ? ROLE_LABEL[role] ?? role : "Household member"}
             </p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Need help?{" "}
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                className="font-semibold text-foreground underline underline-offset-2"
+              >
+                {SUPPORT_EMAIL}
+              </a>
+            </p>
           </div>
           <Button
             type="button"
