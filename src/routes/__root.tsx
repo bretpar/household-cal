@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { installNativeAuthListener } from "@/lib/native-auth";
+import { sanitizeReturnPath } from "@/lib/return-path";
 
 
 function NotFoundComponent() {
@@ -149,7 +150,7 @@ function RootComponent() {
     // iOS shell only: receive the Google sign-in handoff from the system browser.
     void installNativeAuthListener(() => {
       const redirect = new URLSearchParams(window.location.search).get("redirect");
-      window.location.assign(redirect?.startsWith("/") && !redirect.startsWith("//") ? redirect : "/today");
+      window.location.assign(sanitizeReturnPath(redirect));
     });
   }, []);
 

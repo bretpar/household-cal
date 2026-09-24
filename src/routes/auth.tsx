@@ -9,12 +9,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, validatePassword } from "@/lib/password";
 import { isNativeApp, startNativeGoogleSignIn } from "@/lib/native-auth";
+import { sanitizeReturnPath } from "@/lib/return-path";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => {
     const value = search["redirect"];
-    return typeof value === "string" && value.startsWith("/") ? { redirect: value } : {};
+    if (typeof value !== "string") return {};
+    const safe = sanitizeReturnPath(value);
+    return safe === "/today" && value !== "/today" ? {} : { redirect: safe };
   },
   head: () => ({
     meta: [
