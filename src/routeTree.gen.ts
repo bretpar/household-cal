@@ -27,6 +27,7 @@ import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as NativeAuthCallbackRouteImport } from './routes/native-auth.callback'
 import { Route as UnsubscribeTokenRouteImport } from './routes/unsubscribe.$token'
 import { Route as OauthGoogleCalendarReturnRouteImport } from './routes/oauth/google-calendar/return'
+import { Route as ApiPublicAccountDeletionRequeueRouteImport } from './routes/api/public/account-deletion/requeue'
 import { Route as ApiPublicEmailSummariesDispatchRouteImport } from './routes/api/public/email-summaries/dispatch'
 import { Route as ApiPublicGoogleCalendarManualSyncRouteImport } from './routes/api/public/google-calendar/manual-sync'
 import { Route as ApiPublicGoogleCalendarNotifyRouteImport } from './routes/api/public/google-calendar/notify'
@@ -126,6 +127,12 @@ const OauthGoogleCalendarReturnRoute =
     path: '/oauth/google-calendar/return',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicAccountDeletionRequeueRoute =
+  ApiPublicAccountDeletionRequeueRouteImport.update({
+    id: '/api/public/account-deletion/requeue',
+    path: '/api/public/account-deletion/requeue',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicEmailSummariesDispatchRoute =
   ApiPublicEmailSummariesDispatchRouteImport.update({
     id: '/api/public/email-summaries/dispatch',
@@ -180,6 +187,7 @@ export interface FileRoutesByFullPath {
   '/native-auth/callback': typeof NativeAuthCallbackRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/api/public/account-deletion/requeue': typeof ApiPublicAccountDeletionRequeueRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
   '/api/public/google-calendar/manual-sync': typeof ApiPublicGoogleCalendarManualSyncRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
@@ -205,6 +213,7 @@ export interface FileRoutesByTo {
   '/native-auth/callback': typeof NativeAuthCallbackRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/api/public/account-deletion/requeue': typeof ApiPublicAccountDeletionRequeueRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
   '/api/public/google-calendar/manual-sync': typeof ApiPublicGoogleCalendarManualSyncRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
@@ -232,6 +241,7 @@ export interface FileRoutesById {
   '/native-auth/callback': typeof NativeAuthCallbackRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/api/public/account-deletion/requeue': typeof ApiPublicAccountDeletionRequeueRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
   '/api/public/google-calendar/manual-sync': typeof ApiPublicGoogleCalendarManualSyncRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
@@ -259,6 +269,7 @@ export interface FileRouteTypes {
     | '/native-auth/callback'
     | '/unsubscribe/$token'
     | '/oauth/google-calendar/return'
+    | '/api/public/account-deletion/requeue'
     | '/api/public/email-summaries/dispatch'
     | '/api/public/google-calendar/manual-sync'
     | '/api/public/google-calendar/notify'
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | '/native-auth/callback'
     | '/unsubscribe/$token'
     | '/oauth/google-calendar/return'
+    | '/api/public/account-deletion/requeue'
     | '/api/public/email-summaries/dispatch'
     | '/api/public/google-calendar/manual-sync'
     | '/api/public/google-calendar/notify'
@@ -310,6 +322,7 @@ export interface FileRouteTypes {
     | '/native-auth/callback'
     | '/unsubscribe/$token'
     | '/oauth/google-calendar/return'
+    | '/api/public/account-deletion/requeue'
     | '/api/public/email-summaries/dispatch'
     | '/api/public/google-calendar/manual-sync'
     | '/api/public/google-calendar/notify'
@@ -331,6 +344,7 @@ export interface RootRouteChildren {
   NativeAuthCallbackRoute: typeof NativeAuthCallbackRoute
   UnsubscribeTokenRoute: typeof UnsubscribeTokenRoute
   OauthGoogleCalendarReturnRoute: typeof OauthGoogleCalendarReturnRoute
+  ApiPublicAccountDeletionRequeueRoute: typeof ApiPublicAccountDeletionRequeueRoute
   ApiPublicEmailSummariesDispatchRoute: typeof ApiPublicEmailSummariesDispatchRoute
   ApiPublicGoogleCalendarManualSyncRoute: typeof ApiPublicGoogleCalendarManualSyncRoute
   ApiPublicGoogleCalendarNotifyRoute: typeof ApiPublicGoogleCalendarNotifyRoute
@@ -467,6 +481,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OauthGoogleCalendarReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/account-deletion/requeue': {
+      id: '/api/public/account-deletion/requeue'
+      path: '/api/public/account-deletion/requeue'
+      fullPath: '/api/public/account-deletion/requeue'
+      preLoaderRoute: typeof ApiPublicAccountDeletionRequeueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/email-summaries/dispatch': {
       id: '/api/public/email-summaries/dispatch'
       path: '/api/public/email-summaries/dispatch'
@@ -547,6 +568,7 @@ const rootRouteChildren: RootRouteChildren = {
   NativeAuthCallbackRoute: NativeAuthCallbackRoute,
   UnsubscribeTokenRoute: UnsubscribeTokenRoute,
   OauthGoogleCalendarReturnRoute: OauthGoogleCalendarReturnRoute,
+  ApiPublicAccountDeletionRequeueRoute: ApiPublicAccountDeletionRequeueRoute,
   ApiPublicEmailSummariesDispatchRoute: ApiPublicEmailSummariesDispatchRoute,
   ApiPublicGoogleCalendarManualSyncRoute:
     ApiPublicGoogleCalendarManualSyncRoute,
