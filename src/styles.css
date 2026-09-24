@@ -294,6 +294,12 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Safe area (iOS shell / home-screen app): keep the header clear of the notch
+   and status bar. The inset is 0 in normal browsers, so web layout is unchanged. */
+.app-shell-header {
+  padding-top: env(safe-area-inset-top);
+}
+
 
 /* Phone landscape calendar workspace: only the compact calendar toolbar stays
    above the full-height, vertically scrolling 45px/hour timeline. */
