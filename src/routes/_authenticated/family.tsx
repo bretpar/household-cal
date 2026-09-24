@@ -11,6 +11,7 @@ import {
   UserRound,
 } from "lucide-react";
 
+import { AccountDeletion } from "@/components/AccountDeletion";
 import { AppShell } from "@/components/AppShell";
 import { AppleCalendarSubscriptions } from "@/components/AppleCalendarSubscriptions";
 import { CalendarAppearanceSettings } from "@/components/CalendarAppearanceSettings";
@@ -177,6 +178,7 @@ function FamilyPage() {
             <LogOut className="h-5 w-5" aria-hidden />
             Sign out
           </Button>
+          <AccountDeletion />
         </SettingsSection>
 
         <section className="border-t border-border-soft pt-5">
