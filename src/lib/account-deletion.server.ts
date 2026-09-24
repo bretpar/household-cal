@@ -133,6 +133,16 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
 }
 
+const MAX_ATTEMPTS = 50;
+
+/** Short, credential-free failure text safe to store. */
+export function sanitize(value: unknown): string {
+  return String((value as any)?.message ?? value ?? "unknown")
+    .replace(/(eyJ[\w-]+\.[\w-]+\.[\w-]+)|(sb_[a-z]+_[\w-]+)|(Bearer\s+\S+)/gi, "[redacted]")
+    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]")
+    .slice(0, 200);
+}
+
 function isUserNotFound(error: any): boolean {
   return error?.status === 404 || /not.?found/i.test(String(error?.message ?? ""));
 }
@@ -166,7 +176,7 @@ export async function deleteAccount(
 
   const unblock = async (reason: string) => {
     await db.auth.admin.updateUserById(userId, { ban_duration: "none" });
-    await setJob(db, userId, { status: "failed", last_error: reason });
+    await setJob(db, userId, { status: "rolled_back", last_error: sanitize(reason) });
   };
 
   const keys: string[] = [];
@@ -220,7 +230,7 @@ export async function deleteAccount(
   if (del.error && !isUserNotFound(del.error)) {
     await setJob(db, userId, {
       status: "data_removed",
-      last_error: String(del.error.message ?? del.error),
+      last_error: sanitize(del.error),
       google_revoke_failures: failures,
     });
     return { ok: false, pending: true };
@@ -229,29 +239,76 @@ export async function deleteAccount(
   return { ok: true, google_revoke_failures: failures };
 }
 
-/** Scheduled retry for accounts whose data was removed but auth deletion failed. */
-export async function retryPendingAccountDeletions(db: DeletionDb): Promise<{ retried: number; completed: number }> {
-  const { data } = await db
+/**
+ * Scheduled retry for accounts whose data was removed but auth deletion failed.
+ * The auth user is only deleted when the cleanup RPC explicitly returned ok and
+ * the job is still "data_removed". After MAX_ATTEMPTS the job becomes "failed"
+ * (still blocking access) until an administrator re-queues it.
+ */
+export async function retryPendingAccountDeletions(
+  db: DeletionDb,
+): Promise<{ retried: number; completed: number; exhausted: number }> {
+  const { data, error } = await db
     .from("account_deletion_jobs")
-    .select("user_id, attempts")
+    .select("user_id, attempts, status")
     .eq("status", "data_removed")
-    .lt("attempts", 50)
     .limit(20);
+  if (error) throw new Error(`load deletion jobs: ${sanitize(error)}`);
   let completed = 0;
-  for (const job of (data ?? []) as { user_id: string; attempts: number }[]) {
-    // Re-run the idempotent data cleanup first in case anything reappeared.
-    await db.rpc("delete_account_data", { _user_id: job.user_id, _email: null, _transfers: {}, _delete_households: [] });
-    const del = await db.auth.admin.deleteUser(job.user_id);
-    const ok = !del.error || isUserNotFound(del.error);
+  let exhausted = 0;
+  for (const job of (data ?? []) as { user_id: string; attempts: number; status: string }[]) {
+    const attempts = job.attempts + 1;
+    let failure: string | null = null;
+    try {
+      const rpc = await db.rpc("delete_account_data", {
+        _user_id: job.user_id,
+        _email: null,
+        _transfers: {},
+        _delete_households: [],
+      });
+      if (rpc.error || rpc.data?.ok !== true) {
+        failure = `cleanup: ${sanitize(rpc.error ?? rpc.data?.reason ?? "not ok")}`;
+      } else {
+        const recheck = await db
+          .from("account_deletion_jobs")
+          .select("status")
+          .eq("user_id", job.user_id)
+          .maybeSingle();
+        if (recheck.error || recheck.data?.status !== "data_removed") {
+          failure = "job state changed";
+        } else {
+          const del = await db.auth.admin.deleteUser(job.user_id);
+          if (del.error && !isUserNotFound(del.error)) failure = `auth: ${sanitize(del.error)}`;
+        }
+      }
+    } catch (e) {
+      failure = sanitize(e);
+    }
+    const status = failure === null ? "completed" : attempts >= MAX_ATTEMPTS ? "failed" : "data_removed";
     await db
       .from("account_deletion_jobs")
-      .update({
-        status: ok ? "completed" : "data_removed",
-        attempts: job.attempts + 1,
-        last_error: ok ? null : String(del.error?.message ?? del.error),
-      })
-      .eq("user_id", job.user_id);
-    if (ok) completed += 1;
+      .update({ status, attempts, last_error: failure })
+      .eq("user_id", job.user_id)
+      .eq("status", "data_removed");
+    if (failure === null) completed += 1;
+    else if (status === "failed") exhausted += 1;
   }
-  return { retried: data?.length ?? 0, completed };
+  return { retried: data?.length ?? 0, completed, exhausted };
+}
+
+/**
+ * Administrative re-queue for an exhausted ("failed") job, after the underlying
+ * problem is fixed. Never restores access: the job goes back to "data_removed"
+ * and deletion is retried immediately.
+ */
+export async function requeueFailedAccountDeletion(db: DeletionDb, userId: string) {
+  const { data, error } = await db
+    .from("account_deletion_jobs")
+    .update({ status: "data_removed", attempts: 0 })
+    .eq("user_id", userId)
+    .eq("status", "failed")
+    .select("user_id");
+  if (error) throw new Error(`requeue: ${sanitize(error)}`);
+  if (!data?.length) return { requeued: false as const };
+  return { requeued: true as const, ...(await retryPendingAccountDeletions(db)) };
 }

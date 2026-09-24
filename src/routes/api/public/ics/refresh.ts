@@ -16,15 +16,17 @@ export const Route = createFileRoute("/api/public/ics/refresh")({
         runScheduledJob("ics-subscriptions-refresh", request, async () => {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { refreshAllSubscriptions } = await import("@/lib/ics/import.server");
-          const result = await refreshAllSubscriptions(supabaseAdmin as never);
-          // Piggyback: finish any account deletions whose final step failed.
+          // Account-deletion retries run first and independently, so an Apple
+          // feed outage can never block them (and they never block the refresh).
+          let deletionRetry: unknown = null;
           try {
             const { retryPendingAccountDeletions } = await import("@/lib/account-deletion.server");
-            await retryPendingAccountDeletions(supabaseAdmin as never);
+            deletionRetry = await retryPendingAccountDeletions(supabaseAdmin as never);
           } catch (error) {
             console.error("[account-deletion] retry failed", error);
           }
-          return result;
+          const result = await refreshAllSubscriptions(supabaseAdmin as never);
+          return { ...(result as object), deletionRetry };
         }),
     },
   },

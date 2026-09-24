@@ -1161,6 +1161,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      account_deletion_blocked: { Args: { _user_id: string }; Returns: boolean }
       can_edit_family: { Args: { _family_id: string }; Returns: boolean }
       delete_account_data: {
         Args: {
