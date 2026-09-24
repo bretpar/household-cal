@@ -24,9 +24,14 @@ export const deleteMyAccount = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { deleteAccount } = await import("@/lib/account-deletion.server");
     return deleteAccount(supabaseAdmin as unknown as DeletionDb, context.userId, data, {
-      revokeGoogle: async (familyId) => {
-        const { disconnectAccount } = await import("@/lib/google-settings.server");
-        return disconnectAccount(familyId);
+      readGoogleKey: async (familyId) => {
+        const { existingConnectionKey } = await import("@/lib/google-settings.server");
+        return existingConnectionKey(familyId);
+      },
+      revokeGoogle: async (connectionAPIKey) => {
+        const { disconnectAppUser } = await import("@/integrations/lovable/appUserConnector");
+        const { GATEWAY_BASE_URL } = await import("@/lib/google/api.server");
+        return disconnectAppUser({ gatewayBaseUrl: GATEWAY_BASE_URL, connectionAPIKey, connectorId: "google_calendar" });
       },
     });
   });

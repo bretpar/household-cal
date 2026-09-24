@@ -16,7 +16,15 @@ export const Route = createFileRoute("/api/public/ics/refresh")({
         runScheduledJob("ics-subscriptions-refresh", request, async () => {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { refreshAllSubscriptions } = await import("@/lib/ics/import.server");
-          return refreshAllSubscriptions(supabaseAdmin as never);
+          const result = await refreshAllSubscriptions(supabaseAdmin as never);
+          // Piggyback: finish any account deletions whose final step failed.
+          try {
+            const { retryPendingAccountDeletions } = await import("@/lib/account-deletion.server");
+            await retryPendingAccountDeletions(supabaseAdmin as never);
+          } catch (error) {
+            console.error("[account-deletion] retry failed", error);
+          }
+          return result;
         }),
     },
   },
