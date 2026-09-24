@@ -16,28 +16,37 @@ export type Database = {
     Tables: {
       account_deletion_jobs: {
         Row: {
+          attempt_id: string | null
           attempts: number
           created_at: string
           google_revoke_failures: number
           last_error: string | null
+          lease_expires_at: string | null
+          sign_in_restored: boolean
           status: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          attempt_id?: string | null
           attempts?: number
           created_at?: string
           google_revoke_failures?: number
           last_error?: string | null
+          lease_expires_at?: string | null
+          sign_in_restored?: boolean
           status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          attempt_id?: string | null
           attempts?: number
           created_at?: string
           google_revoke_failures?: number
           last_error?: string | null
+          lease_expires_at?: string | null
+          sign_in_restored?: boolean
           status?: string
           updated_at?: string
           user_id?: string
@@ -1187,6 +1196,10 @@ export type Database = {
       }
       has_family_access: { Args: { _family_id: string }; Returns: boolean }
       is_family_owner: { Args: { _family_id: string }; Returns: boolean }
+      recover_stale_account_deletion: {
+        Args: { _user_id: string }
+        Returns: string
+      }
       try_start_google_manual_sync: {
         Args: { _family_id: string; _stale_before: string }
         Returns: {

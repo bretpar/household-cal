@@ -134,6 +134,50 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 const MAX_ATTEMPTS = 50;
+/** An attempt older than this with no running database step is abandoned. */
+const LEASE_MS = 15 * 60 * 1000;
+
+/**
+ * Recovers abandoned "pending" jobs. The database step refuses (SKIP LOCKED)
+ * while a deletion transaction holds the job, and refuses before the lease
+ * expires. A pending job can only be rolled back when nothing was committed,
+ * because data removal and the "data_removed" status commit together.
+ * Sign-in is restored only after the database confirmed the rollback; a failed
+ * restore is retried on the next run (sign_in_restored = false).
+ */
+export async function recoverStalePendingDeletions(
+  db: DeletionDb,
+  onlyUserId?: string,
+): Promise<{ recovered: number; restored: number }> {
+  let q = db.from("account_deletion_jobs").select("user_id").eq("status", "pending");
+  if (onlyUserId) q = q.eq("user_id", onlyUserId);
+  const { data, error } = await q.limit(20);
+  if (error) throw new Error(`load pending jobs: ${sanitize(error)}`);
+  let recovered = 0;
+  for (const job of (data ?? []) as { user_id: string }[]) {
+    const r = await db.rpc("recover_stale_account_deletion", { _user_id: job.user_id });
+    if (!r.error && r.data === "rolled_back") recovered += 1;
+  }
+  let rq = db
+    .from("account_deletion_jobs")
+    .select("user_id")
+    .eq("status", "rolled_back")
+    .eq("sign_in_restored", false);
+  if (onlyUserId) rq = rq.eq("user_id", onlyUserId);
+  const pendingRestore = await rq.limit(20);
+  let restored = 0;
+  for (const job of (pendingRestore.data ?? []) as { user_id: string }[]) {
+    const un = await db.auth.admin.updateUserById(job.user_id, { ban_duration: "none" });
+    if (un.error && !isUserNotFound(un.error)) continue;
+    await db
+      .from("account_deletion_jobs")
+      .update({ sign_in_restored: true })
+      .eq("user_id", job.user_id)
+      .eq("status", "rolled_back");
+    restored += 1;
+  }
+  return { recovered, restored };
+}
 
 /** Short, credential-free failure text safe to store. */
 export function sanitize(value: unknown): string {
@@ -170,7 +214,13 @@ export async function deleteAccount(
   if (!isPlanReady(plans)) return { ok: false, plans };
 
   const email = (await db.auth.admin.getUserById(userId)).data.user?.email ?? null;
-  await setJob(db, userId, { status: "pending", last_error: null });
+  await setJob(db, userId, {
+    status: "pending",
+    last_error: null,
+    attempt_id: crypto.randomUUID(),
+    lease_expires_at: new Date(Date.now() + LEASE_MS).toISOString(),
+    sign_in_restored: true,
+  });
   const ban = await db.auth.admin.updateUserById(userId, { ban_duration: BAN });
   if (ban.error) throw new Error(`block sign-in: ${ban.error.message ?? ban.error}`);
 
