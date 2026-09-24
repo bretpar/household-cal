@@ -28,6 +28,7 @@ import { WeekStartSetting } from "@/components/WeekStartSetting";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useCalendar } from "@/lib/calendar-store";
+import { SUPPORT_EMAIL } from "@/lib/support-contact";
 
 
 
@@ -156,6 +157,15 @@ function FamilyPage() {
             <p className="text-sm font-bold">Signed-in access</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {role ? ROLE_LABEL[role] ?? role : "Household member"}
+            </p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Need help?{" "}
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                className="font-semibold text-foreground underline underline-offset-2"
+              >
+                {SUPPORT_EMAIL}
+              </a>
             </p>
           </div>
           <Button

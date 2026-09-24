@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { LegalPageLayout } from "@/components/LegalPageLayout";
+import { SUPPORT_EMAIL } from "@/lib/support-contact";
 
 const LOGO_IMAGE_URL =
   "https://ourfamilycalendar.com/__l5e/assets-v1/1cbc3ae6-235d-438e-9bff-3eace728929e/logo.png";
@@ -374,10 +375,15 @@ function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-bold">23. Contact</h2>
         <p className="text-muted-foreground">
-          Questions regarding these Terms may be submitted through the contact information provided
-          on the Our Family Calendar website.
+          Questions regarding these Terms may be submitted to us by email:
         </p>
-        <p className="font-semibold">Our Family Calendar</p>
+        <p className="font-semibold">
+          Our Family Calendar
+          <br />
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="underline underline-offset-2">
+            {SUPPORT_EMAIL}
+          </a>
+        </p>
         <p className="text-muted-foreground">ourfamilycalendar.com</p>
       </section>
     </LegalPageLayout>
