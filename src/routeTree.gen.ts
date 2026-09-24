@@ -16,6 +16,7 @@ import { Route as NativeGoogleAuthRouteImport } from './routes/native-google-aut
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as DotwellKnownAppleAppSiteAssociationRouteImport } from './routes/[.]well-known.apple-app-site-association'
 import { Route as AuthenticatedActivitiesRouteImport } from './routes/_authenticated/activities'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedFamilyRouteImport } from './routes/_authenticated/family'
@@ -23,6 +24,7 @@ import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authentic
 import { Route as AuthenticatedPreferencesRouteImport } from './routes/_authenticated/preferences'
 import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/today'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as NativeAuthCallbackRouteImport } from './routes/native-auth.callback'
 import { Route as UnsubscribeTokenRouteImport } from './routes/unsubscribe.$token'
 import { Route as OauthGoogleCalendarReturnRouteImport } from './routes/oauth/google-calendar/return'
 import { Route as ApiPublicEmailSummariesDispatchRouteImport } from './routes/api/public/email-summaries/dispatch'
@@ -66,6 +68,12 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DotwellKnownAppleAppSiteAssociationRoute =
+  DotwellKnownAppleAppSiteAssociationRouteImport.update({
+    id: '/.well-known/apple-app-site-association',
+    path: '/.well-known/apple-app-site-association',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedActivitiesRoute = AuthenticatedActivitiesRouteImport.update({
   id: '/activities',
   path: '/activities',
@@ -100,6 +108,11 @@ const AuthenticatedTodayRoute = AuthenticatedTodayRouteImport.update({
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NativeAuthCallbackRoute = NativeAuthCallbackRouteImport.update({
+  id: '/native-auth/callback',
+  path: '/native-auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UnsubscribeTokenRoute = UnsubscribeTokenRouteImport.update({
@@ -156,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
+  '/.well-known/apple-app-site-association': typeof DotwellKnownAppleAppSiteAssociationRoute
   '/activities': typeof AuthenticatedActivitiesRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/family': typeof AuthenticatedFamilyRoute
@@ -163,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/preferences': typeof AuthenticatedPreferencesRoute
   '/today': typeof AuthenticatedTodayRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/native-auth/callback': typeof NativeAuthCallbackRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
@@ -179,6 +194,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
+  '/.well-known/apple-app-site-association': typeof DotwellKnownAppleAppSiteAssociationRoute
   '/activities': typeof AuthenticatedActivitiesRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/family': typeof AuthenticatedFamilyRoute
@@ -186,6 +202,7 @@ export interface FileRoutesByTo {
   '/preferences': typeof AuthenticatedPreferencesRoute
   '/today': typeof AuthenticatedTodayRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/native-auth/callback': typeof NativeAuthCallbackRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
@@ -204,6 +221,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
+  '/.well-known/apple-app-site-association': typeof DotwellKnownAppleAppSiteAssociationRoute
   '/_authenticated/activities': typeof AuthenticatedActivitiesRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/family': typeof AuthenticatedFamilyRoute
@@ -211,6 +229,7 @@ export interface FileRoutesById {
   '/_authenticated/preferences': typeof AuthenticatedPreferencesRoute
   '/_authenticated/today': typeof AuthenticatedTodayRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/native-auth/callback': typeof NativeAuthCallbackRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
@@ -229,6 +248,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/reset-password'
     | '/terms'
+    | '/.well-known/apple-app-site-association'
     | '/activities'
     | '/calendar'
     | '/family'
@@ -236,6 +256,7 @@ export interface FileRouteTypes {
     | '/preferences'
     | '/today'
     | '/invite/$token'
+    | '/native-auth/callback'
     | '/unsubscribe/$token'
     | '/oauth/google-calendar/return'
     | '/api/public/email-summaries/dispatch'
@@ -252,6 +273,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/reset-password'
     | '/terms'
+    | '/.well-known/apple-app-site-association'
     | '/activities'
     | '/calendar'
     | '/family'
@@ -259,6 +281,7 @@ export interface FileRouteTypes {
     | '/preferences'
     | '/today'
     | '/invite/$token'
+    | '/native-auth/callback'
     | '/unsubscribe/$token'
     | '/oauth/google-calendar/return'
     | '/api/public/email-summaries/dispatch'
@@ -276,6 +299,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/reset-password'
     | '/terms'
+    | '/.well-known/apple-app-site-association'
     | '/_authenticated/activities'
     | '/_authenticated/calendar'
     | '/_authenticated/family'
@@ -283,6 +307,7 @@ export interface FileRouteTypes {
     | '/_authenticated/preferences'
     | '/_authenticated/today'
     | '/invite/$token'
+    | '/native-auth/callback'
     | '/unsubscribe/$token'
     | '/oauth/google-calendar/return'
     | '/api/public/email-summaries/dispatch'
@@ -301,7 +326,9 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
+  DotwellKnownAppleAppSiteAssociationRoute: typeof DotwellKnownAppleAppSiteAssociationRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  NativeAuthCallbackRoute: typeof NativeAuthCallbackRoute
   UnsubscribeTokenRoute: typeof UnsubscribeTokenRoute
   OauthGoogleCalendarReturnRoute: typeof OauthGoogleCalendarReturnRoute
   ApiPublicEmailSummariesDispatchRoute: typeof ApiPublicEmailSummariesDispatchRoute
@@ -363,6 +390,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.well-known/apple-app-site-association': {
+      id: '/.well-known/apple-app-site-association'
+      path: '/.well-known/apple-app-site-association'
+      fullPath: '/.well-known/apple-app-site-association'
+      preLoaderRoute: typeof DotwellKnownAppleAppSiteAssociationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/activities': {
       id: '/_authenticated/activities'
       path: '/activities'
@@ -410,6 +444,13 @@ declare module '@tanstack/react-router' {
       path: '/invite/$token'
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/native-auth/callback': {
+      id: '/native-auth/callback'
+      path: '/native-auth/callback'
+      fullPath: '/native-auth/callback'
+      preLoaderRoute: typeof NativeAuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/unsubscribe/$token': {
@@ -500,7 +541,10 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
+  DotwellKnownAppleAppSiteAssociationRoute:
+    DotwellKnownAppleAppSiteAssociationRoute,
   InviteTokenRoute: InviteTokenRoute,
+  NativeAuthCallbackRoute: NativeAuthCallbackRoute,
   UnsubscribeTokenRoute: UnsubscribeTokenRoute,
   OauthGoogleCalendarReturnRoute: OauthGoogleCalendarReturnRoute,
   ApiPublicEmailSummariesDispatchRoute: ApiPublicEmailSummariesDispatchRoute,
