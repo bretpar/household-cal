@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { LegalPageLayout } from "@/components/LegalPageLayout";
+import { SUPPORT_EMAIL } from "@/lib/support-contact";
 
 const LOGO_IMAGE_URL =
   "https://ourfamilycalendar.com/__l5e/assets-v1/1cbc3ae6-235d-438e-9bff-3eace728929e/logo.png";
