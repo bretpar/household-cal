@@ -4,7 +4,6 @@
 <dict>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:www.ourfamilycalendar.com</string>
 		<string>applinks:ourfamilycalendar.com</string>
 	</array>
 </dict>
