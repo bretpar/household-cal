@@ -19,12 +19,20 @@ export const Route = createFileRoute("/api/public/ics/refresh")({
           // Account-deletion retries run first and independently, so an Apple
           // feed outage can never block them (and they never block the refresh).
           let deletionRetry: unknown = null;
+          let staleRecovery: unknown = null;
+          try {
+            const { recoverStalePendingDeletions } = await import("@/lib/account-deletion.server");
+            staleRecovery = await recoverStalePendingDeletions(supabaseAdmin as never);
+          } catch (error) {
+            console.error("[account-deletion] stale recovery failed", error);
+          }
           try {
             const { retryPendingAccountDeletions } = await import("@/lib/account-deletion.server");
             deletionRetry = await retryPendingAccountDeletions(supabaseAdmin as never);
           } catch (error) {
             console.error("[account-deletion] retry failed", error);
           }
+          deletionRetry = { retry: deletionRetry, staleRecovery };
           const result = await refreshAllSubscriptions(supabaseAdmin as never);
           return { ...(result as object), deletionRetry };
         }),
