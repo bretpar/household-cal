@@ -40,9 +40,9 @@ export interface HouseholdDeletionPlan {
 
 export interface DeletionRequest {
   /** family_id -> user_id of the member to promote to owner */
-  transfers?: Record<string, string>;
+  transfers?: Record<string, string> | undefined;
   /** family_ids the user explicitly confirmed deleting (sole member only) */
-  delete_households?: string[];
+  delete_households?: string[] | undefined;
 }
 
 function check(res: Res, what: string) {
