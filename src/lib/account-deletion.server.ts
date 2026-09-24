@@ -16,8 +16,10 @@
 type Res = { data: any; error: any };
 export type DeletionDb = {
   from: (table: string) => any;
+  rpc: (fn: string, args: Record<string, unknown>) => Promise<Res>;
   auth: {
     admin: {
+      updateUserById: (id: string, attrs: { ban_duration: string }) => Promise<{ error: any }>;
       getUserById: (id: string) => Promise<{ data: { user: { email?: string | null } | null } }>;
       deleteUser: (id: string) => Promise<{ error: any }>;
     };
@@ -110,77 +112,146 @@ export function isPlanReady(plans: HouseholdDeletionPlan[]): boolean {
 }
 
 export interface DeleteAccountOptions {
-  /** Revokes the household's Google connection before the household is deleted. */
-  revokeGoogle?: (familyId: string) => Promise<unknown>;
+  /** Reads a household's Google connection key (held in memory only). */
+  readGoogleKey?: (familyId: string) => Promise<string | null>;
+  /** Revokes a Google connection remotely, given its key. */
+  revokeGoogle?: (connectionKey: string) => Promise<unknown>;
 }
 
+export type DeleteAccountResult =
+  | { ok: true; google_revoke_failures: number }
+  | { ok: false; plans: HouseholdDeletionPlan[] }
+  | { ok: false; pending: true };
+
+const BAN = "876000h"; // ~100 years; the account is about to be deleted
+
+async function setJob(db: DeletionDb, userId: string, patch: Record<string, unknown>) {
+  await db.from("account_deletion_jobs").upsert({ user_id: userId, ...patch }, { onConflict: "user_id" });
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
+}
+
+function isUserNotFound(error: any): boolean {
+  return error?.status === 404 || /not.?found/i.test(String(error?.message ?? ""));
+}
+
+/**
+ * Flow (each step is safe to repeat):
+ *  1. Preflight plan (UX only; the database step re-validates under lock).
+ *  2. Record a deletion job and block new sign-ins for the account.
+ *  3. Read Google keys of households to be deleted into memory.
+ *  4. One database transaction: lock households, re-check owners/members,
+ *     transfer/remove/delete, clean personal rows. On refusal or error nothing
+ *     changed, so sign-in is unblocked and the user sees the reason.
+ *  5. Best-effort remote Google revoke with the in-memory keys (local
+ *     credentials are already gone via cascade; failures are only counted).
+ *  6. Delete the auth user. If that fails, the account stays blocked and the
+ *     job stays "data_removed" for the scheduled retry.
+ */
 export async function deleteAccount(
   db: DeletionDb,
   userId: string,
   request: DeletionRequest,
   options: DeleteAccountOptions = {},
-): Promise<{ ok: true } | { ok: false; plans: HouseholdDeletionPlan[] }> {
+): Promise<DeleteAccountResult> {
   const plans = await planAccountDeletion(db, userId, request);
   if (!isPlanReady(plans)) return { ok: false, plans };
 
-  const email = (await db.auth.admin.getUserById(userId)).data.user?.email?.trim().toLowerCase() ?? null;
+  const email = (await db.auth.admin.getUserById(userId)).data.user?.email ?? null;
+  await setJob(db, userId, { status: "pending", last_error: null });
+  const ban = await db.auth.admin.updateUserById(userId, { ban_duration: BAN });
+  if (ban.error) throw new Error(`block sign-in: ${ban.error.message ?? ban.error}`);
 
-  // 1. Household memberships.
-  for (const p of plans) {
-    if (p.action.kind === "delete_household") {
-      if (options.revokeGoogle) {
-        try {
-          await options.revokeGoogle(p.family_id);
-        } catch (error) {
-          console.error("[account-deletion] google revoke failed", error);
-        }
+  const unblock = async (reason: string) => {
+    await db.auth.admin.updateUserById(userId, { ban_duration: "none" });
+    await setJob(db, userId, { status: "failed", last_error: reason });
+  };
+
+  const keys: string[] = [];
+  if (options.readGoogleKey) {
+    for (const p of plans) {
+      if (p.action.kind !== "delete_household") continue;
+      try {
+        const k = await options.readGoogleKey(p.family_id);
+        if (k) keys.push(k);
+      } catch (error) {
+        console.error("[account-deletion] could not read google key", error);
       }
-      check(await db.from("families").delete().eq("id", p.family_id), "delete household");
-      continue;
     }
-    if (p.action.kind === "transfer") {
-      check(
-        await db
-          .from("family_users")
-          .update({ role: "owner" })
-          .eq("family_id", p.family_id)
-          .eq("user_id", p.action.to_user_id),
-        "transfer ownership",
-      );
+  }
+
+  let rpc: Res;
+  try {
+    rpc = await db.rpc("delete_account_data", {
+      _user_id: userId,
+      _email: email,
+      _transfers: request.transfers ?? {},
+      _delete_households: request.delete_households ?? [],
+    });
+  } catch (error) {
+    await unblock(String((error as Error)?.message ?? error));
+    throw error;
+  }
+  if (rpc.error) {
+    await unblock(String(rpc.error.message ?? rpc.error));
+    throw new Error("Could not delete your account. Nothing was changed; please try again.");
+  }
+  if (!rpc.data?.ok) {
+    await unblock(String(rpc.data?.reason ?? "refused"));
+    return { ok: false, plans: await planAccountDeletion(db, userId, request) };
+  }
+
+  let failures = 0;
+  if (options.revokeGoogle) {
+    for (const key of keys) {
+      try {
+        await withTimeout(Promise.resolve(options.revokeGoogle(key)), 8000);
+      } catch (error) {
+        failures += 1;
+        console.error("[account-deletion] google remote revoke failed", error);
+      }
     }
-    check(
-      await db.from("family_users").delete().eq("family_id", p.family_id).eq("user_id", userId),
-      "remove membership",
-    );
   }
+  keys.length = 0;
 
-  // 2. Personal references in surviving households.
-  const nullRefs: [string, string][] = [
-    ["email_schedules", "created_by"],
-    ["events", "created_by"],
-    ["families", "created_by"],
-    ["google_connections", "connected_by"],
-    ["family_invitations", "invited_by"],
-    ["family_invitations", "accepted_by"],
-  ];
-  for (const [table, column] of nullRefs) {
-    check(await db.from(table).update({ [column]: null }).eq(column, userId), `clear ${table}.${column}`);
-  }
-
-  // 3. Personal rows.
-  check(await db.from("email_schedule_recipients").delete().eq("user_id", userId), "remove email recipients");
-  check(await db.from("native_auth_handoffs").delete().eq("user_id", userId), "remove auth handoffs");
-  check(await db.from("user_preferences").delete().eq("user_id", userId), "remove preferences");
-  check(await db.from("profiles").delete().eq("id", userId), "remove profile");
-  if (email) {
-    check(
-      await db.from("family_invitations").delete().eq("status", "pending").ilike("email", email),
-      "remove pending invitations",
-    );
-  }
-
-  // 4. Auth user last.
   const del = await db.auth.admin.deleteUser(userId);
-  if (del.error) throw new Error(`delete auth user: ${del.error.message ?? del.error}`);
-  return { ok: true };
+  if (del.error && !isUserNotFound(del.error)) {
+    await setJob(db, userId, {
+      status: "data_removed",
+      last_error: String(del.error.message ?? del.error),
+      google_revoke_failures: failures,
+    });
+    return { ok: false, pending: true };
+  }
+  await setJob(db, userId, { status: "completed", last_error: null, google_revoke_failures: failures });
+  return { ok: true, google_revoke_failures: failures };
+}
+
+/** Scheduled retry for accounts whose data was removed but auth deletion failed. */
+export async function retryPendingAccountDeletions(db: DeletionDb): Promise<{ retried: number; completed: number }> {
+  const { data } = await db
+    .from("account_deletion_jobs")
+    .select("user_id, attempts")
+    .eq("status", "data_removed")
+    .lt("attempts", 50)
+    .limit(20);
+  let completed = 0;
+  for (const job of (data ?? []) as { user_id: string; attempts: number }[]) {
+    // Re-run the idempotent data cleanup first in case anything reappeared.
+    await db.rpc("delete_account_data", { _user_id: job.user_id, _email: null, _transfers: {}, _delete_households: [] });
+    const del = await db.auth.admin.deleteUser(job.user_id);
+    const ok = !del.error || isUserNotFound(del.error);
+    await db
+      .from("account_deletion_jobs")
+      .update({
+        status: ok ? "completed" : "data_removed",
+        attempts: job.attempts + 1,
+        last_error: ok ? null : String(del.error?.message ?? del.error),
+      })
+      .eq("user_id", job.user_id);
+    if (ok) completed += 1;
+  }
+  return { retried: data?.length ?? 0, completed };
 }

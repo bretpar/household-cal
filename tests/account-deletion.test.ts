@@ -38,7 +38,7 @@ describe.skipIf(!hasBackendCredentials)("account deletion", () => {
       { userId: viewer.id, role: "viewer" },
     ]);
     families.push(h.familyId);
-    expect(await deleteAccount(db(), viewer.id, {})).toEqual({ ok: true });
+    expect(await deleteAccount(db(), viewer.id, {})).toMatchObject({ ok: true });
     expect(await userExists(viewer.id)).toBe(false);
     expect(await familyExists(h.familyId)).toBe(true);
     const ev = await admin().from("events").select("id").eq("id", h.eventId);
@@ -58,7 +58,7 @@ describe.skipIf(!hasBackendCredentials)("account deletion", () => {
       .from("email_schedules")
       .insert({ family_id: h.familyId, name: "Probe", frequency: "daily", send_time: "07:00", created_by: a.id });
     await admin().from("google_connections").update({ connected_by: a.id }).eq("id", h.googleConnectionId);
-    expect(await deleteAccount(db(), a.id, {})).toEqual({ ok: true });
+    expect(await deleteAccount(db(), a.id, {})).toMatchObject({ ok: true });
     expect(await userExists(a.id)).toBe(false);
     expect(await userExists(b.id)).toBe(true);
     const g = await admin().from("google_connections").select("connected_by").eq("id", h.googleConnectionId);
@@ -78,7 +78,7 @@ describe.skipIf(!hasBackendCredentials)("account deletion", () => {
     expect(blocked.ok).toBe(false);
     expect(await userExists(owner.id)).toBe(true);
     const done = await deleteAccount(db(), owner.id, { transfers: { [h.familyId]: ed.id } });
-    expect(done).toEqual({ ok: true });
+    expect(done).toMatchObject({ ok: true });
     const fu = await admin().from("family_users").select("role").eq("family_id", h.familyId).eq("user_id", ed.id);
     expect(fu.data?.[0]?.role).toBe("owner");
   });
@@ -89,7 +89,7 @@ describe.skipIf(!hasBackendCredentials)("account deletion", () => {
     const h = await createHousehold("Del D", [{ userId: solo.id, role: "owner" }]);
     families.push(h.familyId);
     expect((await deleteAccount(db(), solo.id, {})).ok).toBe(false);
-    expect(await deleteAccount(db(), solo.id, { delete_households: [h.familyId] })).toEqual({ ok: true });
+    expect(await deleteAccount(db(), solo.id, { delete_households: [h.familyId] })).toMatchObject({ ok: true });
     expect(await familyExists(h.familyId)).toBe(false);
     const g = await admin().from("google_connections").select("id").eq("id", h.googleConnectionId);
     expect(g.data).toHaveLength(0);
@@ -108,7 +108,7 @@ describe.skipIf(!hasBackendCredentials)("account deletion", () => {
       token: `tok-${guest.id}`,
       expires_at: new Date(Date.now() + 86400000).toISOString(),
     });
-    expect(await deleteAccount(db(), guest.id, {})).toEqual({ ok: true });
+    expect(await deleteAccount(db(), guest.id, {})).toMatchObject({ ok: true });
     const inv = await admin().from("family_invitations").select("id").ilike("email", guest.email).eq("status", "pending");
     expect(inv.data).toHaveLength(0);
   });

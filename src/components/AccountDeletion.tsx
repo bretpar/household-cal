@@ -40,6 +40,13 @@ export function AccountDeletion() {
           delete_households: Object.keys(confirmDelete).filter((k) => confirmDelete[k]),
         },
       });
+      if (!result.ok && "pending" in result) {
+        await supabase.auth.signOut({ scope: "local" });
+        queryClient.clear();
+        toast.success("Your account data has been removed. Final deletion will finish shortly.");
+        navigate({ to: "/auth" });
+        return;
+      }
       if (!result.ok) {
         toast.error("Please finish the household choices before deleting.");
         await plan.refetch();
