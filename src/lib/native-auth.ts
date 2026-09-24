@@ -19,7 +19,7 @@ import { redeemNativeHandoff, startNativeHandoff } from "@/lib/native-auth.funct
 export const NATIVE_AUTH_SCHEME = "com.ourfamilycalendar.app";
 export const NATIVE_AUTH_SCHEME_CALLBACK = `${NATIVE_AUTH_SCHEME}://auth-callback`;
 /** Universal Link return (different host from the sign-in page so Safari hands off on tap). */
-export const NATIVE_AUTH_UNIVERSAL_CALLBACK = "https://www.ourfamilycalendar.com/native-auth/callback";
+export const NATIVE_AUTH_UNIVERSAL_CALLBACK = "https://ourfamilycalendar.com/native-auth/callback";
 const UNIVERSAL_HOSTS = new Set(["www.ourfamilycalendar.com", "ourfamilycalendar.com"]);
 const WEB_ORIGIN = "https://ourfamilycalendar.com";
 const PENDING_KEY = "ofc-native-google-pending";
