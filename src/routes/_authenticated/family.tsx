@@ -24,9 +24,8 @@ import { FamilyMemberSettings } from "@/components/FamilyMemberSettings";
 import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { MemberBadge } from "@/components/MemberBadge";
 import { SettingsSection } from "@/components/SettingsSection";
+import { SignOutButton } from "@/components/SignOutButton";
 import { WeekStartSetting } from "@/components/WeekStartSetting";
-import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { useCalendar } from "@/lib/calendar-store";
 import { SUPPORT_EMAIL } from "@/lib/support-contact";
 
