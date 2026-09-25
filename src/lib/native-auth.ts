@@ -95,14 +95,19 @@ function takePending(): Pending | null {
 }
 
 let listenerInstalled = false;
+/** Last callback URL accepted for processing; guards against double delivery. */
+let lastHandledUrl: string | null = null;
 
 export async function installNativeAuthListener(onSignedIn: () => void): Promise<void> {
   if (!isNativeApp() || listenerInstalled) return;
   listenerInstalled = true;
   const [{ App }, { Browser }] = await Promise.all([import("@capacitor/app"), import("@capacitor/browser")]);
-  await App.addListener("appUrlOpen", async ({ url }) => {
+
+  const handleCallback = async (url: string | undefined | null): Promise<void> => {
+    if (!url || url === lastHandledUrl) return;
     const parsed = parseNativeCallback(url);
     if (!parsed) return;
+    lastHandledUrl = url; // claim before consuming pending state (single-use)
     await Browser.close().catch(() => {});
     const pending = takePending();
     if (!pending || pending.state !== parsed.state) {
@@ -117,5 +122,18 @@ export async function installNativeAuthListener(onSignedIn: () => void): Promise
     } catch {
       console.error("[native-auth] Sign-in handoff failed");
     }
+  };
+
+  await App.addListener("appUrlOpen", ({ url }) => {
+    void handleCallback(url);
   });
+
+  // Cold launch: the scene delegate may have forwarded the link before the
+  // listener was registered. Capacitor retains it as the launch URL.
+  try {
+    const launch = await App.getLaunchUrl();
+    await handleCallback(launch?.url);
+  } catch {
+    console.warn("[native-auth] Could not read launch URL");
+  }
 }
