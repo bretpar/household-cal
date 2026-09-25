@@ -24,6 +24,11 @@ const config: CapacitorConfig = {
     contentInset: "never",
     backgroundColor: "#FAF8F4",
     limitsNavigationsToAppBoundDomains: false,
+    // Bridge logging ("To Native ->" / "TO JS" lines echo plugin payloads, including
+    // appUrlOpen / getLaunchUrl callback URLs with the one-time code + state).
+    // "debug" = log only when CAPACITOR_DEBUG is true (Debug config via debug.xcconfig);
+    // Release builds are silent. Never set "production" — it would log in Release.
+    loggingBehavior: "debug",
   },
 };
 
