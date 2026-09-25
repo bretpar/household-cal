@@ -1,15 +1,14 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   BellRing,
   CalendarDays,
   Eye,
   House,
   LockKeyhole,
-  LogOut,
   Unplug,
   UserRound,
 } from "lucide-react";
+
 
 import { AccountDeletion } from "@/components/AccountDeletion";
 import { AppShell } from "@/components/AppShell";
@@ -25,9 +24,8 @@ import { FamilyMemberSettings } from "@/components/FamilyMemberSettings";
 import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { MemberBadge } from "@/components/MemberBadge";
 import { SettingsSection } from "@/components/SettingsSection";
+import { SignOutButton } from "@/components/SignOutButton";
 import { WeekStartSetting } from "@/components/WeekStartSetting";
-import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { useCalendar } from "@/lib/calendar-store";
 import { SUPPORT_EMAIL } from "@/lib/support-contact";
 
@@ -61,17 +59,9 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 function FamilyPage() {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const { members, family, role } = useCalendar();
   const caregivers = members.filter((m) => m.role === "caregiver");
 
-  const signOut = async () => {
-    await queryClient.cancelQueries();
-    queryClient.clear();
-    await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
-  };
 
   return (
 
@@ -169,15 +159,6 @@ function FamilyPage() {
               </a>
             </p>
           </div>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={signOut}
-            className="h-12 w-full rounded-full text-base font-bold"
-          >
-            <LogOut className="h-5 w-5" aria-hidden />
-            Sign out
-          </Button>
           <AccountDeletion />
         </SettingsSection>
 
@@ -192,6 +173,13 @@ function FamilyPage() {
               <DeveloperTools />
             </GoogleCalendarMaintenance>
           </SettingsSection>
+        </section>
+
+        <section className="border-t border-border-soft pt-5" aria-label="Sign out">
+          <SignOutButton />
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            Signs out this device only. Your other devices stay signed in.
+          </p>
         </section>
 
         <footer className="space-y-2 rounded-3xl border border-dashed border-border bg-surface-muted/50 p-4 text-center">
