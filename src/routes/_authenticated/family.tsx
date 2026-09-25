@@ -66,12 +66,6 @@ function FamilyPage() {
   const { members, family, role } = useCalendar();
   const caregivers = members.filter((m) => m.role === "caregiver");
 
-  const signOut = async () => {
-    await queryClient.cancelQueries();
-    queryClient.clear();
-    await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
-  };
 
   return (
 
@@ -169,15 +163,6 @@ function FamilyPage() {
               </a>
             </p>
           </div>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={signOut}
-            className="h-12 w-full rounded-full text-base font-bold"
-          >
-            <LogOut className="h-5 w-5" aria-hidden />
-            Sign out
-          </Button>
           <AccountDeletion />
         </SettingsSection>
 
