@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -151,7 +152,7 @@ function RootComponent() {
     void installNativeAuthListener(() => {
       const redirect = new URLSearchParams(window.location.search).get("redirect");
       window.location.assign(sanitizeReturnPath(redirect));
-    });
+    }, (message) => toast.error(message));
   }, []);
 
   useEffect(() => {

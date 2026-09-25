@@ -105,10 +105,26 @@ let listenerInstalled = false;
 /** Last callback URL accepted for processing; guards against double delivery. */
 let lastHandledUrl: string | null = null;
 
-export async function installNativeAuthListener(onSignedIn: () => void): Promise<void> {
+type Stage = "callback" | "redeem" | "set_session" | "navigate";
+/** Sanitized diagnostics: stage + safe error name/code/status only. Never URLs, codes, state or tokens. */
+function logStage(stage: Stage, err: unknown) {
+  const e = (err ?? {}) as { name?: unknown; code?: unknown; status?: unknown };
+  console.error("[native-auth] stage failed", {
+    stage,
+    name: typeof e.name === "string" ? e.name : typeof err,
+    code: typeof e.code === "string" || typeof e.code === "number" ? e.code : undefined,
+    status: typeof e.status === "number" ? e.status : undefined,
+  });
+}
+
+export async function installNativeAuthListener(
+  onSignedIn: () => void,
+  onError: (message: string) => void = () => {},
+): Promise<void> {
   if (!isNativeApp() || listenerInstalled) return;
   listenerInstalled = true;
   const [{ App }, { Browser }] = await Promise.all([import("@capacitor/app"), import("@capacitor/browser")]);
+  const RETRY = "Sign-in didn't finish. Please tap Continue with Google to try again.";
 
   const handleCallback = async (url: string | undefined | null): Promise<void> => {
     if (!url || url === lastHandledUrl) return;
@@ -118,33 +134,63 @@ export async function installNativeAuthListener(onSignedIn: () => void): Promise
     // the legitimate pending sign-in attempt it will never match.
     const pending = peekPending();
     if (!pending || pending.state !== parsed.state) {
-      console.warn("[native-auth] Ignored sign-in callback with invalid or expired state");
+      console.warn("[native-auth] stage=callback ignored: no matching pending attempt");
       return;
     }
     lastHandledUrl = url; // claim only accepted callbacks, so a stray URL can't block a valid one
     await Browser.close().catch(() => {});
-    const consumed = consumePending(); // single use: removed here and only here
-    if (!consumed || consumed.state !== parsed.state) return; // already delivered elsewhere
+    // Consume before redeeming: once the request is sent the server's single-use code may be
+    // spent, so the attempt must never be replayed (a second delivery finds nothing here).
+    const consumed = consumePending();
+    if (!consumed || consumed.state !== parsed.state) return;
+
+    let tokens: { access_token: string; refresh_token: string };
     try {
-      const tokens = await redeemNativeHandoff({ data: { code: parsed.code, verifier: consumed.verifier } });
-      const { error } = await supabase.auth.setSession(tokens);
-      if (error) throw error;
+      tokens = await redeemNativeHandoff({ data: { code: parsed.code, verifier: consumed.verifier } });
+      if (!tokens?.access_token || !tokens?.refresh_token) throw new Error("bad_redeem_shape");
+    } catch (err) {
+      // Failed or ambiguous: the code may already be consumed server-side. Never replay it.
+      logStage("redeem", err);
+      onError(RETRY);
+      return;
+    }
+
+    // Redeemed: tokens live only in memory. One retry for a transient setSession failure.
+    let setErr: unknown = null;
+    for (let i = 0; i < 2; i++) {
+      const { error } = await supabase.auth.setSession(tokens).catch((e) => ({ error: e }));
+      setErr = error;
+      if (!error) break;
+    }
+    if (setErr) {
+      logStage("set_session", setErr);
+      onError(RETRY);
+      return;
+    }
+    try {
       onSignedIn();
-    } catch {
-      console.error("[native-auth] Sign-in handoff failed");
+    } catch (err) {
+      logStage("navigate", err);
+      onError("You're signed in, but the app couldn't open your calendar. Please reopen the app.");
     }
   };
 
+  const safeHandle = (url: string | undefined | null) =>
+    handleCallback(url).catch((err) => {
+      logStage("callback", err);
+      onError(RETRY);
+    });
+
   await App.addListener("appUrlOpen", ({ url }) => {
-    void handleCallback(url);
+    void safeHandle(url);
   });
 
   // Cold launch: the scene delegate may have forwarded the link before the
   // listener was registered. Capacitor retains it as the launch URL.
   try {
     const launch = await App.getLaunchUrl();
-    await handleCallback(launch?.url);
-  } catch {
-    console.warn("[native-auth] Could not read launch URL");
+    await safeHandle(launch?.url);
+  } catch (err) {
+    logStage("callback", err);
   }
 }

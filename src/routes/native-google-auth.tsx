@@ -64,8 +64,13 @@ function NativeGoogleAuthPage() {
       const { code } = await completeNativeHandoff({
         data: { requestId: request, refreshToken: session.refresh_token },
       });
-      // The server rotated this refresh token; drop the browser copy.
-      await supabase.auth.signOut({ scope: "local" });
+      // The server rotated this refresh token into the handoff. Drop the browser copy
+      // WITHOUT calling signOut(): a server-side logout (even scope "local") revokes the
+      // whole session, including the rotated token the app is about to redeem.
+      supabase.auth.stopAutoRefresh();
+      for (const k of Object.keys(localStorage)) {
+        if (/^sb-.*-auth-token/.test(k)) localStorage.removeItem(k);
+      }
       if (cancelled) return;
       setReturnUrl(withParams(NATIVE_AUTH_UNIVERSAL_CALLBACK, code, state));
       window.location.href = withParams(NATIVE_AUTH_SCHEME_CALLBACK, code, state);
