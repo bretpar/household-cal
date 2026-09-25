@@ -26,9 +26,9 @@ const config: CapacitorConfig = {
     limitsNavigationsToAppBoundDomains: false,
     // Bridge logging ("To Native ->" / "TO JS" lines echo plugin payloads, including
     // appUrlOpen / getLaunchUrl callback URLs with the one-time code + state).
-    // "debug" = log only when CAPACITOR_DEBUG is true (Debug config via debug.xcconfig);
-    // Release builds are silent. Never set "production" — it would log in Release.
-    loggingBehavior: "debug",
+    // "none" disables Capacitor's verbose bridge logging in both Debug and Release.
+    // Keep app-level native-auth error diagnostics in JS; never set "production".
+    loggingBehavior: "none",
   },
 };
 
