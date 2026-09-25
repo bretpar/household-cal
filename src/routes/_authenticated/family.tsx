@@ -1,15 +1,14 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   BellRing,
   CalendarDays,
   Eye,
   House,
   LockKeyhole,
-  LogOut,
   Unplug,
   UserRound,
 } from "lucide-react";
+
 
 import { AccountDeletion } from "@/components/AccountDeletion";
 import { AppShell } from "@/components/AppShell";
@@ -177,6 +176,13 @@ function FamilyPage() {
               <DeveloperTools />
             </GoogleCalendarMaintenance>
           </SettingsSection>
+        </section>
+
+        <section className="border-t border-border-soft pt-5" aria-label="Sign out">
+          <SignOutButton />
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            Signs out this device only. Your other devices stay signed in.
+          </p>
         </section>
 
         <footer className="space-y-2 rounded-3xl border border-dashed border-border bg-surface-muted/50 p-4 text-center">
