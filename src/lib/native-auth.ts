@@ -81,9 +81,9 @@ export function parseNativeCallback(raw: string): { code: string; state: string 
   return { code, state };
 }
 
-function takePending(): Pending | null {
+/** Read the pending attempt without consuming it. Returns null when absent, corrupt, or expired. */
+function peekPending(): Pending | null {
   const raw = localStorage.getItem(PENDING_KEY);
-  localStorage.removeItem(PENDING_KEY); // single use, consumed on any callback
   if (!raw) return null;
   try {
     const p = JSON.parse(raw) as Pending;
@@ -92,6 +92,13 @@ function takePending(): Pending | null {
   } catch {
     return null;
   }
+}
+
+/** Single-use consumption of the pending attempt. Only called once the callback state has matched. */
+function consumePending(): Pending | null {
+  const pending = peekPending();
+  localStorage.removeItem(PENDING_KEY);
+  return pending;
 }
 
 let listenerInstalled = false;
