@@ -59,8 +59,6 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 function FamilyPage() {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const { members, family, role } = useCalendar();
   const caregivers = members.filter((m) => m.role === "caregiver");
 
