@@ -44,7 +44,19 @@ export async function startHandoff(challenge: string): Promise<{ requestId: stri
     .insert({ challenge, expires_at: new Date(Date.now() + REQUEST_TTL_MS).toISOString() })
     .select("id")
     .single();
-  if (error || !data) throw new Error("Could not start sign-in");
+  if (error || !data) {
+    // TEMPORARY diagnostic (non-secret): key type only, never the key itself.
+    const k = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+    console.error("[native-auth] startHandoff insert failed", {
+      code: error?.code,
+      message: error?.message,
+      serviceKeyPresent: k.length > 0,
+      serviceKeyType: k.startsWith("sb_secret_") ? "sb_secret" : k.startsWith("sb_publishable_") ? "PUBLISHABLE(wrong)" : k.startsWith("eyJ") ? "jwt" : "unknown",
+      sameAsPublishable: k.length > 0 && k === process.env["SUPABASE_PUBLISHABLE_KEY"],
+      urlPresent: Boolean(process.env["SUPABASE_URL"]),
+    });
+    throw new Error("Could not start sign-in");
+  }
   return { requestId: data.id };
 }
 
