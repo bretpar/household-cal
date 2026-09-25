@@ -114,15 +114,19 @@ export async function installNativeAuthListener(onSignedIn: () => void): Promise
     if (!url || url === lastHandledUrl) return;
     const parsed = parseNativeCallback(url);
     if (!parsed) return;
-    lastHandledUrl = url; // claim before consuming pending state (single-use)
-    await Browser.close().catch(() => {});
-    const pending = takePending();
+    // Peek without consuming: a callback with the wrong state must not destroy
+    // the legitimate pending sign-in attempt it will never match.
+    const pending = peekPending();
     if (!pending || pending.state !== parsed.state) {
       console.warn("[native-auth] Ignored sign-in callback with invalid or expired state");
       return;
     }
+    lastHandledUrl = url; // claim only accepted callbacks, so a stray URL can't block a valid one
+    await Browser.close().catch(() => {});
+    const consumed = consumePending(); // single use: removed here and only here
+    if (!consumed || consumed.state !== parsed.state) return; // already delivered elsewhere
     try {
-      const tokens = await redeemNativeHandoff({ data: { code: parsed.code, verifier: pending.verifier } });
+      const tokens = await redeemNativeHandoff({ data: { code: parsed.code, verifier: consumed.verifier } });
       const { error } = await supabase.auth.setSession(tokens);
       if (error) throw error;
       onSignedIn();
