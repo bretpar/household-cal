@@ -164,6 +164,7 @@ export async function createHousehold(
     {
       family_id: familyId,
       name: "Family",
+      calendar_kind: "household_default",
       display_mode: "events",
       sort_order: 0,
       selectable_in_email: false,

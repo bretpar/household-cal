@@ -151,6 +151,7 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     color: s.color ?? null,
     display_icon: s.display_icon ?? null,
     subscription_member_id: s.subscription_member_id ?? null,
+    calendar_kind: (s.calendar_kind ?? "custom") as CalendarSource["calendar_kind"],
   }));
   const displayModeOf = new Map(sources.map((s) => [s.id, s.display_mode]));
   const sourceById = new Map(sources.map((s) => [s.id, s]));
@@ -169,6 +170,12 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
 
   const events: CalendarEvent[] = (eventsRes.data ?? []).map((e: any) => {
     const source = e.calendar_source_id ? sourceById.get(e.calendar_source_id) : undefined;
+    // Connected calendars and user-created OFC calendars carry their own look;
+    // the Family calendar and legacy rows keep category + coverage rendering.
+    const styled =
+      source?.provider === "google" ||
+      source?.provider === "ics" ||
+      (source?.provider === "local" && source.calendar_kind === "custom");
     return {
     id: e.id,
     family_id: e.family_id,
@@ -180,16 +187,9 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     // Presentation metadata from the calendar's own appearance settings. Only
     // connected/imported calendars carry it; local household sources keep the
     // existing category + coverage rendering.
-    source_color:
-      source?.provider === "google" || source?.provider === "ics"
-        ? ((source.color ?? null) as MemberColor | null)
-        : null,
-    source_icon:
-      source?.provider === "google" || source?.provider === "ics"
-        ? (source.display_icon ?? null)
-        : null,
-    source_name:
-      source?.provider === "google" || source?.provider === "ics" ? source.name : null,
+    source_color: styled ? ((source!.color ?? null) as MemberColor | null) : null,
+    source_icon: styled ? (source!.display_icon ?? null) : null,
+    source_name: styled ? source!.name : null,
     title: e.title,
     start_at: e.start_at,
     end_at: e.end_at,
@@ -291,6 +291,16 @@ export async function resolveWritableFamilyForEvent(
 }
 
 export async function defaultEventSource(db: Db, familyId: string): Promise<string | null> {
+  const { data: family } = await db
+    .from("calendar_sources")
+    .select("id")
+    .eq("family_id", familyId)
+    .eq("provider", "local")
+    .eq("calendar_kind", "household_default")
+    .eq("active", true)
+    .order("sort_order", { ascending: true })
+    .limit(1);
+  if (family?.[0]?.id) return family[0].id as string;
   const { data } = await db
     .from("calendar_sources")
     .select("id")
@@ -299,6 +309,31 @@ export async function defaultEventSource(db: Db, familyId: string): Promise<stri
     .order("sort_order", { ascending: true })
     .limit(1);
   return data?.[0]?.id ?? null;
+}
+
+/**
+ * Server-side destination check: the calendar must belong to this household,
+ * be active, and be a writable OFC (Family/custom) or Google calendar.
+ */
+export async function assertWritableDestination(
+  db: Db,
+  familyId: string,
+  sourceId: string,
+): Promise<void> {
+  const { data, error } = await db
+    .from("calendar_sources")
+    .select("id, provider, active, calendar_kind")
+    .eq("id", sourceId)
+    .eq("family_id", familyId)
+    .maybeSingle();
+  if (error) throw error;
+  const ok =
+    !!data &&
+    data.active === true &&
+    (data.provider === "google" ||
+      (data.provider === "local" &&
+        (data.calendar_kind === "household_default" || data.calendar_kind === "custom")));
+  if (!ok) throw new Error("That calendar can't receive new events. Pick another calendar.");
 }
 
 /**
@@ -400,6 +435,9 @@ export async function applyEventUpdate(
 
   const familyId = existing.family_id as string;
   const sourceId = input.calendar_source_id ?? existing.calendar_source_id;
+  if (sourceId && sourceId !== existing.calendar_source_id) {
+    await assertWritableDestination(db, familyId, sourceId);
+  }
 
   if (!existing.recurrence_rule || scope === "series") {
     const { error: updateError } = await db
