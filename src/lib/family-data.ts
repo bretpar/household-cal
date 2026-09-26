@@ -409,11 +409,13 @@ function matchesMonthlyByDayToken(day: Date, token: string): boolean {
     // nth occurrence of this weekday within the month
     return Math.floor((day.getDate() - 1) / 7) + 1 === ordinal;
   }
-  // negative ordinal counts from the end of the month (-1 = last)
-  const nextWeek = addDays(day, 7 * Math.abs(ordinal));
-  return nextWeek.getMonth() !== day.getMonth()
-    ? ordinal === -1
-    : matchesMonthlyByDayToken(nextWeek, token);
+  // negative ordinal counts from the end of the month (-1 = last):
+  // exactly |ordinal| - 1 more occurrences of this weekday remain this month
+  let remaining = 0;
+  for (let d = addDays(day, 7); d.getMonth() === day.getMonth(); d = addDays(d, 7)) {
+    remaining++;
+  }
+  return remaining === Math.abs(ordinal) - 1;
 }
 
 /** Zero-based index of a day inside the series, or null when it isn't a hit. */
