@@ -1,13 +1,21 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Archive, ChevronDown, Pencil, Plus, Settings2 } from "lucide-react";
+import { Apple, Archive, CalendarPlus, ChevronDown, Link2, Pencil, Plus, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { AppleCalendarSubscriptions } from "@/components/AppleCalendarSubscriptions";
-import { CalendarSyncSettings } from "@/components/CalendarSyncSettings";
+import { AddAppleCalendarDialog, AppleCalendarControls } from "@/components/AppleCalendarSubscriptions";
+import { GoogleAccountSettings, GoogleCalendarControls, GoogleCalendarDialog } from "@/components/CalendarSyncSettings";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import {
   Select,
@@ -58,6 +66,10 @@ export function CalendarAppearanceSettings() {
   const [newName, setNewName] = useState("");
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [managedSourceId, setManagedSourceId] = useState<string | null>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [createOfcOpen, setCreateOfcOpen] = useState(false);
+  const [googleAddMode, setGoogleAddMode] = useState<"existing" | "create" | null>(null);
+  const [appleAddOpen, setAppleAddOpen] = useState(false);
 
   // My Calendars: the Family calendar, user-created OFC calendars, and connected
   // Google/Apple calendars. Legacy internal rows (e.g. "Caregiver coverage") stay hidden.
@@ -386,43 +398,66 @@ export function CalendarAppearanceSettings() {
                       </Button>
                     </div>
                   ) : null}
+                  {source.provider === "google" ? (
+                    <GoogleCalendarControls sourceId={source.id} />
+                  ) : null}
+                  {source.provider === "ics" ? (
+                    <AppleCalendarControls sourceId={source.id} />
+                  ) : null}
                 </div>
               ) : null}
             </div>
           );
         })}
       </div>
-      {isOwner ? (
-        <form
-          className="flex items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (newName.trim()) manageMutation.mutate({ kind: "create", name: newName });
-          }}
-        >
-          <Input
-            value={newName}
-            maxLength={60}
-            placeholder="New calendar name"
-            aria-label="New calendar name"
-            onChange={(e) => setNewName(e.target.value)}
-            className="h-10"
-          />
-          <Button type="submit" disabled={busy || !newName.trim()} className="shrink-0">
-            <Plus className="h-4 w-4" aria-hidden /> Add calendar
-          </Button>
-        </form>
-      ) : null}
-      <p className="px-1 text-xs leading-relaxed text-muted-foreground">
-        Archiving a calendar you created keeps its events. Pick a colour and symbol for each calendar. "Events (front)" shows normal cards;
-        "Background layer" shows softer blocks behind family events — useful for work shifts and
-        caregiver coverage. The preview shows exactly how it looks on Today and the calendar.
-        Visibility is controlled from Calendar filters.
-      </p>
-      <div className="space-y-5 border-t border-border-soft pt-5">
-        <CalendarSyncSettings />
-        <AppleCalendarSubscriptions />
+      <div className="space-y-3 pt-1">
+        <GoogleAccountSettings />
+        {canEdit ? (
+          <Popover open={addMenuOpen} onOpenChange={setAddMenuOpen}>
+            <PopoverTrigger asChild>
+              <Button type="button" className="w-full sm:w-auto">
+                <Plus className="h-4 w-4" aria-hidden /> Add calendar
+                <ChevronDown className="h-4 w-4" aria-hidden />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[min(20rem,calc(100vw-2rem))] space-y-1 p-1.5">
+              {isOwner ? (
+                <Button variant="ghost" className="w-full justify-start" onClick={() => { setAddMenuOpen(false); setCreateOfcOpen(true); }}>
+                  <CalendarPlus className="h-4 w-4" aria-hidden /> Create OFC calendar
+                </Button>
+              ) : null}
+              {isOwner ? (
+                <>
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => { setAddMenuOpen(false); setGoogleAddMode("existing"); }}>
+                    <Link2 className="h-4 w-4" aria-hidden /> Connect existing Google calendar
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => { setAddMenuOpen(false); setGoogleAddMode("create"); }}>
+                    <CalendarPlus className="h-4 w-4" aria-hidden /> Create new Google calendar
+                  </Button>
+                </>
+              ) : null}
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { setAddMenuOpen(false); setAppleAddOpen(true); }}>
+                <Apple className="h-4 w-4" aria-hidden /> Add Apple subscription
+              </Button>
+            </PopoverContent>
+          </Popover>
+        ) : null}
       </div>
+
+      <Dialog open={createOfcOpen} onOpenChange={setCreateOfcOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Create OFC calendar</DialogTitle></DialogHeader>
+          <Input value={newName} maxLength={60} placeholder="Calendar name" aria-label="New calendar name" onChange={(event) => setNewName(event.target.value)} className="h-11" />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCreateOfcOpen(false)}>Cancel</Button>
+            <Button disabled={busy || !newName.trim()} onClick={() => manageMutation.mutate({ kind: "create", name: newName })}>
+              Create calendar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <GoogleCalendarDialog open={googleAddMode !== null} onOpenChange={(open) => !open && setGoogleAddMode(null)} initialMode={googleAddMode ?? "existing"} />
+      <AddAppleCalendarDialog open={appleAddOpen} onOpenChange={setAppleAddOpen} />
     </section>
   );
 }
