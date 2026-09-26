@@ -22,6 +22,20 @@ export const Route = createFileRoute("/api/public/google-calendar/manual-sync")(
           });
 
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          // Skip if the foreground run already finished and released this attempt.
+          const { data: held } = await supabaseAdmin
+            .from("google_connections")
+            .select("id")
+            .eq("family_id", payload.family_id)
+            .eq("manual_sync_attempt_id", payload.attempt_id)
+            .not("manual_sync_started_at", "is", null)
+            .limit(1);
+          if (!held || held.length === 0) {
+            console.log("[google-sync] durable manual sync skipped: already completed", {
+              attemptId: payload.attempt_id,
+            });
+            return { family_id: payload.family_id, attempt_id: payload.attempt_id, skipped: true };
+          }
           const { runAcceptedManualSync } = await import("@/lib/google/sync.server");
           await runAcceptedManualSync(
             supabaseAdmin,

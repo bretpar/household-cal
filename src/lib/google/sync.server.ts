@@ -1796,7 +1796,12 @@ export async function pullSource(
     // The stable calendarId is the identity: a rename in Google just refreshes
     // the local label, it never creates a new connection.
     const remote = await google.getCalendar(conn.connectionKey, source.external_calendar_id!);
-    const renamed = calendarNameChange(source.name, remote.summary);
+    // A linked OFC calendar (calendar_kind "custom") keeps its own name as the
+    // authority; only plain Google calendars follow Google's title.
+    const renamed =
+      (source as { calendar_kind?: string | null }).calendar_kind === "custom"
+        ? null
+        : calendarNameChange(source.name, remote.summary);
     // Timezone housekeeping happens here so users never have to touch Google's
     // own calendar settings after connecting.
     const googleTimeZone = await reconcileSourceTimeZone(admin, conn, source, remote);
