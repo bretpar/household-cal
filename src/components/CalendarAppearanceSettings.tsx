@@ -40,12 +40,10 @@ export function CalendarAppearanceSettings() {
   const updateCalendarLook = useServerFn(setCalendarAppearance);
   const updateAppleLook = useServerFn(updateIcsSubscriptionAppearance);
 
+  // Only connected calendars (Google, Apple/ICS) are customizable here; internal
+  // local sources such as the legacy "Caregiver coverage" row stay hidden.
   const appearanceSources = sources.filter(
-    (source) =>
-      source.active &&
-      (source.provider === "google" ||
-        source.provider === "ics" ||
-        source.display_mode === "coverage_background"),
+    (source) => source.active && (source.provider === "google" || source.provider === "ics"),
   );
 
   const refresh = async () => {

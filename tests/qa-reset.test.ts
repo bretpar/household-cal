@@ -150,7 +150,7 @@ suite("developer QA reset", () => {
     expect(kept?.provider).toBe("google");
     expect(kept?.external_calendar_id).toBeTruthy();
     expect(kept?.google_sync_token).toBeNull();
-    expect((after ?? []).filter((s: any) => s.provider === "local").length).toBe(2);
+    expect((after ?? []).filter((s: any) => s.provider === "local").length).toBe(1);
 
     if (temporary) await db.from("calendar_sources").delete().eq("id", slotId);
   }, 120_000);

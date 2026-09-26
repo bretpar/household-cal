@@ -158,21 +158,14 @@ export async function createHousehold(
     return { family_id: earliest.family_id, created: false };
   }
 
-  // Internal starter sources: an event bucket and the coverage layer. Neither is
-  // a real user calendar, so neither is offered for email summaries.
+  // Internal starter source: the local event bucket. It is not a real user
+  // calendar, so it is not offered for email summaries.
   await admin.from("calendar_sources").insert([
     {
       family_id: familyId,
       name: "Family",
       display_mode: "events",
       sort_order: 0,
-      selectable_in_email: false,
-    },
-    {
-      family_id: familyId,
-      name: "Caregiver coverage",
-      display_mode: "coverage_background",
-      sort_order: 1,
       selectable_in_email: false,
     },
   ]);
