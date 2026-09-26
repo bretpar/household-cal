@@ -5,17 +5,14 @@ import {
   Eye,
   House,
   LockKeyhole,
-  Unplug,
   UserRound,
 } from "lucide-react";
 
 
 import { AccountDeletion } from "@/components/AccountDeletion";
 import { AppShell } from "@/components/AppShell";
-import { AppleCalendarSubscriptions } from "@/components/AppleCalendarSubscriptions";
 import { CalendarAppearanceSettings } from "@/components/CalendarAppearanceSettings";
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
-import { CalendarSyncSettings } from "@/components/CalendarSyncSettings";
 import { DeveloperTools } from "@/components/DeveloperTools";
 import { GoogleCalendarMaintenance } from "@/components/GoogleCalendarMaintenance";
 import { EmailSummarySettings } from "@/components/EmailSummarySettings";
@@ -85,15 +82,6 @@ function FamilyPage() {
           </div>
           <CalendarAppearanceSettings />
           <EventCategorySettings />
-        </SettingsSection>
-
-        <SettingsSection
-          title="Sync & Integrations"
-          description="Connect and manage Google and Apple calendars"
-          icon={<Unplug className="h-5 w-5" aria-hidden />}
-        >
-          <CalendarSyncSettings />
-          <AppleCalendarSubscriptions />
         </SettingsSection>
 
         <SettingsSection

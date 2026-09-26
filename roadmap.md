@@ -58,3 +58,9 @@
 - Done: per-calendar colour (curated palette) and optional icon for Google + Apple calendars, stored on calendar_sources (color, display_icon).
 - Done: shared appearanceForEvent resolves colour/icon for every view; Background calendars auto-render the muted form of the same colour (no extra opacity setting).
 - Done: settings controls in Calendar > Calendar appearance; presentation metadata only, never pushed to Google/Apple.
+
+## Phase 2A: consolidated calendar management
+- [x] Make My Calendars the single routine area for OFC, Google, and Apple calendar management.
+- [x] Add compact per-calendar Manage panels while preserving appearance and OFC lifecycle controls.
+- [x] Move existing Google and Apple connection controls out of the redundant Sync & Integrations section.
+- [x] Keep diagnostics and repair tools in locked Advanced / Maintenance.
