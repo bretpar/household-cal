@@ -64,3 +64,5 @@
 - [x] Add compact per-calendar Manage panels while preserving appearance and OFC lifecycle controls.
 - [x] Move existing Google and Apple connection controls out of the redundant Sync & Integrations section.
 - [x] Keep diagnostics and repair tools in locked Advanced / Maintenance.
+- [x] Move provider-specific actions into each calendar panel and consolidate all add flows behind one button.
+- [x] Keep Google account-level sync controls in one compact expandable section.
