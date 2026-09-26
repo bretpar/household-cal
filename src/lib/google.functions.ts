@@ -381,6 +381,11 @@ export const syncNow = createServerFn({ method: "POST" })
       if (affectedRows === 0) console.warn("[google-sync] failed enqueue release affected 0 rows");
       throw new Error("Couldn’t start sync. Try again.");
     }
+    // The durable callback can sit in the database HTTP queue for minutes, so
+    // run the accepted attempt right here too. The callback stays as a backup
+    // and skips itself once this attempt has been released.
+    const { runAcceptedManualSync } = await import("@/lib/google/sync.server");
+    await runAcceptedManualSync(supabaseAdmin, family, lock.attempt_id, data.initial ?? false);
     return { accepted: true, already_running: false };
   });
 
