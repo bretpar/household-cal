@@ -1,4 +1,4 @@
-import { Link, useRouter, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { CalendarDays, Home, Sparkles, Users } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -43,7 +43,6 @@ export function AppShell({
   /** Compact chrome for the phone Calendar in landscape. */
   compactMobileLandscape?: boolean;
 }) {
-  const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // Optimistic tab selection: the tap highlights instantly, before the
   // destination screen has mounted or loaded anything.
@@ -73,10 +72,6 @@ export function AppShell({
   const showContentSkeleton =
     isTransitioning && tabPaths.some((to) => activeTab.startsWith(to)) && !fitViewport;
 
-  /** Warm the route (code + loader data) as soon as a finger/pointer lands. */
-  const prefetch = (to: string) => {
-    void router.preloadRoute({ to }).catch(() => {});
-  };
 
 
   return (
@@ -111,7 +106,6 @@ export function AppShell({
                   key={to}
                   to={to}
                   preload="intent"
-                  onPointerDown={() => prefetch(to)}
                   className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary lg:px-4"
                   activeProps={{ className: "bg-secondary text-foreground" }}
                 >
@@ -146,14 +140,9 @@ export function AppShell({
               key={to}
               to={to}
               preload="intent"
-              onTouchStart={() => {
-                setTapped(to);
-                prefetch(to);
-              }}
-              onPointerDown={() => {
-                setTapped(to);
-                prefetch(to);
-              }}
+              // preload="intent" already warms the route on touch/hover; only
+              // highlight the tab here so we don't fire duplicate preloads.
+              onPointerDown={() => setTapped(to)}
               className={cn(
                 "app-shell-bottom-link",
                 "relative flex h-16 min-h-16 w-full flex-col items-center justify-center gap-1 rounded-2xl text-xs font-semibold text-muted-foreground",

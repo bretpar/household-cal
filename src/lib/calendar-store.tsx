@@ -58,6 +58,8 @@ export interface EventSaveResult {
 
 interface CalendarStore {
   loading: boolean;
+  /** first load failed and no events were ever loaded (not the same as "no events") */
+  loadError: boolean;
   family: Family | null;
   /** the signed-in user's role in the current household */
   role: Family["role"] | null;
@@ -201,6 +203,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
 
     return {
       loading: bundle.isLoading,
+      loadError: bundle.isError && !bundle.data,
       family: data?.family ?? null,
       role,
       canEdit: role === "owner" || role === "editor",
@@ -273,7 +276,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       closeOccurrence: () => setActive(null),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bundle.data, bundle.isLoading, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);
+  }, [bundle.data, bundle.isLoading, bundle.isError, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;
 }

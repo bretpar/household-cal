@@ -28,7 +28,8 @@ export const Route = createFileRoute("/_authenticated/today")({
 });
 
 function TodayPage() {
-  const { visibleEvents, selectedMembers, canEdit, copiedEvent, startPaste } = useCalendar();
+  const { visibleEvents, selectedMembers, canEdit, copiedEvent, startPaste, loading, loadError } =
+    useCalendar();
   const today = new Date();
 
   return (
@@ -52,6 +53,8 @@ function TodayPage() {
           events={visibleEvents}
           selectedMembers={selectedMembers}
           days={3}
+          loading={loading}
+          loadError={loadError}
           onPaste={canEdit && copiedEvent ? startPaste : undefined}
         />
       </div>
