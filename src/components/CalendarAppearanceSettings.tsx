@@ -195,7 +195,7 @@ export function CalendarAppearanceSettings() {
             : styleForColor(color).soft;
           return (
             <div key={source.id} className="space-y-2 px-3 py-3">
-              <div className="flex min-w-0 items-center gap-2">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
                 <span
                   className={cn("h-6 w-6 shrink-0 rounded-lg", styleForColor(color).dot)}
                   aria-hidden
@@ -203,7 +203,7 @@ export function CalendarAppearanceSettings() {
                 <div className="min-w-0 flex-1">
                   {renaming?.id === source.id ? (
                     <form
-                      className="flex items-center gap-1.5"
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-1.5"
                       onSubmit={(e) => {
                         e.preventDefault();
                         manageMutation.mutate({ kind: "rename", id: source.id, name: renaming.name });
@@ -220,9 +220,7 @@ export function CalendarAppearanceSettings() {
                       <Button type="submit" size="sm" disabled={busy || !renaming.name.trim()}>
                         Save
                       </Button>
-                      <Button type="button" size="sm" variant="ghost" onClick={() => setRenaming(null)}>
-                        Cancel
-                      </Button>
+                      <Button type="button" size="sm" variant="ghost" className="col-span-2 justify-self-end" onClick={() => setRenaming(null)}>Cancel</Button>
                     </form>
                   ) : (
                     <p className="truncate text-sm font-semibold leading-snug">{source.name}</p>

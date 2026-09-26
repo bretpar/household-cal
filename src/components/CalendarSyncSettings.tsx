@@ -154,9 +154,10 @@ export function GoogleAccountSettings() {
 
   return (
     <div className="overflow-hidden rounded-xl border border-border-soft bg-card">
-      <button
+      <Button
         type="button"
-        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 text-left"
+        variant="ghost"
+        className="grid h-auto w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-none p-3 text-left"
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
       >
@@ -167,7 +168,7 @@ export function GoogleAccountSettings() {
           </p>
         </div>
         <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", expanded && "rotate-180")} aria-hidden />
-      </button>
+      </Button>
       {expanded ? (
         <div className="space-y-3 border-t border-border-soft p-3">
           {!connection ? (
