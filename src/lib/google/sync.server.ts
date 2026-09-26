@@ -878,15 +878,13 @@ export async function pushEvent(
 
     const sources = await googleSources(admin, familyId);
     if (sources.length === 0) return { skipped: "no_google_calendar" };
-    // A linked OFC-created calendar (calendar_kind "custom") only ever
-    // receives its own events; it is never a fallback for Family events.
-    const fallbackPool = sources.filter(
-      (s) => (s as { calendar_kind?: string }).calendar_kind !== "custom",
-    );
+    // Events on a Google source sync to that source. Family (and other
+    // non-Google) events go only to the explicitly designated main Google
+    // calendar. calendar_kind is not used here: connected Google sources are
+    // stored as "custom" too, so filtering on it hid the real main calendar.
     const target =
       sources.find((s) => s.id === event.calendar_source_id) ??
-      fallbackPool.find((s) => s.is_main) ??
-      fallbackPool[0];
+      sources.find((s) => s.is_main);
     if (!target) return { skipped: "local_only_calendar" };
 
     const initials = await initialsFor(admin, familyId);
