@@ -30,6 +30,7 @@ import {
   disconnectCalendarSlot,
   disconnectGoogleAccount,
   getSyncSettings,
+  linkOfcCalendarToGoogle,
   listGoogleCalendars,
   renameCalendarSlot,
   setMainCalendarSlot,
@@ -275,21 +276,30 @@ export function GoogleCalendarDialog({
   onOpenChange,
   initialMode = "existing",
   replaceSourceId = null,
+  linkSource = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialMode?: "existing" | "create";
   replaceSourceId?: string | null;
+  /** Phase 2B: link this empty OFC calendar instead of adding a new slot. */
+  linkSource?: { id: string; name: string } | null;
 }) {
   const settings = useGoogleSettings();
   const refresh = useGoogleRefresh();
   const listCalendars = useServerFn(listGoogleCalendars);
   const attach = useServerFn(connectCalendarSlot);
+  const link = useServerFn(linkOfcCalendarToGoogle);
   const [mode, setMode] = useState<"existing" | "create">(initialMode);
   const [newName, setNewName] = useState("Family Calendar");
   const [chosen, setChosen] = useState("");
 
-  useEffect(() => { if (open) setMode(initialMode); }, [initialMode, open]);
+  useEffect(() => {
+    if (!open) return;
+    setMode(initialMode);
+    if (linkSource) setNewName(linkSource.name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMode, open, linkSource?.id]);
   const available = useQuery({
     queryKey: ["google-calendar-list"],
     queryFn: () => listCalendars(),
@@ -300,14 +310,20 @@ export function GoogleCalendarDialog({
     onSuccess: () => { toast.success("Calendar connected"); onOpenChange(false); refresh(); },
     onError: (error: Error) => toast.error(error.message),
   });
+  const linkMutation = useMutation({
+    mutationFn: (input: Parameters<typeof link>[0]) => link(input),
+    onSuccess: () => { toast.success("Calendar linked to Google"); onOpenChange(false); refresh(); },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const pending = attachMutation.isPending || linkMutation.isPending;
   const atLimit = !replaceSourceId && (settings.data?.calendars.length ?? 0) >= (settings.data?.max_calendars ?? 2);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{replaceSourceId ? "Replace Google calendar" : mode === "create" ? "Create Google calendar" : "Connect Google calendar"}</DialogTitle>
-          {!settings.data?.connection ? <DialogDescription>Connect a Google account first.</DialogDescription> : atLimit ? <DialogDescription>You can connect up to two Google calendars.</DialogDescription> : null}
+          <DialogTitle>{linkSource ? `Connect "${linkSource.name}" to Google` : replaceSourceId ? "Replace Google calendar" : mode === "create" ? "Create Google calendar" : "Connect Google calendar"}</DialogTitle>
+          {!settings.data?.connection ? <DialogDescription>Connect a Google account first.</DialogDescription> : atLimit ? <DialogDescription>{linkSource ? "Both Google calendar slots are in use. Disconnect a Google calendar before linking another." : "You can connect up to two Google calendars."}</DialogDescription> : linkSource ? <DialogDescription>{mode === "existing" ? "Pick an empty Google calendar. This calendar keeps its name, colour and icon." : "A new Google calendar is created and linked. This calendar keeps its name, colour and icon."}</DialogDescription> : null}
         </DialogHeader>
         {settings.data?.connection && !atLimit ? (
           <div className="space-y-4">
@@ -335,15 +351,22 @@ export function GoogleCalendarDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           {settings.data?.connection && !atLimit ? (
             <Button
-              disabled={attachMutation.isPending || (mode === "existing" ? !chosen : !newName.trim())}
+              disabled={pending || (mode === "existing" ? !chosen : !newName.trim())}
               onClick={() => {
                 const selected = (available.data?.calendars ?? []).find((calendar) => calendar.id === chosen);
+                if (linkSource) {
+                  linkMutation.mutate({ data: mode === "create"
+                    ? { source_id: linkSource.id, mode: "create", name: newName }
+                    : { source_id: linkSource.id, mode: "existing", external_calendar_id: chosen }
+                  });
+                  return;
+                }
                 attachMutation.mutate({ data: mode === "create"
                   ? { mode: "create", name: newName, replace_source_id: replaceSourceId }
                   : { mode: "existing", external_calendar_id: chosen, name: selected?.summary ?? chosen, replace_source_id: replaceSourceId }
                 });
               }}
-            >{attachMutation.isPending ? "Connecting…" : mode === "create" ? "Create and connect" : "Connect"}</Button>
+            >{pending ? "Connecting…" : mode === "create" ? (linkSource ? "Create and link" : "Create and connect") : linkSource ? "Link" : "Connect"}</Button>
           ) : null}
         </DialogFooter>
       </DialogContent>

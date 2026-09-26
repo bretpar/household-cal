@@ -66,3 +66,4 @@
 - [x] Keep diagnostics and repair tools in locked Advanced / Maintenance.
 - [x] Move provider-specific actions into each calendar panel and consolidate all add flows behind one button.
 - [x] Keep Google account-level sync controls in one compact expandable section.
+- [x] Phase 2B: link empty OFC calendars to empty Google calendars (owner-only, 2-slot limit)

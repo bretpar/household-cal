@@ -222,7 +222,7 @@ async function googleSources(admin: Admin, familyId: string): Promise<SourceRow[
   const { data } = await admin
     .from("calendar_sources")
     .select(
-      "id, family_id, name, external_calendar_id, is_main, google_sync_token, google_channel_id, google_channel_resource_id, sync_status, sync_failure_count, app_managed_calendar, display_mode",
+      "id, family_id, name, external_calendar_id, is_main, google_sync_token, google_channel_id, google_channel_resource_id, sync_status, sync_failure_count, app_managed_calendar, display_mode, calendar_kind",
     )
     .eq("family_id", familyId)
     .eq("provider", "google")
@@ -878,10 +878,16 @@ export async function pushEvent(
 
     const sources = await googleSources(admin, familyId);
     if (sources.length === 0) return { skipped: "no_google_calendar" };
+    // A linked OFC-created calendar (calendar_kind "custom") only ever
+    // receives its own events; it is never a fallback for Family events.
+    const fallbackPool = sources.filter(
+      (s) => (s as { calendar_kind?: string }).calendar_kind !== "custom",
+    );
     const target =
       sources.find((s) => s.id === event.calendar_source_id) ??
-      sources.find((s) => s.is_main) ??
-      sources[0]!;
+      fallbackPool.find((s) => s.is_main) ??
+      fallbackPool[0];
+    if (!target) return { skipped: "local_only_calendar" };
 
     const initials = await initialsFor(admin, familyId);
     const includeInitials = await householdIncludesGoogleEventInitials(admin, familyId);

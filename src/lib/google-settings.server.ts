@@ -8,6 +8,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { encryptConnectionKey, decryptConnectionKey } from "@/lib/google/crypto.server";
 import {
+  calendarHasEvents,
   createCalendar,
   getAccountEmail,
   getCalendar,
@@ -210,6 +211,136 @@ export async function attachCalendar(
   await ensureWatchChannelsForFamily(supabaseAdmin, familyId);
   return { source_id: data.id as string };
 
+}
+
+const GOOGLE_SLOTS_FULL =
+  "Both Google calendar slots are in use. Disconnect a Google calendar before linking another.";
+
+/** Re-reads everything that makes an OFC calendar linkable; throws when it isn't. */
+async function assertLinkableOfcCalendar(familyId: string, sourceId: string): Promise<void> {
+  const { data: source, error } = await supabaseAdmin
+    .from("calendar_sources")
+    .select("id, provider, calendar_kind, active")
+    .eq("id", sourceId)
+    .eq("family_id", familyId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!source) throw new Error("Calendar not found");
+  if (source.provider !== "local" || source.calendar_kind !== "custom" || !source.active) {
+    throw new Error("Only active calendars you created in Our Family Calendar can be linked");
+  }
+  const { count: eventCount, error: eventsError } = await supabaseAdmin
+    .from("events")
+    .select("id", { count: "exact", head: true })
+    .eq("calendar_source_id", sourceId);
+  if (eventsError) throw eventsError;
+  if ((eventCount ?? 0) > 0) {
+    throw new Error("For now, only calendars with no events can be linked to Google");
+  }
+  const { count: googleCount, error: countError } = await supabaseAdmin
+    .from("calendar_sources")
+    .select("id", { count: "exact", head: true })
+    .eq("family_id", familyId)
+    .eq("provider", "google");
+  if (countError) throw countError;
+  if ((googleCount ?? 0) >= 2) throw new Error(GOOGLE_SLOTS_FULL);
+}
+
+/**
+ * Phase 2B: links an empty OFC-created calendar to an empty Google calendar
+ * (existing or newly created). The same calendar_sources row is converted in
+ * place, so its id, name, colour, icon and display mode are all kept. Google
+ * events are never modified or deleted here.
+ */
+export async function linkOfcCalendar(
+  familyId: string,
+  input: {
+    source_id: string;
+    mode: "create" | "existing";
+    name?: string | undefined;
+    external_calendar_id?: string | undefined;
+  },
+): Promise<{ source_id: string }> {
+  const conn = await getConnection(supabaseAdmin, familyId);
+  if (!conn) throw new Error("Connect a Google account first");
+
+  await assertLinkableOfcCalendar(familyId, input.source_id);
+
+  const { data: family } = await supabaseAdmin
+    .from("families")
+    .select("timezone")
+    .eq("id", familyId)
+    .maybeSingle();
+  const householdTimeZone = normalizeTimeZone(family?.timezone as string | null);
+
+  let calendarId: string;
+  let appManaged = false;
+  let googleTimeZone: string | null = null;
+
+  if (input.mode === "create") {
+    const name = (input.name ?? "").trim();
+    if (!name) throw new Error("Give the new Google calendar a name");
+    const created = await createCalendar(conn.connectionKey, name, householdTimeZone);
+    calendarId = created.id;
+    appManaged = true;
+    googleTimeZone = created.timeZone ?? householdTimeZone;
+  } else {
+    calendarId = String(input.external_calendar_id ?? "").trim();
+    if (!calendarId) throw new Error("Choose a Google calendar");
+    const { data: taken } = await supabaseAdmin
+      .from("calendar_sources")
+      .select("id")
+      .eq("family_id", familyId)
+      .eq("provider", "google")
+      .eq("external_calendar_id", calendarId)
+      .limit(1);
+    if (taken && taken.length > 0) throw new Error("That Google calendar is already connected");
+    if (await calendarHasEvents(conn.connectionKey, calendarId)) {
+      throw new Error("For now, only an empty Google calendar can be linked");
+    }
+    try {
+      const remote = await getCalendar(conn.connectionKey, calendarId);
+      googleTimeZone = remote.timeZone ?? null;
+    } catch (error) {
+      console.error("[google-sync] could not read calendar timezone", error);
+    }
+  }
+
+  // Re-check right before writing: nothing may have changed since the start.
+  await assertLinkableOfcCalendar(familyId, input.source_id);
+
+  // Conditional update: only converts the row if it is still a local custom calendar.
+  const { data: updated, error } = await supabaseAdmin
+    .from("calendar_sources")
+    .update({
+      provider: "google",
+      external_calendar_id: calendarId,
+      app_managed_calendar: appManaged,
+      google_time_zone: googleTimeZone,
+      is_main: false,
+      sync_status: "active",
+      sync_error: null,
+      sync_failure_count: 0,
+      sync_paused_at: null,
+      google_sync_token: null,
+      google_channel_id: null,
+      google_channel_resource_id: null,
+      google_channel_expires_at: null,
+    })
+    .eq("id", input.source_id)
+    .eq("family_id", familyId)
+    .eq("provider", "local")
+    .eq("calendar_kind", "custom")
+    .select("id");
+  if (error) {
+    if (/two google|at most two|max/i.test(error.message)) throw new Error(GOOGLE_SLOTS_FULL);
+    throw error;
+  }
+  if (!updated || updated.length === 0) throw new Error("This calendar changed — please try again");
+
+  await pullHousehold(supabaseAdmin, familyId, true);
+  await ensureWatchChannelsForFamily(supabaseAdmin, familyId);
+  return { source_id: input.source_id };
 }
 
 export async function renameSlot(
