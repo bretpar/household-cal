@@ -34,12 +34,14 @@ type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.
   hideClose?: boolean;
   /** Enables drag-down-to-dismiss on the mobile bottom sheet. */
   onSwipeClose?: () => void;
+  /** Constrains a tall mobile dialog to the visible iOS viewport and safe areas. */
+  mobileViewportSafe?: boolean;
 };
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, hideClose, onSwipeClose, ...props }, ref) => {
+>(({ className, children, hideClose, onSwipeClose, mobileViewportSafe, ...props }, ref) => {
   const [dragY, setDragY] = React.useState(0);
   const startY = React.useRef<number | null>(null);
 
@@ -88,8 +90,8 @@ const DialogContent = React.forwardRef<
           "fixed left-[50%] top-[50%] z-50 flex w-full max-w-lg max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] translate-x-[-50%] translate-y-[-50%] flex-col gap-4 overflow-hidden overscroll-contain border bg-background p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
           // Mobile: raised sheet card that clears the bottom system gesture area.
           "max-sm:inset-x-2 max-sm:bottom-[calc(env(safe-area-inset-bottom)+1.5rem)] max-sm:left-2 max-sm:right-2 max-sm:top-auto max-sm:w-auto max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-3xl max-sm:p-4 max-sm:pb-5 max-sm:max-h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] max-sm:data-[state=closed]:zoom-out-100 max-sm:data-[state=open]:zoom-in-100 max-sm:data-[state=closed]:slide-out-to-bottom max-sm:data-[state=open]:slide-in-from-bottom",
-
-
+          mobileViewportSafe &&
+            "max-sm:bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] max-sm:max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem)] max-sm:pt-5",
           className,
         )}
         {...touchHandlers}
@@ -103,7 +105,10 @@ const DialogContent = React.forwardRef<
         ) : null}
         {children}
         {hideClose ? null : (
-          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background cursor-pointer transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+          <DialogPrimitive.Close className={cn(
+            "absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background cursor-pointer transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground",
+            mobileViewportSafe && "max-sm:top-5",
+          )}>
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>

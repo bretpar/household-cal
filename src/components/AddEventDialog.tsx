@@ -137,13 +137,13 @@ export function EventComposerContent({
 
 
   return (
-    <DialogContent className="rounded-3xl sm:max-w-lg">
-      <DialogHeader>
+    <DialogContent className="rounded-3xl sm:max-w-lg" mobileViewportSafe>
+      <DialogHeader className="max-sm:pr-8">
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
 
-      <div className="-mx-4 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-24 max-sm:pb-[max(7rem,env(safe-area-inset-bottom)+4rem)] sm:-mx-6 sm:px-6">
+      <div className="-mx-4 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-2 sm:-mx-6 sm:px-6">
         <EventFormFields
           state={state}
           onChange={(next) => {

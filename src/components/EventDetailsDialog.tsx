@@ -219,12 +219,13 @@ export function EventDetailsDialog() {
     <Dialog open onOpenChange={(next) => (next ? null : closeOccurrence())}>
       <DialogContent
         className="rounded-3xl sm:max-w-lg"
+        mobileViewportSafe
         hideClose={mode === "details"}
         {...(mode === "details" ? { onSwipeClose: closeOccurrence } : {})}
       >
         {mode === "details" ? (
           <>
-            <DialogHeader>
+            <DialogHeader className="max-sm:pr-8">
               <DialogTitle className="flex items-center gap-2 pr-20">
                 <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
                 <span className="min-w-0 truncate">{event.title}</span>
@@ -349,7 +350,7 @@ export function EventDetailsDialog() {
             </DialogHeader>
 
             {state ? (
-              <div className="-mx-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 pb-24 max-sm:pb-[max(7rem,env(safe-area-inset-bottom)+4rem)] sm:-mx-6 sm:px-6">
+              <div className="-mx-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 pb-2 sm:-mx-6 sm:px-6">
                 <EventFormFields
                   state={state}
                   onChange={(next) => {
