@@ -70,6 +70,9 @@ export function CalendarAppearanceSettings() {
   const [createOfcOpen, setCreateOfcOpen] = useState(false);
   const [googleAddMode, setGoogleAddMode] = useState<"existing" | "create" | null>(null);
   const [appleAddOpen, setAppleAddOpen] = useState(false);
+  const [linkTarget, setLinkTarget] = useState<{ id: string; name: string; mode: "existing" | "create" } | null>(null);
+  const googleCount = sources.filter((s) => s.provider === "google").length;
+  const googleSlotsFull = googleCount >= 2;
 
   // My Calendars: the Family calendar, user-created OFC calendars, and connected
   // Google/Apple calendars. Legacy internal rows (e.g. "Caregiver coverage") stay hidden.
@@ -339,11 +342,10 @@ export function CalendarAppearanceSettings() {
                     }
                   >
                     <SelectTrigger
-                      className="h-9 w-36 rounded-lg text-xs"
+                      className="h-9 w-40 max-w-full rounded-lg text-xs"
                       aria-label={`Icon for ${source.name}`}
                     >
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        {SelectedIcon ? <SelectedIcon className="h-3.5 w-3.5" aria-hidden /> : null}
+                      <span className="flex min-w-0 items-center gap-1.5 truncate">
                         <SelectValue />
                       </span>
                     </SelectTrigger>
@@ -397,8 +399,40 @@ export function CalendarAppearanceSettings() {
                       </Button>
                     </div>
                   ) : null}
+                  {isCustom && isOwner ? (
+                    <div className="space-y-2 border-t border-border-soft pt-3">
+                      <p className="text-xs font-semibold">Google Calendar</p>
+                      <p className="text-[11px] leading-snug text-muted-foreground">
+                        Not linked · stays in Our Family Calendar only
+                      </p>
+                      {googleSlotsFull ? (
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          Both Google calendar slots are in use. Disconnect a Google calendar before linking another.
+                        </p>
+                      ) : (
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          Only calendars with no events can be linked for now.
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" size="sm" variant="outline" disabled={busy || googleSlotsFull} onClick={() => setLinkTarget({ id: source.id, name: source.name, mode: "existing" })}>
+                          <Link2 className="h-3.5 w-3.5" aria-hidden /> Link existing Google calendar
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" disabled={busy || googleSlotsFull} onClick={() => setLinkTarget({ id: source.id, name: source.name, mode: "create" })}>
+                          <CalendarPlus className="h-3.5 w-3.5" aria-hidden /> Create new Google calendar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                   {source.provider === "google" ? (
+                    <>
+                      {source.calendar_kind === "custom" ? (
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          Linked to Google · created in Our Family Calendar
+                        </p>
+                      ) : null}
                     <GoogleCalendarControls sourceId={source.id} />
+                    </>
                   ) : null}
                   {source.provider === "ics" ? (
                     <AppleCalendarControls sourceId={source.id} />
@@ -456,6 +490,12 @@ export function CalendarAppearanceSettings() {
         </DialogContent>
       </Dialog>
       <GoogleCalendarDialog open={googleAddMode !== null} onOpenChange={(open) => !open && setGoogleAddMode(null)} initialMode={googleAddMode ?? "existing"} />
+      <GoogleCalendarDialog
+        open={linkTarget !== null}
+        onOpenChange={(open) => !open && setLinkTarget(null)}
+        initialMode={linkTarget?.mode ?? "existing"}
+        linkSource={linkTarget ? { id: linkTarget.id, name: linkTarget.name } : null}
+      />
       <AddAppleCalendarDialog open={appleAddOpen} onOpenChange={setAppleAddOpen} />
     </section>
   );
