@@ -157,6 +157,7 @@ export function CalendarAppearanceSettings() {
             : "Calendar archived — its events are kept",
       );
       if (action.kind === "create") setNewName("");
+      if (action.kind === "create") setCreateOfcOpen(false);
       setRenaming(null);
       await refresh();
     },
@@ -259,10 +260,10 @@ export function CalendarAppearanceSettings() {
                   className="space-y-3 rounded-xl bg-surface-muted/60 p-3"
                 >
                   {isFamily ? (
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      The Family calendar is the household default and remains available to everyone
-                      with household access.
-                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div><p className="font-semibold">Display</p><p className="text-muted-foreground">Events</p></div>
+                      <div><p className="font-semibold">Appearance</p><p className="text-muted-foreground">Household default</p></div>
+                    </div>
                   ) : (
                     <>
                       <div className="flex flex-wrap items-center gap-2">

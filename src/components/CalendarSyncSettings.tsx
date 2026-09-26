@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { formatDistanceToNow } from "date-fns";
-import { AlertTriangle, ChevronDown, Link2, RefreshCw, Star, Unlink } from "lucide-react";
+import { ChevronDown, Link2, RefreshCw, Star, Unlink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -36,7 +36,6 @@ import {
   setGoogleEventTitleInitials,
   startGoogleCalendarConnect,
   syncNow,
-  type CalendarSlot,
 } from "@/lib/google.functions";
 import { cn } from "@/lib/utils";
 
@@ -311,12 +310,10 @@ export function GoogleCalendarDialog({
         </DialogHeader>
         {settings.data?.connection && !atLimit ? (
           <div className="space-y-4">
-            {!replaceSourceId ? (
-              <div className="grid grid-cols-2 gap-2">
-                <Button type="button" size="sm" variant={mode === "existing" ? "default" : "outline"} onClick={() => setMode("existing")}>Use existing</Button>
-                <Button type="button" size="sm" variant={mode === "create" ? "default" : "outline"} onClick={() => setMode("create")}>Create new</Button>
-              </div>
-            ) : null}
+            <div className="grid grid-cols-2 gap-2">
+              <Button type="button" size="sm" variant={mode === "existing" ? "default" : "outline"} onClick={() => setMode("existing")}>Use existing</Button>
+              <Button type="button" size="sm" variant={mode === "create" ? "default" : "outline"} onClick={() => setMode("create")}>Create new</Button>
+            </div>
             {mode === "existing" ? (
               <div className="space-y-1.5">
                 <Label>Google calendar</Label>
