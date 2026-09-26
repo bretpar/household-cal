@@ -394,6 +394,30 @@ export function eventEndDay(
 }
 
 
+/**
+ * True when `day` satisfies a monthly BYDAY token such as "WE" (every
+ * Wednesday of the month), "1WE" (first Wednesday) or "-1WE" (last
+ * Wednesday).
+ */
+function matchesMonthlyByDayToken(day: Date, token: string): boolean {
+  const match = /^(-?\d+)?(MO|TU|WE|TH|FR|SA|SU)$/.exec(token);
+  if (!match) return false;
+  if (DAY_CODES[day.getDay()] !== match[2]) return false;
+  const ordinal = match[1] ? Number(match[1]) : null;
+  if (ordinal === null) return true;
+  if (ordinal > 0) {
+    // nth occurrence of this weekday within the month
+    return Math.floor((day.getDate() - 1) / 7) + 1 === ordinal;
+  }
+  // negative ordinal counts from the end of the month (-1 = last):
+  // exactly |ordinal| - 1 more occurrences of this weekday remain this month
+  let remaining = 0;
+  for (let d = addDays(day, 7); d.getMonth() === day.getMonth(); d = addDays(d, 7)) {
+    remaining++;
+  }
+  return remaining === Math.abs(ordinal) - 1;
+}
+
 /** Zero-based index of a day inside the series, or null when it isn't a hit. */
 function occurrenceIndex(start: Date, day: Date, rule: ParsedRule): number | null {
   if (rule.freq === "DAILY") {
@@ -401,10 +425,24 @@ function occurrenceIndex(start: Date, day: Date, rule: ParsedRule): number | nul
     return diff % rule.interval === 0 ? diff / rule.interval : null;
   }
   if (rule.freq === "MONTHLY") {
-    if (day.getDate() !== start.getDate()) return null;
     const months =
       (day.getFullYear() - start.getFullYear()) * 12 + (day.getMonth() - start.getMonth());
-    return months % rule.interval === 0 ? months / rule.interval : null;
+    if (months % rule.interval !== 0) return null;
+    if (rule.byDay && rule.byDay.length > 0) {
+      // BYDAY form: "2WE" (2nd Wednesday), "-1FR" (last Friday), "MO" (every Monday)
+      const matches = (d: Date) => rule.byDay!.some((t) => matchesMonthlyByDayToken(d, t));
+      if (!matches(day)) return null;
+      // Count matching days from the series start so COUNT limits stay correct.
+      let index = 0;
+      for (let d = startOfDay(start); d < day; d = addDays(d, 1)) {
+        const m = (d.getFullYear() - start.getFullYear()) * 12 + (d.getMonth() - start.getMonth());
+        if (m % rule.interval === 0 && matches(d)) index++;
+      }
+      return index;
+    }
+    // Day-of-month form: repeats on the same numbered day each month.
+    if (day.getDate() !== start.getDate()) return null;
+    return months / rule.interval;
   }
   // WEEKLY
   const days = rule.byDay ?? [DAY_CODES[start.getDay()]!];
