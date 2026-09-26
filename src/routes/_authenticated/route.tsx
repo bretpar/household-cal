@@ -169,3 +169,19 @@ function AuthenticatedLayout() {
     </UserPreferencesProvider>
   );
 }
+
+/** Stable branded placeholder while sign-in and household are confirmed. */
+function StartupLoading() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-background"
+    >
+      <img src={logoAsset.url} alt="" className="h-16 w-16 animate-pulse rounded-2xl object-contain" />
+      <p className="font-display text-base font-semibold text-muted-foreground">
+        Loading your calendar…
+      </p>
+    </div>
+  );
+}
