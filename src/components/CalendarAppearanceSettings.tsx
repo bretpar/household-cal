@@ -504,6 +504,7 @@ export function CalendarAppearanceSettings() {
         linkSource={linkTarget ? { id: linkTarget.id, name: linkTarget.name } : null}
       />
       <AddAppleCalendarDialog open={appleAddOpen} onOpenChange={setAppleAddOpen} />
+      <ImportCalendarFileDialog open={importOpen} onOpenChange={setImportOpen} />
     </section>
   );
 }
