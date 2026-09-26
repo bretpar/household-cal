@@ -387,7 +387,7 @@ export function CalendarAppearanceSettings() {
                     </div>
                   ) : null}
                 </div>
-              )}
+              ) : null}
             </div>
           );
         })}
