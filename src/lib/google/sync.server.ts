@@ -748,6 +748,26 @@ async function isSubscriptionSourced(
   return (data as { provider?: string } | null)?.provider === "ics";
 }
 
+/**
+ * True when an event belongs to a user-created OFC calendar. These are
+ * local-only until an explicit Google connection exists, so outbound sync
+ * must skip them rather than falling back to the main Google calendar.
+ * Distinguished by the stored calendar_kind, never by name.
+ */
+async function isLocalOnlySourced(
+  admin: Admin,
+  calendarSourceId: string | null | undefined,
+): Promise<boolean> {
+  if (!calendarSourceId) return false;
+  const { data } = await admin
+    .from("calendar_sources")
+    .select("provider, calendar_kind")
+    .eq("id", calendarSourceId)
+    .maybeSingle();
+  const row = data as { provider?: string; calendar_kind?: string } | null;
+  return row?.provider === "local" && row?.calendar_kind === "custom";
+}
+
 
 export async function initialsFor(admin: Admin, familyId: string): Promise<Map<string, string>> {
   const { data } = await admin
