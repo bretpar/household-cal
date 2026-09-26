@@ -133,6 +133,9 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     hasMountedOnce = true;
+    // After the first pass, beforeLoad gates every client navigation; running
+    // the guard here again would only duplicate its auth + household requests.
+    if (everReady) return;
     let cancelled = false;
     void (async () => {
       const result = await resolveGuard(pathname);
@@ -151,9 +154,9 @@ function AuthenticatedLayout() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [pathname, everReady]);
 
-  if (!everReady) return null;
+  if (!everReady) return <StartupLoading />;
 
   return (
     <UserPreferencesProvider>
