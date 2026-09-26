@@ -298,7 +298,8 @@ export function GoogleCalendarDialog({
     if (!open) return;
     setMode(initialMode);
     if (linkSource) setNewName(linkSource.name);
-  }, [initialMode, open, linkSource]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMode, open, linkSource?.id]);
   const available = useQuery({
     queryKey: ["google-calendar-list"],
     queryFn: () => listCalendars(),
