@@ -314,6 +314,7 @@ export const BENIGN_PUSH_SKIPS = new Set([
   "no_google_calendar",
   "read_only_subscription",
   "google_owned_exception",
+  "local_only_calendar",
   "event_not_found",
 ]);
 
@@ -747,6 +748,26 @@ async function isSubscriptionSourced(
   return (data as { provider?: string } | null)?.provider === "ics";
 }
 
+/**
+ * True when an event belongs to a user-created OFC calendar. These are
+ * local-only until an explicit Google connection exists, so outbound sync
+ * must skip them rather than falling back to the main Google calendar.
+ * Distinguished by the stored calendar_kind, never by name.
+ */
+async function isLocalOnlySourced(
+  admin: Admin,
+  calendarSourceId: string | null | undefined,
+): Promise<boolean> {
+  if (!calendarSourceId) return false;
+  const { data } = await admin
+    .from("calendar_sources")
+    .select("provider, calendar_kind")
+    .eq("id", calendarSourceId)
+    .maybeSingle();
+  const row = data as { provider?: string; calendar_kind?: string } | null;
+  return row?.provider === "local" && row?.calendar_kind === "custom";
+}
+
 
 export async function initialsFor(admin: Admin, familyId: string): Promise<Map<string, string>> {
   const { data } = await admin
@@ -828,6 +849,15 @@ export async function pushEvent(
     // event in a different calendar colour.
     if (await isSubscriptionSourced(admin, event.calendar_source_id)) {
       return { skipped: "read_only_subscription" };
+    }
+
+    // Events on a user-created OFC calendar (provider "local",
+    // calendar_kind "custom") are local-only: they must never fall back to
+    // the main Google calendar. The household Family calendar
+    // (household_default / legacy_internal) keeps that fallback, and events
+    // assigned directly to a Google source sync to that source.
+    if (await isLocalOnlySourced(admin, event.calendar_source_id)) {
+      return { skipped: "local_only_calendar" };
     }
 
 
