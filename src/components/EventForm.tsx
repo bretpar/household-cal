@@ -44,6 +44,7 @@ import {
   type MemberId,
   type Occurrence,
   type WeekdayCode,
+  isWritableDestination,
 } from "@/lib/family-data";
 
 export type RecurrenceEndMode = "on" | "count" | "never";
@@ -568,9 +569,24 @@ export function EventFormFields({
   // Advanced recurrence controls stay tucked away until the user asks for them.
   const [repeatOpen, setRepeatOpen] = useState(false);
   const activeMembers = members.filter((m) => m.active);
-  // Only worth showing when there is an actual routing choice to make.
-  const syncedCalendars = sources.filter((s) => s.provider === "google" && s.active);
-  const shownCalendarSourceId = state.calendarSourceId ?? defaultCalendarSourceId(sources);
+  // Destination calendars: active Family/user-created OFC calendars and Google.
+  const destinations = sources.filter(isWritableDestination);
+  const familyCalendarId =
+    destinations.find((s) => s.provider === "local" && s.calendar_kind === "household_default")
+      ?.id ?? null;
+  const shownCalendarSourceId =
+    state.calendarSourceId ?? defaultCalendarSourceId(sources) ?? familyCalendarId;
+  // An existing event may live on a calendar that no longer accepts new events
+  // (archived or legacy); show it so the destination is always visible.
+  const currentSource = shownCalendarSourceId
+    ? sources.find((s) => s.id === shownCalendarSourceId)
+    : undefined;
+  const pickerOptions =
+    currentSource && !destinations.some((s) => s.id === currentSource.id)
+      ? [currentSource, ...destinations]
+      : destinations;
+  const providerLabel = (s: (typeof sources)[number]) =>
+    s.provider === "google" ? "Google" : s.provider === "ics" ? "Apple" : "OFC";
 
   const set = <K extends keyof EventFormState>(key: K, value: EventFormState[K]) =>
     onChange({ ...state, [key]: value });
@@ -1047,9 +1063,9 @@ export function EventFormFields({
       </div>
 
 
-      {syncedCalendars.length > 1 ? (
+      {pickerOptions.length > 0 ? (
         <div className="space-y-1.5">
-          <Label>Google calendar</Label>
+          <Label>Calendar</Label>
           <Select
             value={shownCalendarSourceId ?? ""}
             onValueChange={(v) => set("calendarSourceId", v)}
@@ -1058,10 +1074,15 @@ export function EventFormFields({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {syncedCalendars.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
-                  {s.is_main ? " · Main" : ""}
+              {pickerOptions.map((s) => (
+                <SelectItem
+                  key={s.id}
+                  value={s.id}
+                  disabled={!destinations.some((d) => d.id === s.id)}
+                >
+                  {s.name} · {providerLabel(s)}
+                  {s.provider === "google" && s.is_main ? " · Main" : ""}
+                  {!s.active ? " · Archived" : ""}
                 </SelectItem>
               ))}
             </SelectContent>

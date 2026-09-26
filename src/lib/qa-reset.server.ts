@@ -41,7 +41,7 @@ const BASELINE_MEMBERS = [
 ] as const;
 
 const BASELINE_SOURCES = [
-  { name: "Family", display_mode: "events", sort_order: 0, selectable_in_email: false },
+  { name: "Family", calendar_kind: "household_default", display_mode: "events", sort_order: 0, selectable_in_email: false },
 ] as const;
 
 export interface QaUserMap {

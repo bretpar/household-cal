@@ -7,6 +7,7 @@ import {
   asEventInput,
   assertEventEditable,
   defaultEventSource,
+  assertWritableDestination,
   insertEvent,
   loadFamilyBundle,
   pushTargetsForUpdate,
@@ -50,6 +51,9 @@ export const createEvent = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const db = context.supabase as unknown as Db;
     const familyId = await resolveWritableFamily(db, context.userId);
+    if (data.calendar_source_id) {
+      await assertWritableDestination(db, familyId, data.calendar_source_id);
+    }
     const sourceId = data.calendar_source_id ?? (await defaultEventSource(db, familyId));
     const id = await insertEvent(db, familyId, { ...data, calendar_source_id: sourceId });
 

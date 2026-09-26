@@ -137,6 +137,7 @@ export type Database = {
         Row: {
           active: boolean
           app_managed_calendar: boolean
+          calendar_kind: string
           color: string | null
           created_at: string
           display_icon: string | null
@@ -166,6 +167,7 @@ export type Database = {
         Insert: {
           active?: boolean
           app_managed_calendar?: boolean
+          calendar_kind?: string
           color?: string | null
           created_at?: string
           display_icon?: string | null
@@ -195,6 +197,7 @@ export type Database = {
         Update: {
           active?: boolean
           app_managed_calendar?: boolean
+          calendar_kind?: string
           color?: string | null
           created_at?: string
           display_icon?: string | null

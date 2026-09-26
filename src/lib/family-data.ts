@@ -85,6 +85,19 @@ export interface CalendarSource {
   display_icon?: string | null;
   /** family member every imported event is assigned to (ics only) */
   subscription_member_id?: string | null;
+  /** local rows only: the household Family calendar, a user-created calendar, or a hidden legacy row */
+  calendar_kind?: CalendarKind;
+}
+
+export type CalendarKind = "household_default" | "custom" | "legacy_internal";
+
+/** Calendars an event can be saved into: active OFC (Family/custom) and Google. */
+export function isWritableDestination(
+  s: Pick<CalendarSource, "provider" | "active" | "calendar_kind">,
+): boolean {
+  if (!s.active) return false;
+  if (s.provider === "google") return true;
+  return s.provider === "local" && (s.calendar_kind === "household_default" || s.calendar_kind === "custom");
 }
 
 /** Weekday code used by RRULE BYDAY and by per-person participation rules. */
