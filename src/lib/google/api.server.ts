@@ -316,6 +316,27 @@ export async function listEvents(
 }
 
 /**
+ * True when the Google calendar holds at least one live (non-cancelled) event.
+ * Reads a single page and never touches sync tokens.
+ */
+export async function calendarHasEvents(
+  connectionAPIKey: string,
+  calendarId: string,
+): Promise<boolean> {
+  const params = new URLSearchParams({ maxResults: "1", showDeleted: "false" });
+  const res = await callAsAppUser({
+    gatewayBaseUrl: GATEWAY_BASE_URL,
+    connectionAPIKey,
+    connectorId: CONNECTOR_ID,
+    path: `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params.toString()}`,
+  });
+  const text = await res.text();
+  if (!res.ok) throw googleFailure(res.status, text, "Google event list failed");
+  const body = JSON.parse(text || "{}") as { items?: GoogleEvent[] };
+  return (body.items ?? []).some((item) => item.status !== "cancelled");
+}
+
+/**
  * Read-only listing of everything Google has in one explicit time range,
  * expanded to individual instances. Used by the developer inbound-sync
  * diagnostic; it never touches sync tokens so it cannot disturb live sync.

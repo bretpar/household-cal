@@ -234,6 +234,28 @@ export const connectCalendarSlot = createServerFn({ method: "POST" })
     return attachCalendar(family, data);
   });
 
+export const linkOfcCalendarToGoogle = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: { source_id: string; mode: "create" | "existing"; name?: string; external_calendar_id?: string }) => {
+      const source_id = String(input?.source_id ?? "").trim();
+      if (!source_id) throw new Error("Choose a calendar");
+      if (input?.mode !== "create" && input?.mode !== "existing") throw new Error("Invalid link mode");
+      return {
+        source_id,
+        mode: input.mode,
+        name: input.name ? String(input.name).slice(0, 100) : undefined,
+        external_calendar_id: input.external_calendar_id ? String(input.external_calendar_id) : undefined,
+      };
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const { resolveOwnedFamily, linkOfcCalendar } = await import("@/lib/google-settings.server");
+    const family = await resolveOwnedFamily(context.supabase, context.userId);
+    if (!family) throw new Error("Only household owners can link calendars to Google");
+    return linkOfcCalendar(family, data);
+  });
+
 export const renameCalendarSlot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { source_id: string; name: string }) => input)
