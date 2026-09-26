@@ -1,10 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Archive, Pencil, Plus } from "lucide-react";
+import { Archive, ChevronDown, Pencil, Plus, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { AppleCalendarSubscriptions } from "@/components/AppleCalendarSubscriptions";
+import { CalendarSyncSettings } from "@/components/CalendarSyncSettings";
 import { Input } from "@/components/ui/input";
 
 import {
@@ -55,6 +57,7 @@ export function CalendarAppearanceSettings() {
   const archiveCalendar = useServerFn(archiveOfcCalendar);
   const [newName, setNewName] = useState("");
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const [managedSourceId, setManagedSourceId] = useState<string | null>(null);
 
   // My Calendars: the Family calendar, user-created OFC calendars, and connected
   // Google/Apple calendars. Legacy internal rows (e.g. "Caregiver coverage") stay hidden.
@@ -215,85 +218,81 @@ export function CalendarAppearanceSettings() {
                     {providerLabel} · {status}
                   </p>
                 </div>
-                {isCustom && isOwner && renaming?.id !== source.id ? (
-                  <>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8"
-                      disabled={busy}
-                      aria-label={`Rename ${source.name}`}
-                      onClick={() => setRenaming({ id: source.id, name: source.name })}
-                    >
-                      <Pencil className="h-3.5 w-3.5" aria-hidden />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8"
-                      disabled={busy}
-                      aria-label={`Archive ${source.name}`}
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            `Archive "${source.name}"? Its events stay on your calendar; you just can't add new ones to it.`,
-                          )
-                        ) {
-                          manageMutation.mutate({ kind: "archive", id: source.id });
-                        }
-                      }}
-                    >
-                      <Archive className="h-3.5 w-3.5" aria-hidden />
-                    </Button>
-                  </>
-                ) : null}
-                {isFamily ? null : (
-                <Select
-                  value={source.display_mode}
-                  disabled={!editable || busy}
-                  onValueChange={(displayMode: DisplayMode) =>
-                    mutation.mutate({ source, displayMode })
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 shrink-0 rounded-lg px-2.5 text-xs"
+                  aria-expanded={managedSourceId === source.id}
+                  aria-controls={`calendar-management-${source.id}`}
+                  onClick={() =>
+                    setManagedSourceId((current) => (current === source.id ? null : source.id))
                   }
                 >
-                  <SelectTrigger
-                    className="h-9 w-40 rounded-lg text-xs"
-                    aria-label={`Display style for ${source.name}`}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="events">Events (front)</SelectItem>
-                    <SelectItem value="coverage_background">Background layer</SelectItem>
-                  </SelectContent>
-                </Select>
-                )}
+                  <Settings2 className="h-3.5 w-3.5" aria-hidden />
+                  Manage
+                  <ChevronDown
+                    className={cn(
+                      "h-3.5 w-3.5 transition-transform",
+                      managedSourceId === source.id && "rotate-180",
+                    )}
+                    aria-hidden
+                  />
+                </Button>
               </div>
 
-              {isFamily ? null : (
-              <div className="flex items-center gap-2 pl-8">
-                <span
-                  className={cn(
-                    "flex min-w-0 max-w-[16rem] items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold",
-                    previewTint,
-                    background && "text-muted-foreground",
-                  )}
+              {managedSourceId === source.id ? (
+                <div
+                  id={`calendar-management-${source.id}`}
+                  className="space-y-3 rounded-xl bg-surface-muted/60 p-3"
                 >
-                  {SelectedIcon ? <SelectedIcon className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
-                  <span className="truncate">{source.name}</span>
-                </span>
-                <span className="text-[11px] leading-snug text-muted-foreground">
-                  {background
-                    ? "Sits softly behind family events"
-                    : "Shows as a normal event card"}
-                </span>
-              </div>
-              )}
+                  {isFamily ? (
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      The Family calendar is the household default and remains available to everyone
+                      with household access.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Select
+                          value={source.display_mode}
+                          disabled={!editable || busy}
+                          onValueChange={(displayMode: DisplayMode) =>
+                            mutation.mutate({ source, displayMode })
+                          }
+                        >
+                          <SelectTrigger
+                            className="h-9 w-40 rounded-lg text-xs"
+                            aria-label={`Display style for ${source.name}`}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="events">Events (front)</SelectItem>
+                            <SelectItem value="coverage_background">Background layer</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <span
+                          className={cn(
+                            "flex min-w-0 max-w-[16rem] items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold",
+                            previewTint,
+                            background && "text-muted-foreground",
+                          )}
+                        >
+                          {SelectedIcon ? <SelectedIcon className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+                          <span className="truncate">{source.name}</span>
+                        </span>
+                      </div>
+                      <p className="text-[11px] leading-snug text-muted-foreground">
+                        {background
+                          ? "Sits softly behind family events"
+                          : "Shows as a normal event card"}
+                      </p>
+                    </>
+                  )}
 
-
-              {isLocal ? null : (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pl-8">
+                  {isLocal ? null : (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <div className="flex flex-wrap items-center gap-1.5">
                     {CALENDAR_COLORS.map((option) => (
                       <button
@@ -352,6 +351,41 @@ export function CalendarAppearanceSettings() {
                       })}
                     </SelectContent>
                   </Select>
+                    </div>
+                  )}
+
+                  {isCustom && isOwner ? (
+                    <div className="flex flex-wrap gap-2 border-t border-border-soft pt-3">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => setRenaming({ id: source.id, name: source.name })}
+                      >
+                        <Pencil className="h-3.5 w-3.5" aria-hidden />
+                        Rename
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Archive "${source.name}"? Its events stay on your calendar; you just can't add new ones to it.`,
+                            )
+                          ) {
+                            manageMutation.mutate({ kind: "archive", id: source.id });
+                          }
+                        }}
+                      >
+                        <Archive className="h-3.5 w-3.5" aria-hidden />
+                        Archive
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -380,13 +414,15 @@ export function CalendarAppearanceSettings() {
         </form>
       ) : null}
       <p className="px-1 text-xs leading-relaxed text-muted-foreground">
-        Connect or remove Google and Apple calendars under Sync & Integrations. Archiving a
-        calendar you created keeps its events. Pick a colour and symbol for each calendar. "Events (front)" shows normal cards;
+        Archiving a calendar you created keeps its events. Pick a colour and symbol for each calendar. "Events (front)" shows normal cards;
         "Background layer" shows softer blocks behind family events — useful for work shifts and
         caregiver coverage. The preview shows exactly how it looks on Today and the calendar.
         Visibility is controlled from Calendar filters.
       </p>
-
+      <div className="space-y-5 border-t border-border-soft pt-5">
+        <CalendarSyncSettings />
+        <AppleCalendarSubscriptions />
+      </div>
     </section>
   );
 }
