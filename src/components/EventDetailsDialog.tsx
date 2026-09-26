@@ -344,7 +344,7 @@ export function EventDetailsDialog() {
           </>
         ) : mode === "edit" ? (
           <>
-            <DialogHeader>
+            <DialogHeader className="max-sm:pr-8">
               <DialogTitle>Edit event</DialogTitle>
               <DialogDescription>Update the details for {event.title}.</DialogDescription>
             </DialogHeader>
