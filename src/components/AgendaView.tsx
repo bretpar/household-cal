@@ -25,7 +25,13 @@ export function AgendaView({
   selectedMembers,
   days = 1,
   onPaste,
+  loading = false,
+  loadError = false,
 }: {
+  /** initial load still running: show placeholders, never "Nothing scheduled" */
+  loading?: boolean;
+  /** initial load failed: say so instead of showing an empty schedule */
+  loadError?: boolean;
   anchor: Date;
   events: CalendarEvent[];
   selectedMembers: MemberId[];
@@ -75,7 +81,15 @@ export function AgendaView({
             ))}
 
 
-            {visible.length === 0 ? (
+            {loading ? (
+              <div className="space-y-2" aria-hidden>
+                <div className="h-14 animate-pulse rounded-2xl bg-secondary/70" />
+              </div>
+            ) : loadError ? (
+              <p className="rounded-2xl border border-dashed border-destructive/40 bg-surface px-3 py-5 text-center text-sm text-destructive">
+                Couldn’t load events. Pull to refresh or reopen the app.
+              </p>
+            ) : visible.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-border bg-surface px-3 py-5 text-center text-sm text-muted-foreground">
                 Nothing scheduled
               </p>

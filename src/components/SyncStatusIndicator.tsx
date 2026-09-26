@@ -24,6 +24,8 @@ export function SyncStatusIndicator() {
   const { data } = useQuery({
     queryKey: SYNC_KEY,
     queryFn: () => load(),
+    // Shared across tabs: a remounted header reuses the cached status instead of refetching.
+    staleTime: 30_000,
     refetchInterval: (query) =>
       query.state.data?.connection?.manual_sync_running ? 1_500 : 60_000,
   });

@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
+import logoAsset from "@/assets/logo.png.asset.json";
 import { useEffect, useState } from "react";
 
 import { CopiedEventBar } from "@/components/CopiedEventBar";
@@ -19,7 +20,48 @@ import { UserPreferencesProvider } from "@/lib/user-preferences";
 // still fully gated by beforeLoad.
 let hasMountedOnce = false;
 
+/**
+ * Last passed guard result for the signed-in user. Ordinary tab navigation
+ * reuses it instead of re-running the auth + household round-trips. Only
+ * results with a household are cached (so onboarding/invite claims always
+ * re-check), and any auth change (sign-in, sign-out, user switch) clears it.
+ */
+const GUARD_TTL_MS = 5 * 60_000;
+let guardCache: { userId: string; family_id: string; at: number; user: unknown } | null = null;
+let guardInFlight: { pathname: string; promise: ReturnType<typeof resolveGuardUncached> } | null =
+  null;
+if (typeof window !== "undefined") {
+  supabase.auth.onAuthStateChange((event) => {
+    if (event !== "TOKEN_REFRESHED" && event !== "INITIAL_SESSION") guardCache = null;
+  });
+}
+
 async function resolveGuard(pathname: string) {
+  const onOnboarding = pathname.startsWith("/onboarding");
+  if (guardCache && !onOnboarding && Date.now() - guardCache.at < GUARD_TTL_MS) {
+    // Local session read only (no network); confirms the same user is still signed in.
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.user.id === guardCache.userId) {
+      return { user: guardCache.user as NonNullable<typeof data.session>["user"], family_id: guardCache.family_id };
+    }
+    guardCache = null;
+  }
+  // Share one in-flight check between beforeLoad and the mount effect.
+  if (guardInFlight?.pathname === pathname) return guardInFlight.promise;
+  const promise = resolveGuardUncached(pathname);
+  guardInFlight = { pathname, promise };
+  try {
+    const result = await promise;
+    if ("family_id" in result && result.family_id && result.user) {
+      guardCache = { userId: result.user.id, family_id: result.family_id, at: Date.now(), user: result.user };
+    }
+    return result;
+  } finally {
+    if (guardInFlight?.promise === promise) guardInFlight = null;
+  }
+}
+
+async function resolveGuardUncached(pathname: string) {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) return { redirectTo: "/auth" as const };
 
@@ -92,6 +134,9 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     hasMountedOnce = true;
+    // After the first pass, beforeLoad gates every client navigation; running
+    // the guard here again would only duplicate its auth + household requests.
+    if (everReady) return;
     let cancelled = false;
     void (async () => {
       const result = await resolveGuard(pathname);
@@ -110,9 +155,9 @@ function AuthenticatedLayout() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [pathname, everReady]);
 
-  if (!everReady) return null;
+  if (!everReady) return <StartupLoading />;
 
   return (
     <UserPreferencesProvider>
@@ -123,5 +168,21 @@ function AuthenticatedLayout() {
         <CopiedEventBar />
       </CalendarProvider>
     </UserPreferencesProvider>
+  );
+}
+
+/** Stable branded placeholder while sign-in and household are confirmed. */
+function StartupLoading() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-background"
+    >
+      <img src={logoAsset.url} alt="" className="h-16 w-16 animate-pulse rounded-2xl object-contain" />
+      <p className="font-display text-base font-semibold text-muted-foreground">
+        Loading your calendar…
+      </p>
+    </div>
   );
 }
