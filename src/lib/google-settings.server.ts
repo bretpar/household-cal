@@ -143,6 +143,17 @@ export async function attachCalendar(
   }
 
   if (input.replace_source_id) {
+    // Replace only ever swaps one connected Google source for another. OFC
+    // calendars must go through linkOfcCalendar, never this path.
+    const { data: existing } = await supabaseAdmin
+      .from("calendar_sources")
+      .select("provider")
+      .eq("id", input.replace_source_id)
+      .eq("family_id", familyId)
+      .maybeSingle();
+    if (!existing || existing.provider !== "google") {
+      throw new Error("Only a connected Google calendar can be replaced");
+    }
     // Only ever reached from an explicit owner choice — the app never switches
     // sync targets on its own. Local events survive; only the Google mappings
     // for the old calendar go away, so nothing is re-imported twice.
@@ -481,16 +492,8 @@ export async function detachCalendar(familyId: string, sourceId: string): Promis
     })
     .eq("id", sourceId);
 
-  if (source.is_main) {
-    const { data: next } = await supabaseAdmin
-      .from("calendar_sources")
-      .select("id")
-      .eq("family_id", familyId)
-      .eq("provider", "google")
-      .order("sort_order", { ascending: true })
-      .limit(1);
-    if (next?.[0]) await setMain(familyId, next[0].id);
-  }
+  // No automatic main promotion: a linked OFC calendar must never become the
+  // main calendar on its own. Family stays local until an owner picks a main.
   return { ok: true };
 }
 
