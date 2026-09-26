@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
+import logoAsset from "@/assets/logo.png.asset.json";
 import { useEffect, useState } from "react";
 
 import { CopiedEventBar } from "@/components/CopiedEventBar";
