@@ -140,6 +140,10 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const bundle = useQuery({
     queryKey: FAMILY_BUNDLE_KEY,
     queryFn: () => fetchBundle(),
+    // Foreground returns within this window reuse the populated in-memory
+    // bundle instead of refetching on focus; explicit invalidations still
+    // refetch immediately regardless of staleness.
+    staleTime: 5 * 60 * 1000,
   });
 
   // App-open freshness: pull Google changes in the background (never blocking
