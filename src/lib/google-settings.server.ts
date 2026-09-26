@@ -254,7 +254,12 @@ async function assertLinkableOfcCalendar(familyId: string, sourceId: string): Pr
  */
 export async function linkOfcCalendar(
   familyId: string,
-  input: { source_id: string; mode: "create" | "existing"; name?: string; external_calendar_id?: string },
+  input: {
+    source_id: string;
+    mode: "create" | "existing";
+    name?: string | undefined;
+    external_calendar_id?: string | undefined;
+  },
 ): Promise<{ source_id: string }> {
   const conn = await getConnection(supabaseAdmin, familyId);
   if (!conn) throw new Error("Connect a Google account first");
