@@ -382,6 +382,7 @@ function CalendarPage() {
           events={visibleEvents}
           selectedMembers={selectedMembers}
           onPaste={onPaste}
+          loading={loading}
         />
         </div>
       </div>
