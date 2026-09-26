@@ -30,7 +30,7 @@ export function ImportCalendarFileDialog({ open, onOpenChange }: { open: boolean
   const [fileName, setFileName] = useState("");
   const [destination, setDestination] = useState<string>(NEW);
   const [name, setName] = useState("");
-  const [color, setColor] = useState<string>(CALENDAR_COLORS[0]);
+  const [color, setColor] = useState<string>(CALENDAR_COLORS[0] as string);
   const [icon, setIcon] = useState<string>(CALENDAR_ICON_NONE);
   const [info, setInfo] = useState<Preview | null>(null);
   const [googleOk, setGoogleOk] = useState(false);
@@ -162,8 +162,8 @@ export function ImportCalendarFileDialog({ open, onOpenChange }: { open: boolean
                 <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Color">
                   {CALENDAR_COLORS.map((c) => (
                     <button key={c} type="button" aria-label={c} aria-checked={color === c} role="radio" onClick={() => setColor(c)}
-                      className={cn("h-8 w-8 rounded-full border", color === c && "ring-2 ring-ring ring-offset-2")}
-                      style={styleForColor(c as never)} />
+                      className={cn("h-8 w-8 rounded-full border", styleForColor(c).dot, color === c && "ring-2 ring-ring ring-offset-2")}
+                      />
                   ))}
                 </div>
                 <Select value={icon} onValueChange={setIcon}>
