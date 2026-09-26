@@ -1,22 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { formatDistanceToNow } from "date-fns";
-import { AlertTriangle, CalendarPlus, Link2, RefreshCw, Star, Unlink } from "lucide-react";
+import { AlertTriangle, ChevronDown, Link2, RefreshCw, Star, Unlink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -24,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   completeGoogleCalendarConnection,
   connectCalendarSlot,
@@ -36,11 +36,12 @@ import {
   setGoogleEventTitleInitials,
   startGoogleCalendarConnect,
   syncNow,
+  type CalendarSlot,
 } from "@/lib/google.functions";
+import { cn } from "@/lib/utils";
 
-const SYNC_KEY = ["calendar-sync"] as const;
+export const SYNC_KEY = ["calendar-sync"] as const;
 
-/** Waits for the consent popup to hand back its one-time code. */
 function waitForOAuth(popup: Window): Promise<string | null> {
   return new Promise((resolve, reject) => {
     let poll: number | undefined;
@@ -55,8 +56,7 @@ function waitForOAuth(popup: Window): Promise<string | null> {
         event.source !== popup ||
         event.data?.connectorId !== "google_calendar" ||
         (type !== "appUserConnectorOAuthComplete" && type !== "appUserConnectorOAuthFailed")
-      )
-        return;
+      ) return;
       cleanup();
       if (type === "appUserConnectorOAuthComplete") {
         resolve(typeof event.data?.code === "string" ? event.data.code : null);
@@ -74,102 +74,54 @@ function waitForOAuth(popup: Window): Promise<string | null> {
   });
 }
 
-export function CalendarSyncSettings() {
-  const queryClient = useQueryClient();
+function useGoogleSettings() {
   const load = useServerFn(getSyncSettings);
-  const start = useServerFn(startGoogleCalendarConnect);
-  const complete = useServerFn(completeGoogleCalendarConnection);
-  const listCalendars = useServerFn(listGoogleCalendars);
-  const attach = useServerFn(connectCalendarSlot);
-  const rename = useServerFn(renameCalendarSlot);
-  const makeMain = useServerFn(setMainCalendarSlot);
-  const setTitleInitials = useServerFn(setGoogleEventTitleInitials);
-  const detach = useServerFn(disconnectCalendarSlot);
-  const disconnect = useServerFn(disconnectGoogleAccount);
-  const runSync = useServerFn(syncNow);
-
-  const { data, isPending } = useQuery({
+  return useQuery({
     queryKey: SYNC_KEY,
     queryFn: () => load(),
     refetchInterval: (query) =>
       query.state.data?.connection?.manual_sync_running ? 1_500 : false,
   });
-  const [connecting, setConnecting] = useState(false);
-  const [slotDialog, setSlotDialog] = useState<{ replaceId: string | null } | null>(null);
-  const [mode, setMode] = useState<"existing" | "create">("existing");
-  const [newName, setNewName] = useState("Family Calendar");
-  const [chosen, setChosen] = useState("");
-  const wasSyncing = useRef(false);
+}
 
-  const refresh = () => {
+function useGoogleRefresh() {
+  const queryClient = useQueryClient();
+  return () => {
     void queryClient.invalidateQueries({ queryKey: SYNC_KEY });
     void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
   };
+}
 
-  const available = useQuery({
-    queryKey: ["google-calendar-list"],
-    queryFn: () => listCalendars(),
-    enabled: Boolean(slotDialog) && Boolean(data?.connection),
-  });
+export function GoogleAccountSettings() {
+  const queryClient = useQueryClient();
+  const settings = useGoogleSettings();
+  const refresh = useGoogleRefresh();
+  const start = useServerFn(startGoogleCalendarConnect);
+  const complete = useServerFn(completeGoogleCalendarConnection);
+  const setTitleInitials = useServerFn(setGoogleEventTitleInitials);
+  const disconnect = useServerFn(disconnectGoogleAccount);
+  const runSync = useServerFn(syncNow);
+  const [expanded, setExpanded] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const wasSyncing = useRef(false);
 
-  const renameMutation = useMutation({
-    mutationFn: (input: { data: { source_id: string; name: string } }) => rename(input),
-    onSuccess: () => {
-      toast.success("Calendar renamed");
-      refresh();
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
-  const mainMutation = useMutation({
-    mutationFn: (input: { data: { source_id: string } }) => makeMain(input),
-    onSuccess: () => {
-      toast.success("Main calendar updated");
-      refresh();
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
-  const titleInitialsMutation = useMutation({
+  const titleMutation = useMutation({
     mutationFn: (enabled: boolean) => setTitleInitials({ data: { enabled } }),
-    onSuccess: () => {
-      toast.success("Google event titles updated");
-      refresh();
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
-  const detachMutation = useMutation({
-    mutationFn: (input: { data: { source_id: string } }) => detach(input),
-    onSuccess: () => {
-      toast.success("Calendar disconnected — your events are still here");
-      refresh();
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
-  const attachMutation = useMutation({
-    mutationFn: (input: Parameters<typeof attach>[0]) => attach(input),
-    onSuccess: () => {
-      toast.success("Calendar connected");
-      setSlotDialog(null);
-      refresh();
-    },
+    onSuccess: () => { toast.success("Google event titles updated"); refresh(); },
     onError: (error: Error) => toast.error(error.message),
   });
   const syncMutation = useMutation({
     mutationFn: () => runSync({ data: {} }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: SYNC_KEY });
-    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: SYNC_KEY }),
     onError: () => toast.error("Couldn’t start sync. Try again."),
   });
   const disconnectMutation = useMutation({
     mutationFn: () => disconnect(),
-    onSuccess: () => {
-      toast.success("Google account disconnected");
-      refresh();
-    },
+    onSuccess: () => { toast.success("Google account disconnected"); refresh(); },
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const connection = data?.connection;
+  const connection = settings.data?.connection;
   const syncing = syncMutation.isPending || Boolean(connection?.manual_sync_running);
   useEffect(() => {
     if (wasSyncing.current && !syncing && !connection?.manual_sync_error) {
@@ -180,10 +132,7 @@ export function CalendarSyncSettings() {
 
   async function onConnect() {
     const popup = window.open("", "google-calendar-oauth", "width=600,height=720");
-    if (!popup) {
-      toast.error("Allow popups to connect Google Calendar.");
-      return;
-    }
+    if (!popup) { toast.error("Allow popups to connect Google Calendar."); return; }
     setConnecting(true);
     try {
       const { authorizationUrl } = await start();
@@ -201,338 +150,210 @@ export function CalendarSyncSettings() {
     }
   }
 
-  if (isPending || !data?.is_owner) return null;
-
+  if (settings.isPending || !settings.data?.is_owner) return null;
   const disconnected = connection && connection.status !== "connected";
 
   return (
-    <section className="space-y-3">
-      <h2 className="flex items-center gap-2 text-sm font-bold tracking-wide text-muted-foreground uppercase">
-        <RefreshCw className="h-4 w-4" aria-hidden />
-        Calendar sync
-      </h2>
-
-      <div className="space-y-4 rounded-3xl border border-border-soft bg-card p-4 shadow-soft">
-        {!connection ? (
-          <div className="space-y-2">
-            <p className="text-sm font-bold">Connect a Google account</p>
-            <p className="text-xs text-muted-foreground">
-              Two-way sync with up to two Google calendars. This can be a different Google account
-              than the one you sign in with.
-            </p>
-            <Button onClick={onConnect} disabled={connecting} className="rounded-xl">
-              <Link2 className="mr-2 h-4 w-4" aria-hidden />
-              {connecting ? "Connecting…" : "Connect Google Calendar"}
+    <div className="overflow-hidden rounded-xl border border-border-soft bg-card">
+      <button
+        type="button"
+        className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 text-left"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-bold">Google account</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {connection ? `${connection.account_email} · ${disconnected ? "Needs attention" : "Connected"}` : "Not connected"}
+          </p>
+        </div>
+        <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", expanded && "rotate-180")} aria-hidden />
+      </button>
+      {expanded ? (
+        <div className="space-y-3 border-t border-border-soft p-3">
+          {!connection ? (
+            <Button onClick={onConnect} disabled={connecting} className="w-full sm:w-auto">
+              <Link2 className="h-4 w-4" aria-hidden />
+              {connecting ? "Connecting…" : "Connect Google account"}
             </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
-                  Google account {disconnected ? "" : "· Connected ✓"}
-                </p>
-                <p className="truncate text-sm font-bold">{connection.account_email}</p>
-                <p className="text-xs text-muted-foreground">
-                  {connection.last_synced_at
-                    ? `Last synced ${formatDistanceToNow(new Date(connection.last_synced_at), { addSuffix: true })}`
-                    : "Not synced yet"}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl"
-                  onClick={() => syncMutation.mutate()}
-                  disabled={syncing}
-                >
-                  <RefreshCw className={cn("mr-2 h-3.5 w-3.5", syncing && "animate-spin")} aria-hidden />
+          ) : (
+            <>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <Button variant="outline" size="sm" onClick={() => syncMutation.mutate()} disabled={syncing}>
+                  <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} aria-hidden />
                   {syncing ? "Syncing…" : "Sync now"}
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-xl"
-                  onClick={() => disconnectMutation.mutate()}
-                >
-                  Disconnect
+                <Button variant="ghost" size="sm" onClick={() => disconnectMutation.mutate()} disabled={disconnectMutation.isPending}>
+                  Disconnect account
                 </Button>
+                {disconnected ? <Button size="sm" onClick={onConnect}>Reconnect</Button> : null}
               </div>
-            </div>
-
-            {connection.manual_sync_error ? (
-              <p className="text-xs font-semibold text-destructive">
-                {connection.manual_sync_error}
+              <p className="text-xs text-muted-foreground">
+                {connection.last_synced_at ? `Last synced ${formatDistanceToNow(new Date(connection.last_synced_at), { addSuffix: true })}` : "Not synced yet"}
               </p>
-            ) : null}
-
-            {disconnected ? (
-              <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface-muted p-3 text-xs font-semibold">
-                <AlertTriangle className="h-4 w-4 text-destructive" aria-hidden />
-                Google Calendar access has expired or been disconnected. Reconnect Google to
-                resume syncing. Your family events are safe in Our Family Calendar.
-                <Button size="sm" className="rounded-xl" onClick={onConnect}>
-                  Reconnect
-                </Button>
-              </div>
-            ) : null}
-
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-2xl border border-border-soft p-3">
-              <div className="min-w-0 space-y-1">
-                <Label htmlFor="google-event-title-initials" className="text-sm font-bold">
+              {connection.manual_sync_error ? <p className="text-xs font-semibold text-destructive">{connection.manual_sync_error}</p> : null}
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border-soft pt-3">
+                <Label htmlFor="google-event-title-initials" className="min-w-0 text-sm font-semibold">
                   Include family initials in Google event titles
                 </Label>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  When enabled, synced Google events include assigned family-member initials, such
-                  as ‘Soccer Practice - B &amp; E’.
-                </p>
+                <Switch
+                  id="google-event-title-initials"
+                  checked={settings.data.include_google_event_initials}
+                  disabled={titleMutation.isPending}
+                  onCheckedChange={(enabled) => titleMutation.mutate(enabled)}
+                />
               </div>
-              <Switch
-                id="google-event-title-initials"
-                checked={data.include_google_event_initials}
-                disabled={titleInitialsMutation.isPending}
-                onCheckedChange={(enabled) => titleInitialsMutation.mutate(enabled)}
-                aria-label="Include family initials in Google event titles"
-              />
-            </div>
+            </>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
-            <div className="space-y-2">
-              {Array.from({ length: data.max_calendars }).map((_, index) => {
-                const slot = data.calendars[index];
-                return (
-                  <div
-                    key={slot?.id ?? `empty-${index}`}
-                    className="space-y-2 rounded-2xl border border-border-soft p-3"
-                  >
-                    <p className="text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
-                      Calendar {index + 1}
-                    </p>
-                    {slot ? (
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Input
-                            defaultValue={slot.name}
-                            className="h-10 min-w-0 flex-1 rounded-xl"
-                            aria-label={`Calendar ${index + 1} name`}
-                            onBlur={(e) => {
-                              const name = e.target.value.trim();
-                              if (name && name !== slot.name) {
-                                renameMutation.mutate({
-                                  data: { source_id: slot.id, name },
-                                });
-                              }
-                            }}
-                          />
-                          {slot.is_main ? (
-                            <span className="flex items-center gap-1 rounded-full bg-surface-muted px-3 py-1.5 text-[11px] font-bold">
-                              <Star className="h-3 w-3" aria-hidden />
-                              Main
-                            </span>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="rounded-xl"
-                              onClick={() =>
-                                mainMutation.mutate({ data: { source_id: slot.id } })
-                              }
-                            >
-                              Make main
-                            </Button>
-                          )}
-                        </div>
-                        {slot.sync_status === "needs_attention" ? (
-                          <div className="space-y-2 rounded-2xl bg-surface-muted p-3">
-                            <p className="flex items-start gap-2 text-xs font-bold">
-                              <AlertTriangle
-                                className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
-                                aria-hidden
-                              />
-                              <span>
-                                Calendar unavailable — sync paused. The Google Calendar previously
-                                connected to this family can no longer be found. Your family events
-                                are safe in Our Family Calendar.
-                              </span>
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                size="sm"
-                                className="rounded-xl"
-                                onClick={() => {
-                                  setSlotDialog({ replaceId: slot.id });
-                                  setMode("existing");
-                                }}
-                              >
-                                Choose another Google Calendar
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="rounded-xl"
-                                onClick={() => {
-                                  setSlotDialog({ replaceId: slot.id });
-                                  setMode("create");
-                                }}
-                              >
-                                Create a new Google Calendar
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            {slot.last_synced_at
-                              ? `Last successful sync ${formatDistanceToNow(new Date(slot.last_synced_at), { addSuffix: true })}`
-                              : "Not synced yet"}
-                            {slot.sync_error ? ` · retrying: ${slot.sync_error}` : ""}
-                          </p>
-                        )}
-                        {slot.google_time_zone &&
-                        slot.google_time_zone !== data.household_time_zone ? (
-                          <p className="flex items-start gap-2 rounded-2xl bg-surface-muted p-3 text-xs font-semibold">
-                            <AlertTriangle
-                              className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
-                              aria-hidden
-                            />
-                            <span>
-                              This Google calendar's timezone is {slot.google_time_zone}, but your
-                              household uses {data.household_time_zone}. Times sync correctly, but
-                              Google will display them in {slot.google_time_zone}. Change this
-                              calendar's timezone in Google to {data.household_time_zone}, or
-                              connect a calendar created by Our Family Calendar.
-                            </span>
-                          </p>
-                        ) : null}
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="rounded-xl"
-                            onClick={() => {
-                              setSlotDialog({ replaceId: slot.id });
-                              setMode("existing");
-                            }}
-                          >
-                            Replace
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="rounded-xl"
-                            onClick={() => detachMutation.mutate({ data: { source_id: slot.id } })}
-                          >
-                            <Unlink className="mr-2 h-3.5 w-3.5" aria-hidden />
-                            Disconnect
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-xl"
-                        onClick={() => {
-                          setSlotDialog({ replaceId: null });
-                          setMode("existing");
-                        }}
-                      >
-                        <CalendarPlus className="mr-2 h-3.5 w-3.5" aria-hidden />
-                        Add calendar
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+export function GoogleCalendarControls({ sourceId }: { sourceId: string }) {
+  const settings = useGoogleSettings();
+  const refresh = useGoogleRefresh();
+  const rename = useServerFn(renameCalendarSlot);
+  const makeMain = useServerFn(setMainCalendarSlot);
+  const detach = useServerFn(disconnectCalendarSlot);
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  const slot = settings.data?.calendars.find((calendar) => calendar.id === sourceId);
+
+  const renameMutation = useMutation({
+    mutationFn: (name: string) => rename({ data: { source_id: sourceId, name } }),
+    onSuccess: () => { toast.success("Calendar renamed"); refresh(); },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const mainMutation = useMutation({
+    mutationFn: () => makeMain({ data: { source_id: sourceId } }),
+    onSuccess: () => { toast.success("Main calendar updated"); refresh(); },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const detachMutation = useMutation({
+    mutationFn: () => detach({ data: { source_id: sourceId } }),
+    onSuccess: () => { toast.success("Calendar disconnected — your events are still here"); refresh(); },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  if (!slot || !settings.data?.is_owner) return null;
+  return (
+    <div className="space-y-2 border-t border-border-soft pt-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold">Google calendar</p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {slot.sync_status === "needs_attention" ? "Sync needs attention" : slot.last_synced_at ? `Synced ${formatDistanceToNow(new Date(slot.last_synced_at), { addSuffix: true })}` : "Not synced yet"}
+          </p>
+        </div>
+        {slot.is_main ? <span className="flex shrink-0 items-center gap-1 text-xs font-bold"><Star className="h-3.5 w-3.5" aria-hidden /> Main</span> : null}
       </div>
+      {slot.sync_error ? <p className="text-xs font-semibold text-destructive">{slot.sync_error}</p> : null}
+      <Input
+        defaultValue={slot.name}
+        aria-label={`Google calendar name for ${slot.name}`}
+        className="h-9"
+        onBlur={(event) => {
+          const name = event.target.value.trim();
+          if (name && name !== slot.name) renameMutation.mutate(name);
+        }}
+      />
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        {!slot.is_main ? <Button size="sm" variant="outline" onClick={() => mainMutation.mutate()}>Make main</Button> : null}
+        <Button size="sm" variant="outline" onClick={() => setReplaceOpen(true)}>Replace</Button>
+        <Button size="sm" variant="ghost" onClick={() => detachMutation.mutate()} disabled={detachMutation.isPending}>
+          <Unlink className="h-3.5 w-3.5" aria-hidden /> Disconnect
+        </Button>
+      </div>
+      <GoogleCalendarDialog open={replaceOpen} onOpenChange={setReplaceOpen} replaceSourceId={sourceId} />
+    </div>
+  );
+}
 
-      <Dialog open={Boolean(slotDialog)} onOpenChange={(open) => !open && setSlotDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {slotDialog?.replaceId ? "Replace calendar" : "Add a Google calendar"}
-            </DialogTitle>
-          </DialogHeader>
+export function GoogleCalendarDialog({
+  open,
+  onOpenChange,
+  initialMode = "existing",
+  replaceSourceId = null,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  initialMode?: "existing" | "create";
+  replaceSourceId?: string | null;
+}) {
+  const settings = useGoogleSettings();
+  const refresh = useGoogleRefresh();
+  const listCalendars = useServerFn(listGoogleCalendars);
+  const attach = useServerFn(connectCalendarSlot);
+  const [mode, setMode] = useState<"existing" | "create">(initialMode);
+  const [newName, setNewName] = useState("Family Calendar");
+  const [chosen, setChosen] = useState("");
+
+  useEffect(() => { if (open) setMode(initialMode); }, [initialMode, open]);
+  const available = useQuery({
+    queryKey: ["google-calendar-list"],
+    queryFn: () => listCalendars(),
+    enabled: open && Boolean(settings.data?.connection),
+  });
+  const attachMutation = useMutation({
+    mutationFn: (input: Parameters<typeof attach>[0]) => attach(input),
+    onSuccess: () => { toast.success("Calendar connected"); onOpenChange(false); refresh(); },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const atLimit = !replaceSourceId && (settings.data?.calendars.length ?? 0) >= (settings.data?.max_calendars ?? 2);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{replaceSourceId ? "Replace Google calendar" : mode === "create" ? "Create Google calendar" : "Connect Google calendar"}</DialogTitle>
+          {!settings.data?.connection ? <DialogDescription>Connect a Google account first.</DialogDescription> : atLimit ? <DialogDescription>You can connect up to two Google calendars.</DialogDescription> : null}
+        </DialogHeader>
+        {settings.data?.connection && !atLimit ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-2">
-              {(["existing", "create"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setMode(option)}
-                  aria-pressed={mode === option}
-                  className={
-                    mode === option
-                      ? "rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
-                      : "rounded-xl border border-border-soft px-3 py-2 text-xs font-bold"
-                  }
-                >
-                  {option === "existing" ? "Use existing" : "Create new"}
-                </button>
-              ))}
-            </div>
-
+            {!replaceSourceId ? (
+              <div className="grid grid-cols-2 gap-2">
+                <Button type="button" size="sm" variant={mode === "existing" ? "default" : "outline"} onClick={() => setMode("existing")}>Use existing</Button>
+                <Button type="button" size="sm" variant={mode === "create" ? "default" : "outline"} onClick={() => setMode("create")}>Create new</Button>
+              </div>
+            ) : null}
             {mode === "existing" ? (
               <div className="space-y-1.5">
                 <Label>Google calendar</Label>
                 <Select value={chosen} onValueChange={setChosen}>
-                  <SelectTrigger className="h-11 rounded-xl">
-                    <SelectValue placeholder={available.isPending ? "Loading…" : "Choose one"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(available.data?.calendars ?? []).map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.summary}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectTrigger className="h-11"><SelectValue placeholder={available.isPending ? "Loading…" : "Choose one"} /></SelectTrigger>
+                  <SelectContent>{(available.data?.calendars ?? []).map((calendar) => <SelectItem key={calendar.id} value={calendar.id}>{calendar.summary}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             ) : (
               <div className="space-y-1.5">
-                <Label htmlFor="new-calendar-name">Calendar name</Label>
-                <Input
-                  id="new-calendar-name"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="h-11 rounded-xl"
-                />
+                <Label htmlFor="new-google-calendar-name">Calendar name</Label>
+                <Input id="new-google-calendar-name" value={newName} onChange={(event) => setNewName(event.target.value)} className="h-11" />
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="ghost" className="rounded-xl" onClick={() => setSlotDialog(null)}>
-              Cancel
-            </Button>
+        ) : null}
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          {settings.data?.connection && !atLimit ? (
             <Button
-              className="rounded-xl"
-              disabled={attachMutation.isPending || (mode === "existing" && !chosen)}
+              disabled={attachMutation.isPending || (mode === "existing" ? !chosen : !newName.trim())}
               onClick={() => {
-                const summary = (available.data?.calendars ?? []).find((c) => c.id === chosen);
-                attachMutation.mutate({
-                  data:
-                    mode === "create"
-                      ? {
-                          mode: "create",
-                          name: newName,
-                          replace_source_id: slotDialog?.replaceId ?? null,
-                        }
-                      : {
-                          mode: "existing",
-                          external_calendar_id: chosen,
-                          name: summary?.summary ?? chosen,
-                          replace_source_id: slotDialog?.replaceId ?? null,
-                        },
+                const selected = (available.data?.calendars ?? []).find((calendar) => calendar.id === chosen);
+                attachMutation.mutate({ data: mode === "create"
+                  ? { mode: "create", name: newName, replace_source_id: replaceSourceId }
+                  : { mode: "existing", external_calendar_id: chosen, name: selected?.summary ?? chosen, replace_source_id: replaceSourceId }
                 });
               }}
-            >
-              {attachMutation.isPending ? "Connecting…" : "Connect"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </section>
+            >{attachMutation.isPending ? "Connecting…" : mode === "create" ? "Create and connect" : "Connect"}</Button>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
+}
+
+/** Kept as a compatibility wrapper for any older call sites. */
+export function CalendarSyncSettings() {
+  return <GoogleAccountSettings />;
 }
