@@ -314,6 +314,7 @@ export const BENIGN_PUSH_SKIPS = new Set([
   "no_google_calendar",
   "read_only_subscription",
   "google_owned_exception",
+  "local_only_calendar",
   "event_not_found",
 ]);
 
@@ -828,6 +829,15 @@ export async function pushEvent(
     // event in a different calendar colour.
     if (await isSubscriptionSourced(admin, event.calendar_source_id)) {
       return { skipped: "read_only_subscription" };
+    }
+
+    // Events on a user-created OFC calendar (provider "local",
+    // calendar_kind "custom") are local-only: they must never fall back to
+    // the main Google calendar. The household Family calendar
+    // (household_default / legacy_internal) keeps that fallback, and events
+    // assigned directly to a Google source sync to that source.
+    if (await isLocalOnlySourced(admin, event.calendar_source_id)) {
+      return { skipped: "local_only_calendar" };
     }
 
 
