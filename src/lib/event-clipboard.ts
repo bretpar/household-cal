@@ -39,6 +39,7 @@ export function clipboardFromOccurrence(occurrence: Occurrence): EventClipboard 
     categoryId: event.category_id ?? null,
     location: event.location ?? "",
     notes: event.notes ?? "",
-    calendar_source_id: event.calendar_source_id ?? null,
+    // read-only (Apple) calendars can't receive copies; fall back to the default
+    calendar_source_id: event.read_only ? null : (event.calendar_source_id ?? null),
   };
 }
