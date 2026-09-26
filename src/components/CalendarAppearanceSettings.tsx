@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Apple, Archive, CalendarPlus, ChevronDown, Link2, Pencil, Plus, Settings2 } from "lucide-react";
+import { Apple, Archive, CalendarPlus, ChevronDown, FileUp, Link2, Pencil, Plus, Settings2 } from "lucide-react";
+import { ImportCalendarFileDialog } from "@/components/ImportCalendarFileDialog";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -70,6 +71,7 @@ export function CalendarAppearanceSettings() {
   const [createOfcOpen, setCreateOfcOpen] = useState(false);
   const [googleAddMode, setGoogleAddMode] = useState<"existing" | "create" | null>(null);
   const [appleAddOpen, setAppleAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [linkTarget, setLinkTarget] = useState<{ id: string; name: string; mode: "existing" | "create" } | null>(null);
   const googleCount = sources.filter((s) => s.provider === "google").length;
   const googleSlotsFull = googleCount >= 2;
@@ -469,6 +471,11 @@ export function CalendarAppearanceSettings() {
                   </Button>
                 </>
               ) : null}
+              {isOwner ? (
+                <Button variant="ghost" className="w-full justify-start" onClick={() => { setAddMenuOpen(false); setImportOpen(true); }}>
+                  <FileUp className="h-4 w-4" aria-hidden /> Import calendar file
+                </Button>
+              ) : null}
               <Button variant="ghost" className="w-full justify-start" onClick={() => { setAddMenuOpen(false); setAppleAddOpen(true); }}>
                 <Apple className="h-4 w-4" aria-hidden /> Add Apple subscription
               </Button>
@@ -497,6 +504,7 @@ export function CalendarAppearanceSettings() {
         linkSource={linkTarget ? { id: linkTarget.id, name: linkTarget.name } : null}
       />
       <AddAppleCalendarDialog open={appleAddOpen} onOpenChange={setAppleAddOpen} />
+      <ImportCalendarFileDialog open={importOpen} onOpenChange={setImportOpen} />
     </section>
   );
 }
