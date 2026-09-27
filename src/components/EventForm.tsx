@@ -940,7 +940,7 @@ export function EventFormFields({
                           aria-pressed={state.recurrenceEnd === option.id}
                           onClick={() => set("recurrenceEnd", option.id)}
                           className={cn(
-                            "h-11 min-w-0 shrink rounded-full px-4 text-sm font-semibold transition-all",
+                            "h-10 min-w-0 shrink rounded-full px-4 text-sm font-semibold transition-all sm:h-11",
                             state.recurrenceEnd === option.id
                               ? "bg-secondary font-bold ring-2 ring-primary"
                               : "bg-card text-muted-foreground",
