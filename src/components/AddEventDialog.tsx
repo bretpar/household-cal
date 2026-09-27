@@ -160,7 +160,7 @@ export function EventComposerContent({
         </p>
       ) : null}
 
-      <DialogFooter>
+      <DialogFooter className="border-t border-border-soft pt-3">
         <Button
           variant="ghost"
           type="button"
