@@ -16,6 +16,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { installNativeAuthListener } from "@/lib/native-auth";
 import { sanitizeReturnPath } from "@/lib/return-path";
+import { hideNativeSplash } from "@/lib/native-splash";
 
 
 function NotFoundComponent() {
@@ -146,6 +147,11 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+
+  useEffect(() => {
+    // iOS shell only: the first web paint matches the launch screen, so hand off.
+    hideNativeSplash();
+  }, []);
 
   useEffect(() => {
     // iOS shell only: receive the Google sign-in handoff from the system browser.
