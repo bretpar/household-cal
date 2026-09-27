@@ -262,6 +262,23 @@ function formattedPickerValue(type: "date" | "time", value: string): string {
   return format(new Date(2000, 0, 1, hours, minutes), "h:mm a");
 }
 
+/** Short on phones (so date + time share a row), full on larger screens. */
+function formattedDateLabel(value: string): { short: string; long: string } {
+  if (!value) return { short: "Choose date", long: "Choose date" };
+  const day = new Date(`${value}T00:00`);
+  return { short: format(day, "EEE, MMM d"), long: format(day, "MMM d, yyyy") };
+}
+
+function PickerDateLabel({ value }: { value: string }) {
+  const { short, long } = formattedDateLabel(value);
+  return (
+    <span className="min-w-0 truncate">
+      <span className="sm:hidden">{short}</span>
+      <span className="hidden sm:inline">{long}</span>
+    </span>
+  );
+}
+
 function NativePickerField({
   id,
   type,
@@ -274,13 +291,17 @@ function NativePickerField({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="group relative h-11 w-full min-w-0 max-w-full">
+    <div className="group relative h-10 w-full min-w-0 max-w-full sm:h-11">
       <div
         aria-hidden="true"
-        className="flex h-11 w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-xl border border-input bg-card px-3 text-base shadow-sm transition-colors group-focus-within:ring-1 group-focus-within:ring-ring md:text-sm"
+        className="flex h-10 w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-xl border border-input bg-card px-3 text-base shadow-sm transition-colors group-focus-within:ring-1 group-focus-within:ring-ring sm:h-11 md:text-sm"
       >
         <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
-        <span className="min-w-0 truncate">{formattedPickerValue(type, value)}</span>
+        {type === "date" ? (
+          <PickerDateLabel value={value} />
+        ) : (
+          <span className="min-w-0 truncate">{formattedPickerValue(type, value)}</span>
+        )}
       </div>
       <input
         id={id}
@@ -326,10 +347,10 @@ function DatePickerField({
           id={id}
           type="button"
           variant="outline"
-          className="h-11 w-full min-w-0 justify-start gap-2.5 rounded-xl bg-card px-3 text-left text-sm font-normal shadow-sm"
+          className="h-10 w-full min-w-0 justify-start gap-2.5 rounded-xl bg-card px-3 text-left text-sm font-normal shadow-sm sm:h-11"
         >
           <CalendarDays className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-          <span className="min-w-0 truncate">{formattedPickerValue("date", value)}</span>
+          <PickerDateLabel value={value} />
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -638,26 +659,25 @@ export function EventFormFields({
 
 
   return (
-    <div className="w-full min-w-0 space-y-4">
-      <div className="space-y-1.5">
+    <div className="w-full min-w-0 space-y-3 sm:space-y-4">
+      <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-name`}>Event name</Label>
         <Input
           id={`${idPrefix}-name`}
           value={state.title}
           onChange={(e) => set("title", e.target.value)}
           placeholder={state.eventType === "childcare" ? "Michelle" : "Soccer practice"}
-          className="h-11 rounded-xl"
+          className="h-10 rounded-xl sm:h-11"
         />
       </div>
 
-      <div className="space-y-3">
-        <div className="space-y-1.5">
+      <div className="space-y-2 sm:space-y-3">
+        <div className="space-y-1">
           <Label htmlFor={`${idPrefix}-date`}>Start</Label>
           <div
             className={cn(
               "date-row grid min-w-0 grid-cols-1 gap-2",
-              !state.allDay &&
-                "min-[520px]:grid-cols-[minmax(0,1.15fr)_minmax(10rem,.85fr)]",
+              !state.allDay && "grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]",
             )}
           >
           <DatePickerField
@@ -684,13 +704,12 @@ export function EventFormFields({
           </div>
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label htmlFor={`${idPrefix}-end-date`}>End</Label>
           <div
             className={cn(
               "date-row grid min-w-0 grid-cols-1 gap-2",
-              !state.allDay &&
-                "min-[520px]:grid-cols-[minmax(0,1.15fr)_minmax(10rem,.85fr)]",
+              !state.allDay && "grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]",
             )}
           >
             <DatePickerField
@@ -716,8 +735,8 @@ export function EventFormFields({
       </div>
 
       {/* Secondary options share one quiet row beneath the prominent dates. */}
-      <div className="space-y-3">
-        <div className="grid min-h-12 grid-cols-2 divide-x divide-border-soft rounded-xl bg-surface-muted">
+      <div className="space-y-2 sm:space-y-3">
+        <div className="grid min-h-10 grid-cols-2 divide-x divide-border-soft rounded-xl bg-surface-muted sm:min-h-12">
           <div className="flex min-w-0 items-center justify-between gap-2 px-3">
             <Label htmlFor={`${idPrefix}-all-day`} className="flex min-w-0 items-center gap-2 text-xs font-semibold text-muted-foreground">
               <CalendarDays className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
@@ -748,7 +767,7 @@ export function EventFormFields({
         {repeats ? (
           <>
             <Select value={state.recurrence} onValueChange={(v) => set("recurrence", v)}>
-              <SelectTrigger className="h-11 rounded-xl">
+              <SelectTrigger className="h-10 rounded-xl sm:h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -921,7 +940,7 @@ export function EventFormFields({
                           aria-pressed={state.recurrenceEnd === option.id}
                           onClick={() => set("recurrenceEnd", option.id)}
                           className={cn(
-                            "h-11 min-w-0 shrink rounded-full px-4 text-sm font-semibold transition-all",
+                            "h-10 min-w-0 shrink rounded-full px-4 text-sm font-semibold transition-all sm:h-11",
                             state.recurrenceEnd === option.id
                               ? "bg-secondary font-bold ring-2 ring-primary"
                               : "bg-card text-muted-foreground",
@@ -934,7 +953,7 @@ export function EventFormFields({
                   </div>
 
                   {state.recurrenceEnd === "on" ? (
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <Label htmlFor={`${idPrefix}-until`}>Repeat until</Label>
                       <Input
                         id={`${idPrefix}-until`}
@@ -942,7 +961,7 @@ export function EventFormFields({
                         min={state.date}
                         value={state.recurrenceUntil}
                         onChange={(e) => set("recurrenceUntil", e.target.value)}
-                        className="h-11 rounded-xl bg-card"
+                        className="h-10 rounded-xl bg-card sm:h-11"
                       />
                       <p className="text-xs text-muted-foreground">
                         Includes the last repeat on or before this date.
@@ -951,7 +970,7 @@ export function EventFormFields({
                   ) : null}
 
                   {state.recurrenceEnd === "count" ? (
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <Label htmlFor={`${idPrefix}-count`}>Number of occurrences</Label>
                       <Input
                         id={`${idPrefix}-count`}
@@ -962,7 +981,7 @@ export function EventFormFields({
                         onChange={(e) =>
                           set("recurrenceCount", Math.max(1, Number(e.target.value) || 1))
                         }
-                        className="h-11 rounded-xl bg-card"
+                        className="h-10 rounded-xl bg-card sm:h-11"
                       />
                     </div>
                   ) : null}
@@ -982,13 +1001,13 @@ export function EventFormFields({
       {/* Household Event Categories (Settings → Event Categories) are the only
           source of truth here. event_type is derived from the chosen category
           so behaviour like childcare coverage keeps working. */}
-      <div className="min-w-0 space-y-1.5">
+      <div className="min-w-0 space-y-1">
         <Label>Category</Label>
         <Select
           value={resolvedCategoryValue ?? UNCATEGORIZED_VALUE}
           onValueChange={(v) => setCategory(v === UNCATEGORIZED_VALUE ? null : v)}
         >
-          <SelectTrigger className="h-11 rounded-xl">
+          <SelectTrigger className="h-10 rounded-xl sm:h-11">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -1016,7 +1035,7 @@ export function EventFormFields({
         </Select>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label>
           Who?
           {state.eventType === "childcare" ? (
@@ -1040,7 +1059,7 @@ export function EventFormFields({
                   )
                 }
                 className={cn(
-                  "flex h-11 max-w-full min-w-0 items-center gap-2 rounded-full pr-4 pl-1.5 text-sm font-semibold transition-all",
+                  "flex h-10 max-w-full min-w-0 items-center gap-2 rounded-full pr-4 pl-1.5 text-sm font-semibold transition-all sm:h-11",
                   on
                     ? cn(styleFor(member.id).soft, "ring-2", styleFor(member.id).ring)
                     : "bg-surface-muted text-muted-foreground",
@@ -1064,13 +1083,13 @@ export function EventFormFields({
 
 
       {pickerOptions.length > 0 ? (
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Calendar</Label>
           <Select
             value={shownCalendarSourceId ?? ""}
             onValueChange={(v) => set("calendarSourceId", v)}
           >
-            <SelectTrigger className="h-11 rounded-xl">
+            <SelectTrigger className="h-10 rounded-xl sm:h-11">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1093,7 +1112,7 @@ export function EventFormFields({
 
 
 
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-location`}>Location</Label>
         <LocationAutocomplete
           id={`${idPrefix}-location`}
@@ -1103,14 +1122,14 @@ export function EventFormFields({
 
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-notes`}>Notes</Label>
         <Textarea
           id={`${idPrefix}-notes`}
           value={state.notes}
           onChange={(e) => set("notes", e.target.value)}
           placeholder="Anything else the family should know"
-          className="min-h-20 rounded-xl"
+          className="min-h-16 rounded-xl sm:min-h-20"
         />
       </div>
     </div>

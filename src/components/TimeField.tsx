@@ -78,10 +78,10 @@ export function TimeField({
   // Mobile/tablet: the native wheel picker, unchanged.
   if (coarse !== false) {
     return (
-      <div className="group relative h-11 w-full min-w-0 max-w-full">
+      <div className="group relative h-10 w-full min-w-0 max-w-full sm:h-11">
         <div
           aria-hidden="true"
-          className="flex h-11 w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-xl border border-input bg-card px-3 text-base shadow-sm transition-colors group-focus-within:ring-1 group-focus-within:ring-ring md:text-sm"
+          className="flex h-10 w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-xl border border-input bg-card px-3 text-base shadow-sm transition-colors group-focus-within:ring-1 group-focus-within:ring-ring sm:h-11 md:text-sm"
         >
           <Clock3 className="h-4 w-4 shrink-0 text-primary" aria-hidden />
           <span className="min-w-0 truncate">{formatTimeValue(value)}</span>
@@ -141,7 +141,7 @@ function DesktopTimeField({
         <button
           id={id}
           type="button"
-          className="flex h-11 w-full min-w-0 max-w-full items-center gap-2.5 rounded-xl border border-input bg-card px-3 text-left text-base shadow-sm transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
+          className="flex h-10 w-full min-w-0 max-w-full items-center gap-2.5 rounded-xl border border-input bg-card px-3 text-left text-base shadow-sm transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:h-11 md:text-sm"
         >
           <Clock3 className="h-4 w-4 shrink-0 text-primary" aria-hidden />
           <span className="min-w-0 truncate">{formatTimeValue(value)}</span>
