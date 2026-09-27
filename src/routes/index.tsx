@@ -1,3 +1,4 @@
+import { StartupSplash } from "@/components/StartupSplash";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
@@ -227,15 +228,7 @@ function CompareMark({ value }: { value: CompareValue }) {
 }
 
 function AuthLoadingShell() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center bg-background"
-      aria-busy="true"
-      aria-label="Loading"
-    >
-      <div className="h-6 w-6 animate-spin rounded-full border-2 border-border-soft border-t-primary" />
-    </div>
-  );
+  return <StartupSplash />;
 }
 
 function LandingPage() {

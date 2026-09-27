@@ -19,6 +19,17 @@ const config: CapacitorConfig = {
     allowNavigation: ["ourfamilycalendar.com", "www.ourfamilycalendar.com", "our-fam-cal.lovable.app"],
     errorPath: "index.html",
   },
+  plugins: {
+    // Native launch screen stays up until the web app paints its matching
+    // StartupSplash (hideNativeSplash), capped so a network failure can't hold it.
+    SplashScreen: {
+      launchShowDuration: 4000,
+      launchAutoHide: true,
+      launchFadeOutDuration: 150,
+      backgroundColor: "#FAF8F4",
+      showSpinner: false,
+    },
+  },
   ios: {
     // Web layout handles safe areas via env(safe-area-inset-*) + viewport-fit=cover.
     contentInset: "never",

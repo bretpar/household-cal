@@ -1,10 +1,10 @@
 import { createFileRoute, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
-import logoAsset from "@/assets/logo.png.asset.json";
 import { useEffect, useState } from "react";
 
 import { CopiedEventBar } from "@/components/CopiedEventBar";
 import { EventDetailsDialog } from "@/components/EventDetailsDialog";
 import { PasteEventDialog } from "@/components/PasteEventDialog";
+import { StartupSplash } from "@/components/StartupSplash";
 import { hasLayoutMounted, markLayoutMounted, resolveGuard } from "@/lib/auth-guard";
 import { CalendarProvider } from "@/lib/calendar-store";
 import { UserPreferencesProvider } from "@/lib/user-preferences";
@@ -25,6 +25,7 @@ export const Route = createFileRoute("/_authenticated")({
     return result;
   },
   component: AuthenticatedLayout,
+  pendingComponent: StartupLoading,
 });
 
 function AuthenticatedLayout() {
@@ -77,18 +78,7 @@ function AuthenticatedLayout() {
   );
 }
 
-/** Stable branded placeholder while sign-in and household are confirmed. */
+/** Branded startup screen matching the native iOS launch screen. */
 function StartupLoading() {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-background"
-    >
-      <img src={logoAsset.url} alt="" className="h-16 w-16 animate-pulse rounded-2xl object-contain" />
-      <p className="font-display text-base font-semibold text-muted-foreground">
-        Loading your calendar…
-      </p>
-    </div>
-  );
+  return <StartupSplash />;
 }
