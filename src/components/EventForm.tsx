@@ -1112,7 +1112,7 @@ export function EventFormFields({
 
 
 
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-location`}>Location</Label>
         <LocationAutocomplete
           id={`${idPrefix}-location`}
@@ -1122,14 +1122,14 @@ export function EventFormFields({
 
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-notes`}>Notes</Label>
         <Textarea
           id={`${idPrefix}-notes`}
           value={state.notes}
           onChange={(e) => set("notes", e.target.value)}
           placeholder="Anything else the family should know"
-          className="min-h-20 rounded-xl"
+          className="min-h-16 rounded-xl sm:min-h-20"
         />
       </div>
     </div>
