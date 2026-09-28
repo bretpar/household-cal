@@ -66,10 +66,14 @@ export function StartupHeartReveal({ loading, failed }: { loading: boolean; fail
       return;
     }
     setPhase("reveal");
+  }, [phase, loading, failed]);
+
+  useEffect(() => {
+    if (phase !== "reveal") return;
     // Safety net if animationend never fires.
     const t = window.setTimeout(() => setPhase("done"), 1200);
     return () => window.clearTimeout(t);
-  }, [phase, loading, failed]);
+  }, [phase]);
 
   if (phase === "done") return null;
   return <StartupSplash revealing={phase === "reveal"} onRevealEnd={() => setPhase("done")} />;
