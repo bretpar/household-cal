@@ -392,35 +392,27 @@
   }
 }
 
-/* Startup splash: blue sampled from the calendar-heart logo (#114476). */
+/* Startup splash: one cream look everywhere (matches html background, theme-color,
+   manifest and the native launch screen) — no platform-specific first-paint rules. */
 .startup-splash-bg {
-  background-color: #114476;
-}
-/* Desktop/tablet browsers (and forced minimal): quiet neutral loader, no blue. */
-.startup-splash-bg[data-minimal] {
   background-color: var(--background);
 }
+/* Forced minimal (no stored session): smaller logo. */
 .startup-splash-bg[data-minimal] .startup-splash-logo {
   width: 3.5rem;
   height: 3.5rem;
-  border-radius: 0.875rem;
 }
 .startup-splash-bg[data-minimal] .startup-splash-text {
   margin-top: 44px;
-  color: var(--muted-foreground);
 }
-@media (min-width: 768px) {
-  html:not(.native-shell) .startup-splash-bg {
-    background-color: var(--background);
-  }
-  html:not(.native-shell) .startup-splash-logo {
-    width: 3.5rem;
-    height: 3.5rem;
-    border-radius: 0.875rem;
-  }
-  html:not(.native-shell) .startup-splash-text {
-    margin-top: 44px;
-    color: var(--muted-foreground);
+/* The logo softly grows and fades as the heart opens around it. */
+.heart-reveal .startup-splash-logo {
+  animation: heart-logo-out 700ms ease-in forwards;
+}
+@keyframes heart-logo-out {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.25);
   }
 }
 /* Heart-shaped opening that grows from the logo's heart (≈9px below centre). */
