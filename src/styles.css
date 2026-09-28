@@ -444,3 +444,13 @@
     mask-size: 320vmax 320vmax, 100% 100%;
   }
 }
+
+/* Safari Home Screen can expose the document behind its safe areas while a
+   mask animates. Fade the existing overlay instead, leaving the neutral root
+   visible and avoiding a residual blue strip. */
+.startup-fade {
+  animation: startup-fade-out 300ms ease-out forwards;
+}
+@keyframes startup-fade-out {
+  to { opacity: 0; }
+}
