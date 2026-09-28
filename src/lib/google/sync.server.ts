@@ -2066,7 +2066,9 @@ export async function runAcceptedManualSync(
       failure =
         result.skipped === "google_disconnected" || result.skipped === "not_connected"
           ? "Reconnect Google Calendar to resume syncing."
-          : "Google Calendar sync couldn’t finish. Try again.";
+          : result.skipped === "no_google_calendar"
+            ? "Your connected Google calendar can’t be reached (it may have been deleted or access removed). In Settings → My Calendars, replace or disconnect it to resume syncing."
+            : "Google Calendar sync couldn’t finish. Try again.";
       thrown = new Error(failure);
       console.error("[google-sync] manual reconciliation failed", {
         familyId,
