@@ -22,6 +22,22 @@ export function StartupSplash({
     hideNativeSplash();
   }, []);
 
+  // Paint the page itself blue while the splash is up so the status-bar /
+  // Dynamic Island area (and any frame before the overlay paints) is solid
+  // #114476 rather than the cream page background. Restored on unmount.
+  useEffect(() => {
+    const root = document.documentElement;
+    const prevBg = root.style.backgroundColor;
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    const prevTheme = meta?.content;
+    root.style.backgroundColor = "#114476";
+    if (meta) meta.content = "#114476";
+    return () => {
+      root.style.backgroundColor = prevBg;
+      if (meta && prevTheme !== undefined) meta.content = prevTheme;
+    };
+  }, []);
+
   return (
     <div
       role="status"
@@ -35,6 +51,8 @@ export function StartupSplash({
         alt=""
         width={144}
         height={144}
+        decoding="sync"
+        fetchPriority="high"
         className="absolute left-1/2 top-1/2 h-36 w-36 -translate-x-1/2 -translate-y-1/2 object-contain"
       />
       <p className="absolute left-0 right-0 top-1/2 mt-[92px] text-center font-display text-sm font-semibold text-primary-foreground/70">
@@ -71,7 +89,7 @@ export function StartupHeartReveal({ loading, failed }: { loading: boolean; fail
   useEffect(() => {
     if (phase !== "reveal") return;
     // Safety net if animationend never fires.
-    const t = window.setTimeout(() => setPhase("done"), 1200);
+    const t = window.setTimeout(() => setPhase("done"), 1500);
     return () => window.clearTimeout(t);
   }, [phase]);
 
