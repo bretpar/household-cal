@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { CopiedEventBar } from "@/components/CopiedEventBar";
 import { EventDetailsDialog } from "@/components/EventDetailsDialog";
 import { PasteEventDialog } from "@/components/PasteEventDialog";
-import { StartupSplash } from "@/components/StartupSplash";
+import { StartupHeartReveal, StartupSplash } from "@/components/StartupSplash";
 import { hasLayoutMounted, markLayoutMounted, resolveGuard } from "@/lib/auth-guard";
-import { CalendarProvider } from "@/lib/calendar-store";
+import { CalendarProvider, useCalendar } from "@/lib/calendar-store";
 import { UserPreferencesProvider } from "@/lib/user-preferences";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -73,6 +73,7 @@ function AuthenticatedLayout() {
         <EventDetailsDialog />
         <PasteEventDialog />
         <CopiedEventBar />
+        <InitialReveal />
       </CalendarProvider>
     </UserPreferencesProvider>
   );
@@ -81,4 +82,9 @@ function AuthenticatedLayout() {
 /** Branded startup screen matching the native iOS launch screen. */
 function StartupLoading() {
   return <StartupSplash />;
+}
+
+function InitialReveal() {
+  const { loading, loadError } = useCalendar();
+  return <StartupHeartReveal loading={loading} failed={loadError} />;
 }
