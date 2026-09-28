@@ -241,6 +241,9 @@ function LandingPage() {
 
   useEffect(() => {
     initAnalytics();
+    // No stored session: skip the loader and show the page straight away
+    // (the server can't read storage, so it always renders the loader first).
+    if (!hasCachedSession() && peekSessionStatus() !== true) setChecking(false);
     let active = true;
     getSessionStatus().then((signedIn) => {
       if (!active) return;
