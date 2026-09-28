@@ -33,7 +33,8 @@ const config: CapacitorConfig = {
   ios: {
     // Web layout handles safe areas via env(safe-area-inset-*) + viewport-fit=cover.
     contentInset: "never",
-    backgroundColor: "#FAF8F4",
+    // Native web-view backdrop shows under the status bar before first paint; match the splash blue.
+    backgroundColor: "#114476",
     limitsNavigationsToAppBoundDomains: false,
     // Bridge logging ("To Native ->" / "TO JS" lines echo plugin payloads, including
     // appUrlOpen / getLaunchUrl callback URLs with the one-time code + state).

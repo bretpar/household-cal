@@ -409,7 +409,7 @@
   mask-composite: exclude;
   -webkit-mask-size: 1px 1px, 100% 100%;
   mask-size: 1px 1px, 100% 100%;
-  animation: heart-open 700ms cubic-bezier(0.7, 0, 0.3, 1) forwards;
+  animation: heart-open 1000ms cubic-bezier(0.7, 0, 0.3, 1) forwards;
 }
 @keyframes heart-open {
   to {

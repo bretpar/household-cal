@@ -38,6 +38,7 @@ function AuthenticatedLayout() {
   // mounted while re-validating on later tab navigations. Blanking the tree on
   // every pathname change is what made tab switches flash an empty screen.
   const [everReady, setEverReady] = useState(false);
+  const [calState, setCalState] = useState({ loading: true, failed: false });
 
   useEffect(() => {
     markLayoutMounted();
@@ -64,18 +65,23 @@ function AuthenticatedLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, everReady]);
 
-  if (!everReady) return <StartupLoading />;
-
+  // One overlay instance for guard + household + first calendar load: it sits
+  // in a fixed slot so it is never unmounted/recreated between those phases.
   return (
-    <UserPreferencesProvider>
-      <CalendarProvider>
-        <Outlet />
-        <EventDetailsDialog />
-        <PasteEventDialog />
-        <CopiedEventBar />
-        <InitialReveal />
-      </CalendarProvider>
-    </UserPreferencesProvider>
+    <>
+      {everReady ? (
+        <UserPreferencesProvider>
+          <CalendarProvider>
+            <Outlet />
+            <EventDetailsDialog />
+            <PasteEventDialog />
+            <CopiedEventBar />
+            <CalendarLoadReporter onChange={setCalState} />
+          </CalendarProvider>
+        </UserPreferencesProvider>
+      ) : null}
+      <StartupHeartReveal loading={!everReady || calState.loading} failed={calState.failed} />
+    </>
   );
 }
 
@@ -84,7 +90,14 @@ function StartupLoading() {
   return <StartupSplash />;
 }
 
-function InitialReveal() {
+function CalendarLoadReporter({
+  onChange,
+}: {
+  onChange: (s: { loading: boolean; failed: boolean }) => void;
+}) {
   const { loading, loadError } = useCalendar();
-  return <StartupHeartReveal loading={loading} failed={loadError} />;
+  useEffect(() => {
+    onChange({ loading, failed: loadError });
+  }, [loading, loadError, onChange]);
+  return null;
 }
