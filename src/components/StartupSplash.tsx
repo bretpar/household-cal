@@ -49,7 +49,9 @@ export function StartupSplash({
       role="status"
       aria-live="polite"
       aria-hidden={revealing || undefined}
-      onAnimationEnd={revealing ? onRevealEnd : undefined}
+      onAnimationEnd={
+        revealing ? (e) => { if (e.target === e.currentTarget) onRevealEnd?.(); } : undefined
+      }
       data-minimal={minimal || undefined}
       className={`startup-splash-bg fixed inset-0 z-[60] ${revealing ? `${revealClass} pointer-events-none` : ""}`}
     >

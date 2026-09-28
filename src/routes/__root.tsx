@@ -163,12 +163,59 @@ function RootComponent() {
   }, []);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+    // Last signed-in user in this tab; a different user means drop all cached data.
+    let lastUserId: string | null | undefined;
+    const isPrivatePath = () =>
+      /^\/(today|calendar|activities|family|preferences|onboarding)(\/|$)/.test(
+        window.location.pathname,
+      );
+    const dropSessionData = async () => {
+      await queryClient.cancelQueries();
+      queryClient.clear();
+    };
+    // Fires in this tab and (via the auth client's cross-tab broadcast) in other open tabs.
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      const userId = session?.user.id ?? null;
+      const switched = lastUserId !== undefined && lastUserId !== userId;
+      lastUserId = userId;
+      if (event === "SIGNED_OUT") {
+        void dropSessionData().then(() => {
+          router.invalidate();
+          if (isPrivatePath()) router.navigate({ to: "/auth", replace: true });
+        });
+        return;
+      }
+      if (event !== "SIGNED_IN" && event !== "USER_UPDATED") return;
+      if (switched) {
+        void dropSessionData().then(() => router.invalidate());
+        return;
+      }
       router.invalidate();
-      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+      queryClient.invalidateQueries();
     });
-    return () => sub.subscription.unsubscribe();
+
+    // Safari back/forward cache: a restored private page is hidden behind a cream
+    // curtain until the current session is confirmed for the same user.
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (!e.persisted || !isPrivatePath()) return;
+      const curtain = document.createElement("div");
+      curtain.setAttribute("aria-hidden", "true");
+      curtain.style.cssText = "position:fixed;inset:0;z-index:70;background:var(--background)";
+      document.body.appendChild(curtain);
+      void supabase.auth.getUser().then(({ data, error }) => {
+        const userId = data.user?.id ?? null;
+        if (error || !userId || (lastUserId && userId !== lastUserId)) {
+          window.location.replace(userId ? window.location.href : "/auth");
+          return;
+        }
+        curtain.remove();
+      });
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      sub.subscription.unsubscribe();
+      window.removeEventListener("pageshow", onPageShow);
+    };
   }, [router, queryClient]);
 
   return (
