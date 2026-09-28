@@ -26,15 +26,15 @@ const config: CapacitorConfig = {
       launchShowDuration: 4000,
       launchAutoHide: true,
       launchFadeOutDuration: 150,
-      backgroundColor: "#114476",
+      backgroundColor: "#FAF8F4",
       showSpinner: false,
     },
   },
   ios: {
     // Web layout handles safe areas via env(safe-area-inset-*) + viewport-fit=cover.
     contentInset: "never",
-    // Native web-view backdrop shows under the status bar before first paint; match the splash blue.
-    backgroundColor: "#114476",
+    // Native web-view backdrop shows under the status bar before first paint; match the cream splash.
+    backgroundColor: "#FAF8F4",
     limitsNavigationsToAppBoundDomains: false,
     // Bridge logging ("To Native ->" / "TO JS" lines echo plugin payloads, including
     // appUrlOpen / getLaunchUrl callback URLs with the one-time code + state).
