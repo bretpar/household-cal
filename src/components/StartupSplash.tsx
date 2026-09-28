@@ -15,36 +15,6 @@ export function usesBrandedSplash(): boolean {
   return isNativeApp() || window.matchMedia("(max-width: 767px)").matches;
 }
 
-const SPLASH_BLUE = "#114476";
-let blueChromeCount = 0;
-let savedChrome: { bg: string; theme: string | undefined } | null = null;
-
-function isStandaloneWebApp(): boolean {
-  if (typeof window === "undefined") return false;
-  const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
-  return navigatorWithStandalone.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
-}
-
-function acquireBlueChrome() {
-  const root = document.documentElement;
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-  if (blueChromeCount++ === 0) {
-    savedChrome = { bg: root.style.backgroundColor, theme: meta?.content };
-  }
-  root.style.backgroundColor = SPLASH_BLUE;
-  if (meta) meta.content = SPLASH_BLUE;
-}
-
-function releaseBlueChrome() {
-  blueChromeCount = Math.max(0, blueChromeCount - 1);
-  if (blueChromeCount > 0 || !savedChrome) return;
-  const root = document.documentElement;
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-  root.style.backgroundColor = savedChrome.bg === SPLASH_BLUE ? "" : savedChrome.bg;
-  if (meta && savedChrome.theme !== undefined) meta.content = savedChrome.theme;
-  savedChrome = null;
-}
-
 /**
  * Full-screen startup screen. Matches the iOS LaunchScreen.storyboard exactly:
  * logo-blue background (#114476), the same 144px logo image, centered in the
@@ -69,22 +39,10 @@ export function StartupSplash({
     hideNativeSplash();
   }, []);
 
-  // Only the native WebView owns its surrounding chrome, so only native may
-  // paint the document and theme metadata blue. Safari uses theme-color for
-  // its browser interface, while Home Screen exposes the document behind its
-  // safe areas; both must remain on the normal neutral app colour. Ref-counting
-  // keeps overlapping native splash hand-offs from restoring too early.
-  useEffect(() => {
-    if (minimal || !isNativeApp()) return;
-    acquireBlueChrome();
-    return releaseBlueChrome;
-  }, [minimal]);
-
-  const revealClass = revealing
-    ? isStandaloneWebApp() && !isNativeApp()
-      ? "startup-fade"
-      : "heart-reveal"
-    : "";
+  // The document keeps its normal cream background and theme-color at all
+  // times; only this fixed overlay is blue. The heart mask cuts through it to
+  // the already-rendered calendar, so no page-level colour ever changes.
+  const revealClass = revealing ? "heart-reveal" : "";
 
   return (
     <div
