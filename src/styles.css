@@ -391,3 +391,29 @@
     animation-duration: 1ms;
   }
 }
+
+/* Startup splash: blue sampled from the calendar-heart logo (#114476). */
+.startup-splash-bg {
+  background-color: #114476;
+}
+/* Heart-shaped opening that grows from the logo's heart (≈9px below centre). */
+.heart-reveal {
+  --heart: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 92'><path d='M50 92 C20 70 0 52 0 28 C0 12 12 0 27 0 C37 0 45 5 50 13 C55 5 63 0 73 0 C88 0 100 12 100 28 C100 52 80 70 50 92Z'/></svg>");
+  -webkit-mask-image: var(--heart), linear-gradient(#000 0 0);
+  mask-image: var(--heart), linear-gradient(#000 0 0);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center calc(50% + 9px), 0 0;
+  mask-position: center calc(50% + 9px), 0 0;
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  -webkit-mask-size: 1px 1px, 100% 100%;
+  mask-size: 1px 1px, 100% 100%;
+  animation: heart-open 700ms cubic-bezier(0.7, 0, 0.3, 1) forwards;
+}
+@keyframes heart-open {
+  to {
+    -webkit-mask-size: 320vmax 320vmax, 100% 100%;
+    mask-size: 320vmax 320vmax, 100% 100%;
+  }
+}
