@@ -62,7 +62,7 @@ export function StartupSplash({
         fetchPriority="high"
         className="startup-splash-logo absolute left-1/2 top-1/2 h-36 w-36 -translate-x-1/2 -translate-y-1/2 object-contain"
       />
-      <p className="startup-splash-text absolute left-0 right-0 top-1/2 mt-[92px] text-center font-display text-sm font-semibold text-primary-foreground/70">
+      <p className="startup-splash-text absolute left-0 right-0 top-1/2 mt-[92px] text-center font-display text-sm font-semibold text-muted-foreground">
         {message}
       </p>
     </div>
