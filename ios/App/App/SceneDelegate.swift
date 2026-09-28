@@ -14,6 +14,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard scene is UIWindowScene else { return }
+        // Match the launch-screen blue so no black frame shows between the
+        // launch storyboard and the web view's first paint.
+        window?.backgroundColor = UIColor(red: 0x11 / 255.0, green: 0x44 / 255.0, blue: 0x76 / 255.0, alpha: 1)
         // Cold launch via custom scheme or Universal Link.
         if let urlContext = connectionOptions.urlContexts.first {
             forward(urlContext)

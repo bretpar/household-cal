@@ -15,6 +15,30 @@ export function usesBrandedSplash(): boolean {
   return isNativeApp() || window.matchMedia("(max-width: 767px)").matches;
 }
 
+const SPLASH_BLUE = "#114476";
+let blueChromeCount = 0;
+let savedChrome: { bg: string; theme: string | undefined } | null = null;
+
+function acquireBlueChrome() {
+  const root = document.documentElement;
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (blueChromeCount++ === 0) {
+    savedChrome = { bg: root.style.backgroundColor, theme: meta?.content };
+  }
+  root.style.backgroundColor = SPLASH_BLUE;
+  if (meta) meta.content = SPLASH_BLUE;
+}
+
+function releaseBlueChrome() {
+  blueChromeCount = Math.max(0, blueChromeCount - 1);
+  if (blueChromeCount > 0 || !savedChrome) return;
+  const root = document.documentElement;
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  root.style.backgroundColor = savedChrome.bg === SPLASH_BLUE ? "" : savedChrome.bg;
+  if (meta && savedChrome.theme !== undefined) meta.content = savedChrome.theme;
+  savedChrome = null;
+}
+
 /**
  * Full-screen startup screen. Matches the iOS LaunchScreen.storyboard exactly:
  * logo-blue background (#114476), the same 144px logo image, centered in the
@@ -41,19 +65,15 @@ export function StartupSplash({
 
   // Paint the page itself blue while the splash is up so the status-bar /
   // Dynamic Island area (and any frame before the overlay paints) is solid
-  // #114476 rather than the cream page background. Restored on unmount.
+  // #114476 rather than the cream page background. Ref-counted: splashes can
+  // overlap during hand-offs, and capturing "previous" values per instance
+  // let a later splash restore the blue as the "normal" value, leaving a
+  // permanent blue band behind the transparent header. The last splash out
+  // always restores the original page colours.
   useEffect(() => {
     if (minimal || !usesBrandedSplash()) return;
-    const root = document.documentElement;
-    const prevBg = root.style.backgroundColor;
-    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-    const prevTheme = meta?.content;
-    root.style.backgroundColor = "#114476";
-    if (meta) meta.content = "#114476";
-    return () => {
-      root.style.backgroundColor = prevBg;
-      if (meta && prevTheme !== undefined) meta.content = prevTheme;
-    };
+    acquireBlueChrome();
+    return releaseBlueChrome;
   }, [minimal]);
 
   return (
