@@ -114,5 +114,5 @@ export function StartupHeartReveal({ loading, failed }: { loading: boolean; fail
   }, [phase]);
 
   if (phase === "done") return null;
-  return <StartupSplash minimal={!hasCachedSession()} revealing={phase === "reveal"} onRevealEnd={() => setPhase("done")} />;
+  return <StartupSplash minimal={!isNativeApp() && !hasCachedSession()} revealing={phase === "reveal"} onRevealEnd={() => setPhase("done")} />;
 }
