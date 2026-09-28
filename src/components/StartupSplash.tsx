@@ -19,6 +19,12 @@ const SPLASH_BLUE = "#114476";
 let blueChromeCount = 0;
 let savedChrome: { bg: string; theme: string | undefined } | null = null;
 
+function isStandaloneWebApp(): boolean {
+  if (typeof window === "undefined") return false;
+  const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
+  return navigatorWithStandalone.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+}
+
 function acquireBlueChrome() {
   const root = document.documentElement;
   const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
@@ -63,18 +69,22 @@ export function StartupSplash({
     hideNativeSplash();
   }, []);
 
-  // Paint the page itself blue while the splash is up so the status-bar /
-  // Dynamic Island area (and any frame before the overlay paints) is solid
-  // #114476 rather than the cream page background. Ref-counted: splashes can
-  // overlap during hand-offs, and capturing "previous" values per instance
-  // let a later splash restore the blue as the "normal" value, leaving a
-  // permanent blue band behind the transparent header. The last splash out
-  // always restores the original page colours.
+  // Only the native WebView owns its surrounding chrome, so only native may
+  // paint the document and theme metadata blue. Safari uses theme-color for
+  // its browser interface, while Home Screen exposes the document behind its
+  // safe areas; both must remain on the normal neutral app colour. Ref-counting
+  // keeps overlapping native splash hand-offs from restoring too early.
   useEffect(() => {
-    if (minimal || !usesBrandedSplash()) return;
+    if (minimal || !isNativeApp()) return;
     acquireBlueChrome();
     return releaseBlueChrome;
   }, [minimal]);
+
+  const revealClass = revealing
+    ? isStandaloneWebApp() && !isNativeApp()
+      ? "startup-fade"
+      : "heart-reveal"
+    : "";
 
   return (
     <div
@@ -83,7 +93,7 @@ export function StartupSplash({
       aria-hidden={revealing || undefined}
       onAnimationEnd={revealing ? onRevealEnd : undefined}
       data-minimal={minimal || undefined}
-      className={`startup-splash-bg fixed inset-0 z-[60] ${revealing ? "heart-reveal pointer-events-none" : ""}`}
+      className={`startup-splash-bg fixed inset-0 z-[60] ${revealing ? `${revealClass} pointer-events-none` : ""}`}
     >
       <img
         src="/launch-logo.png"
