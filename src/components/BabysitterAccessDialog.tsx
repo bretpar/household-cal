@@ -36,6 +36,7 @@ export function BabysitterAccessDialog({
   membershipId,
   label,
   linkedMemberId,
+  prepareSave,
   onSaved,
 }: {
   open: boolean;
@@ -43,6 +44,7 @@ export function BabysitterAccessDialog({
   membershipId: string;
   label: string;
   linkedMemberId: string | null;
+  prepareSave?: () => Promise<unknown>;
   onSaved: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -62,8 +64,9 @@ export function BabysitterAccessDialog({
   }, [open, profile, linkedMemberId]);
 
   const mutation = useMutation({
-    mutationFn: () =>
-      save({
+    mutationFn: async () => {
+      await prepareSave?.();
+      return save({
         data: {
           membership_id: membershipId,
           enabled: true,
@@ -71,7 +74,8 @@ export function BabysitterAccessDialog({
           date_scope: scope,
           calendar_ids: calendarIds,
         },
-      }),
+      });
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: BABYSITTER_SETUP_KEY });
       onSaved();

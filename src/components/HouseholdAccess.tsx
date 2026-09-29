@@ -145,12 +145,17 @@ export function HouseholdAccess() {
       toast.error(error instanceof Error ? error.message : "That change was not allowed"),
   });
 
-  const roleMutation = useMutationLike(
-    (vars: { id: string; role: string }) =>
+  const roleMutation = useMutation({
+    mutationFn: (vars: { id: string; role: string }) =>
       changeRole({ data: { membership_id: vars.id, role: vars.role } }),
-    "Role updated",
-    refresh,
-  );
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: BABYSITTER_SETUP_KEY });
+      await refresh();
+      toast.success("Role updated");
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "That change was not allowed"),
+  });
   const removeBabysitterMutation = useMutation({
     mutationFn: (id: string) =>
       saveBabysitter({
@@ -398,6 +403,14 @@ export function HouseholdAccess() {
             membershipId={membership.id}
             label={membership.display_name ?? membership.email ?? "Household user"}
             linkedMemberId={membership.family_member_id}
+            prepareSave={
+              membership.role === "viewer"
+                ? undefined
+                : () =>
+                    changeRole({
+                      data: { membership_id: membership.id, role: "viewer" },
+                    })
+            }
             onSaved={refresh}
           />
         ) : null;
