@@ -4,7 +4,12 @@ import { CircleCheck, Clock3, Copy, MailPlus, ShieldCheck, Trash2 } from "lucide
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { BabysitterAccessDialog, BabysitterConfigFields, useBabysitterSetup } from "@/components/BabysitterAccessDialog";
+import {
+  BABYSITTER_SETUP_KEY,
+  BabysitterAccessDialog,
+  BabysitterConfigFields,
+  useBabysitterSetup,
+} from "@/components/BabysitterAccessDialog";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -249,13 +254,11 @@ export function HouseholdAccess() {
 
       <div className="divide-y divide-border-soft overflow-hidden rounded-3xl border border-border-soft bg-card">
         {access.isLoading ? <p className="p-4 text-sm text-muted-foreground">Loading…</p> : null}
-        {(access.data?.memberships ?? []).map((m) => (
-          (() => {
-            const isBabysitter = babysitterSetup.data?.profiles.some(
-              (profile) => profile.family_user_id === m.id,
-            ) ?? false;
-            const displayRole = isBabysitter ? "babysitter" : m.role;
-            return (
+        {(access.data?.memberships ?? []).map((m) => {
+          const isBabysitter =
+            babysitterSetup.data?.profiles.some((profile) => profile.family_user_id === m.id) ?? false;
+          const displayRole = isBabysitter ? "babysitter" : m.role;
+          return (
           <div key={m.id} className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <div className="min-w-0">
               <p className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
@@ -316,9 +319,8 @@ export function HouseholdAccess() {
               </span>
             )}
           </div>
-            );
-          })()
-        ))}
+          );
+        })}
       </div>
 
       {isOwner && (access.data?.invitations ?? []).length > 0 ? (
