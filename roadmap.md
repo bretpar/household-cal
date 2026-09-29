@@ -27,7 +27,7 @@
 ## Shared event-card polish
 - [x] Prioritize title, compact time, then member badges across Day, 3-Day, and Week.
 - [x] Prefer another readable narrow event column before shared overflow, without changing stable lane behavior.
-- [x] Keep Start and End controls stacked on narrow screens and compact side-by-side on larger screens.
+- [x] Keep each Start and End date/time pair side-by-side on narrow screens without overlap.
 
 ## Durable manual Google sync
 - [x] Queue accepted manual syncs through the existing durable scheduled-callback mechanism.
