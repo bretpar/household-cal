@@ -1,4 +1,6 @@
-import { Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { LockKeyhole } from "lucide-react";
+
+import { PasswordRevealToggle } from "@/components/PasswordRevealToggle";
 import { useState } from "react";
 import { toast } from "sonner";
 
