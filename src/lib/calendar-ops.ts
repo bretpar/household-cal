@@ -125,7 +125,11 @@ export function asEventInput(data: unknown): EventInput {
   return raw as unknown as EventInput;
 }
 
-export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBundle> {
+export async function loadFamilyBundle(
+  db: Db,
+  userId: string,
+  secureOccurrences?: (familyId: string, sources: CalendarSource[]) => Promise<CalendarEvent[]>,
+): Promise<FamilyBundle> {
   const { data: memberships, error: mErr } = await db
     .from("family_users")
     .select("family_id, role, families(id, name)")
@@ -304,6 +308,15 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
     color: c.color as MemberColor,
     sort_order: c.sort_order ?? 0,
   }));
+
+  if (shiftDaysOnly) {
+    // Fail closed: never return recurring masters to shift-days-only caregivers.
+    if (!secureOccurrences) throw new Error("Calendar could not be loaded securely");
+    const safe = events.filter((e) => !e.recurrence_rule || e.is_my_shift);
+    const seen = new Set(safe.map((e) => e.id));
+    const extra = (await secureOccurrences(familyId, sources)).filter((e) => !seen.has(e.id));
+    return { family, members, sources, events: [...safe, ...extra], activities, categories };
+  }
 
   return { family, members, sources, events, activities, categories };
 }

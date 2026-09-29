@@ -40,10 +40,12 @@ export const ensureFamilyMembership = createServerFn({ method: "POST" })
 
 export const getFamilyBundle = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(
-    async ({ context }): Promise<FamilyBundle> =>
-      loadFamilyBundle(context.supabase as unknown as Db, context.userId),
-  );
+  .handler(async ({ context }): Promise<FamilyBundle> => {
+    const { loadSecureCaregiverOccurrences } = await import("@/lib/caregiver-occurrences.server");
+    return loadFamilyBundle(context.supabase as unknown as Db, context.userId, (familyId, sources) =>
+      loadSecureCaregiverOccurrences(context.userId, familyId, sources),
+    );
+  });
 
 export const createEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
