@@ -32,6 +32,7 @@ function ResetPasswordPage() {
   const [status, setStatus] = useState<Status>("checking");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [reveal, setReveal] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
