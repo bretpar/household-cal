@@ -82,6 +82,7 @@ export const Route = createFileRoute("/_authenticated/calendar")({
 type ViewMode = CalendarViewMode;
 
 function CalendarPage() {
+  const { isCaregiver } = useCaregiver();
   const { events, visibleEvents, selectedMembers, canEdit, loading, copiedEvent, startPaste, family } =
     useCalendar();
   const onPaste = canEdit && copiedEvent ? startPaste : undefined;
