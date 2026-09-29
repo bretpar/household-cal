@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Baby } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -23,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { getBabysitterSetup, setBabysitterAccess } from "@/lib/household.functions";
 
 export const BABYSITTER_SETUP_KEY = ["babysitter-setup"] as const;
@@ -34,11 +32,15 @@ export function useBabysitterSetup(enabled: boolean) {
 }
 
 export function BabysitterAccessDialog({
+  open,
+  onOpenChange,
   membershipId,
   label,
   linkedMemberId,
   onSaved,
 }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   membershipId: string;
   label: string;
   linkedMemberId: string | null;
@@ -49,15 +51,12 @@ export function BabysitterAccessDialog({
   const save = useServerFn(setBabysitterAccess);
   const profile = setup.data?.profiles.find((p) => p.family_user_id === membershipId);
 
-  const [open, setOpen] = useState(false);
-  const [enabled, setEnabled] = useState(false);
   const [memberId, setMemberId] = useState<string>("");
   const [scope, setScope] = useState<"shift_days_only" | "all_permitted">("shift_days_only");
   const [calendarIds, setCalendarIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
-    setEnabled(Boolean(profile));
     setMemberId(linkedMemberId ?? "");
     setScope(profile?.date_scope ?? "shift_days_only");
     setCalendarIds(profile?.calendar_ids ?? []);
@@ -68,7 +67,7 @@ export function BabysitterAccessDialog({
       save({
         data: {
           membership_id: membershipId,
-          enabled,
+          enabled: true,
           family_member_id: memberId || null,
           date_scope: scope,
           calendar_ids: calendarIds,
@@ -77,50 +76,28 @@ export function BabysitterAccessDialog({
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: BABYSITTER_SETUP_KEY });
       onSaved();
-      setOpen(false);
-      toast.success(enabled ? "Babysitter access saved" : "Babysitter access removed");
+      onOpenChange(false);
+      toast.success("Babysitter access saved");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Could not save"),
   });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          variant={profile ? "secondary" : "outline"}
-          className="h-10 rounded-full text-xs font-bold"
-        >
-          <Baby className="mr-1 h-3.5 w-3.5" aria-hidden />
-          {profile ? "Babysitter" : "Make babysitter"}
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-3xl sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Babysitter access · {label}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <Label htmlFor="babysitter-on">Babysitter</Label>
-            <Switch id="babysitter-on" checked={enabled} onCheckedChange={setEnabled} />
-          </div>
-          {enabled ? (
-            <>
-              <BabysitterConfigFields
-                setup={setup.data}
-                memberId={memberId}
-                setMemberId={setMemberId}
-                scope={scope}
-                setScope={setScope}
-                calendarIds={calendarIds}
-                setCalendarIds={setCalendarIds}
-              />
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Turn this on to limit this viewer to chosen calendars and babysitting days.
-            </p>
-          )}
+          <BabysitterConfigFields
+            setup={setup.data}
+            memberId={memberId}
+            setMemberId={setMemberId}
+            scope={scope}
+            setScope={setScope}
+            calendarIds={calendarIds}
+            setCalendarIds={setCalendarIds}
+          />
           {!profile ? (
             <p className="text-xs text-muted-foreground">
               Privacy note: this person already has full Viewer access and may have seen the whole
@@ -133,7 +110,7 @@ export function BabysitterAccessDialog({
           <Button
             type="button"
             className="h-11 w-full rounded-full font-bold"
-            disabled={mutation.isPending || (enabled && !memberId)}
+            disabled={mutation.isPending || !memberId}
             onClick={() => mutation.mutate()}
           >
             Save
