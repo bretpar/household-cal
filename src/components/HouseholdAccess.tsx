@@ -403,14 +403,14 @@ export function HouseholdAccess() {
             membershipId={membership.id}
             label={membership.display_name ?? membership.email ?? "Household user"}
             linkedMemberId={membership.family_member_id}
-            prepareSave={
-              membership.role === "viewer"
-                ? undefined
-                : () =>
+            {...(membership.role === "viewer"
+              ? {}
+              : {
+                  prepareSave: () =>
                     changeRole({
                       data: { membership_id: membership.id, role: "viewer" },
-                    })
-            }
+                    }),
+                })}
             onSaved={refresh}
           />
         ) : null;
