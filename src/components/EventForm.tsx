@@ -266,7 +266,7 @@ function formattedPickerValue(type: "date" | "time", value: string): string {
 function formattedDateLabel(value: string): { short: string; long: string } {
   if (!value) return { short: "Choose date", long: "Choose date" };
   const day = new Date(`${value}T00:00`);
-  return { short: format(day, "EEE, MMM d"), long: format(day, "MMM d, yyyy") };
+  return { short: format(day, "MMM d"), long: format(day, "MMM d, yyyy") };
 }
 
 function PickerDateLabel({ value }: { value: string }) {
@@ -676,8 +676,8 @@ export function EventFormFields({
           <Label htmlFor={`${idPrefix}-date`}>Start</Label>
           <div
             className={cn(
-              "date-row grid min-w-0 grid-cols-1 gap-2",
-              !state.allDay && "grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]",
+              "date-row grid min-w-0 gap-2",
+              state.allDay ? "grid-cols-1" : "grid-cols-2",
             )}
           >
           <DatePickerField
@@ -708,8 +708,8 @@ export function EventFormFields({
           <Label htmlFor={`${idPrefix}-end-date`}>End</Label>
           <div
             className={cn(
-              "date-row grid min-w-0 grid-cols-1 gap-2",
-              !state.allDay && "grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]",
+              "date-row grid min-w-0 gap-2",
+              state.allDay ? "grid-cols-1" : "grid-cols-2",
             )}
           >
             <DatePickerField
