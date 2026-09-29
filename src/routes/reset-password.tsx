@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, validatePassword } from "@/lib/password";
+import { PasswordRevealToggle } from "@/components/PasswordRevealToggle";
 
 export const Route = createFileRoute("/reset-password")({
   ssr: false,
