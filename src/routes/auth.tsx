@@ -18,11 +18,22 @@ const authCardClassName =
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  validateSearch: (search: Record<string, unknown>): { redirect?: string } => {
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { redirect?: string; mode?: "signin" | "signup"; email?: string } => {
+    const out: { redirect?: string; mode?: "signin" | "signup"; email?: string } = {};
     const value = search["redirect"];
-    if (typeof value !== "string") return {};
-    const safe = sanitizeReturnPath(value);
-    return safe === "/today" && value !== "/today" ? {} : { redirect: safe };
+    if (typeof value === "string") {
+      const safe = sanitizeReturnPath(value);
+      if (!(safe === "/today" && value !== "/today")) out.redirect = safe;
+    }
+    const mode = search["mode"];
+    if (mode === "signin" || mode === "signup") out.mode = mode;
+    const email = search["email"];
+    if (typeof email === "string" && email.length <= 320 && email.includes("@")) {
+      out.email = email.trim();
+    }
+    return out;
   },
   head: () => ({
     meta: [
@@ -41,13 +52,13 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { redirect } = Route.useSearch();
+  const { redirect, mode: initialMode, email: initialEmail } = Route.useSearch();
   const goHome = () => {
     if (redirect) window.location.assign(redirect);
     else navigate({ to: "/today", replace: true });
   };
-  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
-  const [email, setEmail] = useState("");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">(initialMode ?? "signin");
+  const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [resetSent, setResetSent] = useState(false);

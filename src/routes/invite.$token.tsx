@@ -124,17 +124,24 @@ function InvitePage() {
             ) : (
               <>
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Create your own account (or sign into an existing one) with that email address,
-                  then come back to this link to accept.
+                  Use that email address to create your account or sign in. You'll come right back
+                  here to accept.
                 </p>
                 <Link
                   to="/auth"
-                  search={{ redirect: `/invite/${token}` }}
+                  search={{ mode: "signup", email: invite.email, redirect: `/invite/${token}` }}
                   className="mt-5 block"
                 >
                   <Button className="h-11 w-full rounded-full font-bold" type="button">
-                    Create account or sign in
+                    Create account and continue
                   </Button>
+                </Link>
+                <Link
+                  to="/auth"
+                  search={{ mode: "signin", email: invite.email, redirect: `/invite/${token}` }}
+                  className="mt-3 block text-center text-sm font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  Already have an account? Sign in
                 </Link>
               </>
             )}
