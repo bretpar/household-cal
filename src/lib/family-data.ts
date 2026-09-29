@@ -65,6 +65,8 @@ export interface FamilyMember {
   access: AccessLevel;
   active: boolean;
   sort_order: number;
+  /** set when a caregiver was removed with history kept */
+  removed_at?: string | null;
 }
 
 export interface CalendarSource {

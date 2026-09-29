@@ -230,6 +230,7 @@ export async function loadFamilyBundle(
     access: m.access,
     active: m.active,
     sort_order: m.sort_order,
+    removed_at: m.removed_at ?? null,
   }));
 
   const events: CalendarEvent[] = (eventsRes.data ?? []).map((e: any) => {

@@ -216,6 +216,8 @@ export const setBabysitterAccess = createServerFn({ method: "POST" })
     if (fu.role !== "viewer") throw new Error("Only viewers can be babysitters");
     const memberId = data.family_member_id ?? fu.family_member_id;
     if (!memberId) throw new Error("Choose which family member this babysitter is");
+    const { data: who } = await db.from("family_members").select("active, removed_at").eq("id", memberId).maybeSingle();
+    if (who && (who.active === false || who.removed_at)) throw new Error("Reactivate this caregiver before giving them access");
     if (memberId !== fu.family_member_id) {
       const { data: m } = await db.from("family_members").select("id").eq("id", memberId).eq("family_id", fu.family_id).maybeSingle();
       if (!m) throw new Error("That family member isn't in this household");
