@@ -207,24 +207,30 @@ export type Database = {
       }
       babysitter_shifts: {
         Row: {
+          assignee_name: string | null
+          assignment: string
           created_at: string
           event_id: string
           family_id: string
-          family_user_id: string
+          family_user_id: string | null
           id: string
         }
         Insert: {
+          assignee_name?: string | null
+          assignment?: string
           created_at?: string
           event_id: string
           family_id: string
-          family_user_id: string
+          family_user_id?: string | null
           id?: string
         }
         Update: {
+          assignee_name?: string | null
+          assignment?: string
           created_at?: string
           event_id?: string
           family_id?: string
-          family_user_id?: string
+          family_user_id?: string | null
           id?: string
         }
         Relationships: [
@@ -864,8 +870,10 @@ export type Database = {
       }
       families: {
         Row: {
+          babysitter_calendar_source_id: string | null
           created_at: string
           created_by: string | null
+          default_babysitter_family_user_id: string | null
           id: string
           include_google_event_initials: boolean
           name: string
@@ -873,8 +881,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          babysitter_calendar_source_id?: string | null
           created_at?: string
           created_by?: string | null
+          default_babysitter_family_user_id?: string | null
           id?: string
           include_google_event_initials?: boolean
           name: string
@@ -882,15 +892,32 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          babysitter_calendar_source_id?: string | null
           created_at?: string
           created_by?: string | null
+          default_babysitter_family_user_id?: string | null
           id?: string
           include_google_event_initials?: boolean
           name?: string
           timezone?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "families_babysitter_calendar_source_id_fkey"
+            columns: ["babysitter_calendar_source_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "families_default_babysitter_family_user_id_fkey"
+            columns: ["default_babysitter_family_user_id"]
+            isOneToOne: false
+            referencedRelation: "babysitter_access_profiles"
+            referencedColumns: ["family_user_id"]
+          },
+        ]
       }
       family_invitations: {
         Row: {
