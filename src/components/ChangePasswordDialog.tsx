@@ -1,4 +1,6 @@
-import { Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { LockKeyhole } from "lucide-react";
+
+import { PasswordRevealToggle } from "@/components/PasswordRevealToggle";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -99,35 +101,27 @@ export function ChangePasswordDialog() {
                   }}
                   className="h-11 rounded-xl pr-11"
                 />
-                <button
-                  type="button"
-                  onClick={() => setReveal((v) => !v)}
-                  aria-label={reveal ? "Hide password" : "Show password"}
-                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground"
-                >
-                  {reveal ? (
-                    <EyeOff className="h-4 w-4" aria-hidden />
-                  ) : (
-                    <Eye className="h-4 w-4" aria-hidden />
-                  )}
-                </button>
+                <PasswordRevealToggle revealed={reveal} onToggle={() => setReveal((v) => !v)} />
               </div>
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="change-password-confirm">Confirm new password</Label>
-              <Input
-                id="change-password-confirm"
-                type={reveal ? "text" : "password"}
-                autoComplete="new-password"
-                minLength={PASSWORD_MIN_LENGTH}
-                value={confirm}
-                onChange={(e) => {
-                  setConfirm(e.target.value);
-                  setError(null);
-                }}
-                className="h-11 rounded-xl"
-              />
+              <div className="relative">
+                <Input
+                  id="change-password-confirm"
+                  type={reveal ? "text" : "password"}
+                  autoComplete="new-password"
+                  minLength={PASSWORD_MIN_LENGTH}
+                  value={confirm}
+                  onChange={(e) => {
+                    setConfirm(e.target.value);
+                    setError(null);
+                  }}
+                  className="h-11 rounded-xl pr-11"
+                />
+                <PasswordRevealToggle revealed={reveal} onToggle={() => setReveal((v) => !v)} />
+              </div>
             </div>
 
             {error ? (

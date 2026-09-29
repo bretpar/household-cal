@@ -10,6 +10,7 @@ import { lovable } from "@/integrations/lovable/index";
 import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, validatePassword } from "@/lib/password";
 import { isNativeApp, startNativeGoogleSignIn } from "@/lib/native-auth";
 import { sanitizeReturnPath } from "@/lib/return-path";
+import { PasswordRevealToggle } from "@/components/PasswordRevealToggle";
 
 const authPageClassName =
   "flex h-[100dvh] flex-col items-center overflow-y-auto bg-background px-4 pt-[max(calc(env(safe-area-inset-top)+1rem),1.5rem)] pb-[max(calc(env(safe-area-inset-bottom)+clamp(7rem,18dvh,10rem)),8rem)] sm:h-auto sm:min-h-screen sm:justify-center sm:overflow-visible sm:py-10";
@@ -60,6 +61,7 @@ function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup" | "forgot">(initialMode ?? "signin");
   const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
+  const [reveal, setReveal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -249,18 +251,21 @@ function AuthPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="auth-password">Password</Label>
-            <Input
-              ref={passwordRef}
-              id="auth-password"
-              name="password"
-              data-testid="auth-password"
-              type="password"
-              minLength={PASSWORD_MIN_LENGTH}
-              autoComplete={mode === "signin" ? "current-password" : "new-password"}
-              defaultValue={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="h-11 rounded-xl"
-            />
+            <div className="relative">
+              <Input
+                ref={passwordRef}
+                id="auth-password"
+                name="password"
+                data-testid="auth-password"
+                type={reveal ? "text" : "password"}
+                minLength={PASSWORD_MIN_LENGTH}
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                defaultValue={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 rounded-xl pr-11"
+              />
+              <PasswordRevealToggle revealed={reveal} onToggle={() => setReveal((v) => !v)} />
+            </div>
             {mode === "signup" ? (
               <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>
             ) : null}
