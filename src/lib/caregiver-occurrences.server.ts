@@ -75,7 +75,7 @@ function seriesDates(e: Master, tz: string, fromKey: string, lastKey: string): s
   return out;
 }
 
-/** Local dates an occurrence spans (overnight shifts unlock the next day too). */
+/** Local dates an occurrence actually spans: start date through inclusive end date. */
 function spanKeys(dateKey: string, e: Master, tz: string): string[] {
   const dur = new Date(e.end_at).getTime() - new Date(e.start_at).getTime();
   if (e.all_day) return [dateKey];
@@ -146,7 +146,7 @@ export async function loadSecureCaregiverOccurrences(
   const keys = [...authorized].sort();
   const out: CalendarEvent[] = [];
   for (const e of evRes.data ?? []) {
-    if (ownIds.has(e.id)) continue; // own shifts are already readable in full
+    const own = ownIds.has(e.id);
     const source = sourceById.get(e.calendar_source_id);
     if (!source) continue;
     const styled = source.provider === "google" || source.provider === "ics" ||
@@ -189,9 +189,49 @@ export async function loadSecureCaregiverOccurrences(
         external_recurring_event_id: null,
         participants: members.map((m) => ({ member_id: m.family_member_id, weekdays: null })),
         member_ids: members.map((m) => m.family_member_id),
-        shift_assignment: null,
+        shift_assignment: own ? { kind: "caregiver", family_user_id: fuId } : null,
+        ...(own ? { is_my_shift: true } : {}),
       } as CalendarEvent);
     }
+  }
+
+  // One-off events on dates unlocked only by repeating shifts. RLS unlocks
+  // one-off shift dates itself; duplicates are removed by the caller.
+  const oneRes = await admin
+    .from("events")
+    .select("id, calendar_source_id, title, start_at, end_at, all_day, location, notes, event_type, category_id, event_members(family_member_id)")
+    .eq("family_id", familyId)
+    .is("recurrence_rule", null)
+    .in("calendar_source_id", [...permitted])
+    .gte("end_at", `${keys[0]!}T00:00:00Z`)
+    .lte("start_at", `${addDays(keys[keys.length - 1]!, 1)}T23:59:59Z`);
+  if (oneRes.error) throw oneRes.error;
+  for (const e of oneRes.data ?? []) {
+    const source = sourceById.get(e.calendar_source_id);
+    if (!source) continue;
+    const m = { ...e, recurrence_rule: null, recurrence_until: null, excluded_dates: null } as Master;
+    const first = startKey(m, tz);
+    if (!first) continue;
+    const span = e.all_day
+      ? (() => { const ks: string[] = []; const last = addDays(e.end_at.slice(0, 10), 0); for (let k = first; k <= last; k = addDays(k, 1)) ks.push(k); return ks; })()
+      : spanKeys(first, m, tz);
+    if (!span.some((k) => authorized.has(k))) continue;
+    const styled = source.provider === "google" || source.provider === "ics" ||
+      (source.provider === "local" && source.calendar_kind === "custom");
+    const ids = ((e.event_members ?? []) as { family_member_id: string }[]).map((l) => l.family_member_id);
+    out.push({
+      id: e.id, family_id: familyId, calendar_source_id: e.calendar_source_id,
+      display_mode: source.display_mode as DisplayMode, read_only: true,
+      source_color: styled ? ((source.color ?? null) as MemberColor | null) : null,
+      source_icon: styled ? (source.display_icon ?? null) : null,
+      source_name: styled ? source.name : null,
+      title: e.title, start_at: e.start_at, end_at: e.end_at, all_day: e.all_day,
+      location: e.location, notes: e.notes, event_type: e.event_type, category_id: e.category_id ?? null,
+      recurrence_rule: null, recurrence_until: null, excluded_dates: [], needs_family_assignment: false,
+      created_at: null, external_event_id: null, external_recurring_event_id: null,
+      participants: ids.map((id) => ({ member_id: id, weekdays: null })), member_ids: ids,
+      shift_assignment: null, shift_gate: true,
+    } as CalendarEvent);
   }
   return out;
 }
