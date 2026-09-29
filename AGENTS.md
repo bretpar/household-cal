@@ -14,3 +14,4 @@
 - Babysitter access is a profile on top of Viewer (babysitter_access_profiles); RLS helpers can_read_event/can_read_calendar_source enforce it. Why: role enum and non-babysitter behavior stay unchanged.
 - Babysitting shifts: families.babysitter_calendar_source_id marks the Babysitter calendar; babysitter_shifts (one row per event, assignment caregiver|other|none) is synced by syncShiftAssignment on every event save. Why: owner-chosen calendar, never names; only caregiver rows unlock dates.
 - Shift-days-only caregivers never read recurring masters (can_read_event denies them); getFamilyBundle adds sanitized per-date occurrences from caregiver-occurrences.server.ts and fails closed. Why: masters leaked unauthorized dates.
+- Babysitters (any babysitter access profile) are excluded from summary email sends and previews in dispatch.server.ts. Why: summaries can't yet apply caregiver calendar/date limits; fail closed.
