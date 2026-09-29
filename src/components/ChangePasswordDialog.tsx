@@ -116,18 +116,21 @@ export function ChangePasswordDialog() {
 
             <div className="space-y-1.5">
               <Label htmlFor="change-password-confirm">Confirm new password</Label>
-              <Input
-                id="change-password-confirm"
-                type={reveal ? "text" : "password"}
-                autoComplete="new-password"
-                minLength={PASSWORD_MIN_LENGTH}
-                value={confirm}
-                onChange={(e) => {
-                  setConfirm(e.target.value);
-                  setError(null);
-                }}
-                className="h-11 rounded-xl"
-              />
+              <div className="relative">
+                <Input
+                  id="change-password-confirm"
+                  type={reveal ? "text" : "password"}
+                  autoComplete="new-password"
+                  minLength={PASSWORD_MIN_LENGTH}
+                  value={confirm}
+                  onChange={(e) => {
+                    setConfirm(e.target.value);
+                    setError(null);
+                  }}
+                  className="h-11 rounded-xl pr-11"
+                />
+                <PasswordRevealToggle revealed={reveal} onToggle={() => setReveal((v) => !v)} />
+              </div>
             </div>
 
             {error ? (
