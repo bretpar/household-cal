@@ -8,7 +8,7 @@ export interface ShiftSettings {
   calendar_source_id: string | null;
   default_family_user_id: string | null;
   /** registered caregivers (babysitter access profiles) */
-  caregivers: { family_user_id: string; name: string }[];
+  caregivers: { family_user_id: string; name: string; family_member_id: string | null }[];
 }
 
 type AnyDb = { from: (t: string) => any; rpc: (f: string, a: unknown) => any };
@@ -43,12 +43,18 @@ export const getShiftSettings = createServerFn({ method: "GET" })
         .single(),
       admin
         .from("babysitter_access_profiles")
-        .select("family_user_id, family_users!inner(family_member_id, family_members(name))")
+        .select("family_user_id, family_users!inner(family_member_id, family_members(name, active, removed_at))")
         .eq("family_id", fam.family_id),
     ]);
     if (famRes.error) throw famRes.error;
     if (profRes.error) throw profRes.error;
-    const caregivers = (profRes.data ?? []).map((p: any) => ({
+    const caregivers = (profRes.data ?? [])
+      .filter((p: any) => {
+        const m = p.family_users?.family_members;
+        return !m || (m.active !== false && !m.removed_at);
+      })
+      .map((p: any) => ({
+      family_member_id: (p.family_users?.family_member_id as string | null) ?? null,
       family_user_id: p.family_user_id as string,
       name: (p.family_users?.family_members?.name as string | undefined) ?? "Babysitter",
     }));
