@@ -89,7 +89,7 @@ export interface EventFormState {
    * Babysitter-calendar shift assignment. undefined = not a shift (field
    * hidden); null = shown but not chosen yet (blocks saving).
    */
-  babysitter?: ShiftAssignment | null;
+  babysitter?: ShiftAssignment | null | undefined;
 }
 
 /** Sensible default end date: three months of repeats from the event day. */
