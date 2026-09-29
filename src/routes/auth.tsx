@@ -10,6 +10,7 @@ import { lovable } from "@/integrations/lovable/index";
 import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, validatePassword } from "@/lib/password";
 import { isNativeApp, startNativeGoogleSignIn } from "@/lib/native-auth";
 import { sanitizeReturnPath } from "@/lib/return-path";
+import { PasswordRevealToggle } from "@/components/PasswordRevealToggle";
 
 const authPageClassName =
   "flex h-[100dvh] flex-col items-center overflow-y-auto bg-background px-4 pt-[max(calc(env(safe-area-inset-top)+1rem),1.5rem)] pb-[max(calc(env(safe-area-inset-bottom)+clamp(7rem,18dvh,10rem)),8rem)] sm:h-auto sm:min-h-screen sm:justify-center sm:overflow-visible sm:py-10";
