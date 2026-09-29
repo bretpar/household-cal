@@ -83,9 +83,6 @@ export function BabysitterAccessDialog({
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Could not save"),
   });
 
-  const toggleCalendar = (id: string, on: boolean) =>
-    setCalendarIds((prev) => (on ? [...new Set([...prev, id])] : prev.filter((c) => c !== id)));
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -109,49 +106,30 @@ export function BabysitterAccessDialog({
           </div>
           {enabled ? (
             <>
-              <div className="space-y-1.5">
-                <Label htmlFor="babysitter-member">Family member</Label>
-                <Select value={memberId} onValueChange={setMemberId}>
-                  <SelectTrigger id="babysitter-member" className="h-11 rounded-xl">
-                    <SelectValue placeholder="Choose who this is" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(setup.data?.family_members ?? []).map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-semibold">Calendar access</p>
-                {(setup.data?.calendars ?? []).map((c) => (
-                  <label key={c.id} className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={calendarIds.includes(c.id)}
-                      onCheckedChange={(v) => toggleCalendar(c.id, v === true)}
-                    />
-                    {c.name}
-                  </label>
-                ))}
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-semibold">Schedule visibility</p>
-                <RadioGroup value={scope} onValueChange={(v) => setScope(v as typeof scope)}>
-                  <label className="flex items-center gap-2 text-sm">
-                    <RadioGroupItem value="shift_days_only" /> Only days they babysit
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <RadioGroupItem value="all_permitted" /> All permitted calendar dates
-                  </label>
-                </RadioGroup>
-              </div>
+              <BabysitterConfigFields
+                setup={setup.data}
+                memberId={memberId}
+                setMemberId={setMemberId}
+                scope={scope}
+                setScope={setScope}
+                calendarIds={calendarIds}
+                setCalendarIds={setCalendarIds}
+              />
             </>
           ) : (
             <p className="text-xs text-muted-foreground">
               Turn this on to limit this viewer to chosen calendars and babysitting days.
             </p>
+          )}
+          {!profile ? (
+            <p className="text-xs text-muted-foreground">
+              Privacy note: this person already has full Viewer access and may have seen the whole
+              calendar. To give a new babysitter restricted access from the start, invite them as a
+              Babysitter instead.
+            </p>
+          ) : null}
+          {false ? (
+            <span />
           )}
         </div>
         <DialogFooter>
@@ -166,5 +144,70 @@ export function BabysitterAccessDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+type Scope = "shift_days_only" | "all_permitted";
+
+export function BabysitterConfigFields({
+  setup,
+  memberId,
+  setMemberId,
+  scope,
+  setScope,
+  calendarIds,
+  setCalendarIds,
+}: {
+  setup: { calendars: { id: string; name: string }[]; family_members: { id: string; name: string }[] } | undefined;
+  memberId: string;
+  setMemberId: (v: string) => void;
+  scope: Scope;
+  setScope: (v: Scope) => void;
+  calendarIds: string[];
+  setCalendarIds: (fn: (prev: string[]) => string[]) => void;
+}) {
+  const toggleCalendar = (id: string, on: boolean) =>
+    setCalendarIds((prev) => (on ? [...new Set([...prev, id])] : prev.filter((c) => c !== id)));
+  return (
+    <>
+      <div className="space-y-1.5">
+        <Label htmlFor="babysitter-member">Family member</Label>
+        <Select value={memberId} onValueChange={setMemberId}>
+          <SelectTrigger id="babysitter-member" className="h-11 rounded-xl">
+            <SelectValue placeholder="Choose who this is" />
+          </SelectTrigger>
+          <SelectContent>
+            {(setup?.family_members ?? []).map((m) => (
+              <SelectItem key={m.id} value={m.id}>
+                {m.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <p className="text-sm font-semibold">Calendar access</p>
+        {(setup?.calendars ?? []).map((c) => (
+          <label key={c.id} className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={calendarIds.includes(c.id)}
+              onCheckedChange={(v) => toggleCalendar(c.id, v === true)}
+            />
+            {c.name}
+          </label>
+        ))}
+      </div>
+      <div className="space-y-2">
+        <p className="text-sm font-semibold">Schedule visibility</p>
+        <RadioGroup value={scope} onValueChange={(v) => setScope(v as Scope)}>
+          <label className="flex items-center gap-2 text-sm">
+            <RadioGroupItem value="shift_days_only" /> Only days they babysit
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <RadioGroupItem value="all_permitted" /> All permitted calendar dates
+          </label>
+        </RadioGroup>
+      </div>
+    </>
   );
 }

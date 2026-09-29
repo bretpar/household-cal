@@ -4,7 +4,7 @@ import { CircleCheck, Clock3, Copy, MailPlus, ShieldCheck, Trash2 } from "lucide
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { BabysitterAccessDialog } from "@/components/BabysitterAccessDialog";
+import { BabysitterAccessDialog, BabysitterConfigFields, useBabysitterSetup } from "@/components/BabysitterAccessDialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -52,11 +52,16 @@ export function HouseholdAccess() {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("viewer");
+  const [bsMember, setBsMember] = useState("");
+  const [bsScope, setBsScope] = useState<"shift_days_only" | "all_permitted">("shift_days_only");
+  const [bsCalendars, setBsCalendars] = useState<string[]>([]);
+  const isBabysitterInvite = role === "babysitter";
 
   const access = useQuery({ queryKey: HOUSEHOLD_ACCESS_KEY, queryFn: () => fetchAccess() });
   const refresh = () => queryClient.invalidateQueries({ queryKey: HOUSEHOLD_ACCESS_KEY });
 
   const isOwner = access.data?.my_role === "owner";
+  const babysitterSetup = useBabysitterSetup(isOwner && open && isBabysitterInvite);
   const ownerCount = (access.data?.memberships ?? []).filter((m) => m.role === "owner").length;
 
   const copyLink = async (token: string) => {
@@ -70,12 +75,24 @@ export function HouseholdAccess() {
   };
 
   const inviteMutation = useMutation({
-    mutationFn: () => invite({ data: { email, role } }),
+    mutationFn: () =>
+      invite({
+        data: {
+          email,
+          role: isBabysitterInvite ? "viewer" : role,
+          babysitter: isBabysitterInvite
+            ? { family_member_id: bsMember, date_scope: bsScope, calendar_ids: bsCalendars }
+            : null,
+        },
+      }),
     onSuccess: async (result) => {
       const sentTo = email;
       setOpen(false);
       setEmail("");
       setRole("viewer");
+      setBsMember("");
+      setBsScope("shift_days_only");
+      setBsCalendars([]);
       await refresh();
       if (result?.emailed) {
         toast.success(`Invitation emailed to ${sentTo}`);
@@ -160,11 +177,23 @@ export function HouseholdAccess() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="viewer">Viewer · view only</SelectItem>
+                      <SelectItem value="babysitter">Babysitter · limited view</SelectItem>
                       <SelectItem value="editor">Editor · can add and edit</SelectItem>
                       <SelectItem value="owner">Owner · manages everything</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+                {isBabysitterInvite ? (
+                  <BabysitterConfigFields
+                    setup={babysitterSetup.data}
+                    memberId={bsMember}
+                    setMemberId={setBsMember}
+                    scope={bsScope}
+                    setScope={setBsScope}
+                    calendarIds={bsCalendars}
+                    setCalendarIds={setBsCalendars}
+                  />
+                ) : null}
                 <p className="text-xs text-muted-foreground">
                   They create or sign into their own account — you never set a password for them.
                 </p>
@@ -173,7 +202,7 @@ export function HouseholdAccess() {
                 <Button
                   type="button"
                   className="h-11 w-full rounded-full font-bold"
-                  disabled={inviteMutation.isPending}
+                  disabled={inviteMutation.isPending || (isBabysitterInvite && !bsMember)}
                   onClick={() => inviteMutation.mutate()}
                 >
                   Send invitation
