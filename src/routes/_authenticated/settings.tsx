@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/AppShell";
 import { CaregiverOnly } from "@/components/CaregiverGate";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+
 import { MemberBadge } from "@/components/MemberBadge";
 import { SignOutButton } from "@/components/SignOutButton";
 import { calendarIconComponent } from "@/lib/calendar-icons";
@@ -83,9 +85,11 @@ function CaregiverSettings() {
           </div>
         </section>
 
-        <section className="border-t border-border-soft pt-5" aria-label="Sign out">
+        <section className="space-y-3 border-t border-border-soft pt-5" aria-label="Account">
+          <ChangePasswordDialog />
           <SignOutButton />
         </section>
+
       </div>
     </AppShell>
   );

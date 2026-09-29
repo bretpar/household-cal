@@ -13,6 +13,8 @@ import { AccountDeletion } from "@/components/AccountDeletion";
 import { AppShell } from "@/components/AppShell";
 import { ParentOnly } from "@/components/CaregiverGate";
 import { CalendarAppearanceSettings } from "@/components/CalendarAppearanceSettings";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
 import { DeveloperTools } from "@/components/DeveloperTools";
 import { GoogleCalendarMaintenance } from "@/components/GoogleCalendarMaintenance";
@@ -172,12 +174,14 @@ function FamilyPage() {
           </SettingsSection>
         </section>
 
-        <section className="border-t border-border-soft pt-5" aria-label="Sign out">
+        <section className="space-y-3 border-t border-border-soft pt-5" aria-label="Account security">
+          <ChangePasswordDialog />
           <SignOutButton />
-          <p className="mt-2 text-center text-xs text-muted-foreground">
+          <p className="text-center text-xs text-muted-foreground">
             Signs out this device only. Your other devices stay signed in.
           </p>
         </section>
+
 
         <footer className="space-y-2 rounded-3xl border border-dashed border-border bg-surface-muted/50 p-4 text-center">
           <nav className="flex items-center justify-center gap-4 text-sm font-semibold">
