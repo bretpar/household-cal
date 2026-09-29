@@ -4,6 +4,7 @@ import { CircleCheck, Clock3, Copy, MailPlus, ShieldCheck, Trash2 } from "lucide
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { BabysitterAccessDialog } from "@/components/BabysitterAccessDialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -205,7 +206,15 @@ export function HouseholdAccess() {
               </p>
             </div>
             {isOwner ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {m.role === "viewer" && !m.is_self ? (
+                  <BabysitterAccessDialog
+                    membershipId={m.id}
+                    label={m.display_name ?? m.email ?? "Household user"}
+                    linkedMemberId={m.family_member_id}
+                    onSaved={refresh}
+                  />
+                ) : null}
                 <Select
                   value={m.role}
                   onValueChange={(next) => roleMutation.mutate({ id: m.id, role: next })}
