@@ -99,18 +99,7 @@ export function ChangePasswordDialog() {
                   }}
                   className="h-11 rounded-xl pr-11"
                 />
-                <button
-                  type="button"
-                  onClick={() => setReveal((v) => !v)}
-                  aria-label={reveal ? "Hide password" : "Show password"}
-                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground"
-                >
-                  {reveal ? (
-                    <EyeOff className="h-4 w-4" aria-hidden />
-                  ) : (
-                    <Eye className="h-4 w-4" aria-hidden />
-                  )}
-                </button>
+                <PasswordRevealToggle revealed={reveal} onToggle={() => setReveal((v) => !v)} />
               </div>
             </div>
 
