@@ -133,6 +133,124 @@ export type Database = {
           },
         ]
       }
+      babysitter_access_calendars: {
+        Row: {
+          calendar_source_id: string
+          created_at: string
+          family_user_id: string
+        }
+        Insert: {
+          calendar_source_id: string
+          created_at?: string
+          family_user_id: string
+        }
+        Update: {
+          calendar_source_id?: string
+          created_at?: string
+          family_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "babysitter_access_calendars_calendar_source_id_fkey"
+            columns: ["calendar_source_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "babysitter_access_calendars_family_user_id_fkey"
+            columns: ["family_user_id"]
+            isOneToOne: false
+            referencedRelation: "babysitter_access_profiles"
+            referencedColumns: ["family_user_id"]
+          },
+        ]
+      }
+      babysitter_access_profiles: {
+        Row: {
+          created_at: string
+          date_scope: Database["public"]["Enums"]["babysitter_date_scope"]
+          family_id: string
+          family_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_scope?: Database["public"]["Enums"]["babysitter_date_scope"]
+          family_id: string
+          family_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_scope?: Database["public"]["Enums"]["babysitter_date_scope"]
+          family_id?: string
+          family_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "babysitter_access_profiles_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "babysitter_access_profiles_family_user_id_fkey"
+            columns: ["family_user_id"]
+            isOneToOne: true
+            referencedRelation: "family_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      babysitter_shifts: {
+        Row: {
+          created_at: string
+          event_id: string
+          family_id: string
+          family_user_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          family_id: string
+          family_user_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          family_id?: string
+          family_user_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "babysitter_shifts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "babysitter_shifts_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "babysitter_shifts_family_user_id_fkey"
+            columns: ["family_user_id"]
+            isOneToOne: false
+            referencedRelation: "babysitter_access_profiles"
+            referencedColumns: ["family_user_id"]
+          },
+        ]
+      }
       calendar_sources: {
         Row: {
           active: boolean
@@ -1174,7 +1292,23 @@ export type Database = {
     }
     Functions: {
       account_deletion_blocked: { Args: { _user_id: string }; Returns: boolean }
+      babysitter_membership: { Args: { _family_id: string }; Returns: string }
       can_edit_family: { Args: { _family_id: string }; Returns: boolean }
+      can_read_calendar_source: {
+        Args: { _family_id: string; _source_id: string }
+        Returns: boolean
+      }
+      can_read_event: {
+        Args: {
+          _end: string
+          _event_id: string
+          _family_id: string
+          _recurrence: string
+          _source_id: string
+          _start: string
+        }
+        Returns: boolean
+      }
       delete_account_data: {
         Args: {
           _delete_households: string[]
@@ -1198,6 +1332,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["family_role"]
       }
       has_family_access: { Args: { _family_id: string }; Returns: boolean }
+      is_babysitter: { Args: { _family_id: string }; Returns: boolean }
       is_family_owner: { Args: { _family_id: string }; Returns: boolean }
       recover_stale_account_deletion: {
         Args: { _user_id: string }
@@ -1212,6 +1347,7 @@ export type Database = {
       }
     }
     Enums: {
+      babysitter_date_scope: "all_permitted" | "shift_days_only"
       calendar_display_mode: "events" | "coverage_background"
       calendar_provider: "local" | "google" | "ics"
       email_summary_frequency: "daily" | "weekly" | "monthly"
@@ -1356,6 +1492,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      babysitter_date_scope: ["all_permitted", "shift_days_only"],
       calendar_display_mode: ["events", "coverage_background"],
       calendar_provider: ["local", "google", "ics"],
       email_summary_frequency: ["daily", "weekly", "monthly"],
