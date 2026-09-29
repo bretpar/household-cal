@@ -11,6 +11,7 @@ import {
 
 import { AccountDeletion } from "@/components/AccountDeletion";
 import { AppShell } from "@/components/AppShell";
+import { ParentOnly } from "@/components/CaregiverGate";
 import { CalendarAppearanceSettings } from "@/components/CalendarAppearanceSettings";
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
 import { DeveloperTools } from "@/components/DeveloperTools";
@@ -46,7 +47,7 @@ export const Route = createFileRoute("/_authenticated/family")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: FamilyPage,
+  component: FamilyPageRoute,
 });
 
 const ROLE_LABEL: Record<string, string> = {
@@ -54,6 +55,14 @@ const ROLE_LABEL: Record<string, string> = {
   editor: "Editor · can add and edit",
   viewer: "Viewer · view only",
 };
+
+function FamilyPageRoute() {
+  return (
+    <ParentOnly>
+      <FamilyPage />
+    </ParentOnly>
+  );
+}
 
 function FamilyPage() {
   const { members, family, role } = useCalendar();

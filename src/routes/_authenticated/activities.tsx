@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { CalendarClock, Clock, MapPin, Repeat } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { ParentOnly } from "@/components/CaregiverGate";
 import { AddEventDialog } from "@/components/AddEventDialog";
 import { MemberBadge, MemberBadgeRow } from "@/components/MemberBadge";
 import { eventTypeIcons } from "@/components/EventCard";
@@ -40,8 +41,16 @@ export const Route = createFileRoute("/_authenticated/activities")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: ActivitiesPage,
+  component: ActivitiesPageRoute,
 });
+
+function ActivitiesPageRoute() {
+  return (
+    <ParentOnly>
+      <ActivitiesPage />
+    </ParentOnly>
+  );
+}
 
 function ActivitiesPage() {
   const { events, members, loading, canEdit, categories } = useCalendar();

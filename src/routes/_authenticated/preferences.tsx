@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CalendarCog } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { ParentOnly } from "@/components/CaregiverGate";
 import { CALENDAR_VIEW_LABEL, type CalendarViewMode } from "@/lib/calendar-view-preference";
 import { cn } from "@/lib/utils";
 import { useUserPreferences, type WeekStart } from "@/lib/user-preferences";
@@ -22,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/preferences")({
       },
     ],
   }),
-  component: PreferencesPage,
+  component: PreferencesPageRoute,
 });
 
 const WEEK_START_OPTIONS: { value: WeekStart; label: string }[] = [
@@ -61,6 +62,14 @@ function OptionGroup<T extends string | number>({
         </button>
       ))}
     </div>
+  );
+}
+
+function PreferencesPageRoute() {
+  return (
+    <ParentOnly>
+      <PreferencesPage />
+    </ParentOnly>
   );
 }
 

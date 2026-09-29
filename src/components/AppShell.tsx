@@ -1,11 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { CalendarDays, Home, Sparkles, Users } from "lucide-react";
+import { CalendarDays, ClipboardList, Home, Settings, Sparkles, Users } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import logoAsset from "@/assets/logo.png.asset.json";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { reportShellMount, reportShellUnmount } from "@/lib/shell-remount-probe";
 import { cn } from "@/lib/utils";
+import { useCaregiver } from "@/lib/use-caregiver";
 
 /** Content-only placeholder: the header and bottom nav stay visible around it. */
 function PageContentSkeleton() {
@@ -28,6 +29,13 @@ const NAV = [
   { to: "/family", label: "Family", icon: Users },
 ] as const;
 
+const CAREGIVER_NAV = [
+  { to: "/today", label: "Today", icon: Home },
+  { to: "/calendar", label: "Calendar", icon: CalendarDays },
+  { to: "/timesheet", label: "Timesheet", icon: ClipboardList },
+  { to: "/settings", label: "Settings", icon: Settings },
+] as const;
+
 export function AppShell({
   children,
   /**
@@ -44,6 +52,8 @@ export function AppShell({
   compactMobileLandscape?: boolean;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { isCaregiver } = useCaregiver();
+  const nav = isCaregiver ? CAREGIVER_NAV : NAV;
   // Optimistic tab selection: the tap highlights instantly, before the
   // destination screen has mounted or loaded anything.
   const [tapped, setTapped] = useState<string | null>(null);
@@ -68,7 +78,7 @@ export function AppShell({
   const isTransitioning = useRouterState({
     select: (s) => s.status === "pending" && s.location.pathname !== s.resolvedLocation?.pathname,
   });
-  const tabPaths = NAV.map((n) => n.to) as readonly string[];
+  const tabPaths = nav.map((n) => n.to) as readonly string[];
   const showContentSkeleton =
     isTransitioning && tabPaths.some((to) => activeTab.startsWith(to)) && !fitViewport;
 
@@ -101,7 +111,7 @@ export function AppShell({
           <div className="flex items-center gap-1">
             <SyncStatusIndicator />
             <nav className="hidden items-center gap-1 md:flex">
-              {NAV.map(({ to, label, icon: Icon }) => (
+              {nav.map(({ to, label, icon: Icon }) => (
                 <Link
                   key={to}
                   to={to}
@@ -135,7 +145,7 @@ export function AppShell({
       {/* Phone bottom navigation */}
       <nav className="app-shell-bottom-nav fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-30 mx-auto max-w-lg rounded-3xl border border-border-soft bg-surface/95 p-1.5 shadow-lifted backdrop-blur md:hidden">
         <div className="grid grid-cols-4 gap-1">
-          {NAV.map(({ to, label, icon: Icon }) => (
+          {nav.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}
               to={to}
