@@ -128,9 +128,6 @@ export function BabysitterAccessDialog({
               Babysitter instead.
             </p>
           ) : null}
-          {false ? (
-            <span />
-          )}
         </div>
         <DialogFooter>
           <Button
