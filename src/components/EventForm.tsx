@@ -34,6 +34,10 @@ import {
 
 /** Select needs a non-empty value for the system Uncategorized state. */
 import { useCalendar } from "@/lib/calendar-store";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getShiftSettings } from "@/lib/babysitter-shifts.functions";
+import type { ShiftAssignment } from "@/lib/calendar-ops";
 import {
   RECURRENCE_OPTIONS,
   WEEKDAY_CODES,
@@ -81,6 +85,11 @@ export interface EventFormState {
   notes: string;
   /** Which connected calendar the event lives on. null = the main calendar. */
   calendarSourceId: string | null;
+  /**
+   * Babysitter-calendar shift assignment. undefined = not a shift (field
+   * hidden); null = shown but not chosen yet (blocks saving).
+   */
+  babysitter?: ShiftAssignment | null | undefined;
 }
 
 /** Sensible default end date: three months of repeats from the event day. */
@@ -190,6 +199,7 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
     location: event.location ?? "",
     notes: event.notes ?? "",
     calendarSourceId: event.calendar_source_id ?? null,
+    babysitter: event.shift_assignment ?? undefined,
   };
 }
 
@@ -483,6 +493,7 @@ export function draftFromFormState(
     recurrence_until:
       repeats && state.recurrenceEnd === "on" ? state.recurrenceUntil || null : null,
     calendar_source_id: state.calendarSourceId ?? calendarSourceId,
+    ...(state.babysitter ? { babysitter_assignment: state.babysitter } : {}),
     member_ids: state.members,
     member_weekdays:
       repeats && usesPerPersonDays(state)
@@ -496,6 +507,10 @@ export function draftFromFormState(
 
 export function validateFormState(state: EventFormState): string | null {
   if (!state.title.trim()) return "Please add an event name";
+  if (state.babysitter === null) return "Choose the assigned babysitter";
+  if (state.babysitter?.kind === "other" && !state.babysitter.name.trim()) {
+    return "Enter the babysitter's name";
+  }
   if (!state.date || !state.endDate) return "Choose a start and end date";
   if (state.endDate < state.date) return "The end date can't be before the start date";
   if (!state.allDay && combine(state.endDate, state.endTime) <= combine(state.date, state.startTime)) {
@@ -606,6 +621,37 @@ export function EventFormFields({
     currentSource && !destinations.some((s) => s.id === currentSource.id)
       ? [currentSource, ...destinations]
       : destinations;
+  const { canEdit } = useCalendar();
+  const fetchShiftSettings = useServerFn(getShiftSettings);
+  const shiftSettings = useQuery({
+    queryKey: ["shift-settings"],
+    queryFn: () => fetchShiftSettings(),
+    enabled: canEdit,
+    staleTime: 5 * 60_000,
+  }).data;
+  const showShift =
+    !!shiftSettings?.calendar_source_id &&
+    shownCalendarSourceId === shiftSettings.calendar_source_id &&
+    !state.allDay;
+  // Show/hide the required babysitter selector as the calendar changes; new
+  // shifts start from the household default (never retroactive).
+  useEffect(() => {
+    if (!shiftSettings) return;
+    if (showShift && state.babysitter === undefined) {
+      const def = shiftSettings.default_family_user_id;
+      onChange({
+        ...state,
+        babysitter: def ? { kind: "caregiver", family_user_id: def } : null,
+      });
+    } else if (!showShift && state.babysitter !== undefined) {
+      onChange({ ...state, babysitter: undefined });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showShift, shiftSettings, state.babysitter]);
+  const shiftValue =
+    state.babysitter?.kind === "caregiver"
+      ? state.babysitter.family_user_id
+      : state.babysitter?.kind ?? "";
   const providerLabel = (s: (typeof sources)[number]) =>
     s.provider === "google" ? "Google" : s.provider === "ics" ? "Apple" : "OFC";
 
@@ -1109,8 +1155,59 @@ export function EventFormFields({
         </div>
       ) : null}
 
-
-
+      {showShift && shiftSettings ? (
+        <div className="space-y-1">
+          <Label htmlFor={`${idPrefix}-babysitter`}>Assigned babysitter</Label>
+          <Select
+            value={shiftValue}
+            onValueChange={(v) =>
+              onChange({
+                ...state,
+                babysitter:
+                  v === "none"
+                    ? { kind: "none" }
+                    : v === "other"
+                      ? { kind: "other", name: "" }
+                      : { kind: "caregiver", family_user_id: v },
+              })
+            }
+          >
+            <SelectTrigger id={`${idPrefix}-babysitter`} className="h-10 rounded-xl sm:h-11">
+              <SelectValue placeholder="Choose a babysitter" />
+            </SelectTrigger>
+            <SelectContent>
+              {[...shiftSettings.caregivers]
+                .sort((a, b) =>
+                  a.family_user_id === shiftSettings.default_family_user_id
+                    ? -1
+                    : b.family_user_id === shiftSettings.default_family_user_id
+                      ? 1
+                      : 0,
+                )
+                .map((c) => (
+                  <SelectItem key={c.family_user_id} value={c.family_user_id}>
+                    {c.name}
+                    {c.family_user_id === shiftSettings.default_family_user_id ? " · Default" : ""}
+                  </SelectItem>
+                ))}
+              <SelectItem value="other">Other</SelectItem>
+              <SelectItem value="none">None</SelectItem>
+            </SelectContent>
+          </Select>
+          {state.babysitter?.kind === "other" ? (
+            <Input
+              aria-label="Babysitter's name"
+              value={state.babysitter.name}
+              maxLength={120}
+              onChange={(e) =>
+                onChange({ ...state, babysitter: { kind: "other", name: e.target.value } })
+              }
+              placeholder="Babysitter's name"
+              className="h-10 rounded-xl sm:h-11"
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-location`}>Location</Label>

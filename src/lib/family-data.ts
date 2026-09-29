@@ -163,6 +163,16 @@ export interface CalendarEvent {
   needs_family_assignment: boolean;
   /** ISO timestamp the row was created — powers "recently added" ordering */
   created_at?: string | null;
+  /** Babysitter-calendar shift assignment (visible to editors; caregivers see only their own). */
+  shift_assignment?:
+    | { kind: "caregiver"; family_user_id: string }
+    | { kind: "other"; name: string }
+    | { kind: "none" }
+    | null;
+  /** shift_days_only caregivers: this is one of their own assigned shifts */
+  is_my_shift?: boolean;
+  /** shift_days_only caregivers: show only on days one of their shifts occurs */
+  shift_gate?: boolean;
 }
 
 
@@ -562,11 +572,25 @@ export function expandOccurrences(
   const result: Occurrence[] = [];
   const durationOf = (e: CalendarEvent) =>
     new Date(e.end_at).getTime() - new Date(e.start_at).getTime();
+  const myShifts = events.filter((e) => e.is_my_shift);
+  // A day is unlocked when one of the caregiver's own shifts occurs on it, or
+  // an overnight shift from the day before runs into it.
+  const unlocked = (day: Date) =>
+    myShifts.some((s) => {
+      if (occursOn(s, day)) return true;
+      const prev = addDays(day, -1);
+      if (!occursOn(s, prev)) return false;
+      const base = new Date(s.start_at);
+      const start = new Date(prev);
+      start.setHours(base.getHours(), base.getMinutes(), 0, 0);
+      return start.getTime() + durationOf(s) > day.getTime();
+    });
 
   for (let day = startOfDay(rangeStart); day <= rangeEnd; day = addDays(day, 1)) {
     for (const event of events) {
       if (!occursOn(event, day)) continue;
       if (!hasParticipantsOn(event, day)) continue;
+      if (event.shift_gate && !unlocked(day)) continue;
       // All-day entries own the whole local calendar day: no artificial clock
       // time, so they stay in the all-day band instead of the hourly grid.
       let start: Date;

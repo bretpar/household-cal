@@ -1,0 +1,2 @@
+revoke execute on function public.drop_shift_when_event_leaves_babysitter_calendar() from public, anon, authenticated;
+revoke execute on function public.validate_family_babysitter_settings() from public, anon, authenticated;
