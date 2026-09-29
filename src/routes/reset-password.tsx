@@ -126,27 +126,33 @@ function ResetPasswordPage() {
             <div className="mt-5 space-y-3">
               <div className="space-y-1.5">
                 <Label htmlFor="new-password">New password</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={PASSWORD_MIN_LENGTH}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 rounded-xl"
-                />
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={reveal ? "text" : "password"}
+                    autoComplete="new-password"
+                    minLength={PASSWORD_MIN_LENGTH}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-11 rounded-xl pr-11"
+                  />
+                  <PasswordRevealToggle revealed={reveal} onToggle={() => setReveal((v) => !v)} />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="confirm-password">Confirm password</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={PASSWORD_MIN_LENGTH}
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  className="h-11 rounded-xl"
-                />
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={reveal ? "text" : "password"}
+                    autoComplete="new-password"
+                    minLength={PASSWORD_MIN_LENGTH}
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    className="h-11 rounded-xl pr-11"
+                  />
+                  <PasswordRevealToggle revealed={reveal} onToggle={() => setReveal((v) => !v)} />
+                </div>
               </div>
               <Button
                 className="h-11 w-full rounded-full font-bold"
