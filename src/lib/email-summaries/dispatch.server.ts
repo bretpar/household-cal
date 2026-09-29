@@ -53,6 +53,7 @@ export interface RecipientRow {
   schedule_id: string;
   family_id: string;
   user_id: string | null;
+  family_member_id: string | null;
   name: string;
   email: string;
   unsubscribe_token: string;
@@ -150,6 +151,7 @@ async function loadRecipients(admin: AnyDb, scheduleId: string): Promise<Recipie
     schedule_id: r.schedule_id,
     family_id: r.family_id,
     user_id: r.user_id ?? null,
+    family_member_id: r.family_member_id ?? null,
     name: r.name,
     email: r.email,
     unsubscribe_token: r.unsubscribe_token,
@@ -171,6 +173,40 @@ async function loadAcceptedHouseholdUserIds(
     .eq("family_id", familyId);
   if (error) throw error;
   return new Set(((data ?? []) as Array<{ user_id: string }>).map((row) => row.user_id));
+}
+
+/**
+ * Babysitters (any babysitter access profile) are temporarily excluded from
+ * summary emails: summaries cannot yet apply their calendar/date limits.
+ * Fails closed — any read error throws so nothing is sent.
+ */
+async function loadRestrictedCaregivers(
+  admin: AnyDb,
+  familyId: string,
+): Promise<{ userIds: Set<string>; memberIds: Set<string> }> {
+  const { data, error } = await admin
+    .from("babysitter_access_profiles")
+    .select("family_user_id, family_users!inner(user_id, family_member_id)")
+    .eq("family_id", familyId);
+  if (error) throw error;
+  const userIds = new Set<string>();
+  const memberIds = new Set<string>();
+  for (const row of (data ?? []) as any[]) {
+    const fu = Array.isArray(row.family_users) ? row.family_users[0] : row.family_users;
+    if (fu?.user_id) userIds.add(fu.user_id);
+    if (fu?.family_member_id) memberIds.add(fu.family_member_id);
+  }
+  return { userIds, memberIds };
+}
+
+function isRestrictedRecipient(
+  r: { user_id: string | null; family_member_id?: string | null },
+  restricted: { userIds: Set<string>; memberIds: Set<string> },
+): boolean {
+  return (
+    (!!r.user_id && restricted.userIds.has(r.user_id)) ||
+    (!!r.family_member_id && restricted.memberIds.has(r.family_member_id))
+  );
 }
 
 export interface RenderedSummary {
@@ -271,11 +307,14 @@ export async function runSchedule(
   const household = await loadHousehold(admin, schedule.family_id);
 
 
-  const [loadedRecipients, acceptedUserIds] = await Promise.all([
+  const [loadedRecipients, acceptedUserIds, restricted] = await Promise.all([
     loadRecipients(admin, schedule.id),
     loadAcceptedHouseholdUserIds(admin, schedule.family_id),
+    loadRestrictedCaregivers(admin, schedule.family_id),
   ]);
-  const recipients = loadedRecipients.filter((r) => !r.unsubscribed_at);
+  const recipients = loadedRecipients.filter(
+    (r) => !r.unsubscribed_at && !isRestrictedRecipient(r, restricted),
+  );
   let sent = 0;
   let skipped = 0;
   let failed = 0;
@@ -420,7 +459,17 @@ export async function sendSummaryPreview(
   const refresh = await refreshForPreview(admin, schedule, deps);
 
   const household = await loadHousehold(admin, schedule.family_id);
-  const recipients = await loadRecipients(admin, schedule.id);
+  const [allRecipients, restricted] = await Promise.all([
+    loadRecipients(admin, schedule.id),
+    loadRestrictedCaregivers(admin, schedule.family_id),
+  ]);
+  if (recipientId) {
+    const chosen = allRecipients.find((r) => r.id === recipientId);
+    if (chosen && isRestrictedRecipient(chosen, restricted)) {
+      throw new Error("Babysitters don't receive summary emails yet");
+    }
+  }
+  const recipients = allRecipients.filter((r) => !isRestrictedRecipient(r, restricted));
   const recipient =
     (recipientId ? recipients.find((r) => r.id === recipientId) : recipients[0]) ?? null;
   const window = previewWindow(schedule.frequency, new Date(), household.timezone);

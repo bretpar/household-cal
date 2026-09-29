@@ -313,7 +313,7 @@ export async function loadFamilyBundle(
   if (shiftDaysOnly) {
     // Fail closed: never return recurring masters to shift-days-only caregivers.
     if (!secureOccurrences) throw new Error("Calendar could not be loaded securely");
-    const safe = events.filter((e) => !e.recurrence_rule || e.is_my_shift);
+    const safe = events.filter((e) => !e.recurrence_rule);
     const seen = new Set(safe.map((e) => e.id));
     const extra = (await secureOccurrences(familyId, sources)).filter((e) => !seen.has(e.id));
     return { family, members, sources, events: [...safe, ...extra], activities, categories };
