@@ -896,12 +896,18 @@ export type Database = {
         Row: {
           accepted_at: string | null
           accepted_by: string | null
+          babysitter_calendar_ids: string[]
+          babysitter_date_scope:
+            | Database["public"]["Enums"]["babysitter_date_scope"]
+            | null
+          babysitter_family_member_id: string | null
           created_at: string
           email: string
           expires_at: string
           family_id: string
           id: string
           invited_by: string | null
+          is_babysitter: boolean
           role: Database["public"]["Enums"]["family_role"]
           status: Database["public"]["Enums"]["invitation_status"]
           token: string
@@ -910,12 +916,18 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           accepted_by?: string | null
+          babysitter_calendar_ids?: string[]
+          babysitter_date_scope?:
+            | Database["public"]["Enums"]["babysitter_date_scope"]
+            | null
+          babysitter_family_member_id?: string | null
           created_at?: string
           email: string
           expires_at?: string
           family_id: string
           id?: string
           invited_by?: string | null
+          is_babysitter?: boolean
           role?: Database["public"]["Enums"]["family_role"]
           status?: Database["public"]["Enums"]["invitation_status"]
           token?: string
@@ -924,18 +936,31 @@ export type Database = {
         Update: {
           accepted_at?: string | null
           accepted_by?: string | null
+          babysitter_calendar_ids?: string[]
+          babysitter_date_scope?:
+            | Database["public"]["Enums"]["babysitter_date_scope"]
+            | null
+          babysitter_family_member_id?: string | null
           created_at?: string
           email?: string
           expires_at?: string
           family_id?: string
           id?: string
           invited_by?: string | null
+          is_babysitter?: boolean
           role?: Database["public"]["Enums"]["family_role"]
           status?: Database["public"]["Enums"]["invitation_status"]
           token?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "family_invitations_babysitter_family_member_id_fkey"
+            columns: ["babysitter_family_member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "family_invitations_family_id_fkey"
             columns: ["family_id"]
@@ -1291,6 +1316,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_household_invitation: {
+        Args: { _invitation_id: string; _user_id: string }
+        Returns: Json
+      }
       account_deletion_blocked: { Args: { _user_id: string }; Returns: boolean }
       babysitter_membership: { Args: { _family_id: string }; Returns: string }
       can_edit_family: { Args: { _family_id: string }; Returns: boolean }
