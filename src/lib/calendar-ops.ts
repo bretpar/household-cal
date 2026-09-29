@@ -45,6 +45,54 @@ export interface EventInput {
    * every occurrence.
    */
   member_weekdays?: Record<string, string[] | null> | undefined;
+  /**
+   * Babysitter-calendar shift assignment. Omitted = leave any existing
+   * assignment untouched (sync paths); ignored off the Babysitter calendar.
+   */
+  babysitter_assignment?: ShiftAssignment | undefined;
+}
+
+export type ShiftAssignment =
+  | { kind: "caregiver"; family_user_id: string }
+  | { kind: "other"; name: string }
+  | { kind: "none" };
+
+/**
+ * Keeps the babysitter_shifts row in step with an event. Events off the
+ * household Babysitter calendar (or all-day) never carry a shift.
+ */
+export async function syncShiftAssignment(
+  db: Db,
+  familyId: string,
+  eventId: string,
+  input: Pick<EventInput, "calendar_source_id" | "all_day" | "babysitter_assignment">,
+): Promise<void> {
+  const { data: fam, error } = await db
+    .from("families")
+    .select("babysitter_calendar_source_id")
+    .eq("id", familyId)
+    .maybeSingle();
+  if (error) throw error;
+  const onBabysitter =
+    !!input.calendar_source_id &&
+    input.calendar_source_id === fam?.babysitter_calendar_source_id &&
+    !input.all_day;
+  if (onBabysitter && input.babysitter_assignment === undefined) return;
+  const del = await db.from("babysitter_shifts").delete().eq("event_id", eventId);
+  if (del.error) throw del.error;
+  if (!onBabysitter) return;
+  const a = input.babysitter_assignment!;
+  const row =
+    a.kind === "caregiver"
+      ? { assignment: "caregiver", family_user_id: a.family_user_id, assignee_name: null }
+      : a.kind === "other"
+        ? { assignment: "other", family_user_id: null, assignee_name: a.name.trim().slice(0, 120) }
+        : { assignment: "none", family_user_id: null, assignee_name: null };
+  if (row.assignment === "other" && !row.assignee_name) throw new Error("Enter the babysitter's name");
+  const ins = await db
+    .from("babysitter_shifts")
+    .insert({ family_id: familyId, event_id: eventId, ...row });
+  if (ins.error) throw ins.error;
 }
 
 
@@ -99,6 +147,18 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
   }
 
   const familyId = membership.family_id as string;
+  // Caregivers limited to shift days see other events only on dates their own
+  // assigned shifts occur; the exact per-occurrence narrowing happens client-side.
+  let shiftDaysOnly = false;
+  if (membership.role === "viewer") {
+    const { data: prof } = await db
+      .from("babysitter_access_profiles")
+      .select("date_scope, family_users!inner(user_id)")
+      .eq("family_id", familyId)
+      .eq("family_users.user_id", userId)
+      .maybeSingle();
+    shiftDaysOnly = prof?.date_scope === "shift_days_only";
+  }
   const family: Family = {
     id: familyId,
     name: membership.families?.name ?? "Family",
@@ -118,7 +178,7 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
       .order("sort_order", { ascending: true }),
     db
       .from("events")
-      .select("*, event_members(family_member_id, weekdays)")
+      .select("*, event_members(family_member_id, weekdays), babysitter_shifts(assignment, family_user_id, assignee_name)")
       .eq("family_id", familyId),
 
     db
@@ -213,6 +273,12 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
       }),
     ),
     member_ids: (e.event_members ?? []).map((l: { family_member_id: string }) => l.family_member_id),
+    shift_assignment: shiftFrom(e.babysitter_shifts),
+    ...(shiftDaysOnly
+      ? shiftFrom(e.babysitter_shifts)?.kind === "caregiver"
+        ? { is_my_shift: true }
+        : { shift_gate: true }
+      : {}),
 
     };
   });
@@ -240,6 +306,18 @@ export async function loadFamilyBundle(db: Db, userId: string): Promise<FamilyBu
   }));
 
   return { family, members, sources, events, activities, categories };
+}
+
+function shiftFrom(rows: unknown): ShiftAssignment | null {
+  const r = (Array.isArray(rows) ? rows[0] : rows) as
+    | { assignment: string; family_user_id: string | null; assignee_name: string | null }
+    | undefined
+    | null;
+  if (!r) return null;
+  if (r.assignment === "caregiver" && r.family_user_id)
+    return { kind: "caregiver", family_user_id: r.family_user_id };
+  if (r.assignment === "other") return { kind: "other", name: r.assignee_name ?? "" };
+  return { kind: "none" };
 }
 
 /** The household the user may write to (owner or editor), defaulting to their first. */
@@ -388,6 +466,7 @@ export async function insertEvent(
     .single();
   if (error) throw error;
   await linkMembers(db, data.id, input.member_ids, input.member_weekdays ?? {});
+  await syncShiftAssignment(db, familyId, data.id as string, input);
   return data.id as string;
 }
 
@@ -462,6 +541,10 @@ export async function applyEventUpdate(
     const { error: clearError } = await db.from("event_members").delete().eq("event_id", eventId);
     if (clearError) throw clearError;
     await linkMembers(db, eventId, input.member_ids, input.member_weekdays ?? {});
+    await syncShiftAssignment(db, familyId, eventId, {
+      ...input,
+      calendar_source_id: sourceId,
+    });
     return null;
   }
 
