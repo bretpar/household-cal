@@ -13,6 +13,8 @@ import { AccountDeletion } from "@/components/AccountDeletion";
 import { AppShell } from "@/components/AppShell";
 import { ParentOnly } from "@/components/CaregiverGate";
 import { CalendarAppearanceSettings } from "@/components/CalendarAppearanceSettings";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
 import { DeveloperTools } from "@/components/DeveloperTools";
 import { GoogleCalendarMaintenance } from "@/components/GoogleCalendarMaintenance";

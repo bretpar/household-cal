@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/AppShell";
 import { CaregiverOnly } from "@/components/CaregiverGate";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+
 import { MemberBadge } from "@/components/MemberBadge";
 import { SignOutButton } from "@/components/SignOutButton";
 import { calendarIconComponent } from "@/lib/calendar-icons";
