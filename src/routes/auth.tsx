@@ -249,18 +249,21 @@ function AuthPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="auth-password">Password</Label>
-            <Input
-              ref={passwordRef}
-              id="auth-password"
-              name="password"
-              data-testid="auth-password"
-              type="password"
-              minLength={PASSWORD_MIN_LENGTH}
-              autoComplete={mode === "signin" ? "current-password" : "new-password"}
-              defaultValue={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="h-11 rounded-xl"
-            />
+            <div className="relative">
+              <Input
+                ref={passwordRef}
+                id="auth-password"
+                name="password"
+                data-testid="auth-password"
+                type={reveal ? "text" : "password"}
+                minLength={PASSWORD_MIN_LENGTH}
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                defaultValue={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 rounded-xl pr-11"
+              />
+              <PasswordRevealToggle revealed={reveal} onToggle={() => setReveal((v) => !v)} />
+            </div>
             {mode === "signup" ? (
               <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>
             ) : null}
