@@ -45,12 +45,19 @@ import {
 import { resolveInitialCalendarView } from "@/lib/calendar-initial-view";
 import { useWeekStart } from "@/lib/week-start-preference";
 import { cn } from "@/lib/utils";
+import { useCaregiver } from "@/lib/use-caregiver";
 
 /** Landscape-only in-app navigation (header + bottom nav are hidden there). */
 const LANDSCAPE_NAV = [
   { to: "/today", label: "Today" },
   { to: "/activities", label: "Activities" },
   { to: "/family", label: "Family" },
+] as const;
+
+const CAREGIVER_LANDSCAPE_NAV = [
+  { to: "/today", label: "Today" },
+  { to: "/timesheet", label: "Timesheet" },
+  { to: "/settings", label: "Settings" },
 ] as const;
 
 export const Route = createFileRoute("/_authenticated/calendar")({
@@ -447,7 +454,7 @@ function CalendarPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-40">
-              {LANDSCAPE_NAV.map(({ to, label }) => (
+              {(isCaregiver ? CAREGIVER_LANDSCAPE_NAV : LANDSCAPE_NAV).map(({ to, label }) => (
                 <DropdownMenuItem key={to} asChild>
                   <Link to={to}>{label}</Link>
                 </DropdownMenuItem>
