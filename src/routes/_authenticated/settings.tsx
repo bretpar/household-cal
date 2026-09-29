@@ -83,9 +83,11 @@ function CaregiverSettings() {
           </div>
         </section>
 
-        <section className="border-t border-border-soft pt-5" aria-label="Sign out">
+        <section className="space-y-3 border-t border-border-soft pt-5" aria-label="Account">
+          <ChangePasswordDialog />
           <SignOutButton />
         </section>
+
       </div>
     </AppShell>
   );
