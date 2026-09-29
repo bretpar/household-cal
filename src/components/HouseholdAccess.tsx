@@ -4,8 +4,23 @@ import { CircleCheck, Clock3, Copy, MailPlus, ShieldCheck, Trash2 } from "lucide
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { BabysitterAccessDialog, BabysitterConfigFields, useBabysitterSetup } from "@/components/BabysitterAccessDialog";
+import {
+  BABYSITTER_SETUP_KEY,
+  BabysitterAccessDialog,
+  BabysitterConfigFields,
+  useBabysitterSetup,
+} from "@/components/BabysitterAccessDialog";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +44,7 @@ import {
   removeHouseholdUser,
   resendHouseholdInvitation,
   revokeHouseholdInvitation,
+  setBabysitterAccess,
   setHouseholdRole,
 } from "@/lib/household.functions";
 
@@ -48,6 +64,7 @@ export function HouseholdAccess() {
   const resend = useServerFn(resendHouseholdInvitation);
   const changeRole = useServerFn(setHouseholdRole);
   const removeUser = useServerFn(removeHouseholdUser);
+  const saveBabysitter = useServerFn(setBabysitterAccess);
 
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -55,13 +72,15 @@ export function HouseholdAccess() {
   const [bsMember, setBsMember] = useState("");
   const [bsScope, setBsScope] = useState<"shift_days_only" | "all_permitted">("shift_days_only");
   const [bsCalendars, setBsCalendars] = useState<string[]>([]);
+  const [configuringMembershipId, setConfiguringMembershipId] = useState<string | null>(null);
+  const [removingBabysitterId, setRemovingBabysitterId] = useState<string | null>(null);
   const isBabysitterInvite = role === "babysitter";
 
   const access = useQuery({ queryKey: HOUSEHOLD_ACCESS_KEY, queryFn: () => fetchAccess() });
   const refresh = () => queryClient.invalidateQueries({ queryKey: HOUSEHOLD_ACCESS_KEY });
 
   const isOwner = access.data?.my_role === "owner";
-  const babysitterSetup = useBabysitterSetup(isOwner && open && isBabysitterInvite);
+  const babysitterSetup = useBabysitterSetup(Boolean(isOwner));
   const ownerCount = (access.data?.memberships ?? []).filter((m) => m.role === "owner").length;
 
   const copyLink = async (token: string) => {
@@ -126,12 +145,37 @@ export function HouseholdAccess() {
       toast.error(error instanceof Error ? error.message : "That change was not allowed"),
   });
 
-  const roleMutation = useMutationLike(
-    (vars: { id: string; role: string }) =>
+  const roleMutation = useMutation({
+    mutationFn: (vars: { id: string; role: string }) =>
       changeRole({ data: { membership_id: vars.id, role: vars.role } }),
-    "Role updated",
-    refresh,
-  );
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: BABYSITTER_SETUP_KEY });
+      await refresh();
+      toast.success("Role updated");
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "That change was not allowed"),
+  });
+  const removeBabysitterMutation = useMutation({
+    mutationFn: (id: string) =>
+      saveBabysitter({
+        data: {
+          membership_id: id,
+          enabled: false,
+          family_member_id: null,
+          date_scope: "shift_days_only",
+          calendar_ids: [],
+        },
+      }),
+    onSuccess: async () => {
+      setRemovingBabysitterId(null);
+      await queryClient.invalidateQueries({ queryKey: BABYSITTER_SETUP_KEY });
+      await refresh();
+      toast.success("Role updated to Viewer");
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "That change was not allowed"),
+  });
   const removeMutation = useMutationLike(
     (id: string) => removeUser({ data: { membership_id: id } }),
     "Access removed",
@@ -177,9 +221,9 @@ export function HouseholdAccess() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="viewer">Viewer · view only</SelectItem>
-                      <SelectItem value="babysitter">Babysitter · limited view</SelectItem>
                       <SelectItem value="editor">Editor · can add and edit</SelectItem>
                       <SelectItem value="owner">Owner · manages everything</SelectItem>
+                      <SelectItem value="babysitter">Babysitter · limited view</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -215,7 +259,11 @@ export function HouseholdAccess() {
 
       <div className="divide-y divide-border-soft overflow-hidden rounded-3xl border border-border-soft bg-card">
         {access.isLoading ? <p className="p-4 text-sm text-muted-foreground">Loading…</p> : null}
-        {(access.data?.memberships ?? []).map((m) => (
+        {(access.data?.memberships ?? []).map((m) => {
+          const isBabysitter =
+            babysitterSetup.data?.profiles.some((profile) => profile.family_user_id === m.id) ?? false;
+          const displayRole = isBabysitter ? "babysitter" : m.role;
+          return (
           <div key={m.id} className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <div className="min-w-0">
               <p className="flex min-w-0 items-center gap-1.5 text-sm font-bold">
@@ -231,22 +279,22 @@ export function HouseholdAccess() {
                 ) : null}
               </p>
               <p className="truncate text-xs text-muted-foreground">
-                {m.email ?? "no email on file"} · {ROLE_HINT[m.role] ?? m.role}
+                {m.email ?? "no email on file"} · {isBabysitter ? "Babysitter · limited view" : ROLE_HINT[m.role] ?? m.role}
               </p>
             </div>
             {isOwner ? (
               <div className="flex flex-wrap items-center gap-2">
-                {m.role === "viewer" && !m.is_self ? (
-                  <BabysitterAccessDialog
-                    membershipId={m.id}
-                    label={m.display_name ?? m.email ?? "Household user"}
-                    linkedMemberId={m.family_member_id}
-                    onSaved={refresh}
-                  />
-                ) : null}
                 <Select
-                  value={m.role}
-                  onValueChange={(next) => roleMutation.mutate({ id: m.id, role: next })}
+                  value={displayRole}
+                  onValueChange={(next) => {
+                    if (next === "babysitter") {
+                      setConfiguringMembershipId(m.id);
+                    } else if (isBabysitter && next === "viewer") {
+                      setRemovingBabysitterId(m.id);
+                    } else {
+                      roleMutation.mutate({ id: m.id, role: next });
+                    }
+                  }}
                   disabled={m.role === "owner" && ownerCount <= 1}
                 >
                   <SelectTrigger className="h-10 w-[130px] rounded-xl" aria-label="Role">
@@ -256,6 +304,7 @@ export function HouseholdAccess() {
                     <SelectItem value="owner">Owner</SelectItem>
                     <SelectItem value="editor">Editor</SelectItem>
                     <SelectItem value="viewer">Viewer</SelectItem>
+                    <SelectItem value="babysitter">Babysitter</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button
@@ -271,11 +320,12 @@ export function HouseholdAccess() {
               </div>
             ) : (
               <span className="rounded-full bg-surface-muted px-3 py-1.5 text-[11px] font-bold text-muted-foreground capitalize">
-                {m.role}
+                {displayRole}
               </span>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {isOwner && (access.data?.invitations ?? []).length > 0 ? (
@@ -298,7 +348,7 @@ export function HouseholdAccess() {
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground capitalize">
-                    {inv.role} · {inv.status}
+                    {inv.is_babysitter ? "Babysitter" : inv.role} · {inv.status}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -339,6 +389,60 @@ export function HouseholdAccess() {
           </div>
         </div>
       ) : null}
+
+      {(() => {
+        const membership = (access.data?.memberships ?? []).find(
+          (item) => item.id === configuringMembershipId,
+        );
+        return membership ? (
+          <BabysitterAccessDialog
+            open
+            onOpenChange={(nextOpen) => {
+              if (!nextOpen) setConfiguringMembershipId(null);
+            }}
+            membershipId={membership.id}
+            label={membership.display_name ?? membership.email ?? "Household user"}
+            linkedMemberId={membership.family_member_id}
+            {...(membership.role === "viewer"
+              ? {}
+              : {
+                  prepareSave: () =>
+                    changeRole({
+                      data: { membership_id: membership.id, role: "viewer" },
+                    }),
+                })}
+            onSaved={refresh}
+          />
+        ) : null;
+      })()}
+
+      <AlertDialog
+        open={Boolean(removingBabysitterId)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setRemovingBabysitterId(null);
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change to Viewer?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Viewer has broader household calendar visibility. This will remove the Babysitter
+              calendar and date restrictions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={removeBabysitterMutation.isPending}
+              onClick={() => {
+                if (removingBabysitterId) removeBabysitterMutation.mutate(removingBabysitterId);
+              }}
+            >
+              Change to Viewer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
