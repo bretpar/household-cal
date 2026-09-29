@@ -1,6 +1,6 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Plus, Users } from "lucide-react";
+import { MoreHorizontal, Plus, UserRound, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -27,6 +27,14 @@ import { runGuardedMutation } from "@/lib/async-submit";
 import { FAMILY_BUNDLE_KEY, useCalendar } from "@/lib/calendar-store";
 import { MEMBER_COLORS, styleForColor, type FamilyMember, type MemberColor } from "@/lib/family-data";
 import { saveFamilyMemberFn } from "@/lib/settings.functions";
+import { getShiftSettings } from "@/lib/babysitter-shifts.functions";
+import { deleteCaregiver, setCaregiverArchived } from "@/lib/caregiver-management.functions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 const ROLES = [
@@ -71,7 +79,72 @@ export function FamilyMemberSettings() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const activeCount = members.filter((m) => m.active).length;
+  const visible = members.filter((m) => !m.removed_at);
+  const family = visible.filter((m) => m.role !== "caregiver");
+  const caregivers = visible.filter((m) => m.role === "caregiver" && m.active);
+  const archived = visible.filter((m) => m.role === "caregiver" && !m.active);
+  const activeCount = family.filter((m) => m.active).length;
+
+  const fetchShift = useServerFn(getShiftSettings);
+  const shiftQuery = useQuery({
+    queryKey: ["shift-settings"],
+    queryFn: () => fetchShift(),
+    enabled: isOwner,
+    staleTime: 60_000,
+  });
+  const shift = shiftQuery.data ?? null;
+  const archiveFn = useServerFn(setCaregiverArchived);
+  const deleteFn = useServerFn(deleteCaregiver);
+  const [action, setAction] = useState<{ kind: "archive" | "delete"; member: FamilyMember } | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+
+  const hasAccess = (m: FamilyMember) =>
+    !!shift?.caregivers.some((c) => c.family_member_id === m.id);
+  const isDefault = (m: FamilyMember) =>
+    !!shift?.default_family_user_id &&
+    shift.caregivers.some(
+      (c) => c.family_member_id === m.id && c.family_user_id === shift.default_family_user_id,
+    );
+  const refresh = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY }),
+      queryClient.invalidateQueries({ queryKey: ["shift-settings"] }),
+      queryClient.invalidateQueries({ queryKey: ["household-access"] }),
+    ]);
+  };
+  const reactivate = async (m: FamilyMember) => {
+    try {
+      await archiveFn({ data: { member_id: m.id, archived: false } });
+      await refresh();
+      toast.success(`${m.name} reactivated`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not reactivate");
+    }
+  };
+
+  const card = (member: FamilyMember, actions: React.ReactNode, subtitle: string) => (
+    <article
+      key={member.id}
+      className={cn(
+        "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-3xl border border-border-soft bg-card p-4 shadow-soft",
+        !member.active && "opacity-60",
+      )}
+    >
+      <span
+        className={cn(
+          "flex h-11 w-11 items-center justify-center rounded-full text-base font-bold",
+          styleForColor(member.color).badge,
+        )}
+      >
+        {member.initial}
+      </span>
+      <div className="min-w-0">
+        <h3 className="truncate text-base font-bold">{member.name}</h3>
+        <p className="text-xs font-semibold text-muted-foreground">{subtitle}</p>
+      </div>
+      {actions}
+    </article>
+  );
 
   const submit = () =>
     runGuardedMutation({
@@ -114,30 +187,10 @@ export function FamilyMemberSettings() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {members.map((member) => (
-          <article
-            key={member.id}
-            className={cn(
-              "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-3xl border border-border-soft bg-card p-4 shadow-soft",
-              !member.active && "opacity-60",
-            )}
-          >
-            <span
-              className={cn(
-                "flex h-11 w-11 items-center justify-center rounded-full text-base font-bold",
-                styleForColor(member.color).badge,
-              )}
-            >
-              {member.initial}
-            </span>
-            <div className="min-w-0">
-              <h3 className="truncate text-base font-bold">{member.name}</h3>
-              <p className="text-xs font-semibold text-muted-foreground capitalize">
-                {member.role}
-                {member.active ? "" : " · inactive"}
-              </p>
-            </div>
-            {isOwner ? (
+        {family.map((member) =>
+          card(
+            member,
+            isOwner ? (
               <Button
                 size="sm"
                 variant="ghost"
@@ -146,10 +199,93 @@ export function FamilyMemberSettings() {
               >
                 Edit
               </Button>
-            ) : null}
-          </article>
-        ))}
+            ) : null,
+            `${member.role.charAt(0).toUpperCase()}${member.role.slice(1)}${member.active ? "" : " · inactive"}`,
+          ),
+        )}
       </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-3">
+        <h2 className="flex items-center gap-2 text-sm font-bold tracking-wide text-muted-foreground uppercase">
+          <UserRound className="h-4 w-4" aria-hidden />
+          Caregivers · {caregivers.length} active
+        </h2>
+        {isOwner && archived.length > 0 ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-9 rounded-full font-bold"
+            onClick={() => setShowArchived((v) => !v)}
+          >
+            {showArchived ? "Hide archived" : `Archived (${archived.length})`}
+          </Button>
+        ) : null}
+      </div>
+      {caregivers.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No active caregivers.</p>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {caregivers.map((member) =>
+            card(
+              member,
+              isOwner ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full" aria-label={`Manage ${member.name}`}>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => setDraft(draftFrom(member))}>Edit</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setAction({ kind: "archive", member })}>Archive</DropdownMenuItem>
+                    <DropdownMenuItem className="text-destructive" onSelect={() => setAction({ kind: "delete", member })}>
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null,
+              isOwner
+                ? `Caregiver · ${hasAccess(member) ? "Has sign-in access" : "No sign-in access"}${isDefault(member) ? " · Default" : ""}`
+                : "Caregiver",
+            ),
+          )}
+        </div>
+      )}
+      {isOwner && showArchived ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {archived.map((member) =>
+            card(
+              member,
+              <div className="flex gap-1">
+                <Button size="sm" variant="secondary" className="h-9 rounded-full font-bold" onClick={() => void reactivate(member)}>
+                  Reactivate
+                </Button>
+                <Button size="sm" variant="ghost" className="h-9 rounded-full font-bold text-destructive" onClick={() => setAction({ kind: "delete", member })}>
+                  Delete
+                </Button>
+              </div>,
+              "Caregiver · archived",
+            ),
+          )}
+        </div>
+      ) : null}
+
+      <CaregiverActionDialog
+        action={action}
+        onClose={() => setAction(null)}
+        needsDefault={action ? isDefault(action.member) : false}
+        otherCaregivers={(shift?.caregivers ?? []).filter((c) => c.family_member_id !== action?.member.id)}
+        onArchive={async (m, nd) => {
+          await archiveFn({ data: { member_id: m.id, archived: true, ...(nd !== undefined ? { new_default: nd } : {}) } });
+          await refresh();
+          toast.success(`${m.name} archived`);
+        }}
+        onDelete={async (m, mode, nd) => {
+          await deleteFn({ data: { member_id: m.id, mode, confirm: mode === "erase" ? "DELETE" : "", ...(nd !== undefined ? { new_default: nd } : {}) } });
+          await refresh();
+          toast.success(`${m.name} removed`);
+        }}
+      />
 
       <Dialog open={draft !== null} onOpenChange={(next) => (next ? null : setDraft(null))}>
         <DialogContent className="rounded-3xl sm:max-w-md">
@@ -254,5 +390,126 @@ export function FamilyMemberSettings() {
         </DialogContent>
       </Dialog>
     </section>
+  );
+}
+
+function CaregiverActionDialog({
+  action,
+  onClose,
+  needsDefault,
+  otherCaregivers,
+  onArchive,
+  onDelete,
+}: {
+  action: { kind: "archive" | "delete"; member: FamilyMember } | null;
+  onClose: () => void;
+  needsDefault: boolean;
+  otherCaregivers: { family_user_id: string; name: string }[];
+  onArchive: (m: FamilyMember, newDefault: string | null | undefined) => Promise<void>;
+  onDelete: (m: FamilyMember, mode: "preserve" | "erase", newDefault: string | null | undefined) => Promise<void>;
+}) {
+  const [mode, setMode] = useState<"preserve" | "erase">("preserve");
+  const [nextDefault, setNextDefault] = useState<string>("none");
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const m = action?.member;
+  const reset = () => {
+    setMode("preserve");
+    setNextDefault("none");
+    setTyped("");
+  };
+  const nd = needsDefault ? (nextDefault === "none" ? null : nextDefault) : undefined;
+  const blocked = action?.kind === "delete" && mode === "erase" && typed.trim().toUpperCase() !== "DELETE";
+
+  const run = async () => {
+    if (!action || !m) return;
+    setBusy(true);
+    try {
+      if (action.kind === "archive") await onArchive(m, nd);
+      else await onDelete(m, mode, nd);
+      reset();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!action} onOpenChange={(o) => (o ? null : (reset(), onClose()))}>
+      <DialogContent className="rounded-3xl sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{action?.kind === "archive" ? `Archive ${m?.name}?` : `Delete ${m?.name}?`}</DialogTitle>
+          <DialogDescription>
+            {action?.kind === "archive"
+              ? "They'll be hidden from babysitter choices and can't be given new access until reactivated. Past events and shifts stay as they are."
+              : "Choose how to remove this caregiver. Shared calendar events are never deleted."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {action?.kind === "delete" ? (
+          <div className="space-y-2">
+            {([
+              ["preserve", "Remove, keep history", "Their name stays on past shifts for records. Their sign-in access to this household is removed."],
+              ["erase", "Remove with history", "Clears them from all past and future shifts and events, and removes their access. This can't be undone."],
+            ] as const).map(([id, title, body]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setMode(id)}
+                aria-pressed={mode === id}
+                className={cn(
+                  "w-full rounded-2xl border p-3 text-left",
+                  mode === id ? "border-primary bg-surface-muted" : "border-border-soft",
+                )}
+              >
+                <p className="text-sm font-bold">{title}</p>
+                <p className="text-xs text-muted-foreground">{body}</p>
+              </button>
+            ))}
+            {mode === "erase" ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="erase-confirm">Type DELETE to confirm</Label>
+                <Input id="erase-confirm" value={typed} onChange={(e) => setTyped(e.target.value)} className="h-11 rounded-xl" />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {needsDefault ? (
+          <div className="space-y-1.5">
+            <Label>{m?.name} is the default babysitter. New default</Label>
+            <Select value={nextDefault} onValueChange={setNextDefault}>
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No default</SelectItem>
+                {otherCaregivers.map((c) => (
+                  <SelectItem key={c.family_user_id} value={c.family_user_id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+
+        <DialogFooter>
+          <Button variant="ghost" className="h-11 rounded-full" onClick={() => (reset(), onClose())} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            variant={action?.kind === "delete" ? "destructive" : "default"}
+            className="h-11 rounded-full px-6 font-bold"
+            onClick={() => void run()}
+            disabled={busy || blocked}
+          >
+            {busy ? "Working…" : action?.kind === "archive" ? "Archive" : "Delete"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
