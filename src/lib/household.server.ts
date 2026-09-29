@@ -173,12 +173,29 @@ export async function loadHouseholdAccess(
   };
 }
 
+export interface BabysitterInviteConfig {
+  family_member_id: string;
+  date_scope: "all_permitted" | "shift_days_only";
+  calendar_ids: string[];
+}
+
+/** Membership + babysitter restrictions are created in one database transaction. */
+async function acceptAtomically(admin: AdminDb, invitationId: string, userId: string) {
+  const { data, error } = await (admin as any).rpc("accept_household_invitation", {
+    _invitation_id: invitationId,
+    _user_id: userId,
+  });
+  if (error) throw new Error(error.message);
+  return data as { family_id: string; role: HouseholdRole };
+}
+
 export async function createInvitation(
   db: Db,
   admin: AdminDb,
   userId: string,
   email: string,
   role: HouseholdRole,
+  babysitter?: BabysitterInviteConfig | null,
 ): Promise<{ id: string; token: string }> {
   const current = await resolveCurrentFamily(db, userId);
   if (!current) throw new Error("No household found");
@@ -209,7 +226,16 @@ export async function createInvitation(
 
   const { data, error } = await db
     .from("family_invitations")
-    .insert({ family_id: current.familyId, email: clean, role, invited_by: userId })
+    .insert({
+      family_id: current.familyId,
+      email: clean,
+      role: babysitter ? "viewer" : role,
+      invited_by: userId,
+      is_babysitter: Boolean(babysitter),
+      babysitter_family_member_id: babysitter?.family_member_id ?? null,
+      babysitter_date_scope: babysitter ? babysitter.date_scope : null,
+      babysitter_calendar_ids: babysitter?.calendar_ids ?? [],
+    })
     .select("id, token")
     .single();
   if (error) throw error;
@@ -350,27 +376,7 @@ export async function acceptInvitationByToken(
   }
 
   await admin.from("profiles").upsert({ id: userId }, { onConflict: "id" });
-
-  const { data: existing } = await admin
-    .from("family_users")
-    .select("id, role")
-    .eq("family_id", invite.family_id)
-    .eq("user_id", userId)
-    .limit(1);
-
-  if (!existing || existing.length === 0) {
-    const { error } = await admin
-      .from("family_users")
-      .insert({ family_id: invite.family_id, user_id: userId, role: invite.role });
-    if (error) throw error;
-  }
-
-  if (invite.status === "pending") {
-    await admin
-      .from("family_invitations")
-      .update({ status: "accepted", accepted_at: new Date().toISOString(), accepted_by: userId })
-      .eq("id", invite.id);
-  }
+  await acceptAtomically(admin, invite.id, userId);
 
   return { family_id: invite.family_id, role: invite.role as HouseholdRole };
 }
@@ -395,21 +401,12 @@ export async function claimPendingInvitations(
       await admin.from("family_invitations").update({ status: "expired" }).eq("id", invite.id);
       continue;
     }
-    const { data: existing } = await admin
-      .from("family_users")
-      .select("id")
-      .eq("family_id", invite.family_id)
-      .eq("user_id", userId)
-      .limit(1);
-    if (!existing || existing.length === 0) {
-      await admin
-        .from("family_users")
-        .insert({ family_id: invite.family_id, user_id: userId, role: invite.role });
+    try {
+      await acceptAtomically(admin, invite.id, userId);
+    } catch (e) {
+      console.error("[household] could not claim invitation", invite.id, e);
+      continue;
     }
-    await admin
-      .from("family_invitations")
-      .update({ status: "accepted", accepted_at: new Date().toISOString(), accepted_by: userId })
-      .eq("id", invite.id);
     firstFamily = firstFamily ?? (invite.family_id as string);
   }
   return firstFamily;

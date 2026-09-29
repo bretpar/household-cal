@@ -30,10 +30,25 @@ export const getHouseholdAccess = createServerFn({ method: "GET" })
 
 export const inviteHouseholdUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { email: string; role: string }) => ({
-    email: String(data.email ?? ""),
-    role: assertRole(data.role),
-  }))
+  .inputValidator((data: {
+    email: string;
+    role: string;
+    babysitter?: { family_member_id?: string | null; date_scope?: string; calendar_ids?: string[] } | null;
+  }) => {
+    const b = data.babysitter;
+    if (b && !b.family_member_id) throw new Error("Choose which family member this babysitter is");
+    return {
+      email: String(data.email ?? ""),
+      role: b ? ("viewer" as const) : assertRole(data.role),
+      babysitter: b
+        ? {
+            family_member_id: String(b.family_member_id),
+            date_scope: b.date_scope === "all_permitted" ? ("all_permitted" as const) : ("shift_days_only" as const),
+            calendar_ids: Array.isArray(b.calendar_ids) ? b.calendar_ids.map(String) : [],
+          }
+        : null,
+    };
+  })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const invitation = await createInvitation(
@@ -42,6 +57,7 @@ export const inviteHouseholdUser = createServerFn({ method: "POST" })
       context.userId,
       data.email,
       data.role,
+      data.babysitter,
     );
     const { sendHouseholdInvitationEmail } = await import("@/lib/household-email.server");
     const { emailed } = await sendHouseholdInvitationEmail(supabaseAdmin, invitation.id);
