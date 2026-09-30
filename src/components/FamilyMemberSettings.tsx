@@ -43,6 +43,7 @@ import {
   BabysitterConfigFields,
   useBabysitterSetup,
 } from "@/components/BabysitterAccessDialog";
+import { CaregiverPreviewDialog } from "@/components/CaregiverPreviewDialog";
 
 const ROLES = [
   { id: "parent", label: "Parent" },
@@ -106,6 +107,7 @@ export function FamilyMemberSettings() {
   const [showArchived, setShowArchived] = useState(false);
   const [giveAccess, setGiveAccess] = useState<FamilyMember | null>(null);
   const [editAccess, setEditAccess] = useState<{ member: FamilyMember; membershipId: string } | null>(null);
+  const [preview, setPreview] = useState<{ member: FamilyMember; membershipId: string } | null>(null);
   const fetchAccess = useServerFn(getHouseholdAccess);
   const accessQuery = useQuery({
     queryKey: ["household-access"],
@@ -259,11 +261,18 @@ export function FamilyMemberSettings() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onSelect={() => setDraft(draftFrom(member))}>Edit</DropdownMenuItem>
                     {accessMembership(member) ? (
-                      <DropdownMenuItem
-                        onSelect={() => setEditAccess({ member, membershipId: accessMembership(member)! })}
-                      >
-                        Edit access
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem
+                          onSelect={() => setEditAccess({ member, membershipId: accessMembership(member)! })}
+                        >
+                          Edit access
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => setPreview({ member, membershipId: accessMembership(member)! })}
+                        >
+                          Preview what she sees
+                        </DropdownMenuItem>
+                      </>
                     ) : (
                       <DropdownMenuItem onSelect={() => setGiveAccess(member)}>
                         {pendingInviteFor(member) ? "Resend sign-in invitation" : "Give sign-in access"}
@@ -303,6 +312,11 @@ export function FamilyMemberSettings() {
       ) : null}
 
       <GiveSignInAccessDialog member={giveAccess} onClose={() => setGiveAccess(null)} onSent={refresh} />
+      <CaregiverPreviewDialog
+        membershipId={preview?.membershipId ?? null}
+        name={preview?.member.name ?? ""}
+        onClose={() => setPreview(null)}
+      />
       {editAccess ? (
         <BabysitterAccessDialog
           open
