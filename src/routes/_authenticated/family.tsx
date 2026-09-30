@@ -2,7 +2,6 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   BellRing,
   CalendarDays,
-  Eye,
   House,
   LockKeyhole,
   UserRound,
@@ -23,7 +22,6 @@ import { EventCategorySettings } from "@/components/EventCategorySettings";
 import { FamilyMemberSettings } from "@/components/FamilyMemberSettings";
 import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { BabysitterShiftSettings } from "@/components/BabysitterShiftSettings";
-import { MemberBadge } from "@/components/MemberBadge";
 import { SettingsSection } from "@/components/SettingsSection";
 import { SignOutButton } from "@/components/SignOutButton";
 import { WeekStartSetting } from "@/components/WeekStartSetting";
