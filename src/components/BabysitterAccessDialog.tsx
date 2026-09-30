@@ -134,7 +134,9 @@ export function BabysitterConfigFields({
   setScope,
   calendarIds,
   setCalendarIds,
+  hideMember = false,
 }: {
+  hideMember?: boolean;
   setup: { calendars: { id: string; name: string }[]; family_members: { id: string; name: string }[] } | undefined;
   memberId: string;
   setMemberId: (v: string) => void;
@@ -147,7 +149,7 @@ export function BabysitterConfigFields({
     setCalendarIds((prev) => (on ? [...new Set([...prev, id])] : prev.filter((c) => c !== id)));
   return (
     <>
-      <div className="space-y-1.5">
+      {hideMember ? null : <div className="space-y-1.5">
         <Label htmlFor="babysitter-member">Family member</Label>
         <Select value={memberId} onValueChange={setMemberId}>
           <SelectTrigger id="babysitter-member" className="h-11 rounded-xl">
@@ -161,7 +163,7 @@ export function BabysitterConfigFields({
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </div>}
       <div className="space-y-2">
         <p className="text-sm font-semibold">Calendar access</p>
         {(setup?.calendars ?? []).map((c) => (

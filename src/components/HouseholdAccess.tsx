@@ -228,8 +228,18 @@ export function HouseholdAccess() {
                   </Select>
                 </div>
                 {isBabysitterInvite ? (
+                  <>
+                  <p className="text-xs text-muted-foreground">
+                    Already listed under Caregivers? Use “Give sign-in access” on their card instead.
+                  </p>
                   <BabysitterConfigFields
-                    setup={babysitterSetup.data}
+                    setup={babysitterSetup.data && {
+                      ...babysitterSetup.data,
+                      // Only caregivers with no sign-in yet — prevents a second login for the same person.
+                      family_members: babysitterSetup.data.family_members.filter(
+                        (fm) => !(access.data?.memberships ?? []).some((mm) => mm.family_member_id === fm.id),
+                      ),
+                    }}
                     memberId={bsMember}
                     setMemberId={setBsMember}
                     scope={bsScope}
@@ -237,6 +247,7 @@ export function HouseholdAccess() {
                     calendarIds={bsCalendars}
                     setCalendarIds={setBsCalendars}
                   />
+                  </>
                 ) : null}
                 <p className="text-xs text-muted-foreground">
                   They create or sign into their own account — you never set a password for them.
@@ -262,6 +273,8 @@ export function HouseholdAccess() {
         {(access.data?.memberships ?? []).map((m) => {
           const isBabysitter =
             babysitterSetup.data?.profiles.some((profile) => profile.family_user_id === m.id) ?? false;
+          // Caregiver logins are managed from the Caregivers section.
+          if (isBabysitter) return null;
           const displayRole = isBabysitter ? "babysitter" : m.role;
           return (
           <div key={m.id} className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
@@ -334,7 +347,7 @@ export function HouseholdAccess() {
             Invitations
           </h3>
           <div className="divide-y divide-border-soft overflow-hidden rounded-3xl border border-dashed border-border bg-card">
-            {(access.data?.invitations ?? []).map((inv) => (
+            {(access.data?.invitations ?? []).filter((inv) => !inv.babysitter_family_member_id).map((inv) => (
               <div
                 key={inv.id}
                 className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
