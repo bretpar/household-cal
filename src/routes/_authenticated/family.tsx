@@ -2,7 +2,6 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   BellRing,
   CalendarDays,
-  Eye,
   House,
   LockKeyhole,
   UserRound,
@@ -23,7 +22,6 @@ import { EventCategorySettings } from "@/components/EventCategorySettings";
 import { FamilyMemberSettings } from "@/components/FamilyMemberSettings";
 import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { BabysitterShiftSettings } from "@/components/BabysitterShiftSettings";
-import { MemberBadge } from "@/components/MemberBadge";
 import { SettingsSection } from "@/components/SettingsSection";
 import { SignOutButton } from "@/components/SignOutButton";
 import { WeekStartSetting } from "@/components/WeekStartSetting";
@@ -68,8 +66,7 @@ function FamilyPageRoute() {
 }
 
 function FamilyPage() {
-  const { members, family, role } = useCalendar();
-  const caregivers = members.filter((m) => m.role === "caregiver");
+  const { family, role } = useCalendar();
 
 
   return (
@@ -110,32 +107,6 @@ function FamilyPage() {
           icon={<House className="h-5 w-5" aria-hidden />}
         >
           <FamilyMemberSettings />
-
-          {caregivers.length > 0 ? (
-            <section className="space-y-3">
-              <h3 className="text-sm font-bold tracking-wide text-muted-foreground uppercase">
-                Caregivers
-              </h3>
-              {caregivers.map((caregiver) => (
-                <article
-                  key={caregiver.id}
-                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-dashed border-border bg-coverage/60 p-4"
-                >
-                  <MemberBadge id={caregiver.id} size="lg" />
-                  <div className="min-w-0">
-                    <h4 className="truncate text-base font-bold">{caregiver.name}</h4>
-                    <p className="text-xs font-semibold text-muted-foreground">
-                      Appears as background coverage
-                    </p>
-                  </div>
-                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-surface px-3 py-1.5 text-[11px] font-bold text-muted-foreground">
-                    <Eye className="h-3.5 w-3.5" aria-hidden />
-                    View only
-                  </span>
-                </article>
-              ))}
-            </section>
-          ) : null}
           <HouseholdAccess />
           <BabysitterShiftSettings />
         </SettingsSection>
