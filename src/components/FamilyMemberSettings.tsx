@@ -443,7 +443,7 @@ function CaregiverActionDialog({
           <DialogTitle>{action?.kind === "archive" ? `Archive ${m?.name}?` : `Delete ${m?.name}?`}</DialogTitle>
           <DialogDescription>
             {action?.kind === "archive"
-              ? "They'll be hidden from babysitter choices and can't be given new access until reactivated. Past events and shifts stay as they are."
+              ? "They'll be hidden from babysitter choices and their calendar access is removed now. Past shifts stay linked to them. You can reactivate them later and invite them again."
               : "Choose how to remove this caregiver. Shared calendar events are never deleted."}
           </DialogDescription>
         </DialogHeader>
@@ -451,7 +451,7 @@ function CaregiverActionDialog({
         {action?.kind === "delete" ? (
           <div className="space-y-2">
             {([
-              ["preserve", "Remove, keep history", "Their name stays on past shifts for records. Their sign-in access to this household is removed."],
+              ["preserve", "Preserve previous events", "Past shifts stay linked to them for records and future timesheets. Their access to this household is removed."],
               ["erase", "Remove with history", "Clears them from all past and future shifts and events, and removes their access. This can't be undone."],
             ] as const).map(([id, title, body]) => (
               <button
