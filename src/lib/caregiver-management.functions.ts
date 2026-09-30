@@ -147,6 +147,12 @@ export const deleteCaregiver = createServerFn({ method: "POST" })
         .in("family_user_id", linkedIds);
       if (clear.error) throw clear.error;
     }
+    // Also clear history kept from an earlier archive.
+    const clearKept = await admin
+      .from("babysitter_shifts")
+      .update({ assignment: "none", family_user_id: null, assignee_name: null, assignee_member_id: null })
+      .eq("assignee_member_id", member.id);
+    if (clearKept.error) throw clearKept.error;
     await revokeAccess(admin, linked);
     const unlink = await admin
       .from("family_users")
