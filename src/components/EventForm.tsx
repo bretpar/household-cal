@@ -604,7 +604,9 @@ export function EventFormFields({
   const { members, styleFor, sources, categories } = useCalendar();
   // Advanced recurrence controls stay tucked away until the user asks for them.
   const [repeatOpen, setRepeatOpen] = useState(false);
-  const activeMembers = members.filter((m) => m.active);
+  // Caregivers are family-member records internally but are not household
+  // members: they appear via the Assigned babysitter control, not Who?.
+  const activeMembers = members.filter((m) => m.active && m.role !== "caregiver");
   // Destination calendars: active Family/user-created OFC calendars and Google.
   const destinations = sources.filter(isWritableDestination);
   const familyCalendarId =
