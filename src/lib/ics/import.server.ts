@@ -301,7 +301,9 @@ export async function refreshAllSubscriptions(admin: Db): Promise<{ subscription
     .from("calendar_sources")
     .select("id, family_id, name, subscription_member_id, families(timezone)")
     .eq("provider", "ics");
-  if (error) throw error;
+  // PostgrestError is a plain object, not an Error: rethrow as one so the
+  // scheduler logs the real message instead of "unknown error".
+  if (error) throw new Error(error.message);
 
   const rows = (data ?? []) as (IcsSubscriptionRow & { families?: { timezone?: string | null } | null })[];
   for (const row of rows) {

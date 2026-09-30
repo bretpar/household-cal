@@ -204,6 +204,14 @@ function RootComponent() {
       document.body.appendChild(curtain);
       void supabase.auth.getUser().then(({ data, error }) => {
         const userId = data.user?.id ?? null;
+        // Network/server failures are not proof the session is gone: keep the
+        // restored page and only bounce to sign-in on a definitive auth answer.
+        const status = (error as { status?: number } | null)?.status;
+        const transient = !navigator.onLine || (error && (!status || status >= 500));
+        if (transient) {
+          curtain.remove();
+          return;
+        }
         if (error || !userId || (lastUserId && userId !== lastUserId)) {
           window.location.replace(userId ? window.location.href : "/auth");
           return;
