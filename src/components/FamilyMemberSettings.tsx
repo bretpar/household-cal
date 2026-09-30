@@ -36,6 +36,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { getHouseholdAccess, inviteHouseholdUser } from "@/lib/household.functions";
+import {
+  BABYSITTER_SETUP_KEY,
+  BabysitterAccessDialog,
+  BabysitterConfigFields,
+  useBabysitterSetup,
+} from "@/components/BabysitterAccessDialog";
 
 const ROLES = [
   { id: "parent", label: "Parent" },
@@ -97,6 +104,20 @@ export function FamilyMemberSettings() {
   const deleteFn = useServerFn(deleteCaregiver);
   const [action, setAction] = useState<{ kind: "archive" | "delete"; member: FamilyMember } | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [giveAccess, setGiveAccess] = useState<FamilyMember | null>(null);
+  const [editAccess, setEditAccess] = useState<{ member: FamilyMember; membershipId: string } | null>(null);
+  const fetchAccess = useServerFn(getHouseholdAccess);
+  const accessQuery = useQuery({
+    queryKey: ["household-access"],
+    queryFn: () => fetchAccess(),
+    enabled: isOwner,
+  });
+  const pendingInviteFor = (m: FamilyMember) =>
+    (accessQuery.data?.invitations ?? []).find(
+      (i) => i.babysitter_family_member_id === m.id && i.status === "pending",
+    ) ?? null;
+  const accessMembership = (m: FamilyMember) =>
+    shift?.caregivers.find((c) => c.family_member_id === m.id)?.family_user_id ?? null;
 
   const hasAccess = (m: FamilyMember) =>
     !!shift?.caregivers.some((c) => c.family_member_id === m.id);
@@ -237,6 +258,17 @@ export function FamilyMemberSettings() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onSelect={() => setDraft(draftFrom(member))}>Edit</DropdownMenuItem>
+                    {accessMembership(member) ? (
+                      <DropdownMenuItem
+                        onSelect={() => setEditAccess({ member, membershipId: accessMembership(member)! })}
+                      >
+                        Edit access
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem onSelect={() => setGiveAccess(member)}>
+                        {pendingInviteFor(member) ? "Resend sign-in invitation" : "Give sign-in access"}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onSelect={() => setAction({ kind: "archive", member })}>Archive</DropdownMenuItem>
                     <DropdownMenuItem className="text-destructive" onSelect={() => setAction({ kind: "delete", member })}>
                       Delete
@@ -245,7 +277,7 @@ export function FamilyMemberSettings() {
                 </DropdownMenu>
               ) : null,
               isOwner
-                ? `Caregiver · ${hasAccess(member) ? "Has sign-in access" : "No sign-in access"}${isDefault(member) ? " · Default" : ""}`
+                ? `${hasAccess(member) ? "✓ " : ""}Caregiver · ${hasAccess(member) ? "Access active" : pendingInviteFor(member) ? "Invitation sent" : "No sign-in access"}${isDefault(member) ? " · Default" : ""}`
                 : "Caregiver",
             ),
           )}
@@ -270,6 +302,17 @@ export function FamilyMemberSettings() {
         </div>
       ) : null}
 
+      <GiveSignInAccessDialog member={giveAccess} onClose={() => setGiveAccess(null)} onSent={refresh} />
+      {editAccess ? (
+        <BabysitterAccessDialog
+          open
+          onOpenChange={(o) => !o && setEditAccess(null)}
+          membershipId={editAccess.membershipId}
+          label={editAccess.member.name}
+          linkedMemberId={editAccess.member.id}
+          onSaved={() => void refresh()}
+        />
+      ) : null}
       <CaregiverActionDialog
         action={action}
         onClose={() => setAction(null)}
@@ -507,6 +550,100 @@ function CaregiverActionDialog({
             disabled={busy || blocked}
           >
             {busy ? "Working…" : action?.kind === "archive" ? "Archive" : "Delete"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Sends a babysitter invitation bound to this existing caregiver record. */
+function GiveSignInAccessDialog({
+  member,
+  onClose,
+  onSent,
+}: {
+  member: FamilyMember | null;
+  onClose: () => void;
+  onSent: () => Promise<void>;
+}) {
+  const setup = useBabysitterSetup(Boolean(member));
+  const invite = useServerFn(inviteHouseholdUser);
+  const queryClient = useQueryClient();
+  const [email, setEmail] = useState("");
+  const [scope, setScope] = useState<"shift_days_only" | "all_permitted">("shift_days_only");
+  const [calendarIds, setCalendarIds] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const close = () => {
+    setEmail("");
+    setScope("shift_days_only");
+    setCalendarIds([]);
+    onClose();
+  };
+
+  const send = async () => {
+    if (!member) return;
+    setBusy(true);
+    try {
+      const res = await invite({
+        data: {
+          email,
+          role: "viewer",
+          babysitter: { family_member_id: member.id, date_scope: scope, calendar_ids: calendarIds },
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: BABYSITTER_SETUP_KEY });
+      await onSent();
+      toast.success(res.emailed ? `Invitation sent to ${email}` : "Invitation created — copy the link from Household access");
+      close();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not send invitation");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={Boolean(member)} onOpenChange={(o) => !o && close()}>
+      <DialogContent className="rounded-3xl sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Give sign-in access · {member?.name}</DialogTitle>
+          <DialogDescription>
+            They'll create an account or sign in, and it links to this caregiver.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="caregiver-invite-email">Caregiver email</Label>
+            <Input
+              id="caregiver-invite-email"
+              type="email"
+              autoComplete="off"
+              className="h-11 rounded-xl"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <BabysitterConfigFields
+            hideMember
+            setup={setup.data}
+            memberId={member?.id ?? ""}
+            setMemberId={() => {}}
+            scope={scope}
+            setScope={setScope}
+            calendarIds={calendarIds}
+            setCalendarIds={setCalendarIds}
+          />
+        </div>
+        <DialogFooter>
+          <Button
+            type="button"
+            className="h-11 w-full rounded-full font-bold"
+            disabled={busy || !email.trim()}
+            onClick={() => void send()}
+          >
+            Send invitation
           </Button>
         </DialogFooter>
       </DialogContent>
