@@ -207,6 +207,7 @@ export type Database = {
       }
       babysitter_shifts: {
         Row: {
+          assignee_member_id: string | null
           assignee_name: string | null
           assignment: string
           created_at: string
@@ -216,6 +217,7 @@ export type Database = {
           id: string
         }
         Insert: {
+          assignee_member_id?: string | null
           assignee_name?: string | null
           assignment?: string
           created_at?: string
@@ -225,6 +227,7 @@ export type Database = {
           id?: string
         }
         Update: {
+          assignee_member_id?: string | null
           assignee_name?: string | null
           assignment?: string
           created_at?: string
@@ -234,6 +237,13 @@ export type Database = {
           id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "babysitter_shifts_assignee_member_id_fkey"
+            columns: ["assignee_member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "babysitter_shifts_event_id_fkey"
             columns: ["event_id"]
