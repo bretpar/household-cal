@@ -36,6 +36,7 @@ export interface HouseholdInvitation {
   email: string;
   role: HouseholdRole;
   is_babysitter: boolean;
+  babysitter_family_member_id: string | null;
   status: InvitationStatus;
   expires_at: string;
   created_at: string;
@@ -149,7 +150,7 @@ export async function loadHouseholdAccess(
     // but must not be presented as if they were still outstanding.
     const { data: invites, error: invErr } = await db
       .from("family_invitations")
-      .select("id, email, role, is_babysitter, status, expires_at, created_at, token")
+      .select("id, email, role, is_babysitter, babysitter_family_member_id, status, expires_at, created_at, token")
       .eq("family_id", current.familyId)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
@@ -159,6 +160,7 @@ export async function loadHouseholdAccess(
       email: i.email,
       role: i.role,
       is_babysitter: Boolean(i.is_babysitter),
+      babysitter_family_member_id: i.babysitter_family_member_id ?? null,
       status: new Date(i.expires_at) < new Date() && i.status === "pending" ? "expired" : i.status,
       expires_at: i.expires_at,
       created_at: i.created_at,
