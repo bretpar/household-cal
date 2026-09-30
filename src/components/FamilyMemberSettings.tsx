@@ -452,7 +452,7 @@ function CaregiverActionDialog({
           <div className="space-y-2">
             {([
               ["preserve", "Preserve previous events", "Past shifts stay linked to them for records and future timesheets. Their access to this household is removed."],
-              ["erase", "Remove with history", "Clears them from all past and future shifts and events, and removes their access. This can't be undone."],
+              ["erase", "Remove completely", "Clears them from all past and future shifts and events, and removes their access. This can't be undone."],
             ] as const).map(([id, title, body]) => (
               <button
                 key={id}
