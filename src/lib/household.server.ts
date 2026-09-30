@@ -218,6 +218,36 @@ export async function createInvitation(
     if (already && already.length > 0) throw new Error("That person already has access");
   }
 
+  // A babysitter invitation is bound to one existing caregiver record. Reject a
+  // member that is missing, archived/removed, or already has sign-in access, so
+  // acceptance can never produce a second login for the same person.
+  if (babysitter) {
+    const { data: who, error: whoErr } = await db
+      .from("family_members")
+      .select("id, active, removed_at")
+      .eq("id", babysitter.family_member_id)
+      .eq("family_id", current.familyId)
+      .maybeSingle();
+    if (whoErr) throw whoErr;
+    if (!who) throw new Error("That caregiver isn't in this household");
+    if (who.active === false || who.removed_at) throw new Error("Reactivate this caregiver before giving them access");
+    const { data: linked, error: linkErr } = await db
+      .from("family_users")
+      .select("id")
+      .eq("family_id", current.familyId)
+      .eq("family_member_id", babysitter.family_member_id)
+      .limit(1);
+    if (linkErr) throw linkErr;
+    if (linked && linked.length > 0) throw new Error("This caregiver already has sign-in access");
+    // Only one outstanding invitation per caregiver record.
+    await db
+      .from("family_invitations")
+      .update({ status: "revoked" })
+      .eq("family_id", current.familyId)
+      .eq("status", "pending")
+      .eq("babysitter_family_member_id", babysitter.family_member_id);
+  }
+
   // retire any previous pending invitation for this email
   await db
     .from("family_invitations")
