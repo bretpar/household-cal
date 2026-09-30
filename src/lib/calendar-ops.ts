@@ -89,9 +89,14 @@ export async function syncShiftAssignment(
         ? { assignment: "other", family_user_id: null, assignee_name: a.name.trim().slice(0, 120) }
         : { assignment: "none", family_user_id: null, assignee_name: null };
   if (row.assignment === "other" && !row.assignee_name) throw new Error("Enter the babysitter's name");
+  let assignee_member_id: string | null = null;
+  if (a.kind === "caregiver") {
+    const fu = await db.from("family_users").select("family_member_id").eq("id", a.family_user_id).maybeSingle();
+    assignee_member_id = (fu.data?.family_member_id as string | null) ?? null;
+  }
   const ins = await db
     .from("babysitter_shifts")
-    .insert({ family_id: familyId, event_id: eventId, ...row });
+    .insert({ family_id: familyId, event_id: eventId, ...row, assignee_member_id });
   if (ins.error) throw ins.error;
 }
 

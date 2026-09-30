@@ -84,12 +84,28 @@ async function revokeAccess(admin: AnyDb, linked: { id: string; role: string }[]
   }
 }
 
+/** Detaches caregiver shifts from the access profile but keeps the person linked (history/timesheets). */
+async function preserveShifts(admin: AnyDb, member: { id: string; name: string }, linkedIds: string[]) {
+  if (linkedIds.length === 0) return;
+  const keep = await admin
+    .from("babysitter_shifts")
+    .update({ assignment: "other", family_user_id: null, assignee_name: member.name, assignee_member_id: member.id })
+    .in("family_user_id", linkedIds)
+    .eq("assignment", "caregiver");
+  if (keep.error) throw keep.error;
+}
+
 export const setCaregiverArchived = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ({ ...parse(d), archived: Boolean((d as any)?.archived) }))
   .handler(async ({ data, context }) => {
-    const { member, admin, linkedIds } = await prepare(context, data);
-    if (data.archived) await resolveDefault(admin, member.family_id, linkedIds, data);
+    const { member, admin, linked, linkedIds } = await prepare(context, data);
+    if (data.archived) {
+      await resolveDefault(admin, member.family_id, linkedIds, data);
+      // Revoke active caregiver access; history stays linked to the person.
+      await preserveShifts(admin, member, linkedIds);
+      await revokeAccess(admin, linked);
+    }
     const { error } = await admin
       .from("family_members")
       .update({ active: !data.archived })
@@ -113,15 +129,7 @@ export const deleteCaregiver = createServerFn({ method: "POST" })
     await resolveDefault(admin, member.family_id, linkedIds, data);
 
     if (data.mode === "preserve") {
-      // Keep the name on past shifts before the access profile goes away.
-      if (linkedIds.length > 0) {
-        const keep = await admin
-          .from("babysitter_shifts")
-          .update({ assignment: "other", family_user_id: null, assignee_name: member.name })
-          .in("family_user_id", linkedIds)
-          .eq("assignment", "caregiver");
-        if (keep.error) throw keep.error;
-      }
+      await preserveShifts(admin, member, linkedIds);
       await revokeAccess(admin, linked);
       const { error } = await admin
         .from("family_members")
@@ -139,6 +147,12 @@ export const deleteCaregiver = createServerFn({ method: "POST" })
         .in("family_user_id", linkedIds);
       if (clear.error) throw clear.error;
     }
+    // Also clear history kept from an earlier archive.
+    const clearKept = await admin
+      .from("babysitter_shifts")
+      .update({ assignment: "none", family_user_id: null, assignee_name: null, assignee_member_id: null })
+      .eq("assignee_member_id", member.id);
+    if (clearKept.error) throw clearKept.error;
     await revokeAccess(admin, linked);
     const unlink = await admin
       .from("family_users")
