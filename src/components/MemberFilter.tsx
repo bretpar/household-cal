@@ -1,10 +1,53 @@
-import { EyeOff } from "lucide-react";
+import { ChevronDown, EyeOff, SlidersHorizontal } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
 
-export function MemberFilter({ className }: { className?: string }) {
+/** Compact "Filter ▾" button that opens the people filter in a popover. */
+export function PeopleFilterButton({ className }: { className?: string }) {
+  const { selectedMembers, memberById } = useCalendar();
+  const count = selectedMembers.length;
+  const label =
+    count === 0 ? "Filter" : count === 1 ? (memberById[selectedMembers[0]!]?.name ?? "Filter (1)") : `Filter (${count})`;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={count ? `People filter — ${count} active` : "People filter"}
+          className={cn(
+            "flex h-11 min-w-0 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors",
+            count
+              ? "border-primary bg-secondary text-foreground"
+              : "border-border-soft bg-surface text-muted-foreground hover:bg-secondary",
+            className,
+          )}
+        >
+          <SlidersHorizontal className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="truncate">{label}</span>
+          <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto max-w-[calc(100vw-2rem)] rounded-2xl p-3">
+        <MemberFilter excludeCaregivers hideSummary />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function MemberFilter({
+  className,
+  excludeCaregivers = false,
+  hideSummary = false,
+}: {
+  className?: string;
+  excludeCaregivers?: boolean;
+  hideSummary?: boolean;
+}) {
   const { selectedMembers, toggleMember, clearMembers, members, styleFor } = useCalendar();
-  const visible = members.filter((m) => m.active);
+  const visible = members.filter(
+    (m) => m.active && !(excludeCaregivers && m.role === "caregiver"),
+  );
   const all = selectedMembers.length === 0;
 
   if (visible.length === 0) return null;
@@ -55,7 +98,7 @@ export function MemberFilter({ className }: { className?: string }) {
           );
         })}
       </div>
-      <p className="text-xs text-muted-foreground" aria-live="polite">
+      <p className={cn("text-xs text-muted-foreground", hideSummary && "sr-only")} aria-live="polite">
         {all ? (
           <>Showing everyone ({visible.length})</>
         ) : (

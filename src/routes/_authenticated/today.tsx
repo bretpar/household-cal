@@ -5,7 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { AddEventDialog } from "@/components/AddEventDialog";
 import { AgendaView } from "@/components/AgendaView";
 
-import { MemberFilter } from "@/components/MemberFilter";
+import { PeopleFilterButton } from "@/components/MemberFilter";
 import { useCalendar } from "@/lib/calendar-store";
 
 export const Route = createFileRoute("/_authenticated/today")({
@@ -34,20 +34,21 @@ function TodayPage() {
 
   return (
     <AppShell>
-      <div className="space-y-5">
-        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-          <div className="min-w-0">
+      <div className="space-y-3">
+        <header className="space-y-3">
+          <div>
             <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
               {format(today, "EEEE")}
             </p>
-            <h1 className="truncate text-2xl font-bold sm:text-3xl">
-              {format(today, "MMMM d, yyyy")}
-            </h1>
+            <h1 className="text-2xl font-bold sm:text-3xl">{format(today, "MMMM d")}</h1>
           </div>
-          <AddEventDialog defaultDate={today} />
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+            <div className="min-w-0">
+              <PeopleFilterButton />
+            </div>
+            <AddEventDialog defaultDate={today} />
+          </div>
         </header>
-
-        <MemberFilter />
         <AgendaView
           anchor={today}
           events={visibleEvents}
