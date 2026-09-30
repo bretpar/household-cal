@@ -341,7 +341,7 @@ export function HouseholdAccess() {
         })}
       </div>
 
-      {isOwner && (access.data?.invitations ?? []).length > 0 ? (
+      {isOwner && (access.data?.invitations ?? []).some((inv) => !inv.babysitter_family_member_id) ? (
         <div className="space-y-2">
           <h3 className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
             Invitations
