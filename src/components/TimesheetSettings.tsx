@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCalendar } from "@/lib/calendar-store";
+import { hasFeature } from "@/lib/features";
 import {
   FREQUENCY_LABEL,
   STATUS_LABEL,
@@ -22,6 +23,7 @@ import {
   getPaySettings,
   saveNotifySettings,
   type TimesheetNotifySettings,
+  countPendingTimesheets,
   listHouseholdTimesheets,
   reviewTimesheet,
   savePaySettings,
@@ -185,22 +187,6 @@ function NotificationSettings() {
   );
 }
 
-function TimesheetReview() {
-  const fetch = useServerFn(listHouseholdTimesheets);
-  const { data } = useQuery({ queryKey: ["household-timesheets"], queryFn: () => fetch() });
-  return (
-    <div className="space-y-3">
-      <p className="text-sm font-bold">Caregiver timesheets</p>
-      {data && data.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-          No submitted timesheets yet.
-        </p>
-      ) : null}
-      {(data ?? []).map((t) => <ReviewCard key={t.id} sheet={t} />)}
-    </div>
-  );
-}
-
 function ReviewCard({ sheet }: { sheet: TimesheetView }) {
   const qc = useQueryClient();
   const review = useServerFn(reviewTimesheet);
@@ -216,6 +202,7 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
     onSuccess: (_d, action) => {
       toast.success(action === "approve" ? "Timesheet approved" : "Correction requested");
       void qc.invalidateQueries({ queryKey: ["household-timesheets"] });
+      void qc.invalidateQueries({ queryKey: PENDING_TIMESHEETS_KEY });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update"),
   });
@@ -228,13 +215,15 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
             {fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end)} · {STATUS_LABEL[sheet.status]}
           </span>
         </span>
-        <span className="text-right text-xs">
-          <span className="block">Scheduled {formatHours(scheduled)}</span>
-          <span className="block font-semibold">Actual {formatHours(actual)}</span>
+        <span className="shrink-0 rounded-full bg-secondary px-3 py-1 text-xs font-semibold">
+          {open ? "Close" : sheet.status === "submitted" ? "Review" : "Open"}
         </span>
       </button>
       {open ? (
         <div className="space-y-2 border-t border-border-soft pt-2">
+          <p className="text-xs">
+            Scheduled {formatHours(scheduled)} · <span className="font-semibold">Actual {formatHours(actual)}</span>
+          </p>
           {sheet.entries.map((e) => (
             <div key={e.id} className="rounded-xl bg-surface-muted/60 p-2">
               <div className="flex justify-between">
