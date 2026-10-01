@@ -33,6 +33,7 @@ export async function currentFamilyId(db: AnyDb, userId: string): Promise<string
 }
 
 export async function assertOwner(userDb: AnyDb, familyId: string) {
+  assertFeature("timesheets", { familyId });
   const { data, error } = await userDb.rpc("is_family_owner", { _family_id: familyId });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Only the household owner can do this");
@@ -41,6 +42,7 @@ export async function assertOwner(userDb: AnyDb, familyId: string) {
 /** The signed-in caregiver's own member id (via verified session), or an error. */
 export async function myCaregiver(userDb: AnyDb, userId: string) {
   const familyId = await currentFamilyId(userDb, userId);
+  assertFeature("timesheets", { familyId });
   const { data, error } = await userDb.rpc("my_caregiver_member_id", { _family_id: familyId });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Timesheets are only available to caregivers");
