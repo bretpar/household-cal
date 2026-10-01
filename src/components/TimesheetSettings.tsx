@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -6,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCalendar } from "@/lib/calendar-store";
 import {
@@ -16,7 +18,10 @@ import {
   type PayFrequency,
 } from "@/lib/timesheet-periods";
 import {
+  getNotifySettings,
   getPaySettings,
+  saveNotifySettings,
+  type TimesheetNotifySettings,
   listHouseholdTimesheets,
   reviewTimesheet,
   savePaySettings,
@@ -35,6 +40,7 @@ export function TimesheetSettings() {
   return (
     <div className="space-y-4">
       <PayPeriodSettings />
+      <NotificationSettings />
       <TimesheetReview />
     </div>
   );
@@ -96,6 +102,42 @@ function PayPeriodSettings() {
   );
 }
 
+const NOTIFY_LABELS: [keyof TimesheetNotifySettings, string][] = [
+  ["notify_ready", "Email caregiver when a pay period is ready for review"],
+  ["notify_reminder", "Remind caregiver if not submitted (after 24 hours)"],
+  ["notify_owner_submit", "Email owner when caregiver submits"],
+  ["notify_correction", "Email caregiver when correction is requested"],
+  ["notify_approved", "Email caregiver when timesheet is approved"],
+];
+
+function NotificationSettings() {
+  const qc = useQueryClient();
+  const fetch = useServerFn(getNotifySettings);
+  const save = useServerFn(saveNotifySettings);
+  const { data } = useQuery({ queryKey: ["timesheet-notify-settings"], queryFn: () => fetch() });
+  const mutation = useMutation({
+    mutationFn: (next: TimesheetNotifySettings) => save({ data: next }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["timesheet-notify-settings"] }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save"),
+  });
+  return (
+    <div className="space-y-3 rounded-2xl border border-border-soft bg-card p-4">
+      <p className="text-sm font-bold">Email notifications</p>
+      {NOTIFY_LABELS.map(([key, label]) => (
+        <label key={key} className="flex items-center justify-between gap-3 text-sm">
+          <span>{label}</span>
+          <Switch
+            checked={data ? data[key] : true}
+            disabled={!data || mutation.isPending}
+            onCheckedChange={(v) => data && mutation.mutate({ ...data, [key]: v })}
+          />
+        </label>
+      ))}
+      <p className="text-xs text-muted-foreground">Caregivers who turn off timesheet emails won't receive them.</p>
+    </div>
+  );
+}
+
 function TimesheetReview() {
   const fetch = useServerFn(listHouseholdTimesheets);
   const { data } = useQuery({ queryKey: ["household-timesheets"], queryFn: () => fetch() });
@@ -115,7 +157,8 @@ function TimesheetReview() {
 function ReviewCard({ sheet }: { sheet: TimesheetView }) {
   const qc = useQueryClient();
   const review = useServerFn(reviewTimesheet);
-  const [open, setOpen] = useState(false);
+  const search = useSearch({ strict: false }) as { timesheet?: string };
+  const [open, setOpen] = useState(search.timesheet === sheet.id);
   const [note, setNote] = useState("");
   const tz = sheet.time_zone;
   const scheduled = sheet.entries.reduce((n, e) => n + hoursBetween(e.scheduled_start, e.scheduled_end), 0);

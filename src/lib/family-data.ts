@@ -67,6 +67,8 @@ export interface FamilyMember {
   sort_order: number;
   /** set when a caregiver was removed with history kept */
   removed_at?: string | null;
+  /** caregiver-controlled timesheet email preference */
+  timesheet_emails_enabled?: boolean;
 }
 
 export interface CalendarSource {

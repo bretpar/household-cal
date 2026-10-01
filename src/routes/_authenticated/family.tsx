@@ -50,6 +50,8 @@ export const Route = createFileRoute("/_authenticated/family")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>): { timesheet?: string } =>
+    typeof search["timesheet"] === "string" ? { timesheet: search["timesheet"] } : {},
   component: FamilyPageRoute,
 });
 

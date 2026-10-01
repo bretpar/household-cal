@@ -6,6 +6,11 @@ import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 
 import { MemberBadge } from "@/components/MemberBadge";
 import { SignOutButton } from "@/components/SignOutButton";
+import { Switch } from "@/components/ui/switch";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { getMyTimesheetEmailPref, setMyTimesheetEmailPref } from "@/lib/timesheets.functions";
 import { calendarIconComponent } from "@/lib/calendar-icons";
 import { useCalendar } from "@/lib/calendar-store";
 import { styleForColor, type MemberColor } from "@/lib/family-data";
@@ -85,6 +90,8 @@ function CaregiverSettings() {
           </div>
         </section>
 
+        <TimesheetEmailPref />
+
         <section className="space-y-3 border-t border-border-soft pt-5" aria-label="Account">
           <ChangePasswordDialog />
           <SignOutButton />
@@ -92,5 +99,33 @@ function CaregiverSettings() {
 
       </div>
     </AppShell>
+  );
+}
+
+function TimesheetEmailPref() {
+  const qc = useQueryClient();
+  const fetch = useServerFn(getMyTimesheetEmailPref);
+  const save = useServerFn(setMyTimesheetEmailPref);
+  const { data } = useQuery({ queryKey: ["my-timesheet-email-pref"], queryFn: () => fetch() });
+  const mutation = useMutation({
+    mutationFn: (enabled: boolean) => save({ data: { enabled } }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["my-timesheet-email-pref"] }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save"),
+  });
+  return (
+    <section className="space-y-2">
+      <h2 className="text-sm font-bold tracking-wide text-muted-foreground uppercase">Email</h2>
+      <label className="flex items-center justify-between gap-3 rounded-2xl border border-border-soft bg-card px-4 py-3 text-sm">
+        <span>
+          <span className="block font-semibold">Timesheet emails</span>
+          <span className="block text-xs text-muted-foreground">Pay-period, reminder, correction and approval emails.</span>
+        </span>
+        <Switch
+          checked={data?.enabled ?? true}
+          disabled={!data || mutation.isPending}
+          onCheckedChange={(v) => mutation.mutate(v)}
+        />
+      </label>
+    </section>
   );
 }

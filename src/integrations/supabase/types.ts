@@ -1020,6 +1020,7 @@ export type Database = {
           removed_at: string | null
           role: Database["public"]["Enums"]["member_role"]
           sort_order: number
+          timesheet_emails_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -1034,6 +1035,7 @@ export type Database = {
           removed_at?: string | null
           role?: Database["public"]["Enums"]["member_role"]
           sort_order?: number
+          timesheet_emails_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -1048,6 +1050,7 @@ export type Database = {
           removed_at?: string | null
           role?: Database["public"]["Enums"]["member_role"]
           sort_order?: number
+          timesheet_emails_enabled?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -1403,12 +1406,81 @@ export type Database = {
           },
         ]
       }
+      timesheet_notifications: {
+        Row: {
+          created_at: string
+          detail: string | null
+          family_id: string
+          family_member_id: string | null
+          id: string
+          kind: string
+          recipient: string
+          status: string
+          timesheet_id: string | null
+          updated_at: string
+          version_key: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          family_id: string
+          family_member_id?: string | null
+          id?: string
+          kind: string
+          recipient: string
+          status?: string
+          timesheet_id?: string | null
+          updated_at?: string
+          version_key: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          family_id?: string
+          family_member_id?: string | null
+          id?: string
+          kind?: string
+          recipient?: string
+          status?: string
+          timesheet_id?: string | null
+          updated_at?: string
+          version_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timesheet_notifications_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_notifications_family_member_id_fkey"
+            columns: ["family_member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_notifications_timesheet_id_fkey"
+            columns: ["timesheet_id"]
+            isOneToOne: false
+            referencedRelation: "timesheets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       timesheet_settings: {
         Row: {
           anchor_date: string
           created_at: string
           family_id: string
           frequency: string
+          notify_approved: boolean
+          notify_correction: boolean
+          notify_owner_submit: boolean
+          notify_ready: boolean
+          notify_reminder: boolean
           semimonthly_first_end: number
           updated_at: string
         }
@@ -1417,6 +1489,11 @@ export type Database = {
           created_at?: string
           family_id: string
           frequency?: string
+          notify_approved?: boolean
+          notify_correction?: boolean
+          notify_owner_submit?: boolean
+          notify_ready?: boolean
+          notify_reminder?: boolean
           semimonthly_first_end?: number
           updated_at?: string
         }
@@ -1425,6 +1502,11 @@ export type Database = {
           created_at?: string
           family_id?: string
           frequency?: string
+          notify_approved?: boolean
+          notify_correction?: boolean
+          notify_owner_submit?: boolean
+          notify_ready?: boolean
+          notify_reminder?: boolean
           semimonthly_first_end?: number
           updated_at?: string
         }
