@@ -341,13 +341,13 @@ export function HouseholdAccess() {
         })}
       </div>
 
-      {isOwner && (access.data?.invitations ?? []).some((inv) => !inv.babysitter_family_member_id) ? (
+      {isOwner && (access.data?.invitations ?? []).length > 0 ? (
         <div className="space-y-2">
           <h3 className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
             Invitations
           </h3>
           <div className="divide-y divide-border-soft overflow-hidden rounded-3xl border border-dashed border-border bg-card">
-            {(access.data?.invitations ?? []).filter((inv) => !inv.babysitter_family_member_id).map((inv) => (
+            {(access.data?.invitations ?? []).map((inv) => (
               <div
                 key={inv.id}
                 className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"

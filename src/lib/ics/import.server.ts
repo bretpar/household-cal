@@ -299,7 +299,7 @@ export async function refreshSubscriptionRow(
 export async function refreshAllSubscriptions(admin: Db): Promise<{ subscriptions: number }> {
   const { data, error } = await admin
     .from("calendar_sources")
-    .select("id, family_id, name, subscription_member_id, families(timezone)")
+    .select("id, family_id, name, subscription_member_id, families!calendar_sources_family_id_fkey(timezone)")
     .eq("provider", "ics");
   // PostgrestError is a plain object, not an Error: rethrow as one so the
   // scheduler logs the real message instead of "unknown error".
