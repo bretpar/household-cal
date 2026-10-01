@@ -7,6 +7,8 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { CaregiverOnly } from "@/components/CaregiverGate";
+import { useCalendar } from "@/lib/calendar-store";
+import { hasFeature } from "@/lib/features";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,11 +42,19 @@ export const Route = createFileRoute("/_authenticated/timesheet")({
   component: TimesheetRoute,
 });
 
+function TimesheetGate() {
+  const { family } = useCalendar();
+  if (!hasFeature("timesheets", { familyId: family?.id })) {
+    return <p className="text-sm text-muted-foreground">Timesheets aren't available for this household.</p>;
+  }
+  return <TimesheetPage />;
+}
+
 function TimesheetRoute() {
   return (
     <CaregiverOnly fallback="/today">
       <AppShell>
-        <TimesheetPage />
+        <TimesheetGate />
       </AppShell>
     </CaregiverOnly>
   );
