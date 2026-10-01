@@ -40,21 +40,15 @@ function Reminder({ householdName, periodLabel, url }: Base) {
   );
 }
 
-interface Row { date: string; time: string; hours: string; manual: boolean }
-
-function Submitted({ caregiverName, periodLabel, url, rows = [], totalHours }: Base & { rows?: Row[]; totalHours?: string }) {
+function Submitted({ caregiverName, periodLabel, url }: Base) {
+  const name = caregiverName ?? "Your caregiver";
   return (
-    <EmailShell preview={`${caregiverName ?? "Your caregiver"} submitted a timesheet`}>
-      <EmailHeading>{caregiverName ?? "Your caregiver"} submitted a timesheet</EmailHeading>
-      <EmailText>Pay period: {periodLabel ?? ""}</EmailText>
-      {rows.map((r, i) => (
-        <EmailSmallText key={i}>
-          {r.date} · {r.time} · {r.hours}
-          {r.manual ? " · Manually added" : ""}
-        </EmailSmallText>
-      ))}
-      <EmailText>Total actual: {totalHours ?? "0h"}</EmailText>
-      {url ? <EmailButton href={url}>Review Timesheet</EmailButton> : null}
+    <EmailShell preview={`${name} submitted a timesheet`}>
+      <EmailHeading>{name} submitted a timesheet</EmailHeading>
+      <EmailText>
+        Their time card for {periodLabel ?? "the last pay period"} is ready for review.
+      </EmailText>
+      {url ? <EmailButton href={url}>Review &amp; Confirm Timesheet</EmailButton> : null}
       {url ? <EmailLinkFallback url={url} /> : null}
     </EmailShell>
   );
@@ -106,7 +100,7 @@ export const timesheetSubmitted = {
   component: Submitted,
   subject: (d: Record<string, any>) => `${d["caregiverName"] ?? "Caregiver"} submitted a timesheet`,
   displayName: "Timesheet submitted",
-  previewData: { ...period, caregiverName: "Michelle", totalHours: "8h", rows: [{ date: "Mon, Sep 15", time: "9:00 AM – 5:00 PM", hours: "8h", manual: false }] },
+  previewData: { ...period, caregiverName: "Michelle" },
 } satisfies TemplateEntry;
 export const timesheetCorrection = {
   component: Correction, subject: "Please update your timesheet", displayName: "Timesheet correction",

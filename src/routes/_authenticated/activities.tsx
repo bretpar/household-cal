@@ -1,4 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { OwnerTimesheets, usePendingTimesheetCount } from "@/components/TimesheetSettings";
+import { hasFeature } from "@/lib/features";
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { CalendarClock, Clock, MapPin, Repeat } from "lucide-react";
@@ -41,6 +43,10 @@ export const Route = createFileRoute("/_authenticated/activities")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>): { tab?: "timesheets"; timesheet?: string } => ({
+    ...(search["tab"] === "timesheets" ? { tab: "timesheets" as const } : {}),
+    ...(typeof search["timesheet"] === "string" ? { timesheet: search["timesheet"] } : {}),
+  }),
   component: ActivitiesPageRoute,
 });
 
@@ -53,6 +59,50 @@ function ActivitiesPageRoute() {
 }
 
 function ActivitiesPage() {
+  const { isOwner, family } = useCalendar();
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: "/activities" });
+  const showTimesheets = isOwner && hasFeature("timesheets", { familyId: family?.id });
+  const pending = usePendingTimesheetCount(showTimesheets);
+  const tab = showTimesheets && (search.tab === "timesheets" || search.timesheet) ? "timesheets" : "recurring";
+  return (
+    <AppShell>
+      <div className="space-y-5">
+        <header>
+          <h1 className="text-2xl font-bold sm:text-3xl">Activities</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {tab === "timesheets" ? "Review caregiver timesheets." : "Every repeating event on the family calendar."}
+          </p>
+        </header>
+        {showTimesheets ? (
+          <div className="grid grid-cols-2 gap-1 rounded-2xl border border-border-soft bg-card p-1" role="tablist">
+            {(["recurring", "timesheets"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                role="tab"
+                aria-selected={tab === t}
+                onClick={() => void navigate({ search: t === "timesheets" ? { tab: "timesheets" } : {} })}
+                className={cn(
+                  "flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-semibold text-muted-foreground",
+                  tab === t && "bg-secondary text-foreground",
+                )}
+              >
+                {t === "recurring" ? "Recurring Activities" : "Timesheets"}
+                {t === "timesheets" && pending > 0 ? (
+                  <span className="rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">{pending}</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {tab === "timesheets" ? <OwnerTimesheets /> : <RecurringActivities />}
+      </div>
+    </AppShell>
+  );
+}
+
+function RecurringActivities() {
   const { events, members, loading, canEdit, categories } = useCalendar();
   const [group, setGroup] = useState<GroupMode>("category");
   const [sort, setSort] = useState<SortMode>("next");
@@ -64,15 +114,7 @@ function ActivitiesPage() {
   );
 
   return (
-    <AppShell>
       <div className="space-y-5">
-        <header>
-          <h1 className="text-2xl font-bold sm:text-3xl">Activities</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Every repeating event on the family calendar.
-          </p>
-        </header>
-
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <Picker
             label="Group by"
@@ -120,7 +162,6 @@ function ActivitiesPage() {
           </section>
         ))}
       </div>
-    </AppShell>
   );
 }
 

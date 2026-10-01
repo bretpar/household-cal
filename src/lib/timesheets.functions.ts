@@ -183,6 +183,32 @@ export const submitTimesheet = createServerFn({ method: "POST" })
 
 /* -------------------------------------------------------------------- owner */
 
+/** Owner badge: number of timesheets awaiting review (status = submitted). 0 for non-owners. */
+export const countPendingTimesheets = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ count: number }> => {
+    const s = await import("@/lib/timesheets.server");
+    const { hasFeature } = await import("@/lib/features");
+    const db = context.supabase as unknown as AnyDb;
+    let familyId: string;
+    try {
+      familyId = await s.currentFamilyId(db, context.userId);
+    } catch {
+      return { count: 0 };
+    }
+    if (!hasFeature("timesheets", { familyId })) return { count: 0 };
+    const { data: owner } = await db.rpc("is_family_owner", { _family_id: familyId });
+    if (!owner) return { count: 0 };
+    const { count, error } = await (await s.adminDb())
+      .from("timesheets")
+      .select("id", { count: "exact", head: true })
+      .eq("family_id", familyId)
+      .eq("status", "submitted");
+    if (error) throw new Error(error.message);
+    return { count: count ?? 0 };
+  });
+
+
 export const listHouseholdTimesheets = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<TimesheetView[]> => {

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCalendar } from "@/lib/calendar-store";
+import { hasFeature } from "@/lib/features";
 import {
   FREQUENCY_LABEL,
   STATUS_LABEL,
@@ -22,6 +23,7 @@ import {
   getPaySettings,
   saveNotifySettings,
   type TimesheetNotifySettings,
+  countPendingTimesheets,
   listHouseholdTimesheets,
   reviewTimesheet,
   savePaySettings,
@@ -33,15 +35,62 @@ const fmtDate = (key: string) =>
 const fmtTime = (iso: string | null, tz: string) =>
   iso ? new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz }) : "—";
 
-/** Owner-only: pay period configuration and caregiver timesheet review. */
+/** Owner-only: pay period + notification configuration (review lives in Activities). */
 export function TimesheetSettings() {
-  const { isOwner } = useCalendar();
-  if (!isOwner) return null;
+  const { isOwner, family } = useCalendar();
+  if (!isOwner || !hasFeature("timesheets", { familyId: family?.id })) return null;
   return (
     <div className="space-y-4">
       <PayPeriodSettings />
       <NotificationSettings />
-      <TimesheetReview />
+    </div>
+  );
+}
+
+export const PENDING_TIMESHEETS_KEY = ["timesheet-pending-count"] as const;
+
+/** Server-authoritative count of submitted timesheets awaiting owner review. */
+export function usePendingTimesheetCount(enabled: boolean) {
+  const fetch = useServerFn(countPendingTimesheets);
+  const { data } = useQuery({
+    queryKey: PENDING_TIMESHEETS_KEY,
+    queryFn: () => fetch(),
+    enabled,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+  return enabled ? data?.count ?? 0 : 0;
+}
+
+const GROUPS: { label: string; match: (s: TimesheetView["status"]) => boolean; empty: string }[] = [
+  { label: "Needs review", match: (s) => s === "submitted", empty: "Nothing waiting for review." },
+  { label: "Needs correction", match: (s) => s === "needs_correction", empty: "No timesheets waiting on caregiver changes." },
+  { label: "Approved / recent history", match: (s) => s === "approved", empty: "No approved timesheets yet." },
+];
+
+/** Owner Timesheet hub shown inside Activities. */
+export function OwnerTimesheets() {
+  const fetch = useServerFn(listHouseholdTimesheets);
+  const { data } = useQuery({ queryKey: ["household-timesheets"], queryFn: () => fetch() });
+  return (
+    <div className="space-y-5">
+      {GROUPS.map((g) => {
+        const items = (data ?? []).filter((t) => g.match(t.status));
+        return (
+          <section key={g.label} className="space-y-3">
+            <div className="flex items-baseline gap-2">
+              <h2 className="text-base font-bold">{g.label}</h2>
+              <span className="text-xs font-semibold text-muted-foreground">{items.length}</span>
+            </div>
+            {data && items.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                {g.empty}
+              </p>
+            ) : null}
+            {items.map((t) => <ReviewCard key={t.id} sheet={t} />)}
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -138,22 +187,6 @@ function NotificationSettings() {
   );
 }
 
-function TimesheetReview() {
-  const fetch = useServerFn(listHouseholdTimesheets);
-  const { data } = useQuery({ queryKey: ["household-timesheets"], queryFn: () => fetch() });
-  return (
-    <div className="space-y-3">
-      <p className="text-sm font-bold">Caregiver timesheets</p>
-      {data && data.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-          No submitted timesheets yet.
-        </p>
-      ) : null}
-      {(data ?? []).map((t) => <ReviewCard key={t.id} sheet={t} />)}
-    </div>
-  );
-}
-
 function ReviewCard({ sheet }: { sheet: TimesheetView }) {
   const qc = useQueryClient();
   const review = useServerFn(reviewTimesheet);
@@ -169,6 +202,7 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
     onSuccess: (_d, action) => {
       toast.success(action === "approve" ? "Timesheet approved" : "Correction requested");
       void qc.invalidateQueries({ queryKey: ["household-timesheets"] });
+      void qc.invalidateQueries({ queryKey: PENDING_TIMESHEETS_KEY });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update"),
   });
@@ -181,13 +215,15 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
             {fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end)} · {STATUS_LABEL[sheet.status]}
           </span>
         </span>
-        <span className="text-right text-xs">
-          <span className="block">Scheduled {formatHours(scheduled)}</span>
-          <span className="block font-semibold">Actual {formatHours(actual)}</span>
+        <span className="shrink-0 rounded-full bg-secondary px-3 py-1 text-xs font-semibold">
+          {open ? "Close" : sheet.status === "submitted" ? "Review" : "Open"}
         </span>
       </button>
       {open ? (
         <div className="space-y-2 border-t border-border-soft pt-2">
+          <p className="text-xs">
+            Scheduled {formatHours(scheduled)} · <span className="font-semibold">Actual {formatHours(actual)}</span>
+          </p>
           {sheet.entries.map((e) => (
             <div key={e.id} className="rounded-xl bg-surface-muted/60 p-2">
               <div className="flex justify-between">

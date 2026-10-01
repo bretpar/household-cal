@@ -7,6 +7,9 @@ import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { reportShellMount, reportShellUnmount } from "@/lib/shell-remount-probe";
 import { cn } from "@/lib/utils";
 import { useCaregiver } from "@/lib/use-caregiver";
+import { usePendingTimesheetCount } from "@/components/TimesheetSettings";
+import { useCalendar } from "@/lib/calendar-store";
+import { hasFeature } from "@/lib/features";
 
 /** Content-only placeholder: the header and bottom nav stay visible around it. */
 function PageContentSkeleton() {
@@ -53,7 +56,21 @@ export function AppShell({
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isCaregiver } = useCaregiver();
-  const nav = isCaregiver ? CAREGIVER_NAV : NAV;
+  const { isOwner, family } = useCalendar();
+  const timesheetsOn = hasFeature("timesheets", { familyId: family?.id });
+  const nav = isCaregiver
+    ? CAREGIVER_NAV.filter((n) => n.to !== "/timesheet" || timesheetsOn)
+    : NAV;
+  const pendingReview = usePendingTimesheetCount(!isCaregiver && isOwner && timesheetsOn);
+  const badgeFor = (to: string) =>
+    to === "/activities" && pendingReview > 0 ? (
+      <span
+        className="absolute top-1 right-[calc(50%-1.5rem)] min-w-4 rounded-full bg-destructive px-1 text-center text-[10px] leading-4 font-bold text-destructive-foreground"
+        aria-label={`${pendingReview} timesheet${pendingReview === 1 ? "" : "s"} to review`}
+      >
+        {pendingReview}
+      </span>
+    ) : null;
   // Optimistic tab selection: the tap highlights instantly, before the
   // destination screen has mounted or loaded anything.
   const [tapped, setTapped] = useState<string | null>(null);
@@ -119,7 +136,7 @@ export function AppShell({
                   className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary lg:px-4"
                   activeProps={{ className: "bg-secondary text-foreground" }}
                 >
-                  <Icon className="h-4 w-4" aria-hidden />
+                  <span className="relative"><Icon className="h-4 w-4" aria-hidden />{pendingReview > 0 && to === "/activities" ? <span className="absolute -top-1.5 -right-2 min-w-4 rounded-full bg-destructive px-1 text-center text-[10px] leading-4 font-bold text-destructive-foreground">{pendingReview}</span> : null}</span>
                   <span className="hidden lg:inline">{label}</span>
                 </Link>
               ))}
@@ -144,7 +161,7 @@ export function AppShell({
 
       {/* Phone bottom navigation */}
       <nav className="app-shell-bottom-nav fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-30 mx-auto max-w-lg rounded-3xl border border-border-soft bg-surface/95 p-1.5 shadow-lifted backdrop-blur md:hidden">
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}>
           {nav.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}
@@ -164,6 +181,7 @@ export function AppShell({
             >
               <Icon className="h-7 w-7 transition-transform duration-150 ease-out" aria-hidden />
               <span className="leading-none">{label}</span>
+              {badgeFor(to)}
             </Link>
           ))}
         </div>
