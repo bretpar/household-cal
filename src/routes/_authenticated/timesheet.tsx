@@ -25,6 +25,8 @@ import {
 } from "@/lib/timesheets.functions";
 
 export const Route = createFileRoute("/_authenticated/timesheet")({
+  validateSearch: (search: Record<string, unknown>): { period?: string } =>
+    typeof search.period === "string" && /^\d{4}-\d{2}-\d{2}$/.test(search.period) ? { period: search.period } : {},
   head: () => ({
     meta: [
       { title: "Timesheet — Family Calendar" },
@@ -54,18 +56,26 @@ export const fmtTime = (iso: string | null, tz: string) =>
   iso ? new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz }) : "—";
 
 function TimesheetPage() {
+  const { period } = Route.useSearch();
+  const [linkPeriod, setLinkPeriod] = useState(period);
   const [offset, setOffset] = useState(0);
   const fetchSheet = useServerFn(getMyTimesheet);
   const query = useQuery({
-    queryKey: ["my-timesheet", offset],
-    queryFn: () => fetchSheet({ data: { offset } }),
+    queryKey: ["my-timesheet", linkPeriod ? `p:${linkPeriod}` : offset],
+    queryFn: () => fetchSheet({ data: { offset, period_start: linkPeriod } }),
   });
   const sheet = query.data;
+  // Leaving an emailed deep link: continue navigating from the resolved period.
+  const move = (delta: number) => {
+    const base = linkPeriod && sheet ? sheet.offset : offset;
+    setLinkPeriod(undefined);
+    setOffset(Math.min(0, base + delta));
+  };
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <header className="flex items-center justify-between gap-2">
-        <Button variant="outline" size="icon" aria-label="Previous pay period" onClick={() => setOffset((o) => o - 1)}>
+        <Button variant="outline" size="icon" aria-label="Previous pay period" onClick={() => move(-1)}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="text-center">
@@ -80,8 +90,8 @@ function TimesheetPage() {
           variant="outline"
           size="icon"
           aria-label="Next pay period"
-          disabled={offset >= 0}
-          onClick={() => setOffset((o) => Math.min(0, o + 1))}
+          disabled={(linkPeriod && sheet ? sheet.offset : offset) >= 0}
+          onClick={() => move(1)}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
