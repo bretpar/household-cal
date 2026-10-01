@@ -44,6 +44,7 @@ export const getPaySettings = createServerFn({ method: "GET" })
     const s = await import("@/lib/timesheets.server");
     const db = context.supabase as unknown as AnyDb;
     const familyId = await s.currentFamilyId(db, context.userId);
+    await s.assertOwner(db, familyId); // owner + centralized Timesheet entitlement
     const { settings, timeZone } = await s.loadPaySettings(await s.adminDb(), familyId);
     return { ...settings, time_zone: timeZone };
   });
