@@ -1327,6 +1327,183 @@ export type Database = {
         }
         Relationships: []
       }
+      timesheet_entries: {
+        Row: {
+          actual_end: string
+          actual_start: string
+          created_at: string
+          event_id: string | null
+          family_id: string
+          id: string
+          is_manual: boolean
+          note: string | null
+          occurrence_key: string | null
+          scheduled_end: string | null
+          scheduled_start: string | null
+          scheduled_title: string | null
+          timesheet_id: string
+          updated_at: string
+          work_date: string
+        }
+        Insert: {
+          actual_end: string
+          actual_start: string
+          created_at?: string
+          event_id?: string | null
+          family_id: string
+          id?: string
+          is_manual?: boolean
+          note?: string | null
+          occurrence_key?: string | null
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          scheduled_title?: string | null
+          timesheet_id: string
+          updated_at?: string
+          work_date: string
+        }
+        Update: {
+          actual_end?: string
+          actual_start?: string
+          created_at?: string
+          event_id?: string | null
+          family_id?: string
+          id?: string
+          is_manual?: boolean
+          note?: string | null
+          occurrence_key?: string | null
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          scheduled_title?: string | null
+          timesheet_id?: string
+          updated_at?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timesheet_entries_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_entries_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_entries_timesheet_id_fkey"
+            columns: ["timesheet_id"]
+            isOneToOne: false
+            referencedRelation: "timesheets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timesheet_settings: {
+        Row: {
+          anchor_date: string
+          created_at: string
+          family_id: string
+          frequency: string
+          semimonthly_first_end: number
+          updated_at: string
+        }
+        Insert: {
+          anchor_date?: string
+          created_at?: string
+          family_id: string
+          frequency?: string
+          semimonthly_first_end?: number
+          updated_at?: string
+        }
+        Update: {
+          anchor_date?: string
+          created_at?: string
+          family_id?: string
+          frequency?: string
+          semimonthly_first_end?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timesheet_settings_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: true
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timesheets: {
+        Row: {
+          caregiver_name: string
+          created_at: string
+          family_id: string
+          family_member_id: string
+          id: string
+          parent_note: string | null
+          period_end: string
+          period_start: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          snapshot: Json | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          caregiver_name: string
+          created_at?: string
+          family_id: string
+          family_member_id: string
+          id?: string
+          parent_note?: string | null
+          period_end: string
+          period_start: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          snapshot?: Json | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          caregiver_name?: string
+          created_at?: string
+          family_id?: string
+          family_member_id?: string
+          id?: string
+          parent_note?: string | null
+          period_end?: string
+          period_start?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          snapshot?: Json | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timesheets_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheets_family_member_id_fkey"
+            columns: ["family_member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_preferences: {
         Row: {
           created_at: string
@@ -1403,6 +1580,7 @@ export type Database = {
       has_family_access: { Args: { _family_id: string }; Returns: boolean }
       is_babysitter: { Args: { _family_id: string }; Returns: boolean }
       is_family_owner: { Args: { _family_id: string }; Returns: boolean }
+      my_caregiver_member_id: { Args: { _family_id: string }; Returns: string }
       recover_stale_account_deletion: {
         Args: { _user_id: string }
         Returns: string
