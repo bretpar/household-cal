@@ -2,6 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   BellRing,
   CalendarDays,
+  ClipboardList,
   House,
   LockKeyhole,
   UserRound,
@@ -24,6 +25,7 @@ import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { BabysitterShiftSettings } from "@/components/BabysitterShiftSettings";
 import { SettingsSection } from "@/components/SettingsSection";
 import { SignOutButton } from "@/components/SignOutButton";
+import { TimesheetSettings } from "@/components/TimesheetSettings";
 import { WeekStartSetting } from "@/components/WeekStartSetting";
 import { useCalendar } from "@/lib/calendar-store";
 import { SUPPORT_EMAIL } from "@/lib/support-contact";
@@ -66,7 +68,7 @@ function FamilyPageRoute() {
 }
 
 function FamilyPage() {
-  const { family, role } = useCalendar();
+  const { family, role, isOwner } = useCalendar();
 
 
   return (
@@ -110,6 +112,18 @@ function FamilyPage() {
           <HouseholdAccess />
           <BabysitterShiftSettings />
         </SettingsSection>
+
+        {isOwner ? (
+          <SettingsSection
+            title="Timesheets"
+            description="Pay periods and caregiver timesheet review"
+            icon={<ClipboardList className="h-5 w-5" aria-hidden />}
+          >
+            <TimesheetSettings />
+          </SettingsSection>
+        ) : null}
+
+
 
         <SettingsSection
           title="Account"
