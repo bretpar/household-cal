@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.my_caregiver_member_id(uuid) FROM PUBLIC, anon;
