@@ -161,7 +161,7 @@ export function AppShell({
 
       {/* Phone bottom navigation */}
       <nav className="app-shell-bottom-nav fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-30 mx-auto max-w-lg rounded-3xl border border-border-soft bg-surface/95 p-1.5 shadow-lifted backdrop-blur md:hidden">
-        <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }} data-x="">
+        <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}>
           {nav.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}
