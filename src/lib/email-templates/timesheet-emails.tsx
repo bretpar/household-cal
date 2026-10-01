@@ -104,7 +104,7 @@ export const timesheetReminder = {
 } satisfies TemplateEntry;
 export const timesheetSubmitted = {
   component: Submitted,
-  subject: (d: Record<string, any>) => `${d.caregiverName ?? "Caregiver"} submitted a timesheet`,
+  subject: (d: Record<string, any>) => `${d["caregiverName"] ?? "Caregiver"} submitted a timesheet`,
   displayName: "Timesheet submitted",
   previewData: { ...period, caregiverName: "Michelle", totalHours: "8h", rows: [{ date: "Mon, Sep 15", time: "9:00 AM – 5:00 PM", hours: "8h", manual: false }] },
 } satisfies TemplateEntry;
@@ -118,7 +118,7 @@ export const timesheetApproved = {
 } satisfies TemplateEntry;
 export const timesheetEmailsOff = {
   component: EmailsOff,
-  subject: (d: Record<string, any>) => `${d.caregiverName ?? "A caregiver"} turned off timesheet emails`,
+  subject: (d: Record<string, any>) => `${d["caregiverName"] ?? "A caregiver"} turned off timesheet emails`,
   displayName: "Caregiver turned off timesheet emails",
   previewData: { caregiverName: "Michelle", householdName: "Parker Family" },
 } satisfies TemplateEntry;

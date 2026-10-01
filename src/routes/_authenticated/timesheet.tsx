@@ -26,7 +26,7 @@ import {
 
 export const Route = createFileRoute("/_authenticated/timesheet")({
   validateSearch: (search: Record<string, unknown>): { period?: string } =>
-    typeof search.period === "string" && /^\d{4}-\d{2}-\d{2}$/.test(search.period) ? { period: search.period } : {},
+    typeof search["period"] === "string" && /^\d{4}-\d{2}-\d{2}$/.test(search["period"]) ? { period: search["period"] } : {},
   head: () => ({
     meta: [
       { title: "Timesheet — Family Calendar" },

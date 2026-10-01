@@ -51,7 +51,7 @@ export const Route = createFileRoute("/_authenticated/family")({
     ],
   }),
   validateSearch: (search: Record<string, unknown>): { timesheet?: string } =>
-    typeof search.timesheet === "string" ? { timesheet: search.timesheet } : {},
+    typeof search["timesheet"] === "string" ? { timesheet: search["timesheet"] } : {},
   component: FamilyPageRoute,
 });
 
