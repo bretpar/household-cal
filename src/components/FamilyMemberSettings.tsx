@@ -286,7 +286,7 @@ export function FamilyMemberSettings() {
                 </DropdownMenu>
               ) : null,
               isOwner
-                ? `${hasAccess(member) ? "✓ " : ""}Caregiver · ${hasAccess(member) ? "Access active" : pendingInviteFor(member) ? "Invitation sent" : "No sign-in access"}${isDefault(member) ? " · Default" : ""}`
+                ? `${hasAccess(member) ? "✓ " : ""}Caregiver · ${hasAccess(member) ? "Access active" : pendingInviteFor(member) ? "Invitation sent" : "No sign-in access"}${isDefault(member) ? " · Default" : ""}${member.timesheet_emails_enabled === false ? " · Timesheet emails off" : ""}`
                 : "Caregiver",
             ),
           )}
