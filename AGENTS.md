@@ -16,3 +16,5 @@
 - Shift-days-only caregivers never read recurring masters (can_read_event denies them); getFamilyBundle adds sanitized per-date occurrences from caregiver-occurrences.server.ts and fails closed. Why: masters leaked unauthorized dates.
 - Babysitters (any babysitter access profile) are excluded from summary email sends and previews in dispatch.server.ts. Why: summaries can't yet apply caregiver calendar/date limits; fail closed.
 - Timesheet emails are claimed in timesheet_notifications (unique family/kind/version/recipient) before sending; ready/reminder run from the hourly /api/public/timesheets/notify job, submit/review/opt-out send inline from server functions. Why: idempotent, never client-triggered.
+- Timesheet availability is decided only by hasFeature("timesheets") in src/lib/features.ts (client surfaces) and assertOwner/myCaregiver in timesheets.server.ts (server). Why: one place for a future paid-plan mapping; data is never deleted when off.
+- Owner timesheet review lives in Activities (?tab=timesheets&timesheet=id); Family settings keeps only pay-period and notification config. Why: review is a recurring task, settings are configuration.
