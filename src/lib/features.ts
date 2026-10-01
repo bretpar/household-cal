@@ -7,7 +7,7 @@
 export type FeatureKey = "timesheets";
 
 export interface EntitlementContext {
-  familyId?: string | null;
+  familyId?: string | null | undefined;
 }
 
 const DEFAULT_ENTITLEMENTS: Record<FeatureKey, boolean> = {
