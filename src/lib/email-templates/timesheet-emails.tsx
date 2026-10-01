@@ -100,7 +100,7 @@ export const timesheetSubmitted = {
   component: Submitted,
   subject: (d: Record<string, any>) => `${d["caregiverName"] ?? "Caregiver"} submitted a timesheet`,
   displayName: "Timesheet submitted",
-  previewData: { ...period, caregiverName: "Michelle", totalHours: "8h", rows: [{ date: "Mon, Sep 15", time: "9:00 AM – 5:00 PM", hours: "8h", manual: false }] },
+  previewData: { ...period, caregiverName: "Michelle" },
 } satisfies TemplateEntry;
 export const timesheetCorrection = {
   component: Correction, subject: "Please update your timesheet", displayName: "Timesheet correction",

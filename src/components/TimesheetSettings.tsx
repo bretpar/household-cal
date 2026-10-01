@@ -33,15 +33,62 @@ const fmtDate = (key: string) =>
 const fmtTime = (iso: string | null, tz: string) =>
   iso ? new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz }) : "—";
 
-/** Owner-only: pay period configuration and caregiver timesheet review. */
+/** Owner-only: pay period + notification configuration (review lives in Activities). */
 export function TimesheetSettings() {
-  const { isOwner } = useCalendar();
-  if (!isOwner) return null;
+  const { isOwner, family } = useCalendar();
+  if (!isOwner || !hasFeature("timesheets", { familyId: family?.id })) return null;
   return (
     <div className="space-y-4">
       <PayPeriodSettings />
       <NotificationSettings />
-      <TimesheetReview />
+    </div>
+  );
+}
+
+export const PENDING_TIMESHEETS_KEY = ["timesheet-pending-count"] as const;
+
+/** Server-authoritative count of submitted timesheets awaiting owner review. */
+export function usePendingTimesheetCount(enabled: boolean) {
+  const fetch = useServerFn(countPendingTimesheets);
+  const { data } = useQuery({
+    queryKey: PENDING_TIMESHEETS_KEY,
+    queryFn: () => fetch(),
+    enabled,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+  return enabled ? data?.count ?? 0 : 0;
+}
+
+const GROUPS: { label: string; match: (s: TimesheetView["status"]) => boolean; empty: string }[] = [
+  { label: "Needs review", match: (s) => s === "submitted", empty: "Nothing waiting for review." },
+  { label: "Needs correction", match: (s) => s === "needs_correction", empty: "No timesheets waiting on caregiver changes." },
+  { label: "Approved / recent history", match: (s) => s === "approved", empty: "No approved timesheets yet." },
+];
+
+/** Owner Timesheet hub shown inside Activities. */
+export function OwnerTimesheets() {
+  const fetch = useServerFn(listHouseholdTimesheets);
+  const { data } = useQuery({ queryKey: ["household-timesheets"], queryFn: () => fetch() });
+  return (
+    <div className="space-y-5">
+      {GROUPS.map((g) => {
+        const items = (data ?? []).filter((t) => g.match(t.status));
+        return (
+          <section key={g.label} className="space-y-3">
+            <div className="flex items-baseline gap-2">
+              <h2 className="text-base font-bold">{g.label}</h2>
+              <span className="text-xs font-semibold text-muted-foreground">{items.length}</span>
+            </div>
+            {data && items.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                {g.empty}
+              </p>
+            ) : null}
+            {items.map((t) => <ReviewCard key={t.id} sheet={t} />)}
+          </section>
+        );
+      })}
     </div>
   );
 }
