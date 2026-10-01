@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, redirect } from "@tanstack/react-router";
 import {
   BellRing,
   CalendarDays,
@@ -52,6 +52,10 @@ export const Route = createFileRoute("/_authenticated/family")({
   }),
   validateSearch: (search: Record<string, unknown>): { timesheet?: string } =>
     typeof search["timesheet"] === "string" ? { timesheet: search["timesheet"] } : {},
+  // Older owner emails linked here; review now lives in Activities.
+  beforeLoad: ({ search }) => {
+    if (search.timesheet) throw redirect({ to: "/activities", search: { tab: "timesheets", timesheet: search.timesheet } });
+  },
   component: FamilyPageRoute,
 });
 
@@ -118,7 +122,7 @@ function FamilyPage() {
         {isOwner ? (
           <SettingsSection
             title="Timesheets"
-            description="Pay periods and caregiver timesheet review"
+            description="Pay periods and timesheet emails"
             icon={<ClipboardList className="h-5 w-5" aria-hidden />}
           >
             <TimesheetSettings />
