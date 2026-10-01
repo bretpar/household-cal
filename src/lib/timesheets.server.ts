@@ -3,6 +3,7 @@
  * identity/role is verified from the session; RLS only grants reads.
  * Caregiver identity is family_members.id (assignee_member_id), never family_user_id.
  */
+import { assertFeature } from "@/lib/features";
 import { localDateKey, seriesCoversDate } from "@/lib/google/occurrence";
 import {
   DEFAULT_PAY_SETTINGS,

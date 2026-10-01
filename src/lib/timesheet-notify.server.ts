@@ -116,14 +116,6 @@ export async function notifyTimesheetSubmitted(timesheetId: string) {
     if (!t || t.status !== "submitted") return;
     const settings = await loadNotifySettings(admin, t.family_id);
     if (!settings.notify_owner_submit) return;
-    const tz = t.snapshot?.time_zone ?? "UTC";
-    const entries = (t.snapshot?.entries ?? []) as any[];
-    const rows = entries.map((e) => ({
-      date: new Date(`${e.work_date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }),
-      time: `${fmtTime(e.actual_start, tz)} – ${fmtTime(e.actual_end, tz)}`,
-      hours: formatHours(hoursBetween(e.actual_start, e.actual_end)),
-      manual: !!e.is_manual,
-    }));
     for (const email of await ownerEmails(admin, t.family_id)) {
       await claimAndSend(
         admin,
@@ -131,8 +123,8 @@ export async function notifyTimesheetSubmitted(timesheetId: string) {
         "timesheet-submitted",
         {
           caregiverName: t.snapshot?.caregiver_name ?? t.caregiver_name,
-          periodLabel: periodLabel(t), rows, totalHours: totalHours(entries),
-          url: `${SITE_URL}/family?timesheet=${t.id}`,
+          periodLabel: periodLabel(t),
+          url: `${SITE_URL}/activities?tab=timesheets&timesheet=${t.id}`,
         },
       );
     }
