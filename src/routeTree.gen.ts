@@ -35,6 +35,7 @@ import { Route as ApiPublicGoogleCalendarManualSyncRouteImport } from './routes/
 import { Route as ApiPublicGoogleCalendarNotifyRouteImport } from './routes/api/public/google-calendar/notify'
 import { Route as ApiPublicGoogleCalendarReconcileRouteImport } from './routes/api/public/google-calendar/reconcile'
 import { Route as ApiPublicIcsRefreshRouteImport } from './routes/api/public/ics/refresh'
+import { Route as ApiPublicTimesheetsNotifyRouteImport } from './routes/api/public/timesheets/notify'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 
 const IndexRoute = IndexRouteImport.update({
@@ -174,6 +175,12 @@ const ApiPublicIcsRefreshRoute = ApiPublicIcsRefreshRouteImport.update({
   path: '/api/public/ics/refresh',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicTimesheetsNotifyRoute =
+  ApiPublicTimesheetsNotifyRouteImport.update({
+    id: '/api/public/timesheets/notify',
+    path: '/api/public/timesheets/notify',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LovableEmailTransactionalPreviewRoute =
   LovableEmailTransactionalPreviewRouteImport.update({
     id: '/lovable/email/transactional/preview',
@@ -207,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
   '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
   '/api/public/ics/refresh': typeof ApiPublicIcsRefreshRoute
+  '/api/public/timesheets/notify': typeof ApiPublicTimesheetsNotifyRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
 export interface FileRoutesByTo {
@@ -235,6 +243,7 @@ export interface FileRoutesByTo {
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
   '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
   '/api/public/ics/refresh': typeof ApiPublicIcsRefreshRoute
+  '/api/public/timesheets/notify': typeof ApiPublicTimesheetsNotifyRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
 export interface FileRoutesById {
@@ -265,6 +274,7 @@ export interface FileRoutesById {
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
   '/api/public/google-calendar/reconcile': typeof ApiPublicGoogleCalendarReconcileRoute
   '/api/public/ics/refresh': typeof ApiPublicIcsRefreshRoute
+  '/api/public/timesheets/notify': typeof ApiPublicTimesheetsNotifyRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
 export interface FileRouteTypes {
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/api/public/google-calendar/notify'
     | '/api/public/google-calendar/reconcile'
     | '/api/public/ics/refresh'
+    | '/api/public/timesheets/notify'
     | '/lovable/email/transactional/preview'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -323,6 +334,7 @@ export interface FileRouteTypes {
     | '/api/public/google-calendar/notify'
     | '/api/public/google-calendar/reconcile'
     | '/api/public/ics/refresh'
+    | '/api/public/timesheets/notify'
     | '/lovable/email/transactional/preview'
   id:
     | '__root__'
@@ -352,6 +364,7 @@ export interface FileRouteTypes {
     | '/api/public/google-calendar/notify'
     | '/api/public/google-calendar/reconcile'
     | '/api/public/ics/refresh'
+    | '/api/public/timesheets/notify'
     | '/lovable/email/transactional/preview'
   fileRoutesById: FileRoutesById
 }
@@ -374,6 +387,7 @@ export interface RootRouteChildren {
   ApiPublicGoogleCalendarNotifyRoute: typeof ApiPublicGoogleCalendarNotifyRoute
   ApiPublicGoogleCalendarReconcileRoute: typeof ApiPublicGoogleCalendarReconcileRoute
   ApiPublicIcsRefreshRoute: typeof ApiPublicIcsRefreshRoute
+  ApiPublicTimesheetsNotifyRoute: typeof ApiPublicTimesheetsNotifyRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
 }
 
@@ -561,6 +575,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicIcsRefreshRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/timesheets/notify': {
+      id: '/api/public/timesheets/notify'
+      path: '/api/public/timesheets/notify'
+      fullPath: '/api/public/timesheets/notify'
+      preLoaderRoute: typeof ApiPublicTimesheetsNotifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/transactional/preview': {
       id: '/lovable/email/transactional/preview'
       path: '/lovable/email/transactional/preview'
@@ -617,6 +638,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicGoogleCalendarNotifyRoute: ApiPublicGoogleCalendarNotifyRoute,
   ApiPublicGoogleCalendarReconcileRoute: ApiPublicGoogleCalendarReconcileRoute,
   ApiPublicIcsRefreshRoute: ApiPublicIcsRefreshRoute,
+  ApiPublicTimesheetsNotifyRoute: ApiPublicTimesheetsNotifyRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
 }
 export const routeTree = rootRouteImport

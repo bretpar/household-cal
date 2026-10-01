@@ -6,7 +6,7 @@
  */
 import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 import { formatHours, hoursBetween } from "@/lib/timesheet-periods";
-import { adminDb, ensureTimesheet, loadEntries, loadPaySettings } from "@/lib/timesheets.server";
+import { adminDb, ensureTimesheet, loadEntries } from "@/lib/timesheets.server";
 
 type AnyDb = { from: (t: string) => any; rpc: (f: string, a: unknown) => any; auth?: any };
 
@@ -268,4 +268,3 @@ export async function runTimesheetNotifications(now = new Date()) {
   return { ready, reminders };
 }
 
-export { loadPaySettings };

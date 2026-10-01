@@ -73,14 +73,27 @@ export const savePaySettings = createServerFn({ method: "POST" })
 
 export const getMyTimesheet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ offset: z.number().int().min(-60).max(0) }).parse(d))
-  .handler(async ({ data, context }): Promise<TimesheetView> => {
+  .inputValidator((d) =>
+    z.object({ offset: z.number().int().min(-60).max(0), period_start: dateKey.optional() }).parse(d),
+  )
+  .handler(async ({ data, context }): Promise<TimesheetView & { offset: number }> => {
     const s = await import("@/lib/timesheets.server");
+    const { payPeriodFor } = await import("@/lib/timesheet-periods");
     const me = await s.myCaregiver(context.supabase as unknown as AnyDb, context.userId);
     const admin = await s.adminDb();
-    const { sheet, timeZone } = await s.ensureTimesheet(admin, me.familyId, me.memberId, data.offset);
+    let offset = data.offset;
+    if (data.period_start) {
+      // Deep link from an email: resolve the period to an offset (unknown -> current).
+      const { settings, timeZone } = await s.loadPaySettings(admin, me.familyId);
+      const today = s.todayKey(timeZone);
+      offset = 0;
+      for (let o = 0; o >= -60; o--) {
+        if (payPeriodFor(settings, today, o).start === data.period_start) { offset = o; break; }
+      }
+    }
+    const { sheet, timeZone } = await s.ensureTimesheet(admin, me.familyId, me.memberId, offset);
     const fresh = (await admin.from("timesheets").select("*").eq("id", sheet.id).single()).data;
-    return { ...fresh, time_zone: timeZone, entries: await s.loadEntries(admin, sheet.id, timeZone) };
+    return { ...fresh, offset, time_zone: timeZone, entries: await s.loadEntries(admin, sheet.id, timeZone) };
   });
 
 export const saveTimesheetEntry = createServerFn({ method: "POST" })
@@ -163,6 +176,8 @@ export const submitTimesheet = createServerFn({ method: "POST" })
       .eq("id", sheet.id)
       .in("status", ["draft", "needs_correction"]);
     if (error) throw new Error(error.message);
+    const { notifyTimesheetSubmitted } = await import("@/lib/timesheet-notify.server");
+    await notifyTimesheetSubmitted(sheet.id);
     return { ok: true };
   });
 
@@ -222,5 +237,79 @@ export const reviewTimesheet = createServerFn({ method: "POST" })
       .select("id");
     if (error) throw new Error(error.message);
     if (!updated?.length) throw new Error("Only submitted timesheets can be reviewed");
+    const { notifyTimesheetReviewed } = await import("@/lib/timesheet-notify.server");
+    await notifyTimesheetReviewed(data.timesheet_id);
     return { ok: true };
+  });
+
+/* ------------------------------------------------------- email notifications */
+
+const notifySchema = z.object({
+  notify_ready: z.boolean(),
+  notify_reminder: z.boolean(),
+  notify_owner_submit: z.boolean(),
+  notify_correction: z.boolean(),
+  notify_approved: z.boolean(),
+});
+export type TimesheetNotifySettings = z.infer<typeof notifySchema>;
+
+export const getNotifySettings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<TimesheetNotifySettings> => {
+    const s = await import("@/lib/timesheets.server");
+    const n = await import("@/lib/timesheet-notify.server");
+    const db = context.supabase as unknown as AnyDb;
+    const familyId = await s.currentFamilyId(db, context.userId);
+    await s.assertOwner(db, familyId);
+    return n.loadNotifySettings(await s.adminDb(), familyId);
+  });
+
+export const saveNotifySettings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => notifySchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const s = await import("@/lib/timesheets.server");
+    const db = context.supabase as unknown as AnyDb;
+    const familyId = await s.currentFamilyId(db, context.userId);
+    await s.assertOwner(db, familyId);
+    const admin = await s.adminDb();
+    const existing = await admin.from("timesheet_settings").select("family_id").eq("family_id", familyId).maybeSingle();
+    const { DEFAULT_PAY_SETTINGS } = await import("@/lib/timesheet-periods");
+    const { error } = existing.data
+      ? await admin.from("timesheet_settings").update(data).eq("family_id", familyId)
+      : await admin.from("timesheet_settings").insert({ family_id: familyId, ...DEFAULT_PAY_SETTINGS, ...data });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Caregiver-controlled: Timesheet emails on/off for her own record. */
+export const getMyTimesheetEmailPref = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const s = await import("@/lib/timesheets.server");
+    const me = await s.myCaregiver(context.supabase as unknown as AnyDb, context.userId);
+    const { data } = await (await s.adminDb()).from("family_members").select("timesheet_emails_enabled").eq("id", me.memberId).single();
+    return { enabled: data?.timesheet_emails_enabled !== false };
+  });
+
+export const setMyTimesheetEmailPref = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ enabled: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const s = await import("@/lib/timesheets.server");
+    const me = await s.myCaregiver(context.supabase as unknown as AnyDb, context.userId);
+    const admin = await s.adminDb();
+    // Only an actual ON -> OFF transition notifies owners.
+    const { data: changed, error } = await admin
+      .from("family_members")
+      .update({ timesheet_emails_enabled: data.enabled })
+      .eq("id", me.memberId)
+      .eq("timesheet_emails_enabled", !data.enabled)
+      .select("updated_at");
+    if (error) throw new Error(error.message);
+    if (!data.enabled && changed?.length) {
+      const { notifyOwnersOptOut } = await import("@/lib/timesheet-notify.server");
+      await notifyOwnersOptOut(me.familyId, me.memberId, changed[0].updated_at ?? new Date().toISOString());
+    }
+    return { enabled: data.enabled };
   });
