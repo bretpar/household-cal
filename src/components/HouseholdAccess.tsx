@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import {
   BABYSITTER_SETUP_KEY,
+  invalidateAccessQueries,
   BabysitterAccessDialog,
   BabysitterConfigFields,
   useBabysitterSetup,
