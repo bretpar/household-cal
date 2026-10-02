@@ -338,9 +338,9 @@ export const ownerEditEntry = createServerFn({ method: "POST" })
     };
     // Keep the caregiver-entered values the first time an Owner changes this entry.
     if (!entry.owner_edited_at) {
-      patch.caregiver_actual_start = entry.actual_start;
-      patch.caregiver_actual_end = entry.actual_end;
-      patch.caregiver_note = entry.note;
+      patch["caregiver_actual_start"] = entry.actual_start;
+      patch["caregiver_actual_end"] = entry.actual_end;
+      patch["caregiver_note"] = entry.note;
     }
     const up = await admin.from("timesheet_entries").update(patch).eq("id", entry.id);
     if (up.error) throw new Error(up.error.message);
