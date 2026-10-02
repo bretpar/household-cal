@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   STATUS_LABEL,
-  formatHours,
+  formatDisplayHours,
   hoursBetween,
   localHours,
 } from "@/lib/timesheet-periods";
@@ -158,7 +158,7 @@ function SheetBody({ sheet }: { sheet: TimesheetView }) {
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground">Total</p>
-          <p className="font-bold">{formatHours(total).replace(" h", total === 1 ? " hour" : " hours")}</p>
+          <p className="font-bold">{formatDisplayHours(total).replace(" h", total === 1 ? " hour" : " hours")}</p>
         </div>
       </div>
       {sheet.status === "needs_correction" ? (
@@ -246,7 +246,7 @@ function EntryCard({
     <li className="space-y-2 bg-card px-1 py-3 text-sm">
       <div className="flex items-center justify-between gap-2">
         <p className="font-bold">{fmtDate(entry.work_date, { weekday: "short", month: "short", day: "numeric" })}</p>
-        <p className="font-semibold">{formatHours(hours)}</p>
+        <p className="font-semibold">{formatDisplayHours(hours)}</p>
       </div>
       {entry.is_manual ? (
         <p className="text-xs font-semibold text-primary">Manually added</p>
@@ -319,7 +319,7 @@ function EntryEditor({
         <p className="min-w-0 truncate font-bold">
           {entry ? fmtDate(entry.work_date, { weekday: "short", month: "short", day: "numeric" }) : "Add missing shift"}
         </p>
-        <p className="shrink-0 font-semibold">{formatHours(hours ?? live)}</p>
+        <p className="shrink-0 font-semibold">{formatDisplayHours(hours ?? live)}</p>
       </div>
       {!entry ? (
         <div className="space-y-1">
@@ -336,8 +336,8 @@ function EntryEditor({
         </div>
       </div>
       <div className="space-y-1">
-        <Label htmlFor="ts-note" className="text-xs">Note (optional)</Label>
-        <Input id="ts-note" className="w-full" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+        <Label htmlFor={`ts-note-${entry?.id ?? "new"}`} className="text-xs">Add note (optional)</Label>
+        <Input id={`ts-note-${entry?.id ?? "new"}`} className="w-full" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
       </div>
       <p className="text-xs text-muted-foreground">An end time before the start counts as overnight.</p>
       <div className="grid grid-cols-2 gap-2">

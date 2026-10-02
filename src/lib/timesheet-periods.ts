@@ -84,7 +84,10 @@ export function localHours(start: string, end: string): number {
   return d / 60;
 }
 
-export const formatHours = (h: number) => `${Number((Math.round(h * 100) / 100).toFixed(2))} h`;
+export const formatHours = (h: number) => `${(Math.round(h * 100) / 100).toFixed(2)} h`;
+
+/** Human-friendly UI hours without trailing zeroes; calculations retain full precision. */
+export const formatDisplayHours = (h: number) => `${Number((Math.round(h * 100) / 100).toFixed(2))} h`;
 
 export type TimesheetStatus = "draft" | "submitted" | "needs_correction" | "approved";
 export const STATUS_LABEL: Record<TimesheetStatus, string> = {

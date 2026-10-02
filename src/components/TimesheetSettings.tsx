@@ -18,7 +18,7 @@ import { hasFeature } from "@/lib/features";
 import {
   FREQUENCY_LABEL,
   STATUS_LABEL,
-  formatHours,
+  formatDisplayHours,
   hoursBetween,
   localHours,
   type PayFrequency,
@@ -260,7 +260,7 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
       {open ? (
         <div className="space-y-2 border-t border-border-soft pt-2">
           <p className="text-xs">
-            Scheduled {formatHours(scheduled)} · <span className="font-semibold">Total · {formatHours(actual).replace(" h", actual === 1 ? " hour" : " hours")}</span>
+            Scheduled {formatDisplayHours(scheduled)} · <span className="font-semibold">Total · {formatDisplayHours(actual).replace(" h", actual === 1 ? " hour" : " hours")}</span>
           </p>
           {sheet.status === "needs_correction" && sheet.parent_note ? (
             <p className="rounded-xl bg-surface-muted/60 p-2 text-xs"><span className="font-semibold">Your note: </span>{sheet.parent_note}</p>
@@ -272,7 +272,7 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
               <div key={e.id} className="rounded-xl bg-surface-muted/60 p-2">
                 <div className="flex justify-between gap-2">
                   <span className="font-semibold">{fmtDate(e.work_date)}</span>
-                  <span>{formatHours(hoursBetween(e.actual_start, e.actual_end))}</span>
+                  <span>{formatDisplayHours(hoursBetween(e.actual_start, e.actual_end))}</span>
                 </div>
                 {e.is_manual ? (
                   <p className="text-xs font-semibold text-primary">Manually added</p>
@@ -335,7 +335,7 @@ function OwnerEntryEditor({ sheet, entry, onSaved }: { sheet: TimesheetView; ent
     <div className="space-y-2.5 rounded-xl border border-primary/40 p-3">
       <div className="flex justify-between gap-2">
         <span className="font-semibold">{fmtDate(entry.work_date)}</span>
-        <span>{formatHours(localHours(start, end))}</span>
+        <span>{formatDisplayHours(localHours(start, end))}</span>
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Actual</Label>
@@ -434,7 +434,7 @@ function OwnerManagedCard({ memberId, name }: { memberId: string; name: string }
           </div>
           {sheet ? (
             <>
-              <p className="text-xs font-semibold">Total · {formatHours(actual).replace(" h", actual === 1 ? " hour" : " hours")}</p>
+              <p className="text-xs font-semibold">Total · {formatDisplayHours(actual).replace(" h", actual === 1 ? " hour" : " hours")}</p>
               {sheet.entries.length === 0 && !adding ? (
                 <p className="text-xs text-muted-foreground">No shifts in this pay period.</p>
               ) : null}
@@ -445,7 +445,7 @@ function OwnerManagedCard({ memberId, name }: { memberId: string; name: string }
                   <div key={e.id} className="rounded-xl bg-surface-muted/60 p-2">
                     <div className="flex justify-between gap-2">
                       <span className="font-semibold">{fmtDate(e.work_date)}</span>
-                      <span>{formatHours(hoursBetween(e.actual_start, e.actual_end))}</span>
+                      <span>{formatDisplayHours(hoursBetween(e.actual_start, e.actual_end))}</span>
                     </div>
                     <p className="mt-1 text-xs font-semibold text-muted-foreground">Actual</p>
                     <p className="text-xs">{fmtTime(e.actual_start, sheet.time_zone)} <span aria-hidden>→</span> {fmtTime(e.actual_end, sheet.time_zone)}</p>
@@ -507,7 +507,7 @@ function ManagedEntryEditor({
       {entry ? (
         <div className="flex justify-between gap-2">
           <span className="font-semibold">{fmtDate(entry.work_date)}</span>
-          <span>{start && end ? formatHours(localHours(start, end)) : ""}</span>
+          <span>{start && end ? formatDisplayHours(localHours(start, end)) : ""}</span>
         </div>
       ) : (
         <div className="space-y-1">
@@ -528,8 +528,8 @@ function ManagedEntryEditor({
           <TimeField id={`me-${idp}`} value={end} onChange={setEnd} />
         </div>
       </div>
-      <Input aria-label="Note" placeholder="Note (optional)" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
-      <div className={entry?.is_manual ? "grid grid-cols-2 gap-2" : ""}>
+      <Input aria-label="Add note (optional)" placeholder="Add note (optional)" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+      <div className={entry?.is_manual && dirty ? "grid grid-cols-2 gap-2" : ""}>
         {dirty ? <Button
           size="sm"
           variant={entry ? "outline" : "default"}
