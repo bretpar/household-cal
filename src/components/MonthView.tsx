@@ -57,7 +57,9 @@ export function MonthView({
   fill?: boolean;
 }) {
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
-  const { categoryAppearanceFor } = useCalendar();
+  const { categoryAppearanceFor, family } = useCalendar();
+  /** the household's Babysitter calendar — the only source that tints a day cell */
+  const babysitterSourceId = family?.babysitter_calendar_source_id ?? null;
 
   const WEEKDAYS = weekStartsOn === 0 ? SUNDAY_FIRST : MONDAY_FIRST;
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn });
@@ -151,15 +153,22 @@ export function MonthView({
               .some((d) => d.getDate() === 1 && isSameMonth(d, month));
           const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
           const coverage = dayOccurrences.filter((o) => isCoverage(o.event));
-          // The day marker wears the background calendar's chosen symbol.
-          const coverageIcon = (() => {
-            const first = coverage[0];
-            if (!first) return null;
-            const appearance = categoryAppearanceFor(first.event);
-            return {
-              Icon: calendarIconComponent(appearance.icon) ?? Baby,
-              label: appearance.label,
-            };
+          // Day markers wear each background calendar's chosen symbol (babysitter,
+          // work, …) so a day with both shows both; repeated symbols show once.
+          const coverageIcons = (() => {
+            const seen = new Set<string>();
+            const icons: { Icon: typeof Baby; label: string }[] = [];
+            for (const o of coverage) {
+              const appearance = categoryAppearanceFor(o.event);
+              const key = `${appearance.icon ?? ""}|${appearance.label}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              icons.push({
+                Icon: calendarIconComponent(appearance.icon) ?? Baby,
+                label: appearance.label,
+              });
+            }
+            return icons;
           })();
 
           const visible = dayOccurrences.filter(
