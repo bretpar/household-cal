@@ -162,6 +162,7 @@ function FamilyPage() {
             tone="muted"
           >
             <GoogleCalendarMaintenance>
+              <BuildDiagnostics />
               <DeveloperTools />
             </GoogleCalendarMaintenance>
           </SettingsSection>
