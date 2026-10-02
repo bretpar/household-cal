@@ -122,12 +122,8 @@ export function FamilyMemberSettings() {
     shift?.caregivers.find((c) => c.family_member_id === m.id)?.family_user_id ?? null;
 
   const hasAccess = (m: FamilyMember) =>
-    !!shift?.caregivers.some((c) => c.family_member_id === m.id);
-  const isDefault = (m: FamilyMember) =>
-    !!shift?.default_family_user_id &&
-    shift.caregivers.some(
-      (c) => c.family_member_id === m.id && c.family_user_id === shift.default_family_user_id,
-    );
+    !!shift?.caregivers.some((c) => c.family_member_id === m.id && c.has_sign_in);
+  const isDefault = (m: FamilyMember) => shift?.default_member_id === m.id;
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY }),
@@ -461,7 +457,7 @@ function CaregiverActionDialog({
   action: { kind: "archive" | "delete"; member: FamilyMember } | null;
   onClose: () => void;
   needsDefault: boolean;
-  otherCaregivers: { family_user_id: string; name: string }[];
+  otherCaregivers: { family_member_id: string; name: string }[];
   onArchive: (m: FamilyMember, newDefault: string | null | undefined) => Promise<void>;
   onDelete: (m: FamilyMember, mode: "preserve" | "erase", newDefault: string | null | undefined) => Promise<void>;
 }) {
@@ -544,7 +540,7 @@ function CaregiverActionDialog({
               <SelectContent>
                 <SelectItem value="none">No default</SelectItem>
                 {otherCaregivers.map((c) => (
-                  <SelectItem key={c.family_user_id} value={c.family_user_id}>
+                  <SelectItem key={c.family_member_id} value={c.family_member_id}>
                     {c.name}
                   </SelectItem>
                 ))}

@@ -9,7 +9,14 @@ export interface ShiftSettings {
   /** default caregiver record (family_members.id) */
   default_member_id: string | null;
   /** all active registered caregivers, with or without sign-in access */
-  caregivers: { family_member_id: string; name: string; has_sign_in: boolean }[];
+  caregivers: {
+    family_member_id: string;
+    name: string;
+    /** limited-view login membership, when the caregiver has sign-in access */
+    family_user_id: string | null;
+    has_sign_in: boolean;
+    timesheets_enabled: boolean;
+  }[];
 }
 
 type AnyDb = { from: (t: string) => any; rpc: (f: string, a: unknown) => any };
@@ -44,22 +51,31 @@ export const getShiftSettings = createServerFn({ method: "GET" })
         .single(),
       admin
         .from("family_members")
-        .select("id, name, sort_order")
+        .select("id, name, sort_order, timesheets_enabled")
         .eq("family_id", fam.family_id)
         .eq("role", "caregiver")
         .eq("active", true)
         .is("removed_at", null)
         .order("sort_order", { ascending: true }),
-      admin.from("family_users").select("family_member_id").eq("family_id", fam.family_id).not("family_member_id", "is", null),
+      admin
+        .from("babysitter_access_profiles")
+        .select("family_user_id, family_users!inner(family_member_id)")
+        .eq("family_id", fam.family_id),
     ]);
     if (famRes.error) throw famRes.error;
     if (memRes.error) throw memRes.error;
     if (linkRes.error) throw linkRes.error;
-    const linked = new Set((linkRes.data ?? []).map((r: any) => r.family_member_id as string));
+    const linked = new Map<string, string>(
+      (linkRes.data ?? [])
+        .filter((r: any) => r.family_users?.family_member_id)
+        .map((r: any) => [r.family_users.family_member_id as string, r.family_user_id as string]),
+    );
     const caregivers = (memRes.data ?? []).map((m: any) => ({
       family_member_id: m.id as string,
       name: m.name as string,
+      family_user_id: linked.get(m.id) ?? null,
       has_sign_in: linked.has(m.id),
+      timesheets_enabled: m.timesheets_enabled === true,
     }));
     return {
       family_id: fam.family_id,
