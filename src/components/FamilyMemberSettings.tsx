@@ -45,7 +45,6 @@ import {
   useBabysitterSetup,
 } from "@/components/BabysitterAccessDialog";
 import { CaregiverPreviewDialog } from "@/components/CaregiverPreviewDialog";
-import { BABYSITTER_SETUP_KEY } from "@/components/BabysitterAccessDialog";
 import { IS_CAREGIVER_KEY } from "@/lib/use-caregiver";
 import {
   AlertDialog,
