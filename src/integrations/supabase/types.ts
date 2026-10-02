@@ -1334,6 +1334,9 @@ export type Database = {
         Row: {
           actual_end: string
           actual_start: string
+          caregiver_actual_end: string | null
+          caregiver_actual_start: string | null
+          caregiver_note: string | null
           created_at: string
           event_id: string | null
           family_id: string
@@ -1341,6 +1344,8 @@ export type Database = {
           is_manual: boolean
           note: string | null
           occurrence_key: string | null
+          owner_edited_at: string | null
+          owner_edited_by: string | null
           scheduled_end: string | null
           scheduled_start: string | null
           scheduled_title: string | null
@@ -1351,6 +1356,9 @@ export type Database = {
         Insert: {
           actual_end: string
           actual_start: string
+          caregiver_actual_end?: string | null
+          caregiver_actual_start?: string | null
+          caregiver_note?: string | null
           created_at?: string
           event_id?: string | null
           family_id: string
@@ -1358,6 +1366,8 @@ export type Database = {
           is_manual?: boolean
           note?: string | null
           occurrence_key?: string | null
+          owner_edited_at?: string | null
+          owner_edited_by?: string | null
           scheduled_end?: string | null
           scheduled_start?: string | null
           scheduled_title?: string | null
@@ -1368,6 +1378,9 @@ export type Database = {
         Update: {
           actual_end?: string
           actual_start?: string
+          caregiver_actual_end?: string | null
+          caregiver_actual_start?: string | null
+          caregiver_note?: string | null
           created_at?: string
           event_id?: string | null
           family_id?: string
@@ -1375,6 +1388,8 @@ export type Database = {
           is_manual?: boolean
           note?: string | null
           occurrence_key?: string | null
+          owner_edited_at?: string | null
+          owner_edited_by?: string | null
           scheduled_end?: string | null
           scheduled_start?: string | null
           scheduled_title?: string | null
@@ -1527,6 +1542,8 @@ export type Database = {
           family_id: string
           family_member_id: string
           id: string
+          owner_edited_at: string | null
+          owner_edited_by: string | null
           parent_note: string | null
           period_end: string
           period_start: string
@@ -1535,6 +1552,7 @@ export type Database = {
           snapshot: Json | null
           status: string
           submitted_at: string | null
+          submitted_snapshot: Json | null
           updated_at: string
         }
         Insert: {
@@ -1543,6 +1561,8 @@ export type Database = {
           family_id: string
           family_member_id: string
           id?: string
+          owner_edited_at?: string | null
+          owner_edited_by?: string | null
           parent_note?: string | null
           period_end: string
           period_start: string
@@ -1551,6 +1571,7 @@ export type Database = {
           snapshot?: Json | null
           status?: string
           submitted_at?: string | null
+          submitted_snapshot?: Json | null
           updated_at?: string
         }
         Update: {
@@ -1559,6 +1580,8 @@ export type Database = {
           family_id?: string
           family_member_id?: string
           id?: string
+          owner_edited_at?: string | null
+          owner_edited_by?: string | null
           parent_note?: string | null
           period_end?: string
           period_start?: string
@@ -1567,6 +1590,7 @@ export type Database = {
           snapshot?: Json | null
           status?: string
           submitted_at?: string | null
+          submitted_snapshot?: Json | null
           updated_at?: string
         }
         Relationships: [
