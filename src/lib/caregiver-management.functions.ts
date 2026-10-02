@@ -178,3 +178,13 @@ export const setCaregiverTimesheets = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+/** Owner-only: keep the caregiver, revoke their household login (one transaction; shift history kept). */
+export const removeCaregiverAppAccess = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ({ member_id: String((d as any)?.member_id ?? "") }))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("remove_caregiver_app_access", { _member_id: data.member_id });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

@@ -1707,6 +1707,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: string
       }
+      remove_caregiver_app_access: {
+        Args: { _member_id: string }
+        Returns: number
+      }
       set_caregiver_access: {
         Args: {
           _calendar_ids: string[]
