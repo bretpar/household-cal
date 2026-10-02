@@ -490,16 +490,23 @@ export const listOwnerManagedCaregivers = createServerFn({ method: "GET" })
     const unfinished = members.length
       ? await admin
           .from("timesheets")
-          .select("family_member_id, period_start")
+          .select("id, family_member_id, period_start")
           .eq("family_id", familyId)
           .in("family_member_id", members.map((r: any) => r.id))
           .in("status", ["draft", "needs_correction"])
       : { data: [], error: null };
     if (unfinished.error) throw new Error(unfinished.error.message);
+    // Only cards with hours count; browsing back creates empty drafts.
+    const ids = (unfinished.data ?? []).map((t: any) => t.id as string);
+    const withEntries = ids.length
+      ? await admin.from("timesheet_entries").select("timesheet_id").in("timesheet_id", ids)
+      : { data: [], error: null };
+    if (withEntries.error) throw new Error(withEntries.error.message);
+    const hasHours = new Set((withEntries.data ?? []).map((e: any) => e.timesheet_id as string));
     const attention = new Map<string, number[]>();
     for (const t of unfinished.data ?? []) {
       const o = offsetByStart.get(t.period_start);
-      if (o === undefined) continue;
+      if (o === undefined || !hasHours.has(t.id)) continue;
       attention.set(t.family_member_id, [...(attention.get(t.family_member_id) ?? []), o]);
     }
     return members.map((r: any) => ({
