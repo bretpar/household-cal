@@ -7,7 +7,7 @@ import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { reportShellMount, reportShellUnmount } from "@/lib/shell-remount-probe";
 import { cn } from "@/lib/utils";
 import { useCaregiver } from "@/lib/use-caregiver";
-import { usePendingTimesheetCount } from "@/components/TimesheetSettings";
+import { useMyTimesheetActionCount, usePendingTimesheetCount } from "@/components/TimesheetSettings";
 import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
 
@@ -61,12 +61,15 @@ export function AppShell({
   const nav = isCaregiver
     ? CAREGIVER_NAV.filter((n) => n.to !== "/timesheet" || timesheetsOn)
     : NAV;
-  const pendingReview = usePendingTimesheetCount(!isCaregiver && isOwner && timesheetsOn);
+  const ownerPending = usePendingTimesheetCount(!isCaregiver && isOwner && timesheetsOn);
+  const myActions = useMyTimesheetActionCount(isCaregiver && timesheetsOn);
+  const badgeTo = isCaregiver ? "/timesheet" : "/activities";
+  const pendingReview = isCaregiver ? myActions : ownerPending;
   const badgeFor = (to: string) =>
-    to === "/activities" && pendingReview > 0 ? (
+    to === badgeTo && pendingReview > 0 ? (
       <span
         className="absolute top-1 right-[calc(50%-1.5rem)] min-w-4 rounded-full bg-destructive px-1 text-center text-[10px] leading-4 font-bold text-destructive-foreground"
-        aria-label={`${pendingReview} timesheet${pendingReview === 1 ? "" : "s"} to review`}
+        aria-label={`${pendingReview} timesheet${pendingReview === 1 ? "" : "s"} ${isCaregiver ? "need your attention" : "to review"}`}
       >
         {pendingReview}
       </span>
@@ -136,7 +139,7 @@ export function AppShell({
                   className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary lg:px-4"
                   activeProps={{ className: "bg-secondary text-foreground" }}
                 >
-                  <span className="relative"><Icon className="h-4 w-4" aria-hidden />{pendingReview > 0 && to === "/activities" ? <span className="absolute -top-1.5 -right-2 min-w-4 rounded-full bg-destructive px-1 text-center text-[10px] leading-4 font-bold text-destructive-foreground">{pendingReview}</span> : null}</span>
+                  <span className="relative"><Icon className="h-4 w-4" aria-hidden />{pendingReview > 0 && to === badgeTo ? <span className="absolute -top-1.5 -right-2 min-w-4 rounded-full bg-destructive px-1 text-center text-[10px] leading-4 font-bold text-destructive-foreground">{pendingReview}</span> : null}</span>
                   <span className="hidden lg:inline">{label}</span>
                 </Link>
               ))}

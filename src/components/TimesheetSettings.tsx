@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCalendar } from "@/lib/calendar-store";
@@ -16,6 +18,7 @@ import {
   STATUS_LABEL,
   formatHours,
   hoursBetween,
+  localHours,
   type PayFrequency,
 } from "@/lib/timesheet-periods";
 import {
@@ -24,6 +27,8 @@ import {
   saveNotifySettings,
   type TimesheetNotifySettings,
   countPendingTimesheets,
+  countMyTimesheetActions,
+  ownerEditEntry,
   listHouseholdTimesheets,
   reviewTimesheet,
   savePaySettings,
@@ -57,6 +62,22 @@ export function usePendingTimesheetCount(enabled: boolean) {
     queryFn: () => fetch(),
     enabled,
     staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+  return enabled ? data?.count ?? 0 : 0;
+}
+
+export const MY_TIMESHEET_ACTIONS_KEY = ["timesheet-my-actions"] as const;
+
+/** Caregiver badge: ended-period drafts + needs-correction timesheets (server-authoritative). */
+export function useMyTimesheetActionCount(enabled: boolean) {
+  const fetch = useServerFn(countMyTimesheetActions);
+  const { data } = useQuery({
+    queryKey: MY_TIMESHEET_ACTIONS_KEY,
+    queryFn: () => fetch(),
+    enabled,
+    staleTime: 60_000,
+    refetchInterval: 15 * 60_000, // picks up pay-period transitions
     refetchOnWindowFocus: true,
   });
   return enabled ? data?.count ?? 0 : 0;
@@ -192,24 +213,32 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
   const review = useServerFn(reviewTimesheet);
   const search = useSearch({ strict: false }) as { timesheet?: string };
   const [open, setOpen] = useState(search.timesheet === sheet.id);
+  const [editing, setEditing] = useState(false);
+  const [askNote, setAskNote] = useState(false);
   const [note, setNote] = useState("");
   const tz = sheet.time_zone;
   const scheduled = sheet.entries.reduce((n, e) => n + hoursBetween(e.scheduled_start, e.scheduled_end), 0);
   const actual = sheet.entries.reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ["household-timesheets"] });
+    void qc.invalidateQueries({ queryKey: PENDING_TIMESHEETS_KEY });
+  };
   const mutation = useMutation({
     mutationFn: (action: "approve" | "request_correction") =>
-      review({ data: { timesheet_id: sheet.id, action, note: note || null } }),
+      review({ data: { timesheet_id: sheet.id, action, note: action === "approve" ? null : note.trim() || null } }),
     onSuccess: (_d, action) => {
-      toast.success(action === "approve" ? "Timesheet approved" : "Correction requested");
-      void qc.invalidateQueries({ queryKey: ["household-timesheets"] });
-      void qc.invalidateQueries({ queryKey: PENDING_TIMESHEETS_KEY });
+      toast.success(action === "approve" ? "Timesheet approved" : "Sent back for correction");
+      setAskNote(false);
+      setNote("");
+      refresh();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update"),
   });
+  const editable = sheet.status === "submitted";
   return (
     <div className="space-y-2 rounded-2xl border border-border-soft bg-card p-4 text-sm">
       <button type="button" className="flex w-full items-start justify-between gap-2 text-left" onClick={() => setOpen((o) => !o)}>
-        <span>
+        <span className="min-w-0">
           <span className="block font-bold">{sheet.caregiver_name}</span>
           <span className="block text-xs text-muted-foreground">
             {fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end)} · {STATUS_LABEL[sheet.status]}
@@ -224,29 +253,39 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
           <p className="text-xs">
             Scheduled {formatHours(scheduled)} · <span className="font-semibold">Actual {formatHours(actual)}</span>
           </p>
-          {sheet.entries.map((e) => (
-            <div key={e.id} className="rounded-xl bg-surface-muted/60 p-2">
-              <div className="flex justify-between">
-                <span className="font-semibold">{fmtDate(e.work_date)}</span>
-                <span>{formatHours(hoursBetween(e.actual_start, e.actual_end))}</span>
+          {sheet.status === "needs_correction" && sheet.parent_note ? (
+            <p className="rounded-xl bg-surface-muted/60 p-2 text-xs"><span className="font-semibold">Your note: </span>{sheet.parent_note}</p>
+          ) : null}
+          {sheet.entries.map((e) =>
+            editing && editable ? (
+              <OwnerEntryEditor key={e.id} sheet={sheet} entry={e} onSaved={refresh} />
+            ) : (
+              <div key={e.id} className="rounded-xl bg-surface-muted/60 p-2">
+                <div className="flex justify-between gap-2">
+                  <span className="font-semibold">{fmtDate(e.work_date)}</span>
+                  <span>{formatHours(hoursBetween(e.actual_start, e.actual_end))}</span>
+                </div>
+                {e.is_manual ? (
+                  <p className="text-xs font-semibold text-primary">Manually added</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Scheduled {fmtTime(e.scheduled_start, tz)} – {fmtTime(e.scheduled_end, tz)}
+                  </p>
+                )}
+                <p className="text-xs">Actual {fmtTime(e.actual_start, tz)} – {fmtTime(e.actual_end, tz)}</p>
+                {e.owner_edited_at ? <p className="text-xs font-semibold text-muted-foreground">Edited by parent</p> : null}
+                {e.note ? <p className="text-xs text-muted-foreground">{e.note}</p> : null}
               </div>
-              {e.is_manual ? (
-                <p className="text-xs font-semibold text-primary">Manually added</p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Scheduled {fmtTime(e.scheduled_start, tz)} – {fmtTime(e.scheduled_end, tz)}
-                </p>
-              )}
-              <p className="text-xs">Actual {fmtTime(e.actual_start, tz)} – {fmtTime(e.actual_end, tz)}</p>
-              {e.note ? <p className="text-xs text-muted-foreground">{e.note}</p> : null}
-            </div>
-          ))}
-          {sheet.status === "submitted" ? (
-            <div className="space-y-2">
-              <Input placeholder="Note for correction (optional)" value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} />
-              <div className="flex gap-2">
-                <Button size="sm" className="flex-1" disabled={mutation.isPending} onClick={() => mutation.mutate("approve")}>Approve</Button>
-                <Button size="sm" variant="outline" className="flex-1" disabled={mutation.isPending} onClick={() => mutation.mutate("request_correction")}>
+            ),
+          )}
+          {editable ? (
+            <div className="space-y-2 pt-1">
+              <Button size="sm" variant="outline" className="w-full" onClick={() => setEditing((v) => !v)}>
+                {editing ? "Done editing" : "Edit timesheet"}
+              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button size="sm" disabled={mutation.isPending || editing} onClick={() => mutation.mutate("approve")}>Approve</Button>
+                <Button size="sm" variant="outline" disabled={mutation.isPending || editing} onClick={() => setAskNote(true)}>
                   Request correction
                 </Button>
               </div>
@@ -254,6 +293,70 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
           ) : null}
         </div>
       ) : null}
+      <Dialog open={askNote} onOpenChange={(o) => !mutation.isPending && setAskNote(o)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request correction</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor={`corr-${sheet.id}`}>What needs to be corrected?</Label>
+            <Textarea id={`corr-${sheet.id}`} rows={4} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+          <DialogFooter className="grid grid-cols-2 gap-2 sm:flex">
+            <Button variant="outline" disabled={mutation.isPending} onClick={() => setAskNote(false)}>Cancel</Button>
+            <Button disabled={mutation.isPending || !note.trim()} onClick={() => mutation.mutate("request_correction")}>
+              Send back for correction
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function OwnerEntryEditor({ sheet, entry, onSaved }: { sheet: TimesheetView; entry: TimesheetView["entries"][number]; onSaved: () => void }) {
+  const save = useServerFn(ownerEditEntry);
+  const [start, setStart] = useState(entry.actual_start_local);
+  const [end, setEnd] = useState(entry.actual_end_local);
+  const [note, setNote] = useState(entry.note ?? "");
+  const [busy, setBusy] = useState(false);
+  const dirty = start !== entry.actual_start_local || end !== entry.actual_end_local || note !== (entry.note ?? "");
+  return (
+    <div className="space-y-2.5 rounded-xl border border-primary/40 p-3">
+      <div className="flex justify-between gap-2">
+        <span className="font-semibold">{fmtDate(entry.work_date)}</span>
+        <span>{formatHours(localHours(start, end))}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="min-w-0 space-y-1">
+          <Label htmlFor={`os-${entry.id}`} className="text-xs">Actual start</Label>
+          <Input id={`os-${entry.id}`} type="time" className="w-full min-w-0" value={start} onChange={(e) => setStart(e.target.value)} />
+        </div>
+        <div className="min-w-0 space-y-1">
+          <Label htmlFor={`oe-${entry.id}`} className="text-xs">Actual end</Label>
+          <Input id={`oe-${entry.id}`} type="time" className="w-full min-w-0" value={end} onChange={(e) => setEnd(e.target.value)} />
+        </div>
+      </div>
+      <Input aria-label="Note" placeholder="Note (optional)" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+      <Button
+        size="sm"
+        className="w-full"
+        disabled={busy || !dirty || !start || !end}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await save({ data: { timesheet_id: sheet.id, entry_id: entry.id, start, end, note: note || null } });
+            toast.success("Entry updated");
+            onSaved();
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Could not save");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        Save entry
+      </Button>
     </div>
   );
 }
