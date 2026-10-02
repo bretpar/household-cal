@@ -16,6 +16,7 @@ import { CalendarAppearanceSettings } from "@/components/CalendarAppearanceSetti
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
+import { BuildDiagnostics } from "@/components/BuildDiagnostics";
 import { DeveloperTools } from "@/components/DeveloperTools";
 import { GoogleCalendarMaintenance } from "@/components/GoogleCalendarMaintenance";
 import { EmailSummarySettings } from "@/components/EmailSummarySettings";
