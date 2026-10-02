@@ -178,7 +178,7 @@ export function FamilyMemberSettings() {
       </span>
       <div className="min-w-0">
         <h3 className="truncate text-base font-bold">{member.name}</h3>
-        <p className="whitespace-pre-line text-xs font-semibold text-muted-foreground">{subtitle}</p>
+        <p className="whitespace-pre-line break-words text-xs font-semibold text-muted-foreground">{subtitle}</p>
       </div>
       {actions}
     </article>
