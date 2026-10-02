@@ -33,6 +33,8 @@ export interface TimesheetView {
   submitted_at: string | null;
   time_zone: string;
   entries: TimesheetEntry[];
+  /** finalized by a household Owner for a caregiver without sign-in access */
+  owner_managed?: boolean;
 }
 
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/);
@@ -429,4 +431,146 @@ export const setMyTimesheetEmailPref = createServerFn({ method: "POST" })
       await notifyOwnersOptOut(me.familyId, me.memberId, changed[0].updated_at ?? new Date().toISOString());
     }
     return { enabled: data.enabled };
+  });
+
+/* ------------------------------------------------- owner-managed time cards */
+
+async function ownerCtx(context: { supabase: unknown; userId: string }) {
+  const s = await import("@/lib/timesheets.server");
+  const db = context.supabase as unknown as AnyDb;
+  const familyId = await s.currentFamilyId(db, context.userId);
+  await s.assertOwner(db, familyId);
+  return { s, familyId, admin: await s.adminDb() };
+}
+
+/** Owner-managed draft for a no-login caregiver; refuses anything else. */
+async function managedEditableSheet(
+  s: typeof import("@/lib/timesheets.server"),
+  admin: AnyDb,
+  familyId: string,
+  timesheetId: string,
+) {
+  const { data, error } = await admin.from("timesheets").select("*").eq("id", timesheetId).eq("family_id", familyId).maybeSingle();
+  if (error || !data) throw new Error("Timesheet not found");
+  await s.ownerManagedCaregiver(admin, familyId, data.family_member_id);
+  if (data.status !== "draft" && data.status !== "needs_correction") throw new Error("This time card is already finalized");
+  return data as any;
+}
+
+/** Timesheet-enabled, active caregivers without sign-in access. */
+export const listOwnerManagedCaregivers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ member_id: string; name: string }[]> => {
+    const { familyId, admin } = await ownerCtx(context);
+    const [m, fu] = await Promise.all([
+      admin
+        .from("family_members")
+        .select("id, name, sort_order")
+        .eq("family_id", familyId)
+        .eq("role", "caregiver")
+        .eq("active", true)
+        .eq("timesheets_enabled", true)
+        .is("removed_at", null)
+        .order("sort_order", { ascending: true }),
+      admin.from("family_users").select("family_member_id").eq("family_id", familyId).not("family_member_id", "is", null),
+    ]);
+    if (m.error) throw new Error(m.error.message);
+    if (fu.error) throw new Error(fu.error.message);
+    const linked = new Set((fu.data ?? []).map((r: any) => r.family_member_id as string));
+    return (m.data ?? []).filter((r: any) => !linked.has(r.id)).map((r: any) => ({ member_id: r.id, name: r.name }));
+  });
+
+export const getOwnerManagedTimesheet = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ member_id: z.string().uuid(), offset: z.number().int().min(-60).max(0) }).parse(d))
+  .handler(async ({ data, context }): Promise<TimesheetView & { offset: number }> => {
+    const { s, familyId, admin } = await ownerCtx(context);
+    const member = await s.ownerManagedCaregiver(admin, familyId, data.member_id);
+    if (!member.active || member.removed_at) throw new Error("Caregiver not found");
+    const { sheet, timeZone } = await s.ensureTimesheet(admin, familyId, data.member_id, data.offset);
+    const fresh = (await admin.from("timesheets").select("*").eq("id", sheet.id).single()).data;
+    const finalized = fresh.status === "approved" || fresh.status === "submitted";
+    return {
+      ...fresh,
+      offset: data.offset,
+      time_zone: finalized ? fresh.snapshot?.time_zone ?? timeZone : timeZone,
+      entries: finalized && fresh.snapshot?.entries ? fresh.snapshot.entries : await s.loadEntries(admin, sheet.id, timeZone),
+    };
+  });
+
+export const ownerSaveManagedEntry = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      timesheet_id: z.string().uuid(),
+      entry_id: z.string().uuid().nullable(),
+      work_date: dateKey,
+      start: hhmm,
+      end: hhmm,
+      note: z.string().max(500).nullable(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { s, familyId, admin } = await ownerCtx(context);
+    const sheet = await managedEditableSheet(s, admin, familyId, data.timesheet_id);
+    if (data.work_date < sheet.period_start || data.work_date > sheet.period_end) throw new Error("Pick a date inside this pay period");
+    const { timeZone } = await s.loadPaySettings(admin, familyId);
+    const start = s.zonedInstant(data.work_date, data.start, timeZone);
+    let end = s.zonedInstant(data.work_date, data.end, timeZone);
+    if (end <= start) end = new Date(end.getTime() + 86_400_000); // overnight
+    const note = data.note?.trim() || null;
+    const now = new Date().toISOString();
+    if (data.entry_id) {
+      const { error } = await admin
+        .from("timesheet_entries")
+        .update({ actual_start: start.toISOString(), actual_end: end.toISOString(), note, owner_edited_at: now, owner_edited_by: context.userId })
+        .eq("id", data.entry_id)
+        .eq("timesheet_id", sheet.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await admin.from("timesheet_entries").insert({
+        timesheet_id: sheet.id, family_id: familyId, work_date: data.work_date,
+        actual_start: start.toISOString(), actual_end: end.toISOString(), is_manual: true, note,
+        owner_edited_at: now, owner_edited_by: context.userId,
+      });
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
+export const ownerDeleteManagedEntry = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ timesheet_id: z.string().uuid(), entry_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { s, familyId, admin } = await ownerCtx(context);
+    const sheet = await managedEditableSheet(s, admin, familyId, data.timesheet_id);
+    const { error } = await admin
+      .from("timesheet_entries").delete().eq("id", data.entry_id).eq("timesheet_id", sheet.id).eq("is_manual", true);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Owner finalizes (approves) an owner-managed time card. No caregiver submission, no emails. */
+export const ownerFinalizeManaged = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ timesheet_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { s, familyId, admin } = await ownerCtx(context);
+    const sheet = await managedEditableSheet(s, admin, familyId, data.timesheet_id);
+    const { timeZone } = await s.loadPaySettings(admin, familyId);
+    const entries = await s.loadEntries(admin, sheet.id, timeZone);
+    const now = new Date().toISOString();
+    const { error } = await admin
+      .from("timesheets")
+      .update({
+        status: "approved",
+        owner_managed: true,
+        reviewed_at: now,
+        reviewed_by: context.userId,
+        snapshot: { time_zone: timeZone, caregiver_name: sheet.caregiver_name, entries, owner_managed: true },
+      })
+      .eq("id", sheet.id)
+      .in("status", ["draft", "needs_correction"]);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
