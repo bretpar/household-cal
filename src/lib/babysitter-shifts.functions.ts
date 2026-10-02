@@ -6,9 +6,10 @@ export interface ShiftSettings {
   family_id: string;
   /** household Babysitter calendar; null = not chosen yet */
   calendar_source_id: string | null;
-  default_family_user_id: string | null;
-  /** registered caregivers (babysitter access profiles) */
-  caregivers: { family_user_id: string; name: string; family_member_id: string | null }[];
+  /** default caregiver record (family_members.id) */
+  default_member_id: string | null;
+  /** all active registered caregivers, with or without sign-in access */
+  caregivers: { family_member_id: string; name: string; has_sign_in: boolean }[];
 }
 
 type AnyDb = { from: (t: string) => any; rpc: (f: string, a: unknown) => any };
@@ -35,33 +36,35 @@ export const getShiftSettings = createServerFn({ method: "GET" })
     if (fam.role !== "owner" && fam.role !== "editor") return null;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as unknown as AnyDb;
-    const [famRes, profRes] = await Promise.all([
+    const [famRes, memRes, linkRes] = await Promise.all([
       admin
         .from("families")
-        .select("babysitter_calendar_source_id, default_babysitter_family_user_id")
+        .select("babysitter_calendar_source_id, default_babysitter_member_id")
         .eq("id", fam.family_id)
         .single(),
       admin
-        .from("babysitter_access_profiles")
-        .select("family_user_id, family_users!inner(family_member_id, family_members(name, active, removed_at))")
-        .eq("family_id", fam.family_id),
+        .from("family_members")
+        .select("id, name, sort_order")
+        .eq("family_id", fam.family_id)
+        .eq("role", "caregiver")
+        .eq("active", true)
+        .is("removed_at", null)
+        .order("sort_order", { ascending: true }),
+      admin.from("family_users").select("family_member_id").eq("family_id", fam.family_id).not("family_member_id", "is", null),
     ]);
     if (famRes.error) throw famRes.error;
-    if (profRes.error) throw profRes.error;
-    const caregivers = (profRes.data ?? [])
-      .filter((p: any) => {
-        const m = p.family_users?.family_members;
-        return !m || (m.active !== false && !m.removed_at);
-      })
-      .map((p: any) => ({
-      family_member_id: (p.family_users?.family_member_id as string | null) ?? null,
-      family_user_id: p.family_user_id as string,
-      name: (p.family_users?.family_members?.name as string | undefined) ?? "Babysitter",
+    if (memRes.error) throw memRes.error;
+    if (linkRes.error) throw linkRes.error;
+    const linked = new Set((linkRes.data ?? []).map((r: any) => r.family_member_id as string));
+    const caregivers = (memRes.data ?? []).map((m: any) => ({
+      family_member_id: m.id as string,
+      name: m.name as string,
+      has_sign_in: linked.has(m.id),
     }));
     return {
       family_id: fam.family_id,
       calendar_source_id: famRes.data?.babysitter_calendar_source_id ?? null,
-      default_family_user_id: famRes.data?.default_babysitter_family_user_id ?? null,
+      default_member_id: famRes.data?.default_babysitter_member_id ?? null,
       caregivers,
     };
   });
@@ -74,7 +77,7 @@ export const updateShiftSettings = createServerFn({ method: "POST" })
     const id = (v: unknown) => (typeof v === "string" && v.length > 0 ? v : null);
     return {
       calendar_source_id: id(r["calendar_source_id"]),
-      default_family_user_id: id(r["default_family_user_id"]),
+      default_member_id: id(r["default_member_id"]),
     };
   })
   .handler(async ({ data, context }) => {
@@ -86,7 +89,7 @@ export const updateShiftSettings = createServerFn({ method: "POST" })
       .from("families")
       .update({
         babysitter_calendar_source_id: data.calendar_source_id,
-        default_babysitter_family_user_id: data.default_family_user_id,
+        default_babysitter_member_id: data.default_member_id,
       })
       .eq("id", fam.family_id);
     if (error) throw error;

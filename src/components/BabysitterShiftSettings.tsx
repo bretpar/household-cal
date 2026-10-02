@@ -28,7 +28,7 @@ export function BabysitterShiftSettings() {
     enabled: isOwner,
   }).data;
   const mutation = useMutation({
-    mutationFn: (next: { calendar_source_id: string | null; default_family_user_id: string | null }) =>
+    mutationFn: (next: { calendar_source_id: string | null; default_member_id: string | null }) =>
       save({ data: next }),
     onSuccess: () => {
       toast.success("Babysitter settings saved");
@@ -40,7 +40,7 @@ export function BabysitterShiftSettings() {
   const calendars = sources.filter(isWritableDestination);
   const current = {
     calendar_source_id: settings.calendar_source_id,
-    default_family_user_id: settings.default_family_user_id,
+    default_member_id: settings.default_member_id,
   };
 
   return (
@@ -76,10 +76,10 @@ export function BabysitterShiftSettings() {
       <div className="space-y-1">
         <Label>Default babysitter</Label>
         <Select
-          value={settings.default_family_user_id ?? NONE}
+          value={settings.default_member_id ?? NONE}
           disabled={mutation.isPending}
           onValueChange={(v) =>
-            mutation.mutate({ ...current, default_family_user_id: v === NONE ? null : v })
+            mutation.mutate({ ...current, default_member_id: v === NONE ? null : v })
           }
         >
           <SelectTrigger className="h-10 rounded-xl">
@@ -88,7 +88,7 @@ export function BabysitterShiftSettings() {
           <SelectContent>
             <SelectItem value={NONE}>No default</SelectItem>
             {settings.caregivers.map((c) => (
-              <SelectItem key={c.family_user_id} value={c.family_user_id}>
+              <SelectItem key={c.family_member_id} value={c.family_member_id}>
                 {c.name}
               </SelectItem>
             ))}
