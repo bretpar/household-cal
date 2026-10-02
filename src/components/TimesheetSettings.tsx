@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TimeField } from "@/components/TimeField";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -99,7 +101,7 @@ export function OwnerTimesheets() {
   const fetch = useServerFn(listHouseholdTimesheets);
   const { data } = useQuery({ queryKey: ["household-timesheets"], queryFn: () => fetch() });
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-8 md:pb-0">
       <OwnerManagedSection />
       {GROUPS.map((g) => {
         const items = (data ?? []).filter((t) => g.match(t.status));
@@ -246,8 +248,9 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
       <button type="button" className="flex w-full items-start justify-between gap-2 text-left" onClick={() => setOpen((o) => !o)}>
         <span className="min-w-0">
           <span className="block font-bold">{sheet.caregiver_name}</span>
-          <span className="block text-xs text-muted-foreground">
-            {fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end)} · {sheet.owner_managed ? "Owner-managed · " : ""}{STATUS_LABEL[sheet.status]}
+          <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>{fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end)}</span>
+            <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px]">{STATUS_LABEL[sheet.status]}</Badge>
           </span>
         </span>
         <span className="shrink-0 rounded-full bg-secondary px-3 py-1 text-xs font-semibold">
@@ -257,7 +260,7 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
       {open ? (
         <div className="space-y-2 border-t border-border-soft pt-2">
           <p className="text-xs">
-            Scheduled {formatHours(scheduled)} · <span className="font-semibold">Actual {formatHours(actual)}</span>
+            Scheduled {formatHours(scheduled)} · <span className="font-semibold">Total · {formatHours(actual).replace(" h", actual === 1 ? " hour" : " hours")}</span>
           </p>
           {sheet.status === "needs_correction" && sheet.parent_note ? (
             <p className="rounded-xl bg-surface-muted/60 p-2 text-xs"><span className="font-semibold">Your note: </span>{sheet.parent_note}</p>
@@ -275,10 +278,11 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
                   <p className="text-xs font-semibold text-primary">Manually added</p>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Scheduled {fmtTime(e.scheduled_start, tz)} – {fmtTime(e.scheduled_end, tz)}
+                    Scheduled · {fmtTime(e.scheduled_start, tz)}–{fmtTime(e.scheduled_end, tz)}
                   </p>
                 )}
-                <p className="text-xs">Actual {fmtTime(e.actual_start, tz)} – {fmtTime(e.actual_end, tz)}</p>
+                <p className="mt-1 text-xs font-semibold text-muted-foreground">Actual</p>
+                <p className="text-xs">{fmtTime(e.actual_start, tz)} <span aria-hidden>→</span> {fmtTime(e.actual_end, tz)}</p>
                 {e.owner_edited_at ? <p className="text-xs font-semibold text-muted-foreground">Edited by parent</p> : null}
                 {e.note ? <p className="text-xs text-muted-foreground">{e.note}</p> : null}
               </div>
@@ -333,19 +337,18 @@ function OwnerEntryEditor({ sheet, entry, onSaved }: { sheet: TimesheetView; ent
         <span className="font-semibold">{fmtDate(entry.work_date)}</span>
         <span>{formatHours(localHours(start, end))}</span>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="min-w-0 space-y-1">
-          <Label htmlFor={`os-${entry.id}`} className="text-xs">Actual start</Label>
-          <Input id={`os-${entry.id}`} type="time" className="w-full min-w-0" value={start} onChange={(e) => setStart(e.target.value)} />
-        </div>
-        <div className="min-w-0 space-y-1">
-          <Label htmlFor={`oe-${entry.id}`} className="text-xs">Actual end</Label>
-          <Input id={`oe-${entry.id}`} type="time" className="w-full min-w-0" value={end} onChange={(e) => setEnd(e.target.value)} />
+      <div className="space-y-1">
+        <Label className="text-xs">Actual</Label>
+        <div className="time-row grid min-w-0 grid-cols-1 items-center gap-2 min-[340px]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <TimeField id={`os-${entry.id}`} value={start} onChange={setStart} />
+          <span className="hidden text-muted-foreground min-[340px]:block" aria-hidden>→</span>
+          <TimeField id={`oe-${entry.id}`} value={end} onChange={setEnd} />
         </div>
       </div>
       <Input aria-label="Note" placeholder="Note (optional)" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
       <Button
         size="sm"
+        variant="outline"
         className="w-full"
         disabled={busy || !dirty || !start || !end}
         onClick={async () => {
@@ -361,7 +364,7 @@ function OwnerEntryEditor({ sheet, entry, onSaved }: { sheet: TimesheetView; ent
           }
         }}
       >
-        Save entry
+        Save changes
       </Button>
     </div>
   );
@@ -403,10 +406,10 @@ function OwnerManagedCard({ memberId, name }: { memberId: string; name: string }
   const mutation = useMutation({
     mutationFn: () => finalize({ data: { timesheet_id: sheet!.id } }),
     onSuccess: () => {
-      toast.success("Time card approved");
+      toast.success("Time card confirmed");
       refresh();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not approve"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not confirm"),
   });
   const editable = sheet ? sheet.status === "draft" || sheet.status === "needs_correction" : false;
   const actual = (sheet?.entries ?? []).reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
@@ -421,16 +424,17 @@ function OwnerManagedCard({ memberId, name }: { memberId: string; name: string }
       </button>
       {open ? (
         <div className="space-y-2 border-t border-border-soft pt-2">
-          <div className="flex items-center justify-between gap-2">
-            <Button size="sm" variant="ghost" disabled={offset <= -60} onClick={() => setOffset((o) => o - 1)} aria-label="Previous pay period">‹</Button>
-            <span className="text-xs font-semibold">
-              {sheet ? `${fmtDate(sheet.period_start)} – ${fmtDate(sheet.period_end)} · Owner-managed · ${STATUS_LABEL[sheet.status]}` : "Loading…"}
-            </span>
-            <Button size="sm" variant="ghost" disabled={offset >= 0} onClick={() => setOffset((o) => o + 1)} aria-label="Next pay period">›</Button>
+          <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-1">
+            <Button size="icon" variant="ghost" className="h-11 w-11" disabled={offset <= -60} onClick={() => setOffset((o) => o - 1)} aria-label="Previous pay period">‹</Button>
+            <div className="flex min-w-0 flex-wrap items-center justify-center gap-2 text-center text-xs font-semibold">
+              <span>{sheet ? `${fmtDate(sheet.period_start)} – ${fmtDate(sheet.period_end)}` : "Loading…"}</span>
+              {sheet ? <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px]">{STATUS_LABEL[sheet.status]}</Badge> : null}
+            </div>
+            <Button size="icon" variant="ghost" className="h-11 w-11" disabled={offset >= 0} onClick={() => setOffset((o) => o + 1)} aria-label="Next pay period">›</Button>
           </div>
           {sheet ? (
             <>
-              <p className="text-xs font-semibold">Actual {formatHours(actual)}</p>
+              <p className="text-xs font-semibold">Total · {formatHours(actual).replace(" h", actual === 1 ? " hour" : " hours")}</p>
               {sheet.entries.length === 0 && !adding ? (
                 <p className="text-xs text-muted-foreground">No shifts in this pay period.</p>
               ) : null}
@@ -443,7 +447,8 @@ function OwnerManagedCard({ memberId, name }: { memberId: string; name: string }
                       <span className="font-semibold">{fmtDate(e.work_date)}</span>
                       <span>{formatHours(hoursBetween(e.actual_start, e.actual_end))}</span>
                     </div>
-                    <p className="text-xs">Actual {fmtTime(e.actual_start, sheet.time_zone)} – {fmtTime(e.actual_end, sheet.time_zone)}</p>
+                    <p className="mt-1 text-xs font-semibold text-muted-foreground">Actual</p>
+                    <p className="text-xs">{fmtTime(e.actual_start, sheet.time_zone)} <span aria-hidden>→</span> {fmtTime(e.actual_end, sheet.time_zone)}</p>
                     {e.note ? <p className="text-xs text-muted-foreground">{e.note}</p> : null}
                   </div>
                 ),
@@ -455,7 +460,7 @@ function OwnerManagedCard({ memberId, name }: { memberId: string; name: string }
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <Button size="sm" variant="outline" onClick={() => setAdding((v) => !v)}>{adding ? "Cancel" : "Add entry"}</Button>
                   <Button size="sm" disabled={mutation.isPending || sheet.entries.length === 0} onClick={() => mutation.mutate()}>
-                    Approve time card
+                    Confirm time card
                   </Button>
                 </div>
               ) : null}
@@ -512,25 +517,24 @@ function ManagedEntryEditor({
       )}
       {entry && !entry.is_manual ? (
         <p className="text-xs text-muted-foreground">
-          Scheduled {fmtTime(entry.scheduled_start, sheet.time_zone)} – {fmtTime(entry.scheduled_end, sheet.time_zone)}
+          Scheduled · {fmtTime(entry.scheduled_start, sheet.time_zone)}–{fmtTime(entry.scheduled_end, sheet.time_zone)}
         </p>
       ) : null}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="min-w-0 space-y-1">
-          <Label htmlFor={`ms-${idp}`} className="text-xs">Actual start</Label>
-          <Input id={`ms-${idp}`} type="time" className="w-full min-w-0" value={start} onChange={(e) => setStart(e.target.value)} />
-        </div>
-        <div className="min-w-0 space-y-1">
-          <Label htmlFor={`me-${idp}`} className="text-xs">Actual end</Label>
-          <Input id={`me-${idp}`} type="time" className="w-full min-w-0" value={end} onChange={(e) => setEnd(e.target.value)} />
+      <div className="space-y-1">
+        <Label className="text-xs">Actual</Label>
+        <div className="time-row grid min-w-0 grid-cols-1 items-center gap-2 min-[340px]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <TimeField id={`ms-${idp}`} value={start} onChange={setStart} />
+          <span className="hidden text-muted-foreground min-[340px]:block" aria-hidden>→</span>
+          <TimeField id={`me-${idp}`} value={end} onChange={setEnd} />
         </div>
       </div>
       <Input aria-label="Note" placeholder="Note (optional)" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
       <div className={entry?.is_manual ? "grid grid-cols-2 gap-2" : ""}>
-        <Button
+        {dirty ? <Button
           size="sm"
+          variant={entry ? "outline" : "default"}
           className="w-full"
-          disabled={busy || !dirty || !start || !end || !date}
+          disabled={busy || !start || !end || !date}
           onClick={() =>
             void run(
               () => save({ data: { timesheet_id: sheet.id, entry_id: entry?.id ?? null, work_date: entry?.work_date ?? date, start, end, note: note || null } }),
@@ -538,8 +542,8 @@ function ManagedEntryEditor({
             )
           }
         >
-          {entry ? "Save entry" : "Add entry"}
-        </Button>
+          {entry ? "Save changes" : "Add entry"}
+        </Button> : null}
         {entry?.is_manual ? (
           <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(() => remove({ data: { timesheet_id: sheet.id, entry_id: entry.id } }), "Entry removed")}>
             Remove

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { CaregiverOnly } from "@/components/CaregiverGate";
+import { TimeField } from "@/components/TimeField";
 import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,7 @@ function TimesheetPage() {
   };
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
+    <div className="mx-auto max-w-lg space-y-4 pb-8 md:pb-0">
       <header className="flex items-center justify-between gap-2">
         <Button variant="outline" size="icon" aria-label="Previous pay period" onClick={() => move(-1)}>
           <ChevronLeft className="h-4 w-4" />
@@ -156,8 +157,8 @@ function SheetBody({ sheet }: { sheet: TimesheetView }) {
           <p className="font-bold">{STATUS_LABEL[sheet.status]}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-muted-foreground">Total actual</p>
-          <p className="font-bold">{formatHours(total)}</p>
+          <p className="text-xs text-muted-foreground">Total</p>
+          <p className="font-bold">{formatHours(total).replace(" h", total === 1 ? " hour" : " hours")}</p>
         </div>
       </div>
       {sheet.status === "needs_correction" ? (
@@ -242,7 +243,7 @@ function EntryCard({
     );
   }
   return (
-    <li className="space-y-1.5 rounded-2xl border border-border-soft bg-card p-4 text-sm">
+    <li className="space-y-2 bg-card px-1 py-3 text-sm">
       <div className="flex items-center justify-between gap-2">
         <p className="font-bold">{fmtDate(entry.work_date, { weekday: "short", month: "short", day: "numeric" })}</p>
         <p className="font-semibold">{formatHours(hours)}</p>
@@ -251,12 +252,13 @@ function EntryCard({
         <p className="text-xs font-semibold text-primary">Manually added</p>
       ) : (
         <p className="text-xs text-muted-foreground">
-          Scheduled {fmtTime(entry.scheduled_start, tz)} – {fmtTime(entry.scheduled_end, tz)}
+          Scheduled · {fmtTime(entry.scheduled_start, tz)}–{fmtTime(entry.scheduled_end, tz)}
         </p>
       )}
-      <p>
-        Actual {fmtTime(entry.actual_start, tz)} – {fmtTime(entry.actual_end, tz)}
-      </p>
+      <div>
+        <p className="text-xs font-semibold text-muted-foreground">Actual</p>
+        <p>{fmtTime(entry.actual_start, tz)} <span aria-hidden>→</span> {fmtTime(entry.actual_end, tz)}</p>
+      </div>
       {entry.note ? <p className="text-xs text-muted-foreground">{entry.note}</p> : null}
       {editable ? (
         <div className="flex gap-2 pt-1">
@@ -306,6 +308,7 @@ function EntryEditor({
   const [note, setNote] = useState(entry?.note ?? "");
   const [busy, setBusy] = useState(false);
   const live = localHours(start, end);
+  const dirty = !entry || start !== entry.actual_start_local || end !== entry.actual_end_local || note !== (entry.note ?? "");
   useEffect(() => {
     onPreview(live);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -324,14 +327,12 @@ function EntryEditor({
           <Input id="ts-date" type="date" className="w-full min-w-0" min={sheet.period_start} max={sheet.period_end} value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
       ) : null}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="min-w-0 space-y-1">
-          <Label htmlFor="ts-start" className="text-xs">Actual start</Label>
-          <Input id="ts-start" type="time" className="w-full min-w-0 px-2" value={start} onChange={(e) => setStart(e.target.value)} />
-        </div>
-        <div className="min-w-0 space-y-1">
-          <Label htmlFor="ts-end" className="text-xs">Actual end</Label>
-          <Input id="ts-end" type="time" className="w-full min-w-0 px-2" value={end} onChange={(e) => setEnd(e.target.value)} />
+      <div className="space-y-1">
+        <Label className="text-xs">Actual</Label>
+        <div className="time-row grid min-w-0 grid-cols-1 items-center gap-2 min-[340px]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <TimeField id={`ts-start-${entry?.id ?? "new"}`} value={start} onChange={setStart} />
+          <span className="hidden text-muted-foreground min-[340px]:block" aria-hidden>→</span>
+          <TimeField id={`ts-end-${entry?.id ?? "new"}`} value={end} onChange={setEnd} />
         </div>
       </div>
       <div className="space-y-1">
@@ -342,7 +343,7 @@ function EntryEditor({
       <div className="grid grid-cols-2 gap-2">
         <Button variant="outline" onClick={onCancel} disabled={busy}>Cancel</Button>
         <Button
-          disabled={busy || !start || !end || !date}
+          disabled={busy || !dirty || !start || !end || !date}
           onClick={async () => {
             setBusy(true);
             try {
@@ -355,7 +356,7 @@ function EntryEditor({
             }
           }}
         >
-          Save
+          {entry ? "Save changes" : "Add shift"}
         </Button>
       </div>
     </div>
