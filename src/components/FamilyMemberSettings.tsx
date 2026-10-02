@@ -28,7 +28,8 @@ import { FAMILY_BUNDLE_KEY, useCalendar } from "@/lib/calendar-store";
 import { MEMBER_COLORS, styleForColor, type FamilyMember, type MemberColor } from "@/lib/family-data";
 import { saveFamilyMemberFn } from "@/lib/settings.functions";
 import { getShiftSettings } from "@/lib/babysitter-shifts.functions";
-import { deleteCaregiver, setCaregiverArchived } from "@/lib/caregiver-management.functions";
+import { deleteCaregiver, setCaregiverArchived, setCaregiverTimesheets } from "@/lib/caregiver-management.functions";
+import { hasFeature } from "@/lib/features";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -124,6 +125,20 @@ export function FamilyMemberSettings() {
   const hasAccess = (m: FamilyMember) =>
     !!shift?.caregivers.some((c) => c.family_member_id === m.id && c.has_sign_in);
   const isDefault = (m: FamilyMember) => shift?.default_member_id === m.id;
+  const timesheetsFn = useServerFn(setCaregiverTimesheets);
+  const timesheetsOn = (m: FamilyMember) =>
+    !!shift?.caregivers.some((c) => c.family_member_id === m.id && c.timesheets_enabled);
+  const showTimesheets = hasFeature("timesheets");
+  const toggleTimesheets = async (m: FamilyMember) => {
+    const next = !timesheetsOn(m);
+    try {
+      await timesheetsFn({ data: { member_id: m.id, enabled: next } });
+      await refresh();
+      toast.success(`Timesheets ${next ? "on" : "off"} for ${m.name}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update");
+    }
+  };
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY }),
@@ -159,7 +174,7 @@ export function FamilyMemberSettings() {
       </span>
       <div className="min-w-0">
         <h3 className="truncate text-base font-bold">{member.name}</h3>
-        <p className="text-xs font-semibold text-muted-foreground">{subtitle}</p>
+        <p className="whitespace-pre-line text-xs font-semibold text-muted-foreground">{subtitle}</p>
       </div>
       {actions}
     </article>
@@ -274,6 +289,11 @@ export function FamilyMemberSettings() {
                         {pendingInviteFor(member) ? "Resend sign-in invitation" : "Give sign-in access"}
                       </DropdownMenuItem>
                     )}
+                    {showTimesheets ? (
+                      <DropdownMenuItem onSelect={() => void toggleTimesheets(member)}>
+                        {timesheetsOn(member) ? "Turn Timesheets off" : "Turn Timesheets on"}
+                      </DropdownMenuItem>
+                    ) : null}
                     <DropdownMenuItem onSelect={() => setAction({ kind: "archive", member })}>Archive</DropdownMenuItem>
                     <DropdownMenuItem className="text-destructive" onSelect={() => setAction({ kind: "delete", member })}>
                       Delete
@@ -282,7 +302,7 @@ export function FamilyMemberSettings() {
                 </DropdownMenu>
               ) : null,
               isOwner
-                ? `${hasAccess(member) ? "✓ " : ""}Caregiver · ${hasAccess(member) ? "Access active" : pendingInviteFor(member) ? "Invitation sent" : "No sign-in access"}${isDefault(member) ? " · Default" : ""}${member.timesheet_emails_enabled === false ? " · Timesheet emails off" : ""}`
+                ? `${hasAccess(member) ? "✓ " : ""}Caregiver · ${hasAccess(member) ? "Access active" : pendingInviteFor(member) ? "Invitation sent" : "No sign-in access"}${isDefault(member) ? " · Default" : ""}${showTimesheets ? `\nTimesheets · ${timesheetsOn(member) ? "On" : "Off"}${timesheetsOn(member) && member.timesheet_emails_enabled === false ? " · Timesheet emails off" : ""}` : ""}`
                 : "Caregiver",
             ),
           )}

@@ -165,3 +165,16 @@ export const deleteCaregiver = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+/** Owner-only: per-caregiver Timesheet eligibility. Independent of sign-in access; data is never deleted. */
+export const setCaregiverTimesheets = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ({ ...parse(d), enabled: (d as any)?.enabled === true }))
+  .handler(async ({ data, context }) => {
+    const { member, admin } = await prepare(context, data);
+    const { assertFeature } = await import("@/lib/features");
+    assertFeature("timesheets", { familyId: member.family_id });
+    const { error } = await admin.from("family_members").update({ timesheets_enabled: data.enabled }).eq("id", member.id);
+    if (error) throw error;
+    return { ok: true };
+  });
