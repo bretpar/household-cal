@@ -167,7 +167,7 @@ export function BabysitterConfigFields({
   hideMember = false,
   name,
 }: {
-  name?: string;
+  name?: string | undefined;
   hideMember?: boolean;
   setup: { calendars: { id: string; name: string }[]; family_members: { id: string; name: string }[] } | undefined;
   memberId: string;
