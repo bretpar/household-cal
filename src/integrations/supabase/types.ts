@@ -1707,6 +1707,15 @@ export type Database = {
         Args: { _user_id: string }
         Returns: string
       }
+      set_caregiver_access: {
+        Args: {
+          _calendar_ids: string[]
+          _date_scope: Database["public"]["Enums"]["babysitter_date_scope"]
+          _family_member_id: string
+          _membership_id: string
+        }
+        Returns: undefined
+      }
       try_start_google_manual_sync: {
         Args: { _family_id: string; _stale_before: string }
         Returns: {
