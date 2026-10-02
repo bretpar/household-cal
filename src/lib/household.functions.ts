@@ -221,20 +221,14 @@ export const setBabysitterAccess = createServerFn({ method: "POST" })
     if (memberId !== fu.family_member_id) {
       const { data: m } = await db.from("family_members").select("id").eq("id", memberId).eq("family_id", fu.family_id).maybeSingle();
       if (!m) throw new Error("That family member isn't in this household");
-      const upd = await db.from("family_users").update({ family_member_id: memberId }).eq("id", fu.id);
-      if (upd.error) throw upd.error;
     }
-    const up = await db
-      .from("babysitter_access_profiles")
-      .upsert({ family_user_id: fu.id, family_id: fu.family_id, date_scope: data.date_scope }, { onConflict: "family_user_id" });
-    if (up.error) throw up.error;
-    const clear = await db.from("babysitter_access_calendars").delete().eq("family_user_id", fu.id);
-    if (clear.error) throw clear.error;
-    if (data.calendar_ids.length > 0) {
-      const ins = await db
-        .from("babysitter_access_calendars")
-        .insert(data.calendar_ids.map((id) => ({ family_user_id: fu.id, calendar_source_id: id })));
-      if (ins.error) throw ins.error;
-    }
+    // One transaction: member link, profile, scope and calendar grants (RLS applies as the owner).
+    const { error: rpcError } = await (context.supabase as any).rpc("set_caregiver_access", {
+      _membership_id: fu.id,
+      _family_member_id: memberId,
+      _date_scope: data.date_scope,
+      _calendar_ids: data.calendar_ids,
+    });
+    if (rpcError) throw new Error(rpcError.message);
     return { ok: true };
   });

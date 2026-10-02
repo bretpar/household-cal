@@ -55,12 +55,15 @@ export function AppShell({
   compactMobileLandscape?: boolean;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { isCaregiver } = useCaregiver();
+  const { isCaregiver, resolved: caregiverResolved } = useCaregiver();
   const { isOwner, family } = useCalendar();
   const timesheetsOn = hasFeature("timesheets", { familyId: family?.id });
-  const nav = isCaregiver
-    ? CAREGIVER_NAV.filter((n) => n.to !== "/timesheet" || timesheetsOn)
-    : NAV;
+  // No tabs until caregiver status is known, so a caregiver never sees parent tabs.
+  const nav = !caregiverResolved
+    ? []
+    : isCaregiver
+      ? CAREGIVER_NAV.filter((n) => n.to !== "/timesheet" || timesheetsOn)
+      : NAV;
   const ownerPending = usePendingTimesheetCount(!isCaregiver && isOwner && timesheetsOn);
   const myActions = useMyTimesheetActionCount(isCaregiver && timesheetsOn);
   const badgeTo = isCaregiver ? "/timesheet" : "/activities";
