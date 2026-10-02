@@ -23,8 +23,17 @@ const require = createRequire(import.meta.url);
 const entitiesDir = path.resolve(path.dirname(require.resolve("entities")), "..");
 
 
+// Build stamp for the internal build-diagnostics panel (Maintenance area).
+// Lets us confirm which deployed bundle a (possibly stale) WebView is running.
+const appVersion: string = require("../package.json").version;
+const buildId = new Date().toISOString();
+
 export default defineConfig({
   vite: {
+    define: {
+      __OFC_BUILD_ID__: JSON.stringify(buildId),
+      __OFC_APP_VERSION__: JSON.stringify(appVersion),
+    },
     resolve: {
       alias: {
         "entities/lib/decode.js": path.join(entitiesDir, "lib/decode.js"),
