@@ -28,7 +28,7 @@ import { FAMILY_BUNDLE_KEY, useCalendar } from "@/lib/calendar-store";
 import { MEMBER_COLORS, styleForColor, type FamilyMember, type MemberColor } from "@/lib/family-data";
 import { saveFamilyMemberFn } from "@/lib/settings.functions";
 import { getShiftSettings } from "@/lib/babysitter-shifts.functions";
-import { deleteCaregiver, setCaregiverArchived, setCaregiverTimesheets } from "@/lib/caregiver-management.functions";
+import { deleteCaregiver, removeCaregiverAppAccess, setCaregiverArchived, setCaregiverTimesheets } from "@/lib/caregiver-management.functions";
 import { hasFeature } from "@/lib/features";
 import {
   DropdownMenu,
@@ -45,6 +45,18 @@ import {
   useBabysitterSetup,
 } from "@/components/BabysitterAccessDialog";
 import { CaregiverPreviewDialog } from "@/components/CaregiverPreviewDialog";
+import { BABYSITTER_SETUP_KEY } from "@/components/BabysitterAccessDialog";
+import { IS_CAREGIVER_KEY } from "@/lib/use-caregiver";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const ROLES = [
   { id: "parent", label: "Parent" },
@@ -106,6 +118,9 @@ export function FamilyMemberSettings() {
   const deleteFn = useServerFn(deleteCaregiver);
   const [action, setAction] = useState<{ kind: "archive" | "delete"; member: FamilyMember } | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const removeAccessFn = useServerFn(removeCaregiverAppAccess);
+  const [removeAccess, setRemoveAccess] = useState<FamilyMember | null>(null);
+  const [removing, setRemoving] = useState(false);
   const [giveAccess, setGiveAccess] = useState<FamilyMember | null>(null);
   const [editAccess, setEditAccess] = useState<{ member: FamilyMember; membershipId: string } | null>(null);
   const [preview, setPreview] = useState<{ member: FamilyMember; membershipId: string } | null>(null);
@@ -287,6 +302,7 @@ export function FamilyMemberSettings() {
                         >
                           Preview what she sees
                         </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setRemoveAccess(member)}>Remove app access</DropdownMenuItem>
                       </>
                     ) : (
                       <DropdownMenuItem onSelect={() => setGiveAccess(member)}>
@@ -331,6 +347,48 @@ export function FamilyMemberSettings() {
         </div>
       ) : null}
 
+      <AlertDialog open={!!removeAccess} onOpenChange={(o) => !o && !removing && setRemoveAccess(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove app access for {removeAccess?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {removeAccess?.name} will remain a caregiver and can still be assigned to shifts, but
+              {removeAccess && loginEmail(removeAccess) ? ` ${loginEmail(removeAccess)}` : " this login"} will no longer be able to access your household.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={removing}
+              onClick={(e) => {
+                e.preventDefault();
+                const m = removeAccess;
+                if (!m) return;
+                void runGuardedMutation({
+                  busy: removing,
+                  setBusy: setRemoving,
+                  perform: async () => {
+                    await removeAccessFn({ data: { member_id: m.id } });
+                    await Promise.all([
+                      refresh(),
+                      queryClient.invalidateQueries({ queryKey: BABYSITTER_SETUP_KEY }),
+                      queryClient.invalidateQueries({ queryKey: IS_CAREGIVER_KEY }),
+                    ]);
+                  },
+                  onSuccess: () => {
+                    toast.success(`App access removed for ${m.name}`);
+                    setRemoveAccess(null);
+                  },
+                  onError: toast.error,
+                  errorFallback: "Could not remove app access.",
+                });
+              }}
+            >
+              {removing ? "Removing…" : "Remove app access"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <GiveSignInAccessDialog member={giveAccess} onClose={() => setGiveAccess(null)} onSent={refresh} />
       <CaregiverPreviewDialog
         membershipId={preview?.membershipId ?? null}
