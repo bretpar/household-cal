@@ -8,6 +8,7 @@ import { StartupHeartReveal, StartupSplash } from "@/components/StartupSplash";
 import { hasLayoutMounted, markLayoutMounted, resolveGuard } from "@/lib/auth-guard";
 import { CalendarProvider, useCalendar } from "@/lib/calendar-store";
 import { UserPreferencesProvider } from "@/lib/user-preferences";
+import { useCaregiver } from "@/lib/use-caregiver";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -96,8 +97,11 @@ function CalendarLoadReporter({
   onChange: (s: { loading: boolean; failed: boolean }) => void;
 }) {
   const { loading, loadError } = useCalendar();
+  const { resolved } = useCaregiver();
+  // Keep the startup screen up until membership and caregiver status are both known.
+  const busy = loading || (!resolved && !loadError);
   useEffect(() => {
-    onChange({ loading, failed: loadError });
-  }, [loading, loadError, onChange]);
+    onChange({ loading: busy, failed: loadError });
+  }, [busy, loadError, onChange]);
   return null;
 }

@@ -34,6 +34,7 @@ export function invalidateAccessQueries(queryClient: ReturnType<typeof useQueryC
     queryClient.invalidateQueries({ queryKey: ["household-access"] }),
     queryClient.invalidateQueries({ queryKey: IS_CAREGIVER_KEY }),
     queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY }),
+    queryClient.invalidateQueries({ queryKey: ["shift-settings"] }),
   ]);
 }
 
