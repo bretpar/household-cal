@@ -8,6 +8,13 @@
       "when": 1790955227542,
       "tag": "0000_backfill_caregiver_timesheets_and_default_babysitter",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790955467710,
+      "tag": "0001_enable_timesheets_on_caregiver_signin",
+      "breakpoints": true
     }
   ]
 }
