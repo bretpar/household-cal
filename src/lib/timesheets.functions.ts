@@ -457,12 +457,16 @@ async function managedEditableSheet(
   return data as any;
 }
 
-/** Timesheet-enabled, active caregivers without sign-in access. */
+/**
+ * Timesheet-enabled, active caregivers without sign-in access, plus the
+ * offsets of earlier pay periods whose time card is still unfinished.
+ */
 export const listOwnerManagedCaregivers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{ member_id: string; name: string }[]> => {
-    const { familyId, admin } = await ownerCtx(context);
-    const [m, fu] = await Promise.all([
+  .handler(async ({ context }): Promise<{ member_id: string; name: string; attention_offsets: number[] }[]> => {
+    const { s, familyId, admin } = await ownerCtx(context);
+    const { payPeriodFor } = await import("@/lib/timesheet-periods");
+    const [m, fu, pay] = await Promise.all([
       admin
         .from("family_members")
         .select("id, name, sort_order")
@@ -473,11 +477,43 @@ export const listOwnerManagedCaregivers = createServerFn({ method: "GET" })
         .is("removed_at", null)
         .order("sort_order", { ascending: true }),
       admin.from("family_users").select("family_member_id").eq("family_id", familyId).not("family_member_id", "is", null),
+      s.loadPaySettings(admin, familyId),
     ]);
     if (m.error) throw new Error(m.error.message);
     if (fu.error) throw new Error(fu.error.message);
     const linked = new Set((fu.data ?? []).map((r: any) => r.family_member_id as string));
-    return (m.data ?? []).filter((r: any) => !linked.has(r.id)).map((r: any) => ({ member_id: r.id, name: r.name }));
+    const members = (m.data ?? []).filter((r: any) => !linked.has(r.id));
+    // Existing pay-period math: offset 0 = current period in the household time zone.
+    const today = s.todayKey(pay.timeZone);
+    const offsetByStart = new Map<string, number>();
+    for (let o = -1; o >= -60; o--) offsetByStart.set(payPeriodFor(pay.settings, today, o).start, o);
+    const unfinished = members.length
+      ? await admin
+          .from("timesheets")
+          .select("id, family_member_id, period_start")
+          .eq("family_id", familyId)
+          .in("family_member_id", members.map((r: any) => r.id))
+          .in("status", ["draft", "needs_correction"])
+      : { data: [], error: null };
+    if (unfinished.error) throw new Error(unfinished.error.message);
+    // Only cards with hours count; browsing back creates empty drafts.
+    const ids = (unfinished.data ?? []).map((t: any) => t.id as string);
+    const withEntries = ids.length
+      ? await admin.from("timesheet_entries").select("timesheet_id").in("timesheet_id", ids)
+      : { data: [], error: null };
+    if (withEntries.error) throw new Error(withEntries.error.message);
+    const hasHours = new Set((withEntries.data ?? []).map((e: any) => e.timesheet_id as string));
+    const attention = new Map<string, number[]>();
+    for (const t of unfinished.data ?? []) {
+      const o = offsetByStart.get(t.period_start);
+      if (o === undefined || !hasHours.has(t.id)) continue;
+      attention.set(t.family_member_id, [...(attention.get(t.family_member_id) ?? []), o]);
+    }
+    return members.map((r: any) => ({
+      member_id: r.id,
+      name: r.name,
+      attention_offsets: (attention.get(r.id) ?? []).sort((a, b) => b - a),
+    }));
   });
 
 export const getOwnerManagedTimesheet = createServerFn({ method: "POST" })

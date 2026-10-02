@@ -385,15 +385,15 @@ function OwnerManagedSection() {
       <p className="text-xs text-muted-foreground">
         For caregivers without sign-in access. You confirm their hours; nothing is sent to them.
       </p>
-      {data.map((c) => <OwnerManagedCard key={c.member_id} memberId={c.member_id} name={c.name} />)}
+      {data.map((c) => <OwnerManagedCard key={c.member_id} memberId={c.member_id} name={c.name} attention={c.attention_offsets} />)}
     </section>
   );
 }
 
-function OwnerManagedCard({ memberId, name }: { memberId: string; name: string }) {
+function OwnerManagedCard({ memberId, name, attention }: { memberId: string; name: string; attention: number[] }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [offset, setOffset] = useState(-1);
+  const [offset, setOffset] = useState(0);
   const fetch = useServerFn(getOwnerManagedTimesheet);
   const finalize = useServerFn(ownerFinalizeManaged);
   const key = ["owner-managed-sheet", memberId, offset];
@@ -402,7 +402,9 @@ function OwnerManagedCard({ memberId, name }: { memberId: string; name: string }
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["owner-managed-sheet", memberId] });
     void qc.invalidateQueries({ queryKey: ["household-timesheets"] });
+    void qc.invalidateQueries({ queryKey: ["owner-managed-caregivers"] });
   };
+  const pending = attention.filter((o) => o !== offset);
   const mutation = useMutation({
     mutationFn: () => finalize({ data: { timesheet_id: sheet!.id } }),
     onSuccess: () => {
@@ -419,6 +421,11 @@ function OwnerManagedCard({ memberId, name }: { memberId: string; name: string }
         <span className="min-w-0">
           <span className="block font-bold">{name}</span>
           <span className="block text-xs text-muted-foreground">Owner-managed · No sign-in access</span>
+          {attention.length ? (
+            <span className="mt-1 block text-xs font-semibold text-destructive">
+              {attention.length} previous time card{attention.length === 1 ? " needs" : "s need"} attention
+            </span>
+          ) : null}
         </span>
         <span className="shrink-0 rounded-full bg-secondary px-3 py-1 text-xs font-semibold">{open ? "Close" : "Open"}</span>
       </button>
@@ -432,6 +439,16 @@ function OwnerManagedCard({ memberId, name }: { memberId: string; name: string }
             </div>
             <Button size="icon" variant="ghost" className="h-11 w-11" disabled={offset >= 0} onClick={() => setOffset((o) => o + 1)} aria-label="Next pay period">›</Button>
           </div>
+          {pending.length ? (
+            <div className="flex flex-wrap items-center gap-1 text-xs">
+              <span className="text-muted-foreground">Needs attention:</span>
+              {pending.map((o) => (
+                <Button key={o} size="sm" variant="outline" className="h-8 rounded-full px-3 text-xs" onClick={() => setOffset(o)}>
+                  {o === -1 ? "Last period" : `${-o} periods ago`}
+                </Button>
+              ))}
+            </div>
+          ) : null}
           {sheet ? (
             <>
               <p className="text-xs font-semibold">Total · {formatDisplayHours(actual).replace(" h", actual === 1 ? " hour" : " hours")}</p>
