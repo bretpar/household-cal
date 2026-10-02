@@ -43,34 +43,36 @@ async function prepare(ctx: { supabase: unknown; userId: string }, input: Input)
 }
 
 /** Ensures no archived/removed caregiver stays the household default. */
-async function resolveDefault(admin: AnyDb, familyId: string, linkedIds: string[], input: Input) {
+async function resolveDefault(admin: AnyDb, familyId: string, memberId: string, linkedIds: string[], input: Input) {
   const { data, error } = await admin
     .from("families")
-    .select("default_babysitter_family_user_id")
+    .select("default_babysitter_member_id, default_babysitter_family_user_id")
     .eq("id", familyId)
     .single();
   if (error) throw error;
-  const current = data?.default_babysitter_family_user_id as string | null;
-  if (!current || !linkedIds.includes(current)) return;
+  const isDefault =
+    data?.default_babysitter_member_id === memberId ||
+    (!!data?.default_babysitter_family_user_id && linkedIds.includes(data.default_babysitter_family_user_id));
+  if (!isDefault) return;
   if (input.new_default === undefined) {
     throw new Error("This caregiver is the default babysitter. Choose another default or clear it first.");
   }
-  if (input.new_default && linkedIds.includes(input.new_default)) {
-    throw new Error("Choose a different default babysitter");
-  }
+  if (input.new_default === memberId) throw new Error("Choose a different default babysitter");
   if (input.new_default) {
     const { data: ok } = await admin
-      .from("babysitter_access_profiles")
-      .select("family_user_id, family_users!inner(family_members!inner(active, removed_at))")
+      .from("family_members")
+      .select("id")
+      .eq("id", input.new_default)
       .eq("family_id", familyId)
-      .eq("family_user_id", input.new_default)
+      .eq("role", "caregiver")
+      .eq("active", true)
+      .is("removed_at", null)
       .maybeSingle();
-    const fm = (ok as any)?.family_users?.family_members;
-    if (!ok || fm?.active === false || fm?.removed_at) throw new Error("Choose an active caregiver as the default");
+    if (!ok) throw new Error("Choose an active caregiver as the default");
   }
   const upd = await admin
     .from("families")
-    .update({ default_babysitter_family_user_id: input.new_default })
+    .update({ default_babysitter_member_id: input.new_default, default_babysitter_family_user_id: null })
     .eq("id", familyId);
   if (upd.error) throw upd.error;
 }
@@ -86,12 +88,11 @@ async function revokeAccess(admin: AnyDb, linked: { id: string; role: string }[]
 
 /** Detaches caregiver shifts from the access profile but keeps the person linked (history/timesheets). */
 async function preserveShifts(admin: AnyDb, member: { id: string; name: string }, linkedIds: string[]) {
+  const patch = { assignment: "other", family_user_id: null, assignee_name: member.name, assignee_member_id: member.id };
+  const byMember = await admin.from("babysitter_shifts").update(patch).eq("assignee_member_id", member.id).eq("assignment", "caregiver");
+  if (byMember.error) throw byMember.error;
   if (linkedIds.length === 0) return;
-  const keep = await admin
-    .from("babysitter_shifts")
-    .update({ assignment: "other", family_user_id: null, assignee_name: member.name, assignee_member_id: member.id })
-    .in("family_user_id", linkedIds)
-    .eq("assignment", "caregiver");
+  const keep = await admin.from("babysitter_shifts").update(patch).in("family_user_id", linkedIds).eq("assignment", "caregiver");
   if (keep.error) throw keep.error;
 }
 
@@ -101,7 +102,7 @@ export const setCaregiverArchived = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { member, admin, linked, linkedIds } = await prepare(context, data);
     if (data.archived) {
-      await resolveDefault(admin, member.family_id, linkedIds, data);
+      await resolveDefault(admin, member.family_id, member.id, linkedIds, data);
       // Revoke active caregiver access; history stays linked to the person.
       await preserveShifts(admin, member, linkedIds);
       await revokeAccess(admin, linked);
@@ -126,7 +127,7 @@ export const deleteCaregiver = createServerFn({ method: "POST" })
     if (data.mode === "erase" && data.confirm !== "DELETE") {
       throw new Error("Type DELETE to confirm");
     }
-    await resolveDefault(admin, member.family_id, linkedIds, data);
+    await resolveDefault(admin, member.family_id, member.id, linkedIds, data);
 
     if (data.mode === "preserve") {
       await preserveShifts(admin, member, linkedIds);
