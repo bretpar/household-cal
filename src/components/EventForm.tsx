@@ -1193,6 +1193,15 @@ export function EventFormFields({
                     {c.family_member_id === shiftSettings.default_member_id ? " · Default" : ""}
                   </SelectItem>
                 ))}
+              {state.babysitter?.kind === "caregiver" &&
+              !shiftSettings.caregivers.some(
+                (c) => c.family_member_id === shiftValue,
+              ) ? (
+                // Legacy assignment to a caregiver no longer active: show it, never offer it.
+                <SelectItem value={shiftValue} disabled>
+                  Archived caregiver
+                </SelectItem>
+              ) : null}
               <SelectItem value="other">Other</SelectItem>
               <SelectItem value="none">None</SelectItem>
             </SelectContent>
