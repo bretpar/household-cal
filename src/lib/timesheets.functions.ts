@@ -19,6 +19,8 @@ export interface TimesheetEntry {
   actual_end_local: string;
   is_manual: boolean;
   note: string | null;
+  /** set when a household Owner adjusted this entry during review */
+  owner_edited_at?: string | null;
 }
 
 export interface TimesheetView {
@@ -182,6 +184,32 @@ export const submitTimesheet = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Caregiver nav badge: ended-period drafts + needs-correction sheets. Server-authoritative. */
+export const countMyTimesheetActions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ count: number }> => {
+    const s = await import("@/lib/timesheets.server");
+    let me: { familyId: string; memberId: string };
+    try {
+      me = await s.myCaregiver(context.supabase as unknown as AnyDb, context.userId);
+    } catch {
+      return { count: 0 };
+    }
+    const admin = await s.adminDb();
+    const { timeZone } = await s.loadPaySettings(admin, me.familyId);
+    const today = s.todayKey(timeZone);
+    const { data, error } = await admin
+      .from("timesheets")
+      .select("status, period_end")
+      .eq("family_member_id", me.memberId)
+      .in("status", ["draft", "needs_correction"]);
+    if (error) throw new Error(error.message);
+    const count = (data ?? []).filter(
+      (t: any) => t.status === "needs_correction" || (t.status === "draft" && t.period_end < today),
+    ).length;
+    return { count };
+  });
+
 /* -------------------------------------------------------------------- owner */
 
 /** Owner badge: number of timesheets awaiting review (status = submitted). 0 for non-owners. */
@@ -266,6 +294,68 @@ export const reviewTimesheet = createServerFn({ method: "POST" })
     if (!updated?.length) throw new Error("Only submitted timesheets can be reviewed");
     const { notifyTimesheetReviewed } = await import("@/lib/timesheet-notify.server");
     await notifyTimesheetReviewed(data.timesheet_id);
+    return { ok: true };
+  });
+
+/** Owner adjusts actual time/note on a submitted timesheet. Never touches the calendar event. */
+export const ownerEditEntry = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      timesheet_id: z.string().uuid(),
+      entry_id: z.string().uuid(),
+      start: hhmm,
+      end: hhmm,
+      note: z.string().max(500).nullable(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const s = await import("@/lib/timesheets.server");
+    const db = context.supabase as unknown as AnyDb;
+    const familyId = await s.currentFamilyId(db, context.userId);
+    await s.assertOwner(db, familyId);
+    const admin = await s.adminDb();
+    const { data: sheet, error: se } = await admin.from("timesheets").select("*").eq("id", data.timesheet_id).eq("family_id", familyId).single();
+    if (se || !sheet) throw new Error("Timesheet not found");
+    if (sheet.status !== "submitted") throw new Error("Only submitted timesheets can be edited");
+    const { data: entry, error: ee } = await admin
+      .from("timesheet_entries")
+      .select("id, work_date, actual_start, actual_end, note, owner_edited_at")
+      .eq("id", data.entry_id)
+      .eq("timesheet_id", sheet.id)
+      .single();
+    if (ee || !entry) throw new Error("Entry not found");
+    const tz = sheet.snapshot?.time_zone ?? (await s.loadPaySettings(admin, familyId)).timeZone;
+    const start = s.zonedInstant(entry.work_date, data.start, tz);
+    let end = s.zonedInstant(entry.work_date, data.end, tz);
+    if (end <= start) end = new Date(end.getTime() + 86_400_000); // overnight
+    const patch: Record<string, unknown> = {
+      actual_start: start.toISOString(),
+      actual_end: end.toISOString(),
+      note: data.note?.trim() || null,
+      owner_edited_at: new Date().toISOString(),
+      owner_edited_by: context.userId,
+    };
+    // Keep the caregiver-entered values the first time an Owner changes this entry.
+    if (!entry.owner_edited_at) {
+      patch["caregiver_actual_start"] = entry.actual_start;
+      patch["caregiver_actual_end"] = entry.actual_end;
+      patch["caregiver_note"] = entry.note;
+    }
+    const up = await admin.from("timesheet_entries").update(patch).eq("id", entry.id);
+    if (up.error) throw new Error(up.error.message);
+    const entries = await s.loadEntries(admin, sheet.id, tz);
+    const { error } = await admin
+      .from("timesheets")
+      .update({
+        snapshot: { ...(sheet.snapshot ?? {}), time_zone: tz, entries },
+        submitted_snapshot: sheet.submitted_snapshot ?? sheet.snapshot,
+        owner_edited_at: new Date().toISOString(),
+        owner_edited_by: context.userId,
+      })
+      .eq("id", sheet.id)
+      .eq("status", "submitted");
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 

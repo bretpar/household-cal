@@ -75,6 +75,15 @@ export function hoursBetween(startIso: string | null, endIso: string | null): nu
   return ms > 0 ? ms / 3_600_000 : 0;
 }
 
+/** Display-only hours for local "HH:mm" inputs; end <= start counts as overnight (matches server). */
+export function localHours(start: string, end: string): number {
+  const m = (v: string) => { const [h, mi] = v.split(":").map(Number); return (h ?? 0) * 60 + (mi ?? 0); };
+  if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) return 0;
+  let d = m(end) - m(start);
+  if (d <= 0) d += 1440;
+  return d / 60;
+}
+
 export const formatHours = (h: number) => `${(Math.round(h * 100) / 100).toFixed(2)} h`;
 
 export type TimesheetStatus = "draft" | "submitted" | "needs_correction" | "approved";

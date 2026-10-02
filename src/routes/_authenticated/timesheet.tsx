@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -16,7 +16,9 @@ import {
   STATUS_LABEL,
   formatHours,
   hoursBetween,
+  localHours,
 } from "@/lib/timesheet-periods";
+import { MY_TIMESHEET_ACTIONS_KEY } from "@/components/TimesheetSettings";
 import {
   deleteManualEntry,
   getMyTimesheet,
@@ -121,9 +123,22 @@ function SheetBody({ sheet }: { sheet: TimesheetView }) {
   const qc = useQueryClient();
   const submit = useServerFn(submitTimesheet);
   const [adding, setAdding] = useState(false);
+  // Display-only hours while an editor is open or a save is refreshing; server stays authoritative.
+  const [preview, setPreview] = useState<Record<string, number>>({});
+  const setPreviewFor = (key: string, hours: number | null) =>
+    setPreview((p) => {
+      const next = { ...p };
+      if (hours === null) delete next[key];
+      else next[key] = hours;
+      return next;
+    });
   const editable = sheet.status === "draft" || sheet.status === "needs_correction";
-  const total = sheet.entries.reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
-  const refresh = () => qc.invalidateQueries({ queryKey: ["my-timesheet"] });
+  const hoursFor = (e: TimesheetEntry) => preview[e.id] ?? hoursBetween(e.actual_start, e.actual_end);
+  const total = sheet.entries.reduce((n, e) => n + hoursFor(e), 0) + (preview["new"] ?? 0);
+  const refresh = async () => {
+    await qc.invalidateQueries({ queryKey: ["my-timesheet"] });
+    void qc.invalidateQueries({ queryKey: MY_TIMESHEET_ACTIONS_KEY });
+  };
   const submitMutation = useMutation({
     mutationFn: () => submit({ data: { timesheet_id: sheet.id } }),
     onSuccess: () => {
@@ -145,11 +160,11 @@ function SheetBody({ sheet }: { sheet: TimesheetView }) {
           <p className="font-bold">{formatHours(total)}</p>
         </div>
       </div>
-      {sheet.status === "needs_correction" && sheet.parent_note ? (
-        <p className="rounded-2xl border border-border bg-surface-muted p-3 text-sm">
-          <span className="font-semibold">Note from parent: </span>
-          {sheet.parent_note}
-        </p>
+      {sheet.status === "needs_correction" ? (
+        <div role="alert" className="rounded-2xl border-2 border-destructive bg-destructive/10 p-4 text-sm">
+          <p className="font-bold text-destructive">Correction requested</p>
+          {sheet.parent_note ? <p className="mt-1 whitespace-pre-wrap">{sheet.parent_note}</p> : null}
+        </div>
       ) : null}
 
       <ul className="space-y-3">
@@ -159,14 +174,27 @@ function SheetBody({ sheet }: { sheet: TimesheetView }) {
           </li>
         ) : null}
         {sheet.entries.map((e) => (
-          <EntryCard key={e.id} entry={e} sheet={sheet} editable={editable} onSaved={refresh} />
+          <EntryCard
+            key={e.id}
+            entry={e}
+            sheet={sheet}
+            editable={editable}
+            hours={hoursFor(e)}
+            onPreview={(h) => setPreviewFor(e.id, h)}
+            onSaved={async () => { await refresh(); setPreviewFor(e.id, null); }}
+          />
         ))}
       </ul>
 
       {editable ? (
         <div className="space-y-3">
           {adding ? (
-            <EntryEditor sheet={sheet} onDone={() => { setAdding(false); void refresh(); }} onCancel={() => setAdding(false)} />
+            <EntryEditor
+              sheet={sheet}
+              onPreview={(h) => setPreviewFor("new", h)}
+              onDone={async () => { setAdding(false); await refresh(); setPreviewFor("new", null); }}
+              onCancel={() => { setAdding(false); setPreviewFor("new", null); }}
+            />
           ) : (
             <Button variant="outline" className="w-full" onClick={() => setAdding(true)}>
               <Plus className="mr-1 h-4 w-4" /> Add missing shift
@@ -185,12 +213,16 @@ function EntryCard({
   entry,
   sheet,
   editable,
+  hours,
+  onPreview,
   onSaved,
 }: {
   entry: TimesheetEntry;
   sheet: TimesheetView;
   editable: boolean;
-  onSaved: () => void;
+  hours: number;
+  onPreview: (hours: number | null) => void;
+  onSaved: () => void | Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const remove = useServerFn(deleteManualEntry);
@@ -198,7 +230,14 @@ function EntryCard({
   if (editing) {
     return (
       <li>
-        <EntryEditor sheet={sheet} entry={entry} onDone={() => { setEditing(false); onSaved(); }} onCancel={() => setEditing(false)} />
+        <EntryEditor
+          sheet={sheet}
+          entry={entry}
+          hours={hours}
+          onPreview={onPreview}
+          onDone={() => { setEditing(false); void onSaved(); }}
+          onCancel={() => { setEditing(false); onPreview(null); }}
+        />
       </li>
     );
   }
@@ -206,7 +245,7 @@ function EntryCard({
     <li className="space-y-1.5 rounded-2xl border border-border-soft bg-card p-4 text-sm">
       <div className="flex items-center justify-between gap-2">
         <p className="font-bold">{fmtDate(entry.work_date, { weekday: "short", month: "short", day: "numeric" })}</p>
-        <p className="font-semibold">{formatHours(hoursBetween(entry.actual_start, entry.actual_end))}</p>
+        <p className="font-semibold">{formatHours(hours)}</p>
       </div>
       {entry.is_manual ? (
         <p className="text-xs font-semibold text-primary">Manually added</p>
@@ -230,7 +269,7 @@ function EntryCard({
               onClick={async () => {
                 try {
                   await remove({ data: { timesheet_id: sheet.id, entry_id: entry.id } });
-                  onSaved();
+                  void onSaved();
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : "Could not remove");
                 }
@@ -248,12 +287,16 @@ function EntryCard({
 function EntryEditor({
   sheet,
   entry,
+  hours,
+  onPreview,
   onDone,
   onCancel,
 }: {
   sheet: TimesheetView;
   entry?: TimesheetEntry;
-  onDone: () => void;
+  hours?: number;
+  onPreview: (hours: number | null) => void;
+  onDone: () => void | Promise<void>;
   onCancel: () => void;
 }) {
   const save = useServerFn(saveTimesheetEntry);
@@ -262,38 +305,49 @@ function EntryEditor({
   const [end, setEnd] = useState(entry?.actual_end_local ?? "17:00");
   const [note, setNote] = useState(entry?.note ?? "");
   const [busy, setBusy] = useState(false);
+  const live = localHours(start, end);
+  useEffect(() => {
+    onPreview(live);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live]);
   return (
     <div className="space-y-3 rounded-2xl border border-primary/40 bg-card p-4">
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <p className="min-w-0 truncate font-bold">
+          {entry ? fmtDate(entry.work_date, { weekday: "short", month: "short", day: "numeric" }) : "Add missing shift"}
+        </p>
+        <p className="shrink-0 font-semibold">{formatHours(hours ?? live)}</p>
+      </div>
       {!entry ? (
         <div className="space-y-1">
-          <Label htmlFor="ts-date">Date</Label>
-          <Input id="ts-date" type="date" min={sheet.period_start} max={sheet.period_end} value={date} onChange={(e) => setDate(e.target.value)} />
+          <Label htmlFor="ts-date" className="text-xs">Date</Label>
+          <Input id="ts-date" type="date" className="w-full min-w-0" min={sheet.period_start} max={sheet.period_end} value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
       ) : null}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-1">
-          <Label htmlFor="ts-start">Actual start</Label>
-          <Input id="ts-start" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="min-w-0 space-y-1">
+          <Label htmlFor="ts-start" className="text-xs">Actual start</Label>
+          <Input id="ts-start" type="time" className="w-full min-w-0 px-2" value={start} onChange={(e) => setStart(e.target.value)} />
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="ts-end">Actual end</Label>
-          <Input id="ts-end" type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+        <div className="min-w-0 space-y-1">
+          <Label htmlFor="ts-end" className="text-xs">Actual end</Label>
+          <Input id="ts-end" type="time" className="w-full min-w-0 px-2" value={end} onChange={(e) => setEnd(e.target.value)} />
         </div>
       </div>
       <div className="space-y-1">
-        <Label htmlFor="ts-note">Note (optional)</Label>
-        <Input id="ts-note" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+        <Label htmlFor="ts-note" className="text-xs">Note (optional)</Label>
+        <Input id="ts-note" className="w-full" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
       </div>
       <p className="text-xs text-muted-foreground">An end time before the start counts as overnight.</p>
-      <div className="flex gap-2">
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="outline" onClick={onCancel} disabled={busy}>Cancel</Button>
         <Button
-          className="flex-1"
           disabled={busy || !start || !end || !date}
           onClick={async () => {
             setBusy(true);
             try {
               await save({ data: { timesheet_id: sheet.id, entry_id: entry?.id ?? null, work_date: date, start, end, note: note || null } });
-              onDone();
+              await onDone();
             } catch (e) {
               toast.error(e instanceof Error ? e.message : "Could not save");
             } finally {
@@ -303,7 +357,6 @@ function EntryEditor({
         >
           Save
         </Button>
-        <Button variant="outline" onClick={onCancel}>Cancel</Button>
       </div>
     </div>
   );
