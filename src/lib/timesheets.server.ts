@@ -47,7 +47,28 @@ export async function myCaregiver(userDb: AnyDb, userId: string) {
   const { data, error } = await userDb.rpc("my_caregiver_member_id", { _family_id: familyId });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Timesheets are only available to caregivers");
+  const m = await (await adminDb()).from("family_members").select("timesheets_enabled").eq("id", data).maybeSingle();
+  if (m.data?.timesheets_enabled !== true) throw new Error("Timesheets are turned off for you in this household");
   return { familyId, memberId: data as string };
+}
+
+/**
+ * Owner-managed time cards: an active, Timesheet-enabled caregiver with NO
+ * household sign-in. Caregivers who can sign in use the normal submit flow.
+ */
+export async function ownerManagedCaregiver(admin: AnyDb, familyId: string, memberId: string) {
+  const m = await admin
+    .from("family_members")
+    .select("id, name, role, active, removed_at, timesheets_enabled")
+    .eq("id", memberId)
+    .eq("family_id", familyId)
+    .maybeSingle();
+  if (m.error) throw new Error(m.error.message);
+  if (!m.data || m.data.role !== "caregiver" || !m.data.timesheets_enabled) throw new Error("Caregiver not found");
+  const fu = await admin.from("family_users").select("id").eq("family_id", familyId).eq("family_member_id", memberId).limit(1);
+  if (fu.error) throw new Error(fu.error.message);
+  if ((fu.data ?? []).length) throw new Error("This caregiver signs in and submits her own timesheet");
+  return m.data as { id: string; name: string; active: boolean; removed_at: string | null };
 }
 
 export async function loadPaySettings(db: AnyDb, familyId: string) {

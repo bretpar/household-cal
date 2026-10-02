@@ -53,7 +53,8 @@ export interface EventInput {
 }
 
 export type ShiftAssignment =
-  | { kind: "caregiver"; family_user_id: string }
+  /** stable caregiver record; a sign-in is not required */
+  | { kind: "caregiver"; family_member_id: string }
   | { kind: "other"; name: string }
   | { kind: "none" };
 
@@ -81,22 +82,44 @@ export async function syncShiftAssignment(
   const del = await db.from("babysitter_shifts").delete().eq("event_id", eventId);
   if (del.error) throw del.error;
   if (!onBabysitter) return;
-  const a = input.babysitter_assignment!;
-  const row =
-    a.kind === "caregiver"
-      ? { assignment: "caregiver", family_user_id: a.family_user_id, assignee_name: null }
-      : a.kind === "other"
-        ? { assignment: "other", family_user_id: null, assignee_name: a.name.trim().slice(0, 120) }
-        : { assignment: "none", family_user_id: null, assignee_name: null };
-  if (row.assignment === "other" && !row.assignee_name) throw new Error("Enter the babysitter's name");
-  let assignee_member_id: string | null = null;
+  const a = input.babysitter_assignment! as ShiftAssignment | { kind: "caregiver"; family_user_id: string };
+  let row: { assignment: string; family_user_id: string | null; assignee_name: string | null; assignee_member_id: string | null };
   if (a.kind === "caregiver") {
-    const fu = await db.from("family_users").select("family_member_id").eq("id", a.family_user_id).maybeSingle();
-    assignee_member_id = (fu.data?.family_member_id as string | null) ?? null;
+    // Legacy clients may still send a login id; resolve it to the caregiver record.
+    let memberId = "family_member_id" in a ? a.family_member_id : null;
+    if (!memberId && "family_user_id" in a) {
+      const fu = await db.from("family_users").select("family_member_id").eq("id", a.family_user_id).eq("family_id", familyId).maybeSingle();
+      memberId = (fu.data?.family_member_id as string | null) ?? null;
+    }
+    if (!memberId) throw new Error("Choose a babysitter");
+    const m = await db
+      .from("family_members")
+      .select("id, role, active, removed_at")
+      .eq("id", memberId)
+      .eq("family_id", familyId)
+      .maybeSingle();
+    if (m.error) throw m.error;
+    if (!m.data || m.data.role !== "caregiver" || !m.data.active || m.data.removed_at) {
+      throw new Error("Choose an active caregiver");
+    }
+    // Link the caregiver's limited-view login (if any) so date unlocks keep working.
+    const prof = await db
+      .from("babysitter_access_profiles")
+      .select("family_user_id, family_users!inner(family_member_id)")
+      .eq("family_id", familyId)
+      .eq("family_users.family_member_id", memberId)
+      .limit(1);
+    const fuId = ((prof.data ?? [])[0]?.family_user_id as string | undefined) ?? null;
+    row = { assignment: "caregiver", family_user_id: fuId, assignee_name: null, assignee_member_id: memberId };
+  } else if (a.kind === "other") {
+    row = { assignment: "other", family_user_id: null, assignee_name: a.name.trim().slice(0, 120), assignee_member_id: null };
+  } else {
+    row = { assignment: "none", family_user_id: null, assignee_name: null, assignee_member_id: null };
   }
+  if (row.assignment === "other" && !row.assignee_name) throw new Error("Enter the babysitter's name");
   const ins = await db
     .from("babysitter_shifts")
-    .insert({ family_id: familyId, event_id: eventId, ...row, assignee_member_id });
+    .insert({ family_id: familyId, event_id: eventId, ...row });
   if (ins.error) throw ins.error;
 }
 
@@ -187,7 +210,7 @@ export async function loadFamilyBundle(
       .order("sort_order", { ascending: true }),
     db
       .from("events")
-      .select("*, event_members(family_member_id, weekdays), babysitter_shifts(assignment, family_user_id, assignee_name)")
+      .select("*, event_members(family_member_id, weekdays), babysitter_shifts(assignment, family_user_id, assignee_name, assignee_member_id)")
       .eq("family_id", familyId),
 
     db
@@ -329,12 +352,12 @@ export async function loadFamilyBundle(
 
 function shiftFrom(rows: unknown): ShiftAssignment | null {
   const r = (Array.isArray(rows) ? rows[0] : rows) as
-    | { assignment: string; family_user_id: string | null; assignee_name: string | null }
+    | { assignment: string; family_user_id: string | null; assignee_name: string | null; assignee_member_id?: string | null }
     | undefined
     | null;
   if (!r) return null;
-  if (r.assignment === "caregiver" && r.family_user_id)
-    return { kind: "caregiver", family_user_id: r.family_user_id };
+  if (r.assignment === "caregiver" && r.assignee_member_id)
+    return { kind: "caregiver", family_member_id: r.assignee_member_id };
   if (r.assignment === "other") return { kind: "other", name: r.assignee_name ?? "" };
   return { kind: "none" };
 }

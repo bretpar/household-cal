@@ -96,7 +96,7 @@ export async function loadSecureCaregiverOccurrences(
   const admin = supabaseAdmin as unknown as Db;
 
   const fuRes = await admin
-    .from("family_users").select("id, role").eq("family_id", familyId).eq("user_id", userId).maybeSingle();
+    .from("family_users").select("id, role, family_member_id").eq("family_id", familyId).eq("user_id", userId).maybeSingle();
   if (fuRes.error) throw fuRes.error;
   if (!fuRes.data || fuRes.data.role !== "viewer") throw new Error("Not authorised");
   const fuId = fuRes.data.id as string;
@@ -116,7 +116,8 @@ export async function loadSecureCaregiverOccurrences(
   const shiftsRes = await admin
     .from("babysitter_shifts")
     .select("event_id, events!inner(id, family_id, start_at, end_at, all_day, recurrence_rule, recurrence_until, excluded_dates)")
-    .eq("family_id", familyId).eq("family_user_id", fuId).eq("assignment", "caregiver");
+    .eq("family_id", familyId).eq("assignment", "caregiver")
+    .or(fuRes.data.family_member_id ? `family_user_id.eq.${fuId},assignee_member_id.eq.${fuRes.data.family_member_id}` : `family_user_id.eq.${fuId}`);
   if (shiftsRes.error) throw shiftsRes.error;
   const today = new Date().toISOString().slice(0, 10);
   const fromKey = addDays(today, -180);
@@ -189,7 +190,7 @@ export async function loadSecureCaregiverOccurrences(
         external_recurring_event_id: null,
         participants: members.map((m) => ({ member_id: m.family_member_id, weekdays: null })),
         member_ids: members.map((m) => m.family_member_id),
-        shift_assignment: own ? { kind: "caregiver", family_user_id: fuId } : null,
+        shift_assignment: own ? { kind: "caregiver", family_member_id: (fuRes.data.family_member_id as string | null) ?? "" } : null,
         ...(own ? { is_my_shift: true } : {}),
       } as CalendarEvent);
     }

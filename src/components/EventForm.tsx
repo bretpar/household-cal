@@ -640,10 +640,11 @@ export function EventFormFields({
   useEffect(() => {
     if (!shiftSettings) return;
     if (showShift && state.babysitter === undefined) {
-      const def = shiftSettings.default_family_user_id;
+      const def = shiftSettings.default_member_id;
+      const ok = def && shiftSettings.caregivers.some((c) => c.family_member_id === def);
       onChange({
         ...state,
-        babysitter: def ? { kind: "caregiver", family_user_id: def } : null,
+        babysitter: ok ? { kind: "caregiver", family_member_id: def } : null,
       });
     } else if (!showShift && state.babysitter !== undefined) {
       onChange({ ...state, babysitter: undefined });
@@ -652,7 +653,7 @@ export function EventFormFields({
   }, [showShift, shiftSettings, state.babysitter]);
   const shiftValue =
     state.babysitter?.kind === "caregiver"
-      ? state.babysitter.family_user_id
+      ? state.babysitter.family_member_id
       : state.babysitter?.kind ?? "";
   const providerLabel = (s: (typeof sources)[number]) =>
     s.provider === "google" ? "Google" : s.provider === "ics" ? "Apple" : "OFC";
@@ -1170,7 +1171,7 @@ export function EventFormFields({
                     ? { kind: "none" }
                     : v === "other"
                       ? { kind: "other", name: "" }
-                      : { kind: "caregiver", family_user_id: v },
+                      : { kind: "caregiver", family_member_id: v },
               })
             }
           >
@@ -1180,16 +1181,16 @@ export function EventFormFields({
             <SelectContent>
               {[...shiftSettings.caregivers]
                 .sort((a, b) =>
-                  a.family_user_id === shiftSettings.default_family_user_id
+                  a.family_member_id === shiftSettings.default_member_id
                     ? -1
-                    : b.family_user_id === shiftSettings.default_family_user_id
+                    : b.family_member_id === shiftSettings.default_member_id
                       ? 1
                       : 0,
                 )
                 .map((c) => (
-                  <SelectItem key={c.family_user_id} value={c.family_user_id}>
+                  <SelectItem key={c.family_member_id} value={c.family_member_id}>
                     {c.name}
-                    {c.family_user_id === shiftSettings.default_family_user_id ? " · Default" : ""}
+                    {c.family_member_id === shiftSettings.default_member_id ? " · Default" : ""}
                   </SelectItem>
                 ))}
               <SelectItem value="other">Other</SelectItem>

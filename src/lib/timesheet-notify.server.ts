@@ -191,13 +191,13 @@ export async function runTimesheetNotifications(now = new Date()) {
 
   const { data: links, error } = await admin
     .from("family_users")
-    .select("family_id, family_member_id, family_members!inner(role, active, removed_at)")
+    .select("family_id, family_member_id, family_members!inner(role, active, removed_at, timesheets_enabled)")
     .not("family_member_id", "is", null);
   if (error) throw new Error(error.message);
 
   for (const l of links ?? []) {
     const m = l.family_members;
-    if (!m || m.role !== "caregiver" || !m.active || m.removed_at) continue;
+    if (!m || m.role !== "caregiver" || !m.active || m.removed_at || !m.timesheets_enabled) continue;
     // Entitlement off: skip before any draft creation or email; data untouched.
     if (!hasFeature("timesheets", { familyId: l.family_id })) continue;
     try {

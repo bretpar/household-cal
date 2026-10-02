@@ -884,6 +884,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           default_babysitter_family_user_id: string | null
+          default_babysitter_member_id: string | null
           id: string
           include_google_event_initials: boolean
           name: string
@@ -895,6 +896,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_babysitter_family_user_id?: string | null
+          default_babysitter_member_id?: string | null
           id?: string
           include_google_event_initials?: boolean
           name: string
@@ -906,6 +908,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_babysitter_family_user_id?: string | null
+          default_babysitter_member_id?: string | null
           id?: string
           include_google_event_initials?: boolean
           name?: string
@@ -926,6 +929,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "babysitter_access_profiles"
             referencedColumns: ["family_user_id"]
+          },
+          {
+            foreignKeyName: "families_default_babysitter_member_id_fkey"
+            columns: ["default_babysitter_member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1021,6 +1031,7 @@ export type Database = {
           role: Database["public"]["Enums"]["member_role"]
           sort_order: number
           timesheet_emails_enabled: boolean
+          timesheets_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -1036,6 +1047,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["member_role"]
           sort_order?: number
           timesheet_emails_enabled?: boolean
+          timesheets_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -1051,6 +1063,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["member_role"]
           sort_order?: number
           timesheet_emails_enabled?: boolean
+          timesheets_enabled?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -1544,6 +1557,7 @@ export type Database = {
           id: string
           owner_edited_at: string | null
           owner_edited_by: string | null
+          owner_managed: boolean
           parent_note: string | null
           period_end: string
           period_start: string
@@ -1563,6 +1577,7 @@ export type Database = {
           id?: string
           owner_edited_at?: string | null
           owner_edited_by?: string | null
+          owner_managed?: boolean
           parent_note?: string | null
           period_end: string
           period_start: string
@@ -1582,6 +1597,7 @@ export type Database = {
           id?: string
           owner_edited_at?: string | null
           owner_edited_by?: string | null
+          owner_managed?: boolean
           parent_note?: string | null
           period_end?: string
           period_start?: string
