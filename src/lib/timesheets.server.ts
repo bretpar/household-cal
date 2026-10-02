@@ -212,7 +212,7 @@ export async function ensureTimesheet(
 export async function loadEntries(admin: AnyDb, timesheetId: string, tz: string) {
   const { data, error } = await admin
     .from("timesheet_entries")
-    .select("id, event_id, work_date, scheduled_title, scheduled_start, scheduled_end, actual_start, actual_end, is_manual, note")
+    .select("id, event_id, work_date, scheduled_title, scheduled_start, scheduled_end, actual_start, actual_end, is_manual, note, owner_edited_at")
     .eq("timesheet_id", timesheetId)
     .order("actual_start", { ascending: true });
   if (error) throw new Error(error.message);
