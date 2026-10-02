@@ -5,7 +5,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import {
-  BABYSITTER_SETUP_KEY,
   invalidateAccessQueries,
   BabysitterAccessDialog,
   BabysitterConfigFields,
