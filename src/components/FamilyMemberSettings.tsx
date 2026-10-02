@@ -122,6 +122,10 @@ export function FamilyMemberSettings() {
   const accessMembership = (m: FamilyMember) =>
     shift?.caregivers.find((c) => c.family_member_id === m.id)?.family_user_id ?? null;
 
+  const loginEmail = (m: FamilyMember) => {
+    const id = accessMembership(m);
+    return id ? (accessQuery.data?.memberships ?? []).find((x) => x.id === id)?.email ?? null : null;
+  };
   const hasAccess = (m: FamilyMember) =>
     !!shift?.caregivers.some((c) => c.family_member_id === m.id && c.has_sign_in);
   const isDefault = (m: FamilyMember) => shift?.default_member_id === m.id;
@@ -174,7 +178,7 @@ export function FamilyMemberSettings() {
       </span>
       <div className="min-w-0">
         <h3 className="truncate text-base font-bold">{member.name}</h3>
-        <p className="whitespace-pre-line text-xs font-semibold text-muted-foreground">{subtitle}</p>
+        <p className="whitespace-pre-line break-words text-xs font-semibold text-muted-foreground">{subtitle}</p>
       </div>
       {actions}
     </article>
@@ -276,7 +280,7 @@ export function FamilyMemberSettings() {
                         <DropdownMenuItem
                           onSelect={() => setEditAccess({ member, membershipId: accessMembership(member)! })}
                         >
-                          Edit access
+                          Manage app access
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onSelect={() => setPreview({ member, membershipId: accessMembership(member)! })}
@@ -302,7 +306,7 @@ export function FamilyMemberSettings() {
                 </DropdownMenu>
               ) : null,
               isOwner
-                ? `${hasAccess(member) ? "✓ " : ""}Caregiver · ${hasAccess(member) ? "Access active" : pendingInviteFor(member) ? "Invitation sent" : "No sign-in access"}${isDefault(member) ? " · Default" : ""}${showTimesheets ? `\nTimesheets · ${timesheetsOn(member) ? "On" : "Off"}${timesheetsOn(member) && member.timesheet_emails_enabled === false ? " · Timesheet emails off" : ""}` : ""}`
+                ? `Caregiver${isDefault(member) ? " · Default" : ""}\n${hasAccess(member) ? `${loginEmail(member) ? `${loginEmail(member)} · ` : ""}Access active` : pendingInviteFor(member) ? "Invitation sent" : "No app access"}${showTimesheets ? `\nTimesheets · ${timesheetsOn(member) ? "On" : "Off"}${timesheetsOn(member) && member.timesheet_emails_enabled === false ? " · Timesheet emails off" : ""}` : ""}`
                 : "Caregiver",
             ),
           )}
@@ -340,6 +344,7 @@ export function FamilyMemberSettings() {
           membershipId={editAccess.membershipId}
           label={editAccess.member.name}
           linkedMemberId={editAccess.member.id}
+          loginEmail={loginEmail(editAccess.member)}
           onSaved={() => void refresh()}
         />
       ) : null}
