@@ -57,7 +57,9 @@ export function MonthView({
   fill?: boolean;
 }) {
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
-  const { categoryAppearanceFor } = useCalendar();
+  const { categoryAppearanceFor, family } = useCalendar();
+  /** the household's Babysitter calendar — the only source that tints a day cell */
+  const babysitterSourceId = family?.babysitter_calendar_source_id ?? null;
 
   const WEEKDAYS = weekStartsOn === 0 ? SUNDAY_FIRST : MONDAY_FIRST;
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn });
@@ -151,15 +153,22 @@ export function MonthView({
               .some((d) => d.getDate() === 1 && isSameMonth(d, month));
           const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
           const coverage = dayOccurrences.filter((o) => isCoverage(o.event));
-          // The day marker wears the background calendar's chosen symbol.
-          const coverageIcon = (() => {
-            const first = coverage[0];
-            if (!first) return null;
-            const appearance = categoryAppearanceFor(first.event);
-            return {
-              Icon: calendarIconComponent(appearance.icon) ?? Baby,
-              label: appearance.label,
-            };
+          // Day markers wear each background calendar's chosen symbol (babysitter,
+          // work, …) so a day with both shows both; repeated symbols show once.
+          const coverageIcons = (() => {
+            const seen = new Set<string>();
+            const icons: { Icon: typeof Baby; label: string }[] = [];
+            for (const o of coverage) {
+              const appearance = categoryAppearanceFor(o.event);
+              const key = `${appearance.icon ?? ""}|${appearance.label}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              icons.push({
+                Icon: calendarIconComponent(appearance.icon) ?? Baby,
+                label: appearance.label,
+              });
+            }
+            return icons;
           })();
 
           const visible = dayOccurrences.filter(
@@ -199,7 +208,11 @@ export function MonthView({
                   ? "min-h-0 overflow-hidden p-1 sm:p-2"
                   : "min-h-[92px] p-1.5 sm:min-h-[124px] sm:p-2",
                 !inMonth && "opacity-45",
-                coverage.length > 0 && "bg-coverage/70",
+                // Only a Babysitter-calendar event tints the day; a Work-only
+                // day keeps the normal background but still shows its marker.
+                dayOccurrences.some(
+                  (o) => !!babysitterSourceId && o.event.calendar_source_id === babysitterSourceId,
+                ) && "bg-coverage/70",
               )}
             >
               <div
@@ -229,11 +242,16 @@ export function MonthView({
                   >
                     <ClipboardPaste className="h-3.5 w-3.5" />
                   </button>
-                ) : coverageIcon ? (
-                  <coverageIcon.Icon
-                    className="h-3.5 w-3.5 text-coverage-foreground"
-                    aria-label={coverageIcon.label}
-                  />
+                ) : coverageIcons.length > 0 ? (
+                  <span className="flex shrink-0 items-center gap-0.5">
+                    {coverageIcons.map(({ Icon, label }) => (
+                      <Icon
+                        key={label}
+                        className="h-3.5 w-3.5 text-coverage-foreground"
+                        aria-label={label}
+                      />
+                    ))}
+                  </span>
                 ) : null}
 
               </div>

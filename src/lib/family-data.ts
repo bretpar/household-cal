@@ -53,6 +53,8 @@ export interface Family {
   id: FamilyId;
   name: string;
   role: FamilyRole;
+  /** the calendar source the household treats as its Babysitter calendar */
+  babysitter_calendar_source_id?: string | null;
 }
 
 export interface FamilyMember {

@@ -160,7 +160,7 @@ export async function loadFamilyBundle(
 ): Promise<FamilyBundle> {
   const { data: memberships, error: mErr } = await db
     .from("family_users")
-    .select("family_id, role, families(id, name)")
+    .select("family_id, role, families(id, name, babysitter_calendar_source_id)")
     .eq("user_id", userId)
     .order("created_at", { ascending: true })
     .limit(1);
@@ -195,6 +195,9 @@ export async function loadFamilyBundle(
     id: familyId,
     name: membership.families?.name ?? "Family",
     role: membership.role as FamilyRole,
+    babysitter_calendar_source_id:
+      (membership.families as { babysitter_calendar_source_id?: string | null } | null)
+        ?.babysitter_calendar_source_id ?? null,
   };
 
   const [membersRes, sourcesRes, eventsRes, activitiesRes, categoriesRes] = await Promise.all([
