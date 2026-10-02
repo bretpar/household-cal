@@ -15,6 +15,13 @@
       "when": 1790955467710,
       "tag": "0001_enable_timesheets_on_caregiver_signin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790976351945,
+      "tag": "0002_atomic_caregiver_access",
+      "breakpoints": true
     }
   ]
 }

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import {
-  BABYSITTER_SETUP_KEY,
+  invalidateAccessQueries,
   BabysitterAccessDialog,
   BabysitterConfigFields,
   useBabysitterSetup,
@@ -149,8 +149,7 @@ export function HouseholdAccess() {
     mutationFn: (vars: { id: string; role: string }) =>
       changeRole({ data: { membership_id: vars.id, role: vars.role } }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: BABYSITTER_SETUP_KEY });
-      await refresh();
+      await invalidateAccessQueries(queryClient);
       toast.success("Role updated");
     },
     onError: (error: unknown) =>
@@ -169,8 +168,7 @@ export function HouseholdAccess() {
       }),
     onSuccess: async () => {
       setRemovingBabysitterId(null);
-      await queryClient.invalidateQueries({ queryKey: BABYSITTER_SETUP_KEY });
-      await refresh();
+      await invalidateAccessQueries(queryClient);
       toast.success("Role updated to Viewer");
     },
     onError: (error: unknown) =>
@@ -269,8 +267,10 @@ export function HouseholdAccess() {
       </div>
 
       <div className="divide-y divide-border-soft overflow-hidden rounded-3xl border border-border-soft bg-card">
-        {access.isLoading ? <p className="p-4 text-sm text-muted-foreground">Loading…</p> : null}
-        {(access.data?.memberships ?? []).map((m) => {
+        {access.isLoading || (isOwner && babysitterSetup.isLoading) ? (
+          <p className="p-4 text-sm text-muted-foreground">Loading…</p>
+        ) : null}
+        {(isOwner && babysitterSetup.isLoading ? [] : access.data?.memberships ?? []).map((m) => {
           const isBabysitter =
             babysitterSetup.data?.profiles.some((profile) => profile.family_user_id === m.id) ?? false;
           // Caregiver logins are managed from the Caregivers section.

@@ -22,8 +22,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getBabysitterSetup, setBabysitterAccess } from "@/lib/household.functions";
+import { FAMILY_BUNDLE_KEY } from "@/lib/calendar-store";
+import { IS_CAREGIVER_KEY } from "@/lib/use-caregiver";
 
 export const BABYSITTER_SETUP_KEY = ["babysitter-setup"] as const;
+
+/** Refetch everything whose visible data depends on caregiver access. */
+export function invalidateAccessQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: BABYSITTER_SETUP_KEY }),
+    queryClient.invalidateQueries({ queryKey: ["household-access"] }),
+    queryClient.invalidateQueries({ queryKey: IS_CAREGIVER_KEY }),
+    queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY }),
+  ]);
+}
 
 export function useBabysitterSetup(enabled: boolean) {
   const fetchSetup = useServerFn(getBabysitterSetup);
@@ -77,7 +89,7 @@ export function BabysitterAccessDialog({
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: BABYSITTER_SETUP_KEY });
+      await invalidateAccessQueries(queryClient);
       onSaved();
       onOpenChange(false);
       toast.success("Babysitter access saved");
