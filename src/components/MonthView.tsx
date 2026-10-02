@@ -208,7 +208,11 @@ export function MonthView({
                   ? "min-h-0 overflow-hidden p-1 sm:p-2"
                   : "min-h-[92px] p-1.5 sm:min-h-[124px] sm:p-2",
                 !inMonth && "opacity-45",
-                coverage.length > 0 && "bg-coverage/70",
+                // Only a Babysitter-calendar event tints the day; a Work-only
+                // day keeps the normal background but still shows its marker.
+                dayOccurrences.some(
+                  (o) => !!babysitterSourceId && o.event.calendar_source_id === babysitterSourceId,
+                ) && "bg-coverage/70",
               )}
             >
               <div
@@ -238,11 +242,16 @@ export function MonthView({
                   >
                     <ClipboardPaste className="h-3.5 w-3.5" />
                   </button>
-                ) : coverageIcon ? (
-                  <coverageIcon.Icon
-                    className="h-3.5 w-3.5 text-coverage-foreground"
-                    aria-label={coverageIcon.label}
-                  />
+                ) : coverageIcons.length > 0 ? (
+                  <span className="flex shrink-0 items-center gap-0.5">
+                    {coverageIcons.map(({ Icon, label }) => (
+                      <Icon
+                        key={label}
+                        className="h-3.5 w-3.5 text-coverage-foreground"
+                        aria-label={label}
+                      />
+                    ))}
+                  </span>
                 ) : null}
 
               </div>
