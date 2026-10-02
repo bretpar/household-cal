@@ -51,7 +51,9 @@ export function BabysitterAccessDialog({
   linkedMemberId,
   prepareSave,
   onSaved,
+  loginEmail,
 }: {
+  loginEmail?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   membershipId: string;
@@ -102,10 +104,25 @@ export function BabysitterAccessDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-3xl sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Babysitter access · {label}</DialogTitle>
+          <DialogTitle>{linkedMemberId ? "Manage app access" : `Babysitter access · ${label}`}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {linkedMemberId ? (
+            <div className="grid grid-cols-2 gap-3 rounded-2xl border border-border-soft bg-surface-muted/50 p-3 text-sm">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-muted-foreground">Caregiver</p>
+                <p className="truncate font-bold">{label}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-muted-foreground">Login</p>
+                <p className="truncate font-bold">{loginEmail ?? "Linked login"}</p>
+                <p className="text-xs text-muted-foreground">Access active</p>
+              </div>
+            </div>
+          ) : null}
           <BabysitterConfigFields
+            hideMember={!!linkedMemberId}
+            name={linkedMemberId ? label : undefined}
             setup={setup.data}
             memberId={memberId}
             setMemberId={setMemberId}
@@ -148,7 +165,9 @@ export function BabysitterConfigFields({
   calendarIds,
   setCalendarIds,
   hideMember = false,
+  name,
 }: {
+  name?: string;
   hideMember?: boolean;
   setup: { calendars: { id: string; name: string }[]; family_members: { id: string; name: string }[] } | undefined;
   memberId: string;
@@ -193,7 +212,7 @@ export function BabysitterConfigFields({
         <p className="text-sm font-semibold">Schedule visibility</p>
         <RadioGroup value={scope} onValueChange={(v) => setScope(v as Scope)}>
           <label className="flex items-center gap-2 text-sm">
-            <RadioGroupItem value="shift_days_only" /> Only days they babysit
+            <RadioGroupItem value="shift_days_only" /> Only days {name ?? "they"} babysit{name ? "s" : ""}
           </label>
           <label className="flex items-center gap-2 text-sm">
             <RadioGroupItem value="all_permitted" /> All permitted calendar dates
