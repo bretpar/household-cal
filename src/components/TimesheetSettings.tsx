@@ -28,6 +28,11 @@ import {
   type TimesheetNotifySettings,
   countPendingTimesheets,
   countMyTimesheetActions,
+  getOwnerManagedTimesheet,
+  listOwnerManagedCaregivers,
+  ownerDeleteManagedEntry,
+  ownerFinalizeManaged,
+  ownerSaveManagedEntry,
   ownerEditEntry,
   listHouseholdTimesheets,
   reviewTimesheet,
@@ -95,6 +100,7 @@ export function OwnerTimesheets() {
   const { data } = useQuery({ queryKey: ["household-timesheets"], queryFn: () => fetch() });
   return (
     <div className="space-y-5">
+      <OwnerManagedSection />
       {GROUPS.map((g) => {
         const items = (data ?? []).filter((t) => g.match(t.status));
         return (
@@ -241,7 +247,7 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
         <span className="min-w-0">
           <span className="block font-bold">{sheet.caregiver_name}</span>
           <span className="block text-xs text-muted-foreground">
-            {fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end)} · {STATUS_LABEL[sheet.status]}
+            {fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end)} · {sheet.owner_managed ? "Owner-managed · " : ""}{STATUS_LABEL[sheet.status]}
           </span>
         </span>
         <span className="shrink-0 rounded-full bg-secondary px-3 py-1 text-xs font-semibold">
@@ -357,6 +363,189 @@ function OwnerEntryEditor({ sheet, entry, onSaved }: { sheet: TimesheetView; ent
       >
         Save entry
       </Button>
+    </div>
+  );
+}
+
+/* ------------------------------------------- owner-managed (no sign-in) cards */
+
+function OwnerManagedSection() {
+  const fetch = useServerFn(listOwnerManagedCaregivers);
+  const { data } = useQuery({ queryKey: ["owner-managed-caregivers"], queryFn: () => fetch() });
+  if (!data || data.length === 0) return null;
+  return (
+    <section className="space-y-3">
+      <div className="flex items-baseline gap-2">
+        <h2 className="text-base font-bold">Owner-managed time cards</h2>
+        <span className="text-xs font-semibold text-muted-foreground">{data.length}</span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        For caregivers without sign-in access. You confirm their hours; nothing is sent to them.
+      </p>
+      {data.map((c) => <OwnerManagedCard key={c.member_id} memberId={c.member_id} name={c.name} />)}
+    </section>
+  );
+}
+
+function OwnerManagedCard({ memberId, name }: { memberId: string; name: string }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [offset, setOffset] = useState(-1);
+  const fetch = useServerFn(getOwnerManagedTimesheet);
+  const finalize = useServerFn(ownerFinalizeManaged);
+  const key = ["owner-managed-sheet", memberId, offset];
+  const { data: sheet } = useQuery({ queryKey: key, queryFn: () => fetch({ data: { member_id: memberId, offset } }), enabled: open });
+  const [adding, setAdding] = useState(false);
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ["owner-managed-sheet", memberId] });
+    void qc.invalidateQueries({ queryKey: ["household-timesheets"] });
+  };
+  const mutation = useMutation({
+    mutationFn: () => finalize({ data: { timesheet_id: sheet!.id } }),
+    onSuccess: () => {
+      toast.success("Time card approved");
+      refresh();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not approve"),
+  });
+  const editable = sheet ? sheet.status === "draft" || sheet.status === "needs_correction" : false;
+  const actual = (sheet?.entries ?? []).reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
+  return (
+    <div className="space-y-2 rounded-2xl border border-border-soft bg-card p-4 text-sm">
+      <button type="button" className="flex w-full items-start justify-between gap-2 text-left" onClick={() => setOpen((o) => !o)}>
+        <span className="min-w-0">
+          <span className="block font-bold">{name}</span>
+          <span className="block text-xs text-muted-foreground">Owner-managed · No sign-in access</span>
+        </span>
+        <span className="shrink-0 rounded-full bg-secondary px-3 py-1 text-xs font-semibold">{open ? "Close" : "Open"}</span>
+      </button>
+      {open ? (
+        <div className="space-y-2 border-t border-border-soft pt-2">
+          <div className="flex items-center justify-between gap-2">
+            <Button size="sm" variant="ghost" disabled={offset <= -60} onClick={() => setOffset((o) => o - 1)} aria-label="Previous pay period">‹</Button>
+            <span className="text-xs font-semibold">
+              {sheet ? `${fmtDate(sheet.period_start)} – ${fmtDate(sheet.period_end)} · Owner-managed · ${STATUS_LABEL[sheet.status]}` : "Loading…"}
+            </span>
+            <Button size="sm" variant="ghost" disabled={offset >= 0} onClick={() => setOffset((o) => o + 1)} aria-label="Next pay period">›</Button>
+          </div>
+          {sheet ? (
+            <>
+              <p className="text-xs font-semibold">Actual {formatHours(actual)}</p>
+              {sheet.entries.length === 0 && !adding ? (
+                <p className="text-xs text-muted-foreground">No shifts in this pay period.</p>
+              ) : null}
+              {sheet.entries.map((e) =>
+                editable ? (
+                  <ManagedEntryEditor key={e.id} sheet={sheet} entry={e} onSaved={refresh} />
+                ) : (
+                  <div key={e.id} className="rounded-xl bg-surface-muted/60 p-2">
+                    <div className="flex justify-between gap-2">
+                      <span className="font-semibold">{fmtDate(e.work_date)}</span>
+                      <span>{formatHours(hoursBetween(e.actual_start, e.actual_end))}</span>
+                    </div>
+                    <p className="text-xs">Actual {fmtTime(e.actual_start, sheet.time_zone)} – {fmtTime(e.actual_end, sheet.time_zone)}</p>
+                    {e.note ? <p className="text-xs text-muted-foreground">{e.note}</p> : null}
+                  </div>
+                ),
+              )}
+              {editable && adding ? (
+                <ManagedEntryEditor sheet={sheet} entry={null} onSaved={() => { setAdding(false); refresh(); }} />
+              ) : null}
+              {editable ? (
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <Button size="sm" variant="outline" onClick={() => setAdding((v) => !v)}>{adding ? "Cancel" : "Add entry"}</Button>
+                  <Button size="sm" disabled={mutation.isPending || sheet.entries.length === 0} onClick={() => mutation.mutate()}>
+                    Approve time card
+                  </Button>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ManagedEntryEditor({
+  sheet,
+  entry,
+  onSaved,
+}: {
+  sheet: TimesheetView;
+  entry: TimesheetView["entries"][number] | null;
+  onSaved: () => void;
+}) {
+  const save = useServerFn(ownerSaveManagedEntry);
+  const remove = useServerFn(ownerDeleteManagedEntry);
+  const [date, setDate] = useState(entry?.work_date ?? sheet.period_start);
+  const [start, setStart] = useState(entry?.actual_start_local ?? "");
+  const [end, setEnd] = useState(entry?.actual_end_local ?? "");
+  const [note, setNote] = useState(entry?.note ?? "");
+  const [busy, setBusy] = useState(false);
+  const dirty = !entry || start !== entry.actual_start_local || end !== entry.actual_end_local || note !== (entry.note ?? "");
+  const run = async (fn: () => Promise<unknown>, ok: string) => {
+    setBusy(true);
+    try {
+      await fn();
+      toast.success(ok);
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const idp = entry?.id ?? "new";
+  return (
+    <div className="space-y-2.5 rounded-xl border border-primary/40 p-3">
+      {entry ? (
+        <div className="flex justify-between gap-2">
+          <span className="font-semibold">{fmtDate(entry.work_date)}</span>
+          <span>{start && end ? formatHours(localHours(start, end)) : ""}</span>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          <Label htmlFor={`md-${idp}`} className="text-xs">Date</Label>
+          <Input id={`md-${idp}`} type="date" min={sheet.period_start} max={sheet.period_end} value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+      )}
+      {entry && !entry.is_manual ? (
+        <p className="text-xs text-muted-foreground">
+          Scheduled {fmtTime(entry.scheduled_start, sheet.time_zone)} – {fmtTime(entry.scheduled_end, sheet.time_zone)}
+        </p>
+      ) : null}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="min-w-0 space-y-1">
+          <Label htmlFor={`ms-${idp}`} className="text-xs">Actual start</Label>
+          <Input id={`ms-${idp}`} type="time" className="w-full min-w-0" value={start} onChange={(e) => setStart(e.target.value)} />
+        </div>
+        <div className="min-w-0 space-y-1">
+          <Label htmlFor={`me-${idp}`} className="text-xs">Actual end</Label>
+          <Input id={`me-${idp}`} type="time" className="w-full min-w-0" value={end} onChange={(e) => setEnd(e.target.value)} />
+        </div>
+      </div>
+      <Input aria-label="Note" placeholder="Note (optional)" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+      <div className={entry?.is_manual ? "grid grid-cols-2 gap-2" : ""}>
+        <Button
+          size="sm"
+          className="w-full"
+          disabled={busy || !dirty || !start || !end || !date}
+          onClick={() =>
+            void run(
+              () => save({ data: { timesheet_id: sheet.id, entry_id: entry?.id ?? null, work_date: entry?.work_date ?? date, start, end, note: note || null } }),
+              entry ? "Entry updated" : "Entry added",
+            )
+          }
+        >
+          {entry ? "Save entry" : "Add entry"}
+        </Button>
+        {entry?.is_manual ? (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(() => remove({ data: { timesheet_id: sheet.id, entry_id: entry.id } }), "Entry removed")}>
+            Remove
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
