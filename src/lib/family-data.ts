@@ -169,7 +169,7 @@ export interface CalendarEvent {
   created_at?: string | null;
   /** Babysitter-calendar shift assignment (visible to editors; caregivers see only their own). */
   shift_assignment?:
-    | { kind: "caregiver"; family_user_id: string }
+    | { kind: "caregiver"; family_member_id: string }
     | { kind: "other"; name: string }
     | { kind: "none" }
     | null;
