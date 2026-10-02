@@ -1,3 +1,6 @@
+import { resetGuardForResume } from "@/lib/auth-guard";
+import { useAppResume } from "@/lib/use-app-resume";
+import { withTimeout } from "@/lib/with-timeout";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -139,7 +142,10 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
 
   const bundle = useQuery({
     queryKey: FAMILY_BUNDLE_KEY,
-    queryFn: () => fetchBundle(),
+    // Bounded so a request stalled by iOS suspension can't hold the startup
+    // screen forever; one retry, then the existing error/retry UI shows.
+    queryFn: () => withTimeout(fetchBundle(), 20_000, "Calendar"),
+    retry: 1,
     // Foreground returns within this window reuse the populated in-memory
     // bundle instead of refetching on focus; explicit invalidations still
     // refetch immediately regardless of staleness.
@@ -162,6 +168,22 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
         /* freshness sync is best-effort; the cached calendar stays usable */
       });
   }, [bundle.data?.family, refreshGoogle, queryClient]);
+
+  // Warm resume (e.g. iOS app reopened after a while): reset any stuck auth
+  // check and refresh quietly. The loaded calendar stays on screen because
+  // the bundle keeps its data while refetching; Google refresh stays best-effort.
+  useAppResume(() => {
+    resetGuardForResume();
+    void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+    if (!bundle.data?.family) return;
+    void refreshGoogle()
+      .then((result) => {
+        if (result && "applied" in result && (result.applied ?? 0) > 0) {
+          queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+        }
+      })
+      .catch(() => {});
+  });
 
   // A category filter can point at a category that was just deleted in Family
   // settings. Drop the stale selection so the calendar never looks empty.
