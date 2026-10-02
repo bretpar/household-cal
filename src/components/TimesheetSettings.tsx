@@ -346,7 +346,7 @@ function OwnerEntryEditor({ sheet, entry, onSaved }: { sheet: TimesheetView; ent
         </div>
       </div>
       <Input aria-label="Note" placeholder="Note (optional)" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
-      <Button
+      {dirty ? <Button
         size="sm"
         variant="outline"
         className="w-full"
@@ -365,7 +365,7 @@ function OwnerEntryEditor({ sheet, entry, onSaved }: { sheet: TimesheetView; ent
         }}
       >
         Save changes
-      </Button>
+      </Button> : null}
     </div>
   );
 }

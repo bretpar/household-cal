@@ -340,9 +340,9 @@ function EntryEditor({
         <Input id={`ts-note-${entry?.id ?? "new"}`} className="w-full" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
       </div>
       <p className="text-xs text-muted-foreground">An end time before the start counts as overnight.</p>
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="outline" onClick={onCancel} disabled={busy}>Cancel</Button>
-        <Button
+      <div className={entry && !dirty ? "" : "grid grid-cols-2 gap-2"}>
+        <Button variant="outline" className={entry && !dirty ? "w-full" : undefined} onClick={onCancel} disabled={busy}>Cancel</Button>
+        {!entry || dirty ? <Button
           disabled={busy || !dirty || !start || !end || !date}
           onClick={async () => {
             setBusy(true);
@@ -357,7 +357,7 @@ function EntryEditor({
           }}
         >
           {entry ? "Save changes" : "Add shift"}
-        </Button>
+        </Button> : null}
       </div>
     </div>
   );
