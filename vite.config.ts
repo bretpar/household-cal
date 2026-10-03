@@ -25,7 +25,15 @@ const entitiesDir = path.resolve(path.dirname(require.resolve("entities")), ".."
 
 // Build stamp for the internal build-diagnostics panel (Maintenance area).
 // Lets us confirm which deployed bundle a (possibly stale) WebView is running.
-const appVersion: string = require("../package.json").version;
+// Resolve package.json relative to the project root (cwd), never above it.
+const appVersion: string = (() => {
+  try {
+    const pkg = require(path.resolve(process.cwd(), "package.json"));
+    return typeof pkg?.version === "string" ? pkg.version : "unknown";
+  } catch {
+    return "unknown";
+  }
+})();
 const buildId = new Date().toISOString();
 
 export default defineConfig({
