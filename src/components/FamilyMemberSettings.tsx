@@ -28,7 +28,7 @@ import { FAMILY_BUNDLE_KEY, useCalendar } from "@/lib/calendar-store";
 import { MEMBER_COLORS, styleForColor, type FamilyMember, type MemberColor } from "@/lib/family-data";
 import { saveFamilyMemberFn } from "@/lib/settings.functions";
 import { getShiftSettings } from "@/lib/babysitter-shifts.functions";
-import { deleteCaregiver, keepCaregiverLoginAsViewer, removeCaregiverAppAccess, setCaregiverArchived, setCaregiverTimesheets } from "@/lib/caregiver-management.functions";
+import { deleteCaregiver, keepCaregiverLoginAsViewer, removeCaregiverAppAccess, setCaregiverArchived, setCaregiverTimesheets, setCaregiverTimesheetStart } from "@/lib/caregiver-management.functions";
 import { hasFeature } from "@/lib/features";
 import {
   DropdownMenu,
@@ -162,6 +162,22 @@ export function FamilyMemberSettings() {
       toast.success(`Timesheets ${next ? "on" : "off"} for ${m.name}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not update");
+    }
+  };
+  const startFn = useServerFn(setCaregiverTimesheetStart);
+  const startOf = (m: FamilyMember) => shift?.caregivers.find((c) => c.family_member_id === m.id)?.timesheet_start_date ?? null;
+  const [startEdit, setStartEdit] = useState<{ member: FamilyMember; value: string } | null>(null);
+  const saveStart = async () => {
+    if (!startEdit) return;
+    try {
+      await startFn({ data: { member_id: startEdit.member.id, start_date: startEdit.value || null } });
+      await refresh();
+      void queryClient.invalidateQueries({ queryKey: ["owner-managed-caregivers"] });
+      void queryClient.invalidateQueries({ queryKey: ["household-timesheets"] });
+      toast.success("Timesheet start date saved");
+      setStartEdit(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save");
     }
   };
   const refresh = async () => {
@@ -321,6 +337,11 @@ export function FamilyMemberSettings() {
                         {timesheetsOn(member) ? "Turn Timesheets off" : "Turn Timesheets on"}
                       </DropdownMenuItem>
                     ) : null}
+                    {showTimesheets ? (
+                      <DropdownMenuItem onSelect={() => setStartEdit({ member, value: startOf(member) ?? "" })}>
+                        Timesheet start date
+                      </DropdownMenuItem>
+                    ) : null}
                     <DropdownMenuItem onSelect={() => setAction({ kind: "archive", member })}>Archive</DropdownMenuItem>
                     <DropdownMenuItem className="text-destructive" onSelect={() => setAction({ kind: "delete", member })}>
                       Delete
@@ -329,7 +350,7 @@ export function FamilyMemberSettings() {
                 </DropdownMenu>
               ) : null,
               isOwner
-                ? `Caregiver${isDefault(member) ? " · Default" : ""}\n${hasAccess(member) ? `${loginEmail(member) ? `${loginEmail(member)} · ` : ""}Access active` : pendingInviteFor(member) ? "Invitation sent" : "No app access"}${showTimesheets ? `\nTimesheets · ${timesheetsOn(member) ? "On" : "Off"}${timesheetsOn(member) && member.timesheet_emails_enabled === false ? " · Timesheet emails off" : ""}` : ""}`
+                ? `Caregiver${isDefault(member) ? " · Default" : ""}\n${hasAccess(member) ? `${loginEmail(member) ? `${loginEmail(member)} · ` : ""}Access active` : pendingInviteFor(member) ? "Invitation sent" : "No app access"}${showTimesheets ? `\nTimesheets · ${timesheetsOn(member) ? "On" : "Off"}${timesheetsOn(member) && startOf(member) ? ` · from ${new Date(`${startOf(member)}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}` : ""}${timesheetsOn(member) && member.timesheet_emails_enabled === false ? " · Timesheet emails off" : ""}` : ""}`
                 : "Caregiver",
             ),
           )}
@@ -354,6 +375,24 @@ export function FamilyMemberSettings() {
         </div>
       ) : null}
 
+      <Dialog open={!!startEdit} onOpenChange={(o) => !o && setStartEdit(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Timesheet start date</DialogTitle>
+            <DialogDescription>
+              Pay periods ending before this date won't be shown as open work for {startEdit?.member.name}. Leave empty for no limit.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1">
+            <Label htmlFor="ts-start-date">Start date</Label>
+            <Input id="ts-start-date" type="date" value={startEdit?.value ?? ""} onChange={(e) => startEdit && setStartEdit({ ...startEdit, value: e.target.value })} />
+          </div>
+          <DialogFooter className="grid grid-cols-2 gap-2 sm:flex">
+            <Button variant="outline" onClick={() => setStartEdit(null)}>Cancel</Button>
+            <Button onClick={() => void saveStart()}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <AlertDialog open={!!removeAccess} onOpenChange={(o) => !o && !removing && setRemoveAccess(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

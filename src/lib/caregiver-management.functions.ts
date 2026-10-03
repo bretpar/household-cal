@@ -179,6 +179,23 @@ export const setCaregiverTimesheets = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Owner-only: per-caregiver Timesheet start date (null = no limit). Never deletes existing timesheets. */
+export const setCaregiverTimesheetStart = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => {
+    const v = (d as any)?.start_date;
+    if (v !== null && !(typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v))) throw new Error("Invalid date");
+    return { ...parse(d), start_date: v as string | null };
+  })
+  .handler(async ({ data, context }) => {
+    const { member, admin } = await prepare(context, data);
+    const { assertFeature } = await import("@/lib/features");
+    assertFeature("timesheets", { familyId: member.family_id });
+    const { error } = await admin.from("family_members").update({ timesheet_start_date: data.start_date }).eq("id", member.id);
+    if (error) throw error;
+    return { ok: true };
+  });
+
 /** Owner-only: keep the caregiver, revoke their household login (one transaction; shift history kept). */
 export const removeCaregiverAppAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

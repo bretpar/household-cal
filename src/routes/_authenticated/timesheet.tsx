@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   STATUS_LABEL,
-  formatDisplayHours,
+  formatHoursLabel,
   hoursBetween,
   localHours,
 } from "@/lib/timesheet-periods";
@@ -133,7 +133,7 @@ function SheetBody({ sheet }: { sheet: TimesheetView }) {
       else next[key] = hours;
       return next;
     });
-  const editable = sheet.status === "draft" || sheet.status === "needs_correction";
+  const editable = (sheet.status === "draft" || sheet.status === "needs_correction") && !sheet.before_start;
   const hoursFor = (e: TimesheetEntry) => preview[e.id] ?? hoursBetween(e.actual_start, e.actual_end);
   const total = sheet.entries.reduce((n, e) => n + hoursFor(e), 0) + (preview["new"] ?? 0);
   const refresh = async () => {
@@ -151,16 +151,26 @@ function SheetBody({ sheet }: { sheet: TimesheetView }) {
 
   return (
     <>
-      <div className="flex items-center justify-between rounded-2xl border border-border-soft bg-card p-4">
+      <div className="flex items-center justify-between rounded-2xl border border-border-soft bg-card px-4 py-3.5">
         <div>
           <p className="text-xs text-muted-foreground">Status</p>
-          <p className="font-bold">{STATUS_LABEL[sheet.status]}</p>
+          <p className="text-base font-bold">{STATUS_LABEL[sheet.status]}</p>
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground">Total</p>
-          <p className="font-bold">{formatDisplayHours(total).replace(" h", total === 1 ? " hour" : " hours")}</p>
+          <p className="text-base font-bold">{formatHoursLabel(total)}</p>
         </div>
       </div>
+      {sheet.before_start ? (
+        <p className="rounded-2xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+          This pay period is before your Timesheet start date.
+        </p>
+      ) : null}
+      {sheet.status === "closed" ? (
+        <p className="rounded-2xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+          This timesheet was closed by the household. It's kept for your records.
+        </p>
+      ) : null}
       {sheet.status === "needs_correction" ? (
         <div role="alert" className="rounded-2xl border-2 border-destructive bg-destructive/10 p-4 text-sm">
           <p className="font-bold text-destructive">Correction requested</p>
@@ -243,45 +253,42 @@ function EntryCard({
     );
   }
   return (
-    <li className="space-y-2 bg-card px-1 py-3 text-sm">
-      <div className="flex items-center justify-between gap-2">
-        <p className="font-bold">{fmtDate(entry.work_date, { weekday: "short", month: "short", day: "numeric" })}</p>
-        <p className="font-semibold">{formatDisplayHours(hours)}</p>
-      </div>
-      {entry.is_manual ? (
-        <p className="text-xs font-semibold text-primary">Manually added</p>
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          Scheduled · {fmtTime(entry.scheduled_start, tz)}–{fmtTime(entry.scheduled_end, tz)}
+    <li className="rounded-2xl border border-border-soft bg-card px-4 py-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 text-lg font-bold leading-tight">
+          {fmtDate(entry.work_date, { weekday: "short", month: "short", day: "numeric" })}
         </p>
-      )}
-      <div>
-        <p className="text-xs font-semibold text-muted-foreground">Actual</p>
-        <p>{fmtTime(entry.actual_start, tz)} <span aria-hidden>→</span> {fmtTime(entry.actual_end, tz)}</p>
+        <p className="shrink-0 text-base font-bold">{formatHoursLabel(hours)}</p>
       </div>
-      {entry.note ? <p className="text-xs text-muted-foreground">{entry.note}</p> : null}
-      {editable ? (
-        <div className="flex gap-2 pt-1">
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>Edit actual time</Button>
-          {entry.is_manual ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label="Remove entry"
-              onClick={async () => {
-                try {
-                  await remove({ data: { timesheet_id: sheet.id, entry_id: entry.id } });
-                  void onSaved();
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Could not remove");
-                }
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+      <div className="mt-1 flex items-center justify-between gap-3">
+        <p className="min-w-0 text-base text-muted-foreground">
+          {fmtTime(entry.actual_start, tz)}–{fmtTime(entry.actual_end, tz)}
+        </p>
+        {editable ? (
+          <div className="flex shrink-0 items-center gap-1">
+            {entry.is_manual ? (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-10 w-10"
+                aria-label="Remove entry"
+                onClick={async () => {
+                  try {
+                    await remove({ data: { timesheet_id: sheet.id, entry_id: entry.id } });
+                    void onSaved();
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Could not remove");
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            ) : null}
+            <Button size="sm" variant="outline" className="h-10 rounded-xl px-5" onClick={() => setEditing(true)}>Edit</Button>
+          </div>
+        ) : null}
+      </div>
+      {entry.note ? <p className="mt-1 text-xs text-muted-foreground">{entry.note}</p> : null}
     </li>
   );
 }
@@ -319,8 +326,13 @@ function EntryEditor({
         <p className="min-w-0 truncate font-bold">
           {entry ? fmtDate(entry.work_date, { weekday: "short", month: "short", day: "numeric" }) : "Add missing shift"}
         </p>
-        <p className="shrink-0 font-semibold">{formatDisplayHours(hours ?? live)}</p>
+        <p className="shrink-0 font-semibold">{formatHoursLabel(hours ?? live)}</p>
       </div>
+      {entry && !entry.is_manual ? (
+        <p className="text-xs text-muted-foreground">
+          Scheduled · {fmtTime(entry.scheduled_start, sheet.time_zone)}–{fmtTime(entry.scheduled_end, sheet.time_zone)}
+        </p>
+      ) : null}
       {!entry ? (
         <div className="space-y-1">
           <Label htmlFor="ts-date" className="text-xs">Date</Label>
