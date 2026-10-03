@@ -42,6 +42,7 @@ import {
   BABYSITTER_SETUP_KEY,
   BabysitterAccessDialog,
   BabysitterConfigFields,
+  invalidateAccessQueries,
   useBabysitterSetup,
 } from "@/components/BabysitterAccessDialog";
 import { CaregiverPreviewDialog } from "@/components/CaregiverPreviewDialog";
