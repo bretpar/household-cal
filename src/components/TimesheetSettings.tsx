@@ -36,6 +36,7 @@ import {
   ownerFinalizeManaged,
   ownerSaveManagedEntry,
   ownerEditEntry,
+  closeTimesheet,
   listHouseholdTimesheets,
   reviewTimesheet,
   savePaySettings,
@@ -90,11 +91,38 @@ export function useMyTimesheetActionCount(enabled: boolean) {
   return enabled ? data?.count ?? 0 : 0;
 }
 
-const GROUPS: { label: string; match: (s: TimesheetView["status"]) => boolean; empty: string }[] = [
+const GROUPS: { label: string; match: (s: TimesheetView["status"]) => boolean; empty: string | null }[] = [
   { label: "Needs review", match: (s) => s === "submitted", empty: "Nothing waiting for review." },
   { label: "Needs correction", match: (s) => s === "needs_correction", empty: "No timesheets waiting on caregiver changes." },
-  { label: "Approved / recent history", match: (s) => s === "approved", empty: "No approved timesheets yet." },
+  { label: "Open past periods", match: (s) => s === "draft", empty: null },
+  { label: "Approved / recent history", match: (s) => s === "approved" || s === "closed", empty: "No approved timesheets yet." },
 ];
+
+/** Owner action: close an unfinished timesheet (kept as read-only history). */
+function CloseTimesheetButton({ id, onClosed }: { id: string; onClosed: () => void }) {
+  const close = useServerFn(closeTimesheet);
+  const [confirm, setConfirm] = useState(false);
+  const m = useMutation({
+    mutationFn: () => close({ data: { timesheet_id: id } }),
+    onSuccess: () => { toast.success("Timesheet closed"); setConfirm(false); onClosed(); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not close"),
+  });
+  return (
+    <>
+      <Button size="sm" variant="ghost" className="w-full text-muted-foreground" onClick={() => setConfirm(true)}>Close timesheet</Button>
+      <Dialog open={confirm} onOpenChange={(o) => !m.isPending && setConfirm(o)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Close this timesheet?</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">It stays in history as read-only and is no longer treated as open work. No reminders are sent for it.</p>
+          <DialogFooter className="grid grid-cols-2 gap-2 sm:flex">
+            <Button variant="outline" disabled={m.isPending} onClick={() => setConfirm(false)}>Cancel</Button>
+            <Button disabled={m.isPending} onClick={() => m.mutate()}>Close timesheet</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 /** Owner Timesheet hub shown inside Activities. */
 export function OwnerTimesheets() {
@@ -105,13 +133,14 @@ export function OwnerTimesheets() {
       <OwnerManagedSection />
       {GROUPS.map((g) => {
         const items = (data ?? []).filter((t) => g.match(t.status));
+        if (g.empty === null && items.length === 0) return null;
         return (
           <section key={g.label} className="space-y-3">
             <div className="flex items-baseline gap-2">
               <h2 className="text-base font-bold">{g.label}</h2>
               <span className="text-xs font-semibold text-muted-foreground">{items.length}</span>
             </div>
-            {data && items.length === 0 ? (
+            {data && items.length === 0 && g.empty ? (
               <p className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
                 {g.empty}
               </p>
@@ -152,7 +181,7 @@ function PayPeriodSettings() {
       <Select value={frequency} onValueChange={(v) => setFrequency(v as PayFrequency)}>
         <SelectTrigger aria-label="Pay period"><SelectValue /></SelectTrigger>
         <SelectContent>
-          {(Object.keys(FREQUENCY_LABEL) as PayFrequency[]).map((f) => (
+          {(["weekly", "biweekly", "monthly", ...(frequency === "semimonthly" ? ["semimonthly"] : [])] as PayFrequency[]).map((f) => (
             <SelectItem key={f} value={f}>{FREQUENCY_LABEL[f]}</SelectItem>
           ))}
         </SelectContent>
@@ -288,6 +317,10 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
               </div>
             ),
           )}
+          {sheet.status === "draft" ? (
+            <p className="text-xs text-muted-foreground">This pay period ended without a submission.</p>
+          ) : null}
+          {sheet.status === "draft" || sheet.status === "needs_correction" ? <CloseTimesheetButton id={sheet.id} onClosed={refresh} /> : null}
           {editable ? (
             <div className="space-y-2 pt-1">
               <Button size="sm" variant="outline" className="w-full" onClick={() => setEditing((v) => !v)}>
@@ -413,7 +446,7 @@ function OwnerManagedCard({ memberId, name, attention }: { memberId: string; nam
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not confirm"),
   });
-  const editable = sheet ? sheet.status === "draft" || sheet.status === "needs_correction" : false;
+  const editable = sheet ? (sheet.status === "draft" || sheet.status === "needs_correction") && !sheet.before_start : false;
   const actual = (sheet?.entries ?? []).reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
   return (
     <div className="space-y-2 rounded-2xl border border-border-soft bg-card p-4 text-sm">
@@ -473,6 +506,10 @@ function OwnerManagedCard({ memberId, name, attention }: { memberId: string; nam
               {editable && adding ? (
                 <ManagedEntryEditor sheet={sheet} entry={null} onSaved={() => { setAdding(false); refresh(); }} />
               ) : null}
+              {sheet.before_start ? (
+                <p className="text-xs text-muted-foreground">Before this caregiver's Timesheet start date.</p>
+              ) : null}
+              {editable && offset < 0 ? <CloseTimesheetButton id={sheet.id} onClosed={refresh} /> : null}
               {editable ? (
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <Button size="sm" variant="outline" onClick={() => setAdding((v) => !v)}>{adding ? "Cancel" : "Add entry"}</Button>

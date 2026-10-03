@@ -15,7 +15,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   STATUS_LABEL,
-  formatDisplayHours,
   formatHoursLabel,
   hoursBetween,
   localHours,
