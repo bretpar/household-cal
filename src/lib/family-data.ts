@@ -486,12 +486,44 @@ function occurrenceIndex(start: Date, day: Date, rule: ParsedRule): number | nul
   return cycles * perCycle + orderInWeek;
 }
 
+/** Canonical recurrence test on calendar dates (series must have a rule). */
+function seriesHitsDay(
+  start: Date,
+  day: Date,
+  rule: ParsedRule,
+  excluded: string[] | null | undefined,
+  until: string | null | undefined,
+): boolean {
+  if (excluded?.includes(dayKey(day))) return false;
+  if (until && dayKey(day) > until) return false;
+  if (differenceInCalendarDays(day, startOfDay(start)) < 0) return false;
+  const index = occurrenceIndex(start, day, rule);
+  if (index === null) return false;
+  if (rule.count !== null && index >= rule.count) return false;
+  return true;
+}
+
+/**
+ * Timezone-neutral form of the calendar's own recurrence test, keyed by
+ * yyyy-MM-dd dates already resolved in the household timezone. Used by the
+ * secure caregiver projection so it never diverges from the Owner calendar.
+ */
+export function seriesOccursOnKey(
+  series: { recurrence_rule: string | null; recurrence_until: string | null; excluded_dates: string[] | null },
+  startKey: string,
+  key: string,
+): boolean {
+  const rule = parseRule(series.recurrence_rule);
+  if (!rule) return false;
+  return seriesHitsDay(localDateFromKey(startKey), localDateFromKey(key), rule, series.excluded_dates, series.recurrence_until);
+}
+
 function occursOn(event: CalendarEvent, day: Date): boolean {
   const start = eventStartDay(event);
   const rule = parseRule(event.recurrence_rule);
-  if (event.excluded_dates?.includes(dayKey(day))) return false;
-  if (event.recurrence_until && dayKey(day) > event.recurrence_until) return false;
   if (!rule) {
+    if (event.excluded_dates?.includes(dayKey(day))) return false;
+    if (event.recurrence_until && dayKey(day) > event.recurrence_until) return false;
     // A single all-day entry may cover a range of calendar dates.
     if (event.all_day) {
       const key = dayKey(day);
@@ -499,13 +531,7 @@ function occursOn(event: CalendarEvent, day: Date): boolean {
     }
     return isSameDay(start, day);
   }
-
-  if (differenceInCalendarDays(day, startOfDay(start)) < 0) return false;
-
-  const index = occurrenceIndex(start, day, rule);
-  if (index === null) return false;
-  if (rule.count !== null && index >= rule.count) return false;
-  return true;
+  return seriesHitsDay(start, day, rule, event.excluded_dates, event.recurrence_until);
 }
 
 /**
