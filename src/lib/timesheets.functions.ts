@@ -35,6 +35,8 @@ export interface TimesheetView {
   entries: TimesheetEntry[];
   /** finalized by a household Owner for a caregiver without sign-in access */
   owner_managed?: boolean;
+  /** whole period falls before the caregiver's Timesheet start date: read-only, never actionable */
+  before_start?: boolean;
 }
 
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/);
@@ -96,9 +98,14 @@ export const getMyTimesheet = createServerFn({ method: "POST" })
         if (payPeriodFor(settings, today, o).start === data.period_start) { offset = o; break; }
       }
     }
-    const { sheet, timeZone } = await s.ensureTimesheet(admin, me.familyId, me.memberId, offset);
+    const { sheet, timeZone, startDate } = await s.ensureTimesheet(admin, me.familyId, me.memberId, offset);
     const fresh = (await admin.from("timesheets").select("*").eq("id", sheet.id).single()).data;
-    return { ...fresh, offset, time_zone: timeZone, entries: await s.loadEntries(admin, sheet.id, timeZone) };
+    const closed = fresh.status === "closed" && fresh.snapshot?.entries;
+    return {
+      ...fresh, offset, time_zone: closed ? fresh.snapshot.time_zone ?? timeZone : timeZone,
+      before_start: !!startDate && fresh.period_end < startDate,
+      entries: closed ? fresh.snapshot.entries : await s.loadEntries(admin, sheet.id, timeZone),
+    };
   });
 
 export const saveTimesheetEntry = createServerFn({ method: "POST" })
@@ -200,13 +207,14 @@ export const countMyTimesheetActions = createServerFn({ method: "GET" })
     const admin = await s.adminDb();
     const { timeZone } = await s.loadPaySettings(admin, me.familyId);
     const today = s.todayKey(timeZone);
+    const startDate = await s.timesheetStartDate(admin, me.memberId);
     const { data, error } = await admin
       .from("timesheets")
       .select("status, period_end")
       .eq("family_member_id", me.memberId)
       .in("status", ["draft", "needs_correction"]);
     if (error) throw new Error(error.message);
-    const count = (data ?? []).filter(
+    const count = (data ?? []).filter((t: any) => !startDate || t.period_end >= startDate).filter(
       (t: any) => t.status === "needs_correction" || (t.status === "draft" && t.period_end < today),
     ).length;
     return { count };
@@ -248,21 +256,56 @@ export const listHouseholdTimesheets = createServerFn({ method: "GET" })
     const familyId = await s.currentFamilyId(db, context.userId);
     await s.assertOwner(db, familyId);
     const admin = await s.adminDb();
+    const { timeZone } = await s.loadPaySettings(admin, familyId);
+    const today = s.todayKey(timeZone);
     const { data, error } = await admin
       .from("timesheets")
-      .select("*")
+      .select("*, family_members!inner(timesheet_start_date)")
       .eq("family_id", familyId)
-      .neq("status", "draft")
       .order("period_start", { ascending: false })
-      .limit(50);
+      .limit(80);
     if (error) throw new Error(error.message);
+    // Ended drafts are listed so Owners can close obsolete periods; pre-start periods are hidden.
+    const rows = (data ?? []).filter((t: any) => {
+      const start = t.family_members?.timesheet_start_date as string | null;
+      if (t.status !== "draft") return true;
+      return t.period_end < today && (!start || t.period_end >= start);
+    });
     // Review reads the submission snapshot, so history never depends on live events.
-    return (data ?? []).map((t: any) => ({
+    return rows.map(({ family_members: _fm, ...t }: any) => ({
       ...t,
       caregiver_name: t.snapshot?.caregiver_name ?? t.caregiver_name,
       time_zone: t.snapshot?.time_zone ?? "UTC",
       entries: (t.snapshot?.entries ?? []) as TimesheetEntry[],
     }));
+  });
+
+/** Owner closes an unfinished/obsolete timesheet: read-only history, never actionable. Approved stays approved. */
+export const closeTimesheet = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ timesheet_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const s = await import("@/lib/timesheets.server");
+    const db = context.supabase as unknown as AnyDb;
+    const familyId = await s.currentFamilyId(db, context.userId);
+    await s.assertOwner(db, familyId);
+    const admin = await s.adminDb();
+    const { data: sheet, error: se } = await admin.from("timesheets").select("*").eq("id", data.timesheet_id).eq("family_id", familyId).maybeSingle();
+    if (se || !sheet) throw new Error("Timesheet not found");
+    if (!["draft", "needs_correction", "submitted"].includes(sheet.status)) throw new Error("This timesheet is already finalized");
+    const { timeZone } = await s.loadPaySettings(admin, familyId);
+    // Keep any existing submission snapshot; otherwise freeze current entries for history.
+    const snapshot = sheet.snapshot ?? { time_zone: timeZone, caregiver_name: sheet.caregiver_name, entries: await s.loadEntries(admin, sheet.id, timeZone) };
+    const now = new Date().toISOString();
+    const { data: up, error } = await admin
+      .from("timesheets")
+      .update({ status: "closed", snapshot, closed_at: now, closed_by: context.userId })
+      .eq("id", sheet.id)
+      .eq("status", sheet.status)
+      .select("id");
+    if (error) throw new Error(error.message);
+    if (!up?.length) throw new Error("Timesheet changed; refresh and try again");
+    return { ok: true };
   });
 
 export const reviewTimesheet = createServerFn({ method: "POST" })
@@ -469,7 +512,7 @@ export const listOwnerManagedCaregivers = createServerFn({ method: "GET" })
     const [m, fu, pay] = await Promise.all([
       admin
         .from("family_members")
-        .select("id, name, sort_order")
+        .select("id, name, sort_order, timesheet_start_date")
         .eq("family_id", familyId)
         .eq("role", "caregiver")
         .eq("active", true)
@@ -485,12 +528,13 @@ export const listOwnerManagedCaregivers = createServerFn({ method: "GET" })
     const members = (m.data ?? []).filter((r: any) => !linked.has(r.id));
     // Existing pay-period math: offset 0 = current period in the household time zone.
     const today = s.todayKey(pay.timeZone);
+    const startById = new Map<string, string | null>((m.data ?? []).map((r: any) => [r.id as string, (r.timesheet_start_date as string | null) ?? null]));
     const offsetByStart = new Map<string, number>();
     for (let o = -1; o >= -60; o--) offsetByStart.set(payPeriodFor(pay.settings, today, o).start, o);
     const unfinished = members.length
       ? await admin
           .from("timesheets")
-          .select("id, family_member_id, period_start")
+          .select("id, family_member_id, period_start, period_end")
           .eq("family_id", familyId)
           .in("family_member_id", members.map((r: any) => r.id))
           .in("status", ["draft", "needs_correction"])
@@ -506,7 +550,8 @@ export const listOwnerManagedCaregivers = createServerFn({ method: "GET" })
     const attention = new Map<string, number[]>();
     for (const t of unfinished.data ?? []) {
       const o = offsetByStart.get(t.period_start);
-      if (o === undefined || !hasHours.has(t.id)) continue;
+      const st = startById.get(t.family_member_id);
+      if (o === undefined || !hasHours.has(t.id) || (st && t.period_end < st)) continue;
       attention.set(t.family_member_id, [...(attention.get(t.family_member_id) ?? []), o]);
     }
     return members.map((r: any) => ({
@@ -523,12 +568,13 @@ export const getOwnerManagedTimesheet = createServerFn({ method: "POST" })
     const { s, familyId, admin } = await ownerCtx(context);
     const member = await s.ownerManagedCaregiver(admin, familyId, data.member_id);
     if (!member.active || member.removed_at) throw new Error("Caregiver not found");
-    const { sheet, timeZone } = await s.ensureTimesheet(admin, familyId, data.member_id, data.offset);
+    const { sheet, timeZone, startDate } = await s.ensureTimesheet(admin, familyId, data.member_id, data.offset);
     const fresh = (await admin.from("timesheets").select("*").eq("id", sheet.id).single()).data;
-    const finalized = fresh.status === "approved" || fresh.status === "submitted";
+    const finalized = fresh.status === "approved" || fresh.status === "submitted" || fresh.status === "closed";
     return {
       ...fresh,
       offset: data.offset,
+      before_start: !!startDate && fresh.period_end < startDate,
       time_zone: finalized ? fresh.snapshot?.time_zone ?? timeZone : timeZone,
       entries: finalized && fresh.snapshot?.entries ? fresh.snapshot.entries : await s.loadEntries(admin, sheet.id, timeZone),
     };

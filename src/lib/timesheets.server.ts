@@ -188,8 +188,9 @@ export async function ensureTimesheet(
 ) {
   const { settings, timeZone } = await loadPaySettings(admin, familyId);
   const period = payPeriodFor(settings, todayKey(timeZone), offset);
-  const member = await admin.from("family_members").select("name").eq("id", memberId).single();
+  const member = await admin.from("family_members").select("name, timesheet_start_date").eq("id", memberId).single();
   if (member.error) throw new Error(member.error.message);
+  const startDate = (member.data.timesheet_start_date as string | null) ?? null;
 
   let sheet = (
     await admin.from("timesheets").select("*").eq("family_member_id", memberId).eq("period_start", period.start).maybeSingle()
@@ -205,7 +206,9 @@ export async function ensureTimesheet(
   }
 
   if (sheet.status === "draft" || sheet.status === "needs_correction") {
-    const shifts = await scheduledShifts(admin, familyId, memberId, { start: sheet.period_start, end: sheet.period_end }, timeZone);
+    // Shifts before the caregiver's Timesheet start date are never added.
+    const shifts = (await scheduledShifts(admin, familyId, memberId, { start: sheet.period_start, end: sheet.period_end }, timeZone))
+      .filter((sh) => !startDate || sh.work_date >= startDate);
     const existing = await admin.from("timesheet_entries").select("id, occurrence_key, is_manual").eq("timesheet_id", sheet.id);
     if (existing.error) throw new Error(existing.error.message);
     const byKey = new Map<string, any>((existing.data ?? []).filter((r: any) => r.occurrence_key).map((r: any) => [r.occurrence_key, r]));
@@ -227,7 +230,13 @@ export async function ensureTimesheet(
     const stale = (existing.data ?? []).filter((r: any) => !r.is_manual && r.occurrence_key && !live.has(r.occurrence_key)).map((r: any) => r.id);
     if (stale.length) await admin.from("timesheet_entries").delete().in("id", stale);
   }
-  return { sheet, timeZone, settings };
+  return { sheet, timeZone, settings, startDate };
+}
+
+/** Caregiver's Timesheet start date (NULL = no limit). */
+export async function timesheetStartDate(admin: AnyDb, memberId: string): Promise<string | null> {
+  const { data } = await admin.from("family_members").select("timesheet_start_date").eq("id", memberId).maybeSingle();
+  return (data?.timesheet_start_date as string | null) ?? null;
 }
 
 export async function loadEntries(admin: AnyDb, timesheetId: string, tz: string) {
@@ -249,7 +258,9 @@ export async function editableSheet(admin: AnyDb, memberId: string, timesheetId:
   const { data, error } = await admin.from("timesheets").select("*").eq("id", timesheetId).single();
   if (error || !data || data.family_member_id !== memberId) throw new Error("Timesheet not found");
   if (data.status !== "draft" && data.status !== "needs_correction") {
-    throw new Error("This timesheet has been submitted and can't be edited");
+    throw new Error(data.status === "closed" ? "This timesheet was closed" : "This timesheet has been submitted and can't be edited");
   }
+  const start = await timesheetStartDate(admin, memberId);
+  if (start && data.period_end < start) throw new Error("This pay period is before your Timesheet start date");
   return data as any;
 }

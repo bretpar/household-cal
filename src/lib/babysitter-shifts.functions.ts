@@ -16,6 +16,7 @@ export interface ShiftSettings {
     family_user_id: string | null;
     has_sign_in: boolean;
     timesheets_enabled: boolean;
+    timesheet_start_date: string | null;
   }[];
 }
 
@@ -51,7 +52,7 @@ export const getShiftSettings = createServerFn({ method: "GET" })
         .single(),
       admin
         .from("family_members")
-        .select("id, name, sort_order, timesheets_enabled")
+        .select("id, name, sort_order, timesheets_enabled, timesheet_start_date")
         .eq("family_id", fam.family_id)
         .eq("role", "caregiver")
         .eq("active", true)
@@ -76,6 +77,7 @@ export const getShiftSettings = createServerFn({ method: "GET" })
       family_user_id: linked.get(m.id) ?? null,
       has_sign_in: linked.has(m.id),
       timesheets_enabled: m.timesheets_enabled === true,
+      timesheet_start_date: (m.timesheet_start_date as string | null) ?? null,
     }));
     return {
       family_id: fam.family_id,
