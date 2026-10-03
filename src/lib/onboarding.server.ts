@@ -25,6 +25,8 @@ export interface OnboardingStatus {
   family_name: string | null;
   members: Array<{ id: string; name: string; initial: string; color: string; role: string }>;
   my_member_id: string | null;
+  /** True when a household-less account previously belonged to a household. */
+  had_access?: boolean;
 }
 
 const COLORS = ["sky", "rose", "amber", "sage", "teal", "lilac", "coral", "sand"];
@@ -82,7 +84,13 @@ async function firstMembership(
 export async function loadOnboardingStatus(admin: Db, userId: string): Promise<OnboardingStatus> {
   const membership = await firstMembership(admin, userId);
   if (!membership) {
-    return { family_id: null, family_name: null, members: [], my_member_id: null };
+    // Distinguish a removed member from a brand-new signup (no household data exposed).
+    const [inv, fam] = await Promise.all([
+      admin.from("family_invitations").select("id").eq("accepted_by", userId).limit(1),
+      admin.from("families").select("id").eq("created_by", userId).limit(1),
+    ]);
+    const had_access = (inv.data?.length ?? 0) > 0 || (fam.data?.length ?? 0) > 0;
+    return { family_id: null, family_name: null, members: [], my_member_id: null, had_access };
   }
 
   const [familyRes, membersRes] = await Promise.all([

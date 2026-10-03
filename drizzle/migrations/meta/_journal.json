@@ -29,6 +29,13 @@
       "when": 1790985487402,
       "tag": "0003_remove_caregiver_app_access",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790986951872,
+      "tag": "0004_keep_caregiver_login_as_viewer",
+      "breakpoints": true
     }
   ]
 }
