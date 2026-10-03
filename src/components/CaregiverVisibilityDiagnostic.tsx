@@ -29,7 +29,7 @@ export function CaregiverVisibilityDiagnostic() {
       <div className="space-y-2 rounded-3xl border border-dashed border-border bg-card p-4 text-sm">
         <select className="h-10 w-full rounded-md border border-input bg-background px-2" value={who} onChange={(e) => setWho(e.target.value)}>
           <option value="">Choose caregiver…</option>
-          {(cg.data ?? []).map((c) => <option key={c.membership_id} value={c.membership_id}>{c.name}</option>)}
+          {(cg.data ?? []).map((c: { membership_id: string; name: string }) => <option key={c.membership_id} value={c.membership_id}>{c.name}</option>)}
         </select>
         <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         <Button size="sm" disabled={!who || !date || m.isPending} onClick={() => m.mutate()}>
