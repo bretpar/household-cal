@@ -81,7 +81,12 @@ function AuthenticatedLayout() {
           </CalendarProvider>
         </UserPreferencesProvider>
       ) : null}
-      <StartupHeartReveal loading={!everReady || calState.loading} failed={calState.failed} />
+      {/* Onboarding / no-household screens have no calendar to wait for: once
+          the guard passes, the splash must never stay above them. */}
+      <StartupHeartReveal
+        loading={!everReady || (!pathname.startsWith("/onboarding") && calState.loading)}
+        failed={calState.failed || (everReady && pathname.startsWith("/onboarding"))}
+      />
     </>
   );
 }

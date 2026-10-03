@@ -291,8 +291,11 @@ export function HouseholdAccess() {
                   </span>
                 ) : null}
               </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {m.email ?? "no email on file"} · {isBabysitter ? "Babysitter · limited view" : ROLE_HINT[m.role] ?? m.role}
+              <p className="text-xs text-muted-foreground">
+                {isBabysitter ? "Babysitter · limited view" : ROLE_HINT[m.role] ?? m.role}
+              </p>
+              <p className="break-all text-xs text-muted-foreground">
+                {m.email ?? "no email on file"}
               </p>
             </div>
             {isOwner ? (
