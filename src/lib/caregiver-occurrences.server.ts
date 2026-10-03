@@ -87,11 +87,21 @@ function spanKeys(dateKey: string, e: Master, tz: string): string[] {
   return keys;
 }
 
+/** Optional read-only decision trace for one date (owner diagnostic only). */
+export interface VisibilityTrace {
+  date: string;
+  authorized: boolean;
+  shiftEventIds: string[];
+  decisions: Record<string, string>;
+}
+
 export async function loadSecureCaregiverOccurrences(
   userId: string,
   familyId: string,
   sources: CalendarSource[],
+  trace?: VisibilityTrace,
 ): Promise<CalendarEvent[]> {
+  const note = (id: string, why: string) => { if (trace && !trace.decisions[id]) trace.decisions[id] = why; };
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const admin = supabaseAdmin as unknown as Db;
 
@@ -133,6 +143,7 @@ export async function loadSecureCaregiverOccurrences(
       : [startKey(e, tz)].filter((k): k is string => !!k);
     for (const d of dates) for (const k of spanKeys(d, e, tz)) authorized.add(k);
   }
+  if (trace) { trace.authorized = authorized.has(trace.date); trace.shiftEventIds = [...ownIds]; }
   if (authorized.size === 0) return [];
 
   const evRes = await admin
@@ -149,19 +160,27 @@ export async function loadSecureCaregiverOccurrences(
   for (const e of evRes.data ?? []) {
     const own = ownIds.has(e.id);
     const source = sourceById.get(e.calendar_source_id);
-    if (!source) continue;
+    if (!source) { note(e.id, "EXCLUDED: calendar source missing"); continue; }
     const styled = source.provider === "google" || source.provider === "ics" ||
       (source.provider === "local" && source.calendar_kind === "custom");
     const dur = new Date(e.end_at).getTime() - new Date(e.start_at).getTime();
     const w = e.all_day ? null : wallParts(e.start_at, tz);
     const occurrenceDates = new Set(seriesDates(e, tz, keys[0]!, keys[keys.length - 1]!));
+    if (trace) {
+      if (!authorized.has(trace.date)) note(e.id, "EXCLUDED: date not authorized");
+      else if (!occurrenceDates.has(trace.date)) note(e.id, "EXCLUDED: recurring occurrence not generated for selected date");
+    }
     for (const k of keys) {
       if (!occurrenceDates.has(k)) continue;
       const code = CODES[new Date(`${k}T00:00:00Z`).getUTCDay()]!;
       const links = (e.event_members ?? []) as { family_member_id: string; weekdays: string[] | null }[];
       const hasRules = links.some((l) => l.weekdays && l.weekdays.length > 0);
       const members = links.filter((l) => !l.weekdays || l.weekdays.length === 0 || l.weekdays.includes(code));
-      if (hasRules && members.length === 0) continue;
+      if (hasRules && members.length === 0) {
+        if (trace && k === trace.date) note(e.id, "EXCLUDED: per-weekday participant rules leave no one on this weekday");
+        continue;
+      }
+      if (trace && k === trace.date) note(e.id, "INCLUDED (secure recurring occurrence)");
       const startMs = w ? zonedInstant(k, w.h, w.mi, w.s, tz) : Date.parse(`${k}T00:00:00Z`);
       const endIso = e.all_day ? `${k}T23:59:59Z` : new Date(startMs + dur).toISOString();
       out.push({
@@ -209,14 +228,19 @@ export async function loadSecureCaregiverOccurrences(
   if (oneRes.error) throw oneRes.error;
   for (const e of oneRes.data ?? []) {
     const source = sourceById.get(e.calendar_source_id);
-    if (!source) continue;
+    if (!source) { note(e.id, "EXCLUDED: calendar source missing"); continue; }
     const m = { ...e, recurrence_rule: null, recurrence_until: null, excluded_dates: null } as Master;
     const first = startKey(m, tz);
     if (!first) continue;
     const span = e.all_day
       ? (() => { const ks: string[] = []; const last = addDays(e.end_at.slice(0, 10), 0); for (let k = first; k <= last; k = addDays(k, 1)) ks.push(k); return ks; })()
       : spanKeys(first, m, tz);
+    if (trace) {
+      if (!span.includes(trace.date)) note(e.id, "EXCLUDED: one-off span does not overlap date");
+      else if (!authorized.has(trace.date)) note(e.id, "EXCLUDED: date not authorized");
+    }
     if (!span.some((k) => authorized.has(k))) continue;
+    if (trace && span.includes(trace.date)) note(e.id, "INCLUDED (secure one-off on shift day)");
     const styled = source.provider === "google" || source.provider === "ics" ||
       (source.provider === "local" && source.calendar_kind === "custom");
     const ids = ((e.event_members ?? []) as { family_member_id: string }[]).map((l) => l.family_member_id);
