@@ -17,6 +17,7 @@ import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 
 import { CalendarDefaultViewSetting } from "@/components/CalendarDefaultViewSetting";
 import { BuildDiagnostics } from "@/components/BuildDiagnostics";
+import { CaregiverVisibilityDiagnostic } from "@/components/CaregiverVisibilityDiagnostic";
 import { DeveloperTools } from "@/components/DeveloperTools";
 import { GoogleCalendarMaintenance } from "@/components/GoogleCalendarMaintenance";
 import { EmailSummarySettings } from "@/components/EmailSummarySettings";
@@ -164,6 +165,7 @@ function FamilyPage() {
           >
             <GoogleCalendarMaintenance>
               <BuildDiagnostics />
+              <CaregiverVisibilityDiagnostic />
               <DeveloperTools />
             </GoogleCalendarMaintenance>
           </SettingsSection>
