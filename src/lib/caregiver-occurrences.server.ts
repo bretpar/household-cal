@@ -7,7 +7,8 @@
  * Any failure throws — callers must never fall back to raw masters.
  */
 import type { CalendarEvent, CalendarSource, DisplayMode, MemberColor } from "@/lib/family-data";
-import { localDateKey, seriesCoversDate } from "@/lib/google/occurrence";
+import { seriesOccursOnKey } from "@/lib/family-data";
+import { localDateKey } from "@/lib/google/occurrence";
 
 type Db = { from: (table: string) => any };
 
@@ -50,27 +51,19 @@ function startKey(e: Master, tz: string): string | null {
 }
 
 function covers(e: Master, key: string, tz: string): boolean {
-  if (!e.recurrence_rule) return false;
-  return seriesCoversDate(
-    { startAt: e.all_day ? e.start_at.slice(0, 10) : e.start_at, recurrenceRule: e.recurrence_rule,
-      recurrenceUntil: e.recurrence_until, excludedDates: e.excluded_dates, timeZone: tz },
-    key,
-  );
+  // Same recurrence engine the Owner calendar uses (BYDAY ordinals, COUNT,
+  // UNTIL, excluded dates written when one occurrence is moved or deleted).
+  const first = startKey(e, tz);
+  return !!first && seriesOccursOnKey(e, first, key);
 }
 
 /** Occurrence dates of a series from its start through `lastKey`, honouring COUNT. */
 function seriesDates(e: Master, tz: string, fromKey: string, lastKey: string): string[] {
   const first = startKey(e, tz);
   if (!first) return [];
-  const count = Number(/COUNT=(\d+)/.exec(e.recurrence_rule ?? "")?.[1] ?? 0);
   const out: string[] = [];
-  let seen = 0;
-  const begin = count > 0 ? first : first > fromKey ? first : fromKey;
-  for (let k = begin; k <= lastKey; k = addDays(k, 1)) {
-    if (!covers(e, k, tz)) continue;
-    seen++;
-    if (count > 0 && seen > count) break;
-    if (k >= fromKey) out.push(k);
+  for (let k = first > fromKey ? first : fromKey; k <= lastKey; k = addDays(k, 1)) {
+    if (covers(e, k, tz)) out.push(k);
   }
   return out;
 }
@@ -168,7 +161,8 @@ export async function loadSecureCaregiverOccurrences(
     const occurrenceDates = new Set(seriesDates(e, tz, keys[0]!, keys[keys.length - 1]!));
     if (trace) {
       if (!authorized.has(trace.date)) note(e.id, "EXCLUDED: date not authorized");
-      else if (!occurrenceDates.has(trace.date)) note(e.id, "EXCLUDED: recurring occurrence not generated for selected date");
+      else if ((e.excluded_dates ?? []).includes(trace.date)) note(e.id, "EXCLUDED: master occurrence replaced/deleted by exception");
+      else if (!occurrenceDates.has(trace.date)) note(e.id, "EXCLUDED: series has no effective occurrence on selected date");
     }
     for (const k of keys) {
       if (!occurrenceDates.has(k)) continue;
@@ -180,7 +174,7 @@ export async function loadSecureCaregiverOccurrences(
         if (trace && k === trace.date) note(e.id, "EXCLUDED: per-weekday participant rules leave no one on this weekday");
         continue;
       }
-      if (trace && k === trace.date) note(e.id, "INCLUDED (secure recurring occurrence)");
+      if (trace && k === trace.date) note(e.id, "INCLUDED (effective recurring occurrence)");
       const startMs = w ? zonedInstant(k, w.h, w.mi, w.s, tz) : Date.parse(`${k}T00:00:00Z`);
       const endIso = e.all_day ? `${k}T23:59:59Z` : new Date(startMs + dur).toISOString();
       out.push({
@@ -219,7 +213,7 @@ export async function loadSecureCaregiverOccurrences(
   // one-off shift dates itself; duplicates are removed by the caller.
   const oneRes = await admin
     .from("events")
-    .select("id, calendar_source_id, title, start_at, end_at, all_day, location, notes, event_type, category_id, event_members(family_member_id)")
+    .select("id, calendar_source_id, title, start_at, end_at, all_day, location, notes, event_type, category_id, external_recurring_event_id, event_members(family_member_id)")
     .eq("family_id", familyId)
     .is("recurrence_rule", null)
     .in("calendar_source_id", [...permitted])
@@ -240,7 +234,7 @@ export async function loadSecureCaregiverOccurrences(
       else if (!authorized.has(trace.date)) note(e.id, "EXCLUDED: date not authorized");
     }
     if (!span.some((k) => authorized.has(k))) continue;
-    if (trace && span.includes(trace.date)) note(e.id, "INCLUDED (secure one-off on shift day)");
+    if (trace && span.includes(trace.date)) note(e.id, e.external_recurring_event_id ? "INCLUDED (detached/edited occurrence on shift day)" : "INCLUDED (secure one-off on shift day)");
     const styled = source.provider === "google" || source.provider === "ics" ||
       (source.provider === "local" && source.calendar_kind === "custom");
     const ids = ((e.event_members ?? []) as { family_member_id: string }[]).map((l) => l.family_member_id);
