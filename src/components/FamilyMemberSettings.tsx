@@ -28,7 +28,7 @@ import { FAMILY_BUNDLE_KEY, useCalendar } from "@/lib/calendar-store";
 import { MEMBER_COLORS, styleForColor, type FamilyMember, type MemberColor } from "@/lib/family-data";
 import { saveFamilyMemberFn } from "@/lib/settings.functions";
 import { getShiftSettings } from "@/lib/babysitter-shifts.functions";
-import { deleteCaregiver, removeCaregiverAppAccess, setCaregiverArchived, setCaregiverTimesheets } from "@/lib/caregiver-management.functions";
+import { deleteCaregiver, keepCaregiverLoginAsViewer, removeCaregiverAppAccess, setCaregiverArchived, setCaregiverTimesheets } from "@/lib/caregiver-management.functions";
 import { hasFeature } from "@/lib/features";
 import {
   DropdownMenu,
@@ -42,6 +42,7 @@ import {
   BABYSITTER_SETUP_KEY,
   BabysitterAccessDialog,
   BabysitterConfigFields,
+  invalidateAccessQueries,
   useBabysitterSetup,
 } from "@/components/BabysitterAccessDialog";
 import { CaregiverPreviewDialog } from "@/components/CaregiverPreviewDialog";
@@ -118,7 +119,13 @@ export function FamilyMemberSettings() {
   const [action, setAction] = useState<{ kind: "archive" | "delete"; member: FamilyMember } | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const removeAccessFn = useServerFn(removeCaregiverAppAccess);
-  const [removeAccess, setRemoveAccess] = useState<FamilyMember | null>(null);
+  const keepViewerFn = useServerFn(keepCaregiverLoginAsViewer);
+  const [removeAccess, setRemoveAccessRaw] = useState<FamilyMember | null>(null);
+  const [accessMode, setAccessMode] = useState<"remove" | "viewer">("remove");
+  const setRemoveAccess = (m: FamilyMember | null, mode: "remove" | "viewer" = "remove") => {
+    if (m) setAccessMode(mode);
+    setRemoveAccessRaw(m);
+  };
   const [removing, setRemoving] = useState(false);
   const [giveAccess, setGiveAccess] = useState<FamilyMember | null>(null);
   const [editAccess, setEditAccess] = useState<{ member: FamilyMember; membershipId: string } | null>(null);
@@ -301,6 +308,7 @@ export function FamilyMemberSettings() {
                         >
                           Preview what she sees
                         </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setRemoveAccess(member, "viewer")}>Keep as Viewer</DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => setRemoveAccess(member)}>Remove app access</DropdownMenuItem>
                       </>
                     ) : (
@@ -349,11 +357,25 @@ export function FamilyMemberSettings() {
       <AlertDialog open={!!removeAccess} onOpenChange={(o) => !o && !removing && setRemoveAccess(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove app access for {removeAccess?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {removeAccess?.name} will remain a caregiver and can still be assigned to shifts, but
-              {removeAccess && loginEmail(removeAccess) ? ` ${loginEmail(removeAccess)}` : " this login"} will no longer be able to access your household.
-            </AlertDialogDescription>
+            {accessMode === "viewer" ? (
+              <>
+                <AlertDialogTitle>
+                  Keep {removeAccess && loginEmail(removeAccess) ? loginEmail(removeAccess) : "this login"} as a Viewer?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will remove their caregiver access and restrictions, but they will continue to have
+                  normal Viewer access to this household. {removeAccess?.name} will remain a caregiver.
+                </AlertDialogDescription>
+              </>
+            ) : (
+              <>
+                <AlertDialogTitle>Remove app access for {removeAccess?.name}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {removeAccess?.name} will remain a caregiver and can still be assigned to shifts, but
+                  {removeAccess && loginEmail(removeAccess) ? ` ${loginEmail(removeAccess)}` : " this login"} will no longer be able to access your household.
+                </AlertDialogDescription>
+              </>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
@@ -367,6 +389,11 @@ export function FamilyMemberSettings() {
                   busy: removing,
                   setBusy: setRemoving,
                   perform: async () => {
+                    if (accessMode === "viewer") {
+                      await keepViewerFn({ data: { member_id: m.id } });
+                      await Promise.all([refresh(), invalidateAccessQueries(queryClient)]);
+                      return;
+                    }
                     await removeAccessFn({ data: { member_id: m.id } });
                     await Promise.all([
                       refresh(),
@@ -375,7 +402,7 @@ export function FamilyMemberSettings() {
                     ]);
                   },
                   onSuccess: () => {
-                    toast.success(`App access removed for ${m.name}`);
+                    toast.success(accessMode === "viewer" ? `${m.name}'s login is now a Viewer` : `App access removed for ${m.name}`);
                     setRemoveAccess(null);
                   },
                   onError: toast.error,
@@ -383,7 +410,7 @@ export function FamilyMemberSettings() {
                 });
               }}
             >
-              {removing ? "Removing…" : "Remove app access"}
+              {removing ? "Saving…" : accessMode === "viewer" ? "Keep as Viewer" : "Remove app access"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

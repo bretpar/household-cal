@@ -23,6 +23,7 @@ import {
   saveHouseholdMembersFn,
 } from "@/lib/onboarding.functions";
 import { cn } from "@/lib/utils";
+import { SignOutButton } from "@/components/SignOutButton";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => ({
@@ -89,6 +90,7 @@ function OnboardingPage() {
   const [householdName, setHouseholdName] = useState("");
   const [rows, setRows] = useState<MemberRow[]>(() => [newRow({ is_me: true })]);
   const [busy, setBusy] = useState(false);
+  const [creatingNew, setCreatingNew] = useState(false);
 
   // resume from real database state rather than client-side step memory
   useEffect(() => {
@@ -175,6 +177,26 @@ function OnboardingPage() {
       setBusy(false);
     }
   };
+
+  if (status.data && !status.data.family_id && status.data.had_access && !creatingNew) {
+    return (
+      <div className="flex min-h-screen items-center bg-background px-4 py-8">
+        <div className="mx-auto w-full max-w-md space-y-4 rounded-3xl border border-border-soft bg-card p-6 text-center">
+          <h1 className="text-xl font-bold">You no longer have access to this family</h1>
+          <p className="text-sm text-muted-foreground">
+            Your Our Family Calendar account is still active, but you no longer have access to this household.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            If you're invited to another family, you can use this same account.
+          </p>
+          <Button className="h-11 w-full rounded-full font-bold" onClick={() => setCreatingNew(true)}>
+            Create a new family
+          </Button>
+          <SignOutButton />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background px-4 py-8 sm:py-14">

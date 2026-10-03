@@ -188,3 +188,13 @@ export const removeCaregiverAppAccess = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/** Owner-only: detach the login from the caregiver but keep it as an ordinary Viewer (one transaction). */
+export const keepCaregiverLoginAsViewer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ({ member_id: String((d as any)?.member_id ?? "") }))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("keep_caregiver_login_as_viewer", { _member_id: data.member_id });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

@@ -1702,6 +1702,10 @@ export type Database = {
       has_family_access: { Args: { _family_id: string }; Returns: boolean }
       is_babysitter: { Args: { _family_id: string }; Returns: boolean }
       is_family_owner: { Args: { _family_id: string }; Returns: boolean }
+      keep_caregiver_login_as_viewer: {
+        Args: { _member_id: string }
+        Returns: number
+      }
       my_caregiver_member_id: { Args: { _family_id: string }; Returns: string }
       recover_stale_account_deletion: {
         Args: { _user_id: string }
