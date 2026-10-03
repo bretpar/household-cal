@@ -107,7 +107,7 @@ export const runCaregiverDiagnostic = createServerFn({ method: "POST" })
         assignment: s ? `${s.assignment}${s.assignee_member_id ? ` · ${s.assignee_member_id}` : ""}${s.assignee_name ? ` · ${s.assignee_name}` : ""}` : null,
         decision, client_note,
       };
-    }).filter((e: DiagnosticEvent) => e.recurrence_rule === null || !e.decision.includes("not generated") || true);
+    });
 
     return {
       name: (fu.data.family_members?.name as string) ?? "Caregiver",
