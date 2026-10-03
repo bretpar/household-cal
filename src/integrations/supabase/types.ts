@@ -1031,6 +1031,7 @@ export type Database = {
           role: Database["public"]["Enums"]["member_role"]
           sort_order: number
           timesheet_emails_enabled: boolean
+          timesheet_start_date: string | null
           timesheets_enabled: boolean
           updated_at: string
         }
@@ -1047,6 +1048,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["member_role"]
           sort_order?: number
           timesheet_emails_enabled?: boolean
+          timesheet_start_date?: string | null
           timesheets_enabled?: boolean
           updated_at?: string
         }
@@ -1063,6 +1065,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["member_role"]
           sort_order?: number
           timesheet_emails_enabled?: boolean
+          timesheet_start_date?: string | null
           timesheets_enabled?: boolean
           updated_at?: string
         }
@@ -1551,6 +1554,8 @@ export type Database = {
       timesheets: {
         Row: {
           caregiver_name: string
+          closed_at: string | null
+          closed_by: string | null
           created_at: string
           family_id: string
           family_member_id: string
@@ -1571,6 +1576,8 @@ export type Database = {
         }
         Insert: {
           caregiver_name: string
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
           family_id: string
           family_member_id: string
@@ -1591,6 +1598,8 @@ export type Database = {
         }
         Update: {
           caregiver_name?: string
+          closed_at?: string | null
+          closed_by?: string | null
           created_at?: string
           family_id?: string
           family_member_id?: string
