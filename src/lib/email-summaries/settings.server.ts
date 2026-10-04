@@ -379,9 +379,7 @@ export async function saveRecipient(
   const shiftMode = input.content_mode === "caregiver_shifts";
   const includeRelated = shiftMode && !!input.include_related_on_shift_days;
   // Shift summaries need calendars only for the optional related events.
-  if (!shiftMode || includeRelated) {
-    await assertSelectableCalendars(db, familyId, sourceIds);
-  } else if (sourceIds.length > 0) {
+  if (!shiftMode || includeRelated || sourceIds.length > 0) {
     await assertSelectableCalendars(db, familyId, sourceIds);
   }
 
