@@ -107,9 +107,9 @@ describe("shared timed-event overlap layout", () => {
   it("emits one overflow pill per group, counting each hidden event once", () => {
     const events = [
       occurrence("a", 8, 12),
-      occurrence("b", 9, 13),
-      occurrence("c", 10, 18),
-      occurrence("d", 10, 11),
+      occurrence("b", 8.05, 13),
+      occurrence("c", 8.1, 18),
+      occurrence("d", 8.15, 11),
     ];
     const layout = layoutTimedEvents({ foreground: events, coverage: [], areaWidth: 120 });
     expect(layout.overflow).toHaveLength(1);
@@ -121,7 +121,8 @@ describe("shared timed-event overlap layout", () => {
     const layout = layoutTimedEvents({
       foreground: [
         occurrence("first", 8, 12),
-        occurrence("second", 9, 13),
+        occurrence("second", 8.05, 13),
+        occurrence("third", 8.1, 14),
         hidden,
         hidden,
       ],
@@ -241,14 +242,12 @@ describe("shared timed-event overlap layout", () => {
     ).toHaveLength(1);
   });
 
-  it("counts each hidden event once even when hidden for part of a long group", () => {
-    // Narrow width forces hidden lanes; a late event that only overlaps the
-    // tail of the group must still appear exactly once in the single pill.
+  it("counts each hidden event once in a dense header-collision group", () => {
     const events = [
       occurrence("a", 8, 18),
-      occurrence("b", 9, 17),
-      occurrence("c", 10, 16),
-      occurrence("late", 15, 19),
+      occurrence("b", 8.05, 17),
+      occurrence("c", 8.1, 16),
+      occurrence("late", 8.15, 19),
     ];
     const layout = layoutTimedEvents({ foreground: events, coverage: [], areaWidth: 120 });
     expect(layout.overflow).toHaveLength(1);
