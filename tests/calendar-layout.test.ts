@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { layoutTimedEvents } from "@/lib/calendar-layout";
+import { layoutBackground, layoutTimedEvents } from "@/lib/calendar-layout";
 import type { CalendarEvent, Occurrence } from "@/lib/family-data";
 
 function occurrence(
