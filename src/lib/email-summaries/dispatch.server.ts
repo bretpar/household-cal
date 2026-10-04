@@ -270,11 +270,22 @@ export function renderCaregiverSummary(
   const shiftIds = recipient.family_member_id
     ? (household.shiftEventIdsByMember.get(recipient.family_member_id) ?? new Set<string>())
     : new Set<string>();
-  const shiftEvents = household.babysitterSourceId
+  const rawShiftEvents = household.babysitterSourceId
     ? household.events.filter(
         (e) => shiftIds.has(e.id) && e.calendar_source_id === household.babysitterSourceId,
       )
     : [];
+  // A shift titled only with the caregiver's own name is an assignment
+  // placeholder; in their own schedule email show "Babysitting" instead.
+  // Display-only — stored event data is never touched.
+  const normalize = (s: string) => s.trim().toLowerCase();
+  const recipientName = normalize(recipient.name);
+  const recipientFirst = recipientName.split(" ")[0] ?? "";
+  const shiftEvents = rawShiftEvents.map((e) => {
+    const t = normalize(e.title);
+    if (t === recipientName || t === recipientFirst) return { ...e, title: "Babysitting" };
+    return e;
+  });
   let related: SummaryEvent[] = [];
   if (recipient.include_related_on_shift_days) {
     const eligible = new Set(household.eligibleSourceIds);

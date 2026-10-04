@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { previewWindow } from '@/lib/email-summaries/window'
 import { addDays } from '@/lib/email-summaries/window'
 import { buildCaregiverShiftDays } from '@/lib/email-summaries/summary'
+import { renderCaregiverSummary } from '@/lib/email-summaries/dispatch.server'
 
 const tz = 'America/Los_Angeles'
 const ev = (id: string, title: string, day: string, extra: Record<string, unknown> = {}) => ({
@@ -33,5 +34,31 @@ describe('caregiver scheduled-days summary', () => {
     )
     expect(days.map((d) => d.dayKey)).toEqual([wed])
     expect(days[0].items.map((i) => i.title).sort()).toEqual(['Babysitting', 'Soccer'])
+  })
+})
+
+describe('caregiver shift title display', () => {
+  const w = previewWindow('weekly', new Date('2026-08-31T01:05:00Z'), tz)
+  const wed = addDays(w.startDayKey, 2)
+  const household = (events: any[]) => ({
+    timezone: tz, members: [], events, mainSourceId: null,
+    eligibleSourceIds: ['bs'], babysitterSourceId: 'bs',
+    shiftEventIdsByMember: new Map([['m1', new Set(events.map((e) => e.id))]]),
+  })
+  const recipient = {
+    calendar_source_ids: [], unsubscribe_token: 'tok', name: 'Michelle Parker',
+    family_member_id: 'm1', include_related_on_shift_days: false,
+  }
+  const titles = (events: any[]) =>
+    renderCaregiverSummary(household(events) as any, recipient as any, w, null)
+      .templateData.days.flatMap((d: any) => d.items.map((i: any) => i.title))
+
+  it('shows "Babysitting" when the shift title is only the caregiver\'s name', () => {
+    expect(titles([ev('a', 'Michelle', wed, { calendar_source_id: 'bs' })])).toEqual(['Babysitting'])
+    expect(titles([ev('a', 'michelle parker', wed, { calendar_source_id: 'bs' })])).toEqual(['Babysitting'])
+  })
+
+  it('keeps a meaningful descriptive shift title', () => {
+    expect(titles([ev('a', 'After-school care', wed, { calendar_source_id: 'bs' })])).toEqual(['After-school care'])
   })
 })
