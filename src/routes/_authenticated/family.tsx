@@ -143,16 +143,8 @@ function FamilyPage() {
             <p className="mt-1 text-xs text-muted-foreground">
               {role ? ROLE_LABEL[role] ?? role : "Household member"}
             </p>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Need help?{" "}
-              <a
-                href={`mailto:${SUPPORT_EMAIL}`}
-                className="font-semibold text-foreground underline underline-offset-2"
-              >
-                {SUPPORT_EMAIL}
-              </a>
-            </p>
           </div>
+          <ChangePasswordDialog />
           <AccountDeletion />
         </SettingsSection>
 
@@ -172,10 +164,18 @@ function FamilyPage() {
         </section>
 
         <section className="space-y-3 border-t border-border-soft pt-5" aria-label="Account security">
-          <ChangePasswordDialog />
           <SignOutButton />
           <p className="text-center text-xs text-muted-foreground">
             Signs out this device only. Your other devices stay signed in.
+          </p>
+          <p className="text-center text-xs text-muted-foreground">
+            Need help?{" "}
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className="underline underline-offset-2"
+            >
+              {SUPPORT_EMAIL}
+            </a>
           </p>
         </section>
 
