@@ -50,6 +50,13 @@
       "when": 1791130154722,
       "tag": "0006_timesheet_actual_time_confirmed",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791147978145,
+      "tag": "0007_recipient_caregiver_shift_mode",
+      "breakpoints": true
     }
   ]
 }
