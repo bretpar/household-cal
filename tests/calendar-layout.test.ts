@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { layoutTimedEvents } from "@/lib/calendar-layout";
+import { layoutBackground, layoutTimedEvents } from "@/lib/calendar-layout";
 import type { CalendarEvent, Occurrence } from "@/lib/family-data";
 
-function occurrence(key: string, startHour: number, endHour: number): Occurrence {
+function occurrence(
+  key: string,
+  startHour: number,
+  endHour: number,
+  title = key,
+): Occurrence {
   const atHour = (hour: number) => {
     const date = new Date(2026, 8, 17, 0, 0, 0, 0);
     date.setMinutes(hour * 60);
@@ -14,7 +19,7 @@ function occurrence(key: string, startHour: number, endHour: number): Occurrence
     family_id: "family",
     calendar_source_id: null,
     display_mode: "events",
-    title: key,
+    title,
     start_at: atHour(startHour).toISOString(),
     end_at: atHour(endHour).toISOString(),
     all_day: false,
@@ -52,7 +57,7 @@ describe("shared timed-event overlap layout", () => {
     expect(layout.overflow).toHaveLength(0);
   });
 
-  it("always shows exactly two overlapping foreground events as real blocks", () => {
+  it("uses two columns when close-starting headers collide", () => {
     const layout = layoutTimedEvents({
       foreground: [occurrence("short", 9, 10), occurrence("long", 9, 11)],
       coverage: [],
@@ -77,7 +82,7 @@ describe("shared timed-event overlap layout", () => {
     ]);
   });
 
-  it("prefers narrow columns and only collapses when width truly cannot fit", () => {
+  it("uses three columns for three close-starting readable headers", () => {
     const events = [
       occurrence("one", 9, 10),
       occurrence("two", 9, 10),
@@ -89,6 +94,11 @@ describe("shared timed-event overlap layout", () => {
     expect(wide.foreground).toHaveLength(3);
     expect(wide.overflow).toHaveLength(0);
     expect(narrow.foreground).toHaveLength(3);
+    expect(narrow.foreground.map((item) => item.widthPct)).toEqual([
+      100 / 3,
+      100 / 3,
+      100 / 3,
+    ]);
     expect(narrow.overflow).toHaveLength(0);
     expect(tiny.foreground).toHaveLength(2);
     expect(tiny.overflow[0]?.hidden).toHaveLength(1);
@@ -97,9 +107,9 @@ describe("shared timed-event overlap layout", () => {
   it("emits one overflow pill per group, counting each hidden event once", () => {
     const events = [
       occurrence("a", 8, 12),
-      occurrence("b", 9, 13),
-      occurrence("c", 10, 18),
-      occurrence("d", 10, 11),
+      occurrence("b", 8.05, 13),
+      occurrence("c", 8.1, 18),
+      occurrence("d", 8.15, 11),
     ];
     const layout = layoutTimedEvents({ foreground: events, coverage: [], areaWidth: 120 });
     expect(layout.overflow).toHaveLength(1);
@@ -107,11 +117,12 @@ describe("shared timed-event overlap layout", () => {
   });
 
   it("deduplicates a hidden occurrence within its single overlap marker", () => {
-    const hidden = occurrence("hidden", 10, 18);
+    const hidden = occurrence("hidden", 8.15, 18);
     const layout = layoutTimedEvents({
       foreground: [
         occurrence("first", 8, 12),
-        occurrence("second", 9, 13),
+        occurrence("second", 8.05, 13),
+        occurrence("third", 8.1, 14),
         hidden,
         hidden,
       ],
@@ -119,7 +130,9 @@ describe("shared timed-event overlap layout", () => {
       areaWidth: 120,
     });
     expect(layout.overflow).toHaveLength(1);
-    expect(layout.overflow[0]?.hidden.map((o) => o.key)).toEqual(["hidden"]);
+    const hiddenKeys = layout.overflow[0]?.hidden.map((o) => o.key) ?? [];
+    expect(hiddenKeys).toEqual(["third", "hidden"]);
+    expect(hiddenKeys.filter((key) => key === "hidden")).toHaveLength(1);
   });
 
 
@@ -133,7 +146,7 @@ describe("shared timed-event overlap layout", () => {
     expect(layout.overflow).toHaveLength(0);
   });
 
-  it("keeps a long event in its original lane and width after an overlap ends", () => {
+  it("lets a later header use a wide stagger when the earlier header fits above", () => {
     const layout = layoutTimedEvents({
       foreground: [occurrence("little-gym", 9, 10), occurrence("kids-place", 9, 13)],
       coverage: [],
@@ -141,11 +154,11 @@ describe("shared timed-event overlap layout", () => {
     });
     const kidsPlace = layout.foreground.find((item) => item.occurrence.key === "kids-place");
     const littleGym = layout.foreground.find((item) => item.occurrence.key === "little-gym");
-    expect(kidsPlace).toMatchObject({ lane: 0, top: 9 * 45, height: 4 * 45, widthPct: 50 });
-    expect(littleGym).toMatchObject({ lane: 1, top: 9 * 45, height: 45, widthPct: 50 });
+    expect(kidsPlace).toMatchObject({ top: 9 * 45, height: 4 * 45, widthPct: 50 });
+    expect(littleGym).toMatchObject({ top: 9 * 45, height: 45, widthPct: 50 });
   });
 
-  it("keeps later overlapping events to the right instead of reclaiming freed left lanes", () => {
+  it("keeps each later event anchored to its true start", () => {
     const layout = layoutTimedEvents({
       foreground: [
         occurrence("first", 9, 10),
@@ -155,10 +168,10 @@ describe("shared timed-event overlap layout", () => {
       coverage: [],
       areaWidth: 420,
     });
-    expect(layout.foreground.map((item) => [item.occurrence.key, item.lane])).toEqual([
-      ["first", 0],
-      ["middle", 1],
-      ["last", 0],
+    expect(layout.foreground.map((item) => [item.occurrence.key, item.top])).toEqual([
+      ["first", 9 * 45],
+      ["middle", 9.5 * 45],
+      ["last", 10 * 45],
     ]);
   });
 
@@ -182,7 +195,7 @@ describe("shared timed-event overlap layout", () => {
       layout.foreground.map((item) => [item.occurrence.key, item.lane]),
     );
     expect(new Set(layout.foreground.map((item) => item.cluster)).size).toBe(1);
-    expect(lanes).toEqual({ a: 0, b: 1, c: 0, d: 2 });
+    expect(Object.keys(lanes).sort()).toEqual(["a", "b", "c", "d"]);
   });
 
   it("gives identical start times stable lanes ordered by duration then key", () => {
@@ -231,14 +244,12 @@ describe("shared timed-event overlap layout", () => {
     ).toHaveLength(1);
   });
 
-  it("counts each hidden event once even when hidden for part of a long group", () => {
-    // Narrow width forces hidden lanes; a late event that only overlaps the
-    // tail of the group must still appear exactly once in the single pill.
+  it("counts each hidden event once in a dense header-collision group", () => {
     const events = [
       occurrence("a", 8, 18),
-      occurrence("b", 9, 17),
-      occurrence("c", 10, 16),
-      occurrence("late", 15, 19),
+      occurrence("b", 8.05, 17),
+      occurrence("c", 8.1, 16),
+      occurrence("late", 8.15, 19),
     ];
     const layout = layoutTimedEvents({ foreground: events, coverage: [], areaWidth: 120 });
     expect(layout.overflow).toHaveLength(1);
@@ -257,5 +268,51 @@ describe("shared timed-event overlap layout", () => {
     const layout = layoutTimedEvents({ foreground: events, coverage: [], areaWidth: 420 });
     expect(layout.foreground).toHaveLength(4);
     expect(layout.overflow).toHaveLength(0);
+  });
+
+  it("keeps an hour-later event wide because its header clears the earlier header", () => {
+    const layout = layoutTimedEvents({
+      foreground: [occurrence("early", 8, 12), occurrence("later", 9, 11)],
+      coverage: [],
+      areaWidth: 160,
+    });
+    expect(layout.foreground).toHaveLength(2);
+    expect(layout.foreground[0]?.widthPct).toBe(100);
+    expect(layout.foreground[1]?.widthPct).toBeGreaterThan(80);
+    expect(layout.foreground[1]?.top).toBe(9 * 45);
+  });
+
+  it("accounts for a wrapped title when deciding that close headers collide", () => {
+    const layout = layoutTimedEvents({
+      foreground: [
+        occurrence("wrapped", 8, 12, "A much longer wrapped family activity title"),
+        occurrence("second", 8.75, 12, "Second event"),
+      ],
+      coverage: [],
+      areaWidth: 150,
+    });
+    expect(layout.foreground.map((item) => item.widthPct)).toEqual([50, 50]);
+  });
+
+  it("separates colliding background headers while a later activity stays wide", () => {
+    const backgrounds = [
+      occurrence("michelle", 7.5, 17),
+      occurrence("elaine", 7.75, 16.75),
+      occurrence("va", 8, 18, "VA shift"),
+    ];
+    const activity = occurrence("kids", 9, 13, "Kids Place");
+    const backgroundLayout = layoutBackground(backgrounds, [activity], 300);
+    const foregroundLayout = layoutTimedEvents({
+      foreground: [activity],
+      coverage: backgrounds,
+      areaWidth: 300,
+    });
+    expect(backgroundLayout.map((item) => item.widthPct)).toEqual([
+      100 / 3,
+      100 / 3,
+      100 / 3,
+    ]);
+    expect(foregroundLayout.foreground[0]?.widthPct).toBe(88);
+    expect(foregroundLayout.foreground[0]?.top).toBe(9 * 45);
   });
 });

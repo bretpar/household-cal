@@ -470,7 +470,7 @@ export function WeekView({
                     tiers stack only against each other and can never paint over
                     foreground activity cards. */}
                   <div className="pointer-events-none absolute inset-0 isolate z-0">
-                  {layoutBackground(coverage, visible).map((bg) => {
+                  {layoutBackground(coverage, visible, areaWidth).map((bg) => {
                     const o = bg.occurrence;
                     const moving = draggingKey === o.key || ghost?.occurrence?.key === o.key;
                     const isChildcareEvent = isChildcare(o.event);
@@ -480,8 +480,8 @@ export function WeekView({
                     const isSubscriptionEvent = Boolean(o.event.source_color);
                     const appearance = categoryAppearanceFor(o.event);
                     const labelWidthPx = bg.labelWidth
-                      ? 120
-                      : Math.max(64, areaWidth - bg.indentPx);
+                      ? Math.min(120, bg.widthPx)
+                      : Math.max(52, bg.widthPx);
                     return (
                       <div
                         key={o.key}
@@ -514,7 +514,8 @@ export function WeekView({
                         style={{
                           top: bg.top,
                           height: bg.height,
-                          left: bg.indentPx,
+                          left: `${bg.leftPct}%`,
+                          width: `calc(${bg.widthPct}% - ${CALENDAR_TOKENS.card.gapPx}px)`,
                           zIndex: bg.tier,
                         }}
                       >
@@ -657,7 +658,7 @@ export function WeekView({
                                   width: `calc(${placement.widthPct}% - ${CALENDAR_TOKENS.card.gapPx}px)`,
                                   zIndex:
                                     (overlapKeys.has(o.key) || draggingKey === o.key ? 40 : 10) +
-                                    placement.lane,
+                                    placement.stackOrder,
                                 }}
                               >
                                 <div

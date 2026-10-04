@@ -8,9 +8,8 @@
  *
  * Rules encoded here:
  * - geometry always follows real time (never nudged to signal overlap);
- * - background/coverage events span the full column and never consume a
- *   foreground lane;
- * - foreground events only compete with other foreground events;
+ * - background and foreground events are laid out independently;
+ * - cards split into columns only while their rendered headers collide;
  * - what text is rendered depends on the card's actual width and height.
  */
 
@@ -108,9 +107,11 @@ export interface BackgroundPlacement {
   labelHeight: number;
   /** Narrow the label box when a foreground card sits over the label area. */
   labelWidth: string | undefined;
-  /** Small left inset (Apple-style step) so an earlier background block's rail
-   *  stays visible underneath a later overlapping one. */
+  /** Pixel inset retained for renderer compatibility and label measurement. */
   indentPx: number;
+  leftPct: number;
+  widthPct: number;
+  widthPx: number;
   /** Stacking order within the background layer: deeper tiers paint on top. */
   tier: number;
 }
@@ -123,26 +124,18 @@ const BACKGROUND_MAX_TIER = 3;
 export function layoutBackground(
   coverage: Occurrence[],
   foreground: Occurrence[],
+  areaWidth = 160,
 ): BackgroundPlacement[] {
-  /** Tier = how many earlier background blocks this one still overlaps. */
-  const ordered = [...coverage].sort(
-    (a, b) =>
-      a.start.getTime() - b.start.getTime() ||
-      b.end.getTime() - b.start.getTime() - (a.end.getTime() - a.start.getTime()) ||
-      a.key.localeCompare(b.key),
-  );
-  const tiers = new Map<string, number>();
-  ordered.forEach((o, index) => {
-    const overlapping = ordered
-      .slice(0, index)
-      .filter((prev) => prev.start < o.end && prev.end > o.start);
-    const used = new Set(overlapping.map((prev) => tiers.get(prev.key) ?? 0));
-    let tier = 0;
-    while (used.has(tier) && tier < BACKGROUND_MAX_TIER) tier += 1;
-    tiers.set(o.key, tier);
-  });
+  const headerLayout = layoutHeaderCollisions(coverage, areaWidth, 100);
 
   return coverage.map((o) => {
+    const horizontal = headerLayout.visible.get(o.key) ?? {
+      lane: 0,
+      leftPct: 0,
+      widthPct: 100,
+      widthPx: areaWidth,
+      stackOrder: 0,
+    };
     const height = heightForOccurrence(o);
     const labelHeight = Math.min(height, CALENDAR_TOKENS.background.labelHeightPx);
     const labelTextEnd = new Date(
@@ -152,14 +145,17 @@ export function layoutBackground(
           3_600_000,
     );
     const obscured = foreground.some((f) => f.start < labelTextEnd && f.end > o.start);
-    const tier = tiers.get(o.key) ?? 0;
+    const tier = Math.min(horizontal.stackOrder, BACKGROUND_MAX_TIER);
     return {
       occurrence: o,
       top: topForTime(o.start),
       height,
       labelHeight,
-      labelWidth: obscured ? "clamp(96px, 38%, 132px)" : undefined,
-      indentPx: tier * BACKGROUND_INDENT_PX,
+      labelWidth: obscured ? "clamp(72px, 78%, 132px)" : undefined,
+      indentPx: (areaWidth * horizontal.leftPct) / 100,
+      leftPct: horizontal.leftPct,
+      widthPct: horizontal.widthPct,
+      widthPx: horizontal.widthPx,
       tier,
     };
   });
@@ -172,6 +168,140 @@ interface Lane {
   occurrence: Occurrence;
   lane: number;
   cluster: number;
+}
+
+interface HeaderPlacement {
+  lane: number;
+  leftPct: number;
+  widthPct: number;
+  widthPx: number;
+  stackOrder: number;
+}
+
+interface HeaderLayout {
+  visible: Map<string, HeaderPlacement>;
+  hidden: Array<{ cluster: number; top: number; occurrences: Occurrence[] }>;
+}
+
+/**
+ * Approximate the pixels occupied by the same title/time block rendered by
+ * CalendarEventContent. Width selects the real text scale and controls title
+ * wrapping; the result is capped by the card's true height.
+ */
+export function estimateEventHeaderHeight(occurrence: Occurrence, width: number): number {
+  const compact = width < 200;
+  const horizontalPadding = 12;
+  const usable = Math.max(20, width - horizontalPadding);
+  const averageGlyphWidth = compact ? 6.7 : 7.2;
+  const charsPerLine = Math.max(1, Math.floor(usable / averageGlyphWidth));
+  const titleLines = Math.min(2, Math.max(1, Math.ceil(occurrence.event.title.length / charsPerLine)));
+  const titleLineHeight = compact ? 16 : 17;
+  const showTime = width >= CALENDAR_TOKENS.content.timeMinWidthPx;
+  const timeHeight = showTime ? (compact ? 14 : 16) : 0;
+  const gap = showTime ? 1 : 0;
+  const verticalPadding = heightForOccurrence(occurrence) >= 54 ? 8 : 4;
+  return Math.min(
+    heightForOccurrence(occurrence),
+    verticalPadding + titleLines * titleLineHeight + gap + timeHeight,
+  );
+}
+
+/** Header-only interval packing. Body overlap never creates a narrow column. */
+function layoutHeaderCollisions(
+  occurrences: Occurrence[],
+  areaWidth: number,
+  areaWidthPct: number,
+  areaLeftPct = 100 - areaWidthPct,
+): HeaderLayout {
+  const ordered = [...occurrences].sort(
+    (a, b) =>
+      a.start.getTime() - b.start.getTime() ||
+      b.end.getTime() - b.start.getTime() - (a.end.getTime() - a.start.getTime()) ||
+      a.key.localeCompare(b.key),
+  );
+  const usableWidth = (areaWidth * areaWidthPct) / 100;
+  let widths = new Map(ordered.map((o) => [o.key, usableWidth]));
+  let groups: Array<Array<{ occurrence: Occurrence; lane: number }>> = [];
+
+  // Narrower columns may wrap a title onto a second line. Repack until that
+  // feedback stabilizes (three passes is sufficient for the two-line cap).
+  for (let pass = 0; pass < 3; pass += 1) {
+    groups = [];
+    let group: Array<{ occurrence: Occurrence; lane: number }> = [];
+    let laneEnds: number[] = [];
+    let groupEnd = 0;
+    const flush = () => {
+      if (group.length > 0) groups.push(group);
+      group = [];
+      laneEnds = [];
+      groupEnd = 0;
+    };
+    for (const occurrence of ordered) {
+      const top = topForTime(occurrence.start);
+      const headerEnd = top + estimateEventHeaderHeight(occurrence, widths.get(occurrence.key) ?? usableWidth);
+      if (group.length > 0 && top >= groupEnd) flush();
+      const free = laneEnds.findIndex((end) => end <= top);
+      const lane = free === -1 ? laneEnds.length : free;
+      laneEnds[lane] = headerEnd;
+      groupEnd = Math.max(groupEnd, headerEnd);
+      group.push({ occurrence, lane });
+    }
+    flush();
+    widths = new Map();
+    for (const items of groups) {
+      const lanes = Math.max(...items.map((item) => item.lane)) + 1;
+      const width = usableWidth / lanes;
+      for (const item of items) widths.set(item.occurrence.key, width);
+    }
+  }
+
+  const visible = new Map<string, HeaderPlacement>();
+  const hidden: HeaderLayout["hidden"] = [];
+  groups.forEach((items, cluster) => {
+    const laneCount = Math.max(...items.map((item) => item.lane)) + 1;
+    const capacity = Math.max(
+      1,
+      Math.floor(Math.max(usableWidth, 1) / (CALENDAR_TOKENS.minOverlapColumnPx + CALENDAR_TOKENS.card.gapPx)),
+    );
+    const visibleCount = laneCount <= 2 ? laneCount : Math.max(2, Math.min(laneCount, capacity));
+    const isCollision = items.length > 1;
+    const priorBodyOverlap = (occurrence: Occurrence) =>
+      ordered.some(
+        (prior) =>
+          prior.start < occurrence.start &&
+          prior.end > occurrence.start &&
+          !items.some((item) => item.occurrence.key === prior.key),
+      );
+
+    for (const [stackOrder, item] of items.entries()) {
+      if (item.lane >= visibleCount) continue;
+      const staggerPct = !isCollision && priorBodyOverlap(item.occurrence)
+        ? Math.min(14, (BACKGROUND_INDENT_PX / Math.max(1, areaWidth)) * 100)
+        : 0;
+      const widthPct = isCollision ? areaWidthPct / visibleCount : areaWidthPct - staggerPct;
+      const leftPct = isCollision
+        ? areaLeftPct + item.lane * widthPct
+        : areaLeftPct + staggerPct;
+      visible.set(item.occurrence.key, {
+        lane: item.lane,
+        leftPct,
+        widthPct,
+        widthPx: Math.max(0, (areaWidth * widthPct) / 100 - CALENDAR_TOKENS.card.gapPx),
+        stackOrder,
+      });
+    }
+    const hiddenOccurrences = items
+      .filter((item) => item.lane >= visibleCount)
+      .map((item) => item.occurrence);
+    if (hiddenOccurrences.length > 0) {
+      hidden.push({
+        cluster,
+        top: Math.min(...hiddenOccurrences.map((o) => topForTime(o.start))),
+        occurrences: hiddenOccurrences,
+      });
+    }
+  });
+  return { visible, hidden };
 }
 
 /**
@@ -235,6 +365,8 @@ export interface ForegroundPlacement {
   widthPct: number;
   /** Estimated rendered width in px, used for the content plan. */
   widthPx: number;
+  /** Later starts paint above earlier card bodies without affecting geometry. */
+  stackOrder: number;
 }
 
 export interface OverflowMarker {
@@ -277,8 +409,6 @@ export function layoutTimedEvents({
   }
 
   for (const [cluster, items] of clusters) {
-    const laneCount = Math.max(...items.map((item) => item.lane)) + 1;
-
     // Background coverage remains a separate full-width layer. It can reserve
     // a stable left label strip, but never consumes a foreground lane.
     const covering = coverage.filter((background) =>
@@ -306,40 +436,30 @@ export function layoutTimedEvents({
         ? CALENDAR_TOKENS.background.foregroundWidthPct
         : 100;
     const areaLeftPct = 100 - areaWidthPct;
-    const usableWidth = (areaWidth * areaWidthPct) / 100;
-    // Cards are allowed to get narrow (down to a still-tappable floor) before
-    // any event is hidden: seeing every event's time and duration matters more
-    // than keeping cards wide.
-    const widthCapacity = Math.max(
-      1,
-      Math.floor(
-        Math.max(usableWidth, 1) /
-          (CALENDAR_TOKENS.minOverlapColumnPx + CALENDAR_TOKENS.card.gapPx),
-      ),
+    const headerLayout = layoutHeaderCollisions(
+      items.map((item) => item.occurrence),
+      areaWidth,
+      areaWidthPct,
+      areaLeftPct,
     );
-    const visibleCount =
-      laneCount <= 2 ? laneCount : Math.max(2, Math.min(laneCount, widthCapacity));
-    const laneWidthPct = areaWidthPct / visibleCount;
 
-    items
-      .filter((item) => item.lane < visibleCount)
-      .forEach((item) => {
+    items.forEach((item) => {
+        const horizontal = headerLayout.visible.get(item.occurrence.key);
+        if (!horizontal) return;
         results.push({
           occurrence: item.occurrence,
           cluster,
-          lane: item.lane,
+          lane: horizontal.lane,
           segment: 0,
           startsEvent: true,
           endsEvent: true,
           showContent: true,
           top: topForTime(item.occurrence.start),
           height: heightForOccurrence(item.occurrence),
-          leftPct: areaLeftPct + item.lane * laneWidthPct,
-          widthPct: laneWidthPct,
-          widthPx: Math.max(
-            0,
-            (areaWidth * laneWidthPct) / 100 - CALENDAR_TOKENS.card.gapPx,
-          ),
+          leftPct: horizontal.leftPct,
+          widthPct: horizontal.widthPct,
+          widthPx: horizontal.widthPx,
+          stackOrder: horizontal.stackOrder,
         });
       });
 
@@ -347,10 +467,8 @@ export function layoutTimedEvents({
     // Per-boundary markers used to repeat the same event as several "+1 more"
     // pills down its duration.
     const hiddenByKey = new Map<string, Occurrence>();
-    for (const item of items) {
-      if (item.lane >= visibleCount && !hiddenByKey.has(item.occurrence.key)) {
-        hiddenByKey.set(item.occurrence.key, item.occurrence);
-      }
+    for (const group of headerLayout.hidden) {
+      for (const occurrence of group.occurrences) hiddenByKey.set(occurrence.key, occurrence);
     }
     const hidden = [...hiddenByKey.values()];
     if (hidden.length > 0) {
