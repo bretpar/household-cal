@@ -69,6 +69,8 @@ interface RecipientDraft {
   user_id: string | null;
   calendar_source_ids: string[];
   weekdays: string[];
+  content_mode: "calendars" | "caregiver_shifts";
+  include_related_on_shift_days: boolean;
   resubscribe?: boolean;
 }
 
@@ -112,6 +114,7 @@ export function EmailSummarySettings() {
       }
   >(null);
   const [recipientDraft, setRecipientDraft] = useState<RecipientDraft | null>(null);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: SUMMARY_KEY,
@@ -124,6 +127,13 @@ export function EmailSummarySettings() {
   const householdUsers = data?.household_users ?? [];
   const selectedPerson =
     householdUsers.find((p) => p.user_id === recipientDraft?.user_id) ?? null;
+  const babysitterSourceId =
+    ((family as { babysitter_calendar_source_id?: string | null } | null)
+      ?.babysitter_calendar_source_id as string | null | undefined) ?? null;
+  const relatedSources = selectableSources.filter((s) => s.id !== babysitterSourceId);
+  const shiftMode = recipientDraft?.content_mode === "caregiver_shifts";
+  const needsCalendars =
+    !shiftMode || (recipientDraft?.include_related_on_shift_days ?? false);
 
 
   if (!isOwner) return null;
@@ -147,6 +157,11 @@ export function EmailSummarySettings() {
       errorFallback: "Could not save the schedule.",
     });
 
+  const closeRecipient = () => {
+    setRecipientDraft(null);
+    setCustomizeOpen(false);
+  };
+
   const persistRecipient = () =>
     runGuardedMutation({
       busy,
@@ -157,7 +172,7 @@ export function EmailSummarySettings() {
       },
       onSuccess: () => {
         toast.success("Recipient saved");
-        setRecipientDraft(null);
+        closeRecipient();
       },
       onError: toast.error,
       errorFallback: "Could not save the recipient.",
@@ -312,12 +327,21 @@ export function EmailSummarySettings() {
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
                       {recipient.email} ·{" "}
+                      {recipient.content_mode === "caregiver_shifts" ? (
+                        <>
+                          scheduled days only
+                          {recipient.include_related_on_shift_days ? " + related events" : ""}
+                        </>
+                      ) : (
+                        <>
                       {recipient.calendar_source_ids.length === 0
                         ? "no calendars selected"
                         : `${recipient.calendar_source_ids.length} calendar${
                             recipient.calendar_source_ids.length === 1 ? "" : "s"
                           }`}{" "}
                       · {daysLabel(recipient.weekdays)}
+                        </>
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
@@ -332,6 +356,8 @@ export function EmailSummarySettings() {
                           user_id: recipient.user_id,
                           calendar_source_ids: recipient.calendar_source_ids,
                           weekdays: recipient.weekdays,
+                          content_mode: recipient.content_mode,
+                          include_related_on_shift_days: recipient.include_related_on_shift_days,
                         })
 
                       }
@@ -365,6 +391,8 @@ export function EmailSummarySettings() {
                     user_id: null,
                     calendar_source_ids: [],
                     weekdays: [],
+                    content_mode: "calendars",
+                    include_related_on_shift_days: false,
                   })
 
                 }
@@ -472,9 +500,24 @@ export function EmailSummarySettings() {
                   ) : (
                     <Select
                       value={recipientDraft.user_id ?? ""}
-                      onValueChange={(value) =>
-                        setRecipientDraft({ ...recipientDraft, user_id: value })
-                      }
+                      onValueChange={(value) => {
+                        const person = householdUsers.find((p) => p.user_id === value);
+                        const caregiver = !!person?.is_caregiver;
+                        setCustomizeOpen(false);
+                        setRecipientDraft({
+                          ...recipientDraft,
+                          user_id: value,
+                          // new caregiver recipients default to their scheduled days
+                          content_mode: caregiver
+                            ? recipientDraft.id
+                              ? recipientDraft.content_mode
+                              : "caregiver_shifts"
+                            : "calendars",
+                          include_related_on_shift_days: caregiver
+                            ? recipientDraft.include_related_on_shift_days
+                            : false,
+                        });
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Choose a household member" />
@@ -502,15 +545,103 @@ export function EmailSummarySettings() {
                   )}
                 </div>
 
+                {selectedPerson?.is_caregiver && (
+                  <div className="space-y-2">
+                    <Label>Schedule summary</Label>
+                    <label className="flex items-start gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+                      <input
+                        type="radio"
+                        name="caregiver-mode"
+                        className="mt-0.5 h-4 w-4 accent-primary"
+                        checked={shiftMode}
+                        onChange={() =>
+                          setRecipientDraft({ ...recipientDraft, content_mode: "caregiver_shifts" })
+                        }
+                      />
+                      <span>
+                        <span className="font-semibold">Send only days this person is scheduled</span>{" "}
+                        <span className="text-xs text-muted-foreground">(recommended)</span>
+                        <span className="block text-xs text-muted-foreground">
+                          Includes Babysitter Calendar shifts assigned to {selectedPerson.name}. No
+                          email is sent for a period with no shifts.
+                        </span>
+                      </span>
+                    </label>
+                    {shiftMode && (
+                      <label className="flex items-start gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 accent-primary"
+                          checked={recipientDraft.include_related_on_shift_days}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            const defaults =
+                              on && recipientDraft.calendar_source_ids.length === 0
+                                ? relatedSources
+                                    .filter((s) => /kid/i.test(s.name))
+                                    .map((s) => s.id)
+                                : recipientDraft.calendar_source_ids;
+                            setRecipientDraft({
+                              ...recipientDraft,
+                              include_related_on_shift_days: on,
+                              calendar_source_ids: defaults,
+                            });
+                            if (on && defaults.length === 0) setCustomizeOpen(true);
+                          }}
+                        />
+                        <span>
+                          Include related Kids Calendar events on scheduled days
+                          <span className="block text-xs text-muted-foreground">
+                            Only on days with an assigned shift.
+                          </span>
+                        </span>
+                      </label>
+                    )}
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+                      onClick={() => setCustomizeOpen((v) => !v)}
+                    >
+                      {customizeOpen ? "Hide email contents" : "Customize email contents"}
+                    </button>
+                  </div>
+                )}
+
+                {(!selectedPerson?.is_caregiver || customizeOpen) && (
+                <>
+                {selectedPerson?.is_caregiver && (
+                  <label className="flex items-start gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+                    <input
+                      type="radio"
+                      name="caregiver-mode"
+                      className="mt-0.5 h-4 w-4 accent-primary"
+                      checked={!shiftMode}
+                      onChange={() =>
+                        setRecipientDraft({
+                          ...recipientDraft,
+                          content_mode: "calendars",
+                          include_related_on_shift_days: false,
+                        })
+                      }
+                    />
+                    <span>
+                      Use selected calendars and days instead
+                      <span className="block text-xs text-muted-foreground">
+                        Not limited to scheduled shifts.
+                      </span>
+                    </span>
+                  </label>
+                )}
+                {needsCalendars && (
                 <div className="space-y-2">
-                  <Label>Calendars in this email</Label>
+                  <Label>{shiftMode ? "Related calendars on scheduled days" : "Calendars in this email"}</Label>
                   {selectableSources.length === 0 && (
                     <p className="text-xs text-muted-foreground">
                       No calendars available yet — connect or add a calendar first.
                     </p>
                   )}
                   <div className="space-y-1.5">
-                    {selectableSources.map((source) => {
+                    {(shiftMode ? relatedSources : selectableSources).map((source) => {
                       const checked = recipientDraft.calendar_source_ids.includes(source.id);
                       return (
                         <label
@@ -543,6 +674,8 @@ export function EmailSummarySettings() {
                     </p>
                   )}
                 </div>
+                )}
+                {!shiftMode && (
                 <div className="space-y-2">
                   <Label>Days to include</Label>
                   <Select
@@ -595,6 +728,9 @@ export function EmailSummarySettings() {
                     </div>
                   )}
                 </div>
+                )}
+                </>
+                )}
               </div>
             )}
           </div>
@@ -607,7 +743,7 @@ export function EmailSummarySettings() {
               disabled={
                 busy ||
                 !selectedPerson ||
-                (recipientDraft?.calendar_source_ids.length ?? 0) === 0
+                (needsCalendars && (recipientDraft?.calendar_source_ids.length ?? 0) === 0)
               }
             >
               Save

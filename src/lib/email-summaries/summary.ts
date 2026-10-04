@@ -342,3 +342,39 @@ export function summaryCopy(
 
 // re-exported for convenience in server code
 export { weekdayIndex };
+
+/**
+ * Caregiver "scheduled days only" summary: days come solely from the shifts
+ * assigned to this caregiver; related events appear only on those days.
+ */
+export function buildCaregiverShiftDays(
+  shiftEvents: SummaryEvent[],
+  relatedEvents: SummaryEvent[],
+  window: SummaryWindow,
+  timeZone: string,
+  members: SummaryMember[],
+): SummaryDay[] {
+  const shiftDayKeys = new Set(
+    buildSummaryDays(shiftEvents, window, timeZone, members).map((d) => d.dayKey),
+  );
+  if (shiftDayKeys.size === 0) return [];
+  const shiftIds = new Set(shiftEvents.map((e) => e.id));
+  const combined = [...shiftEvents, ...relatedEvents.filter((e) => !shiftIds.has(e.id))];
+  return buildSummaryDays(combined, window, timeZone, members).filter((d) =>
+    shiftDayKeys.has(d.dayKey),
+  );
+}
+
+export function caregiverSummaryCopy(name: string, window: SummaryWindow): SummaryCopy {
+  const range =
+    window.startDayKey === window.endDayKey
+      ? formatShortDate(window.startDayKey)
+      : `${formatShortDate(window.startDayKey)} – ${formatShortDate(window.endDayKey)}`;
+  const title = `${name}'s schedule — ${range}`;
+  return {
+    subject: title,
+    heading: title,
+    intro: "Here are the days you're scheduled.",
+    emptyMessage: "You have no scheduled shifts in this period.",
+  };
+}

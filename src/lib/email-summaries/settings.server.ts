@@ -23,6 +23,8 @@ export interface RecipientView {
   unsubscribed_at: string | null;
   calendar_source_ids: string[];
   weekdays: string[];
+  content_mode: "calendars" | "caregiver_shifts";
+  include_related_on_shift_days: boolean;
 }
 
 /** Household users (owners / editors / viewers) that may receive summaries. */
@@ -32,6 +34,8 @@ export interface HouseholdRecipientOption {
   email: string;
   role: string;
   family_member_id: string | null;
+  /** linked household member is a caregiver (can be assigned Babysitter shifts) */
+  is_caregiver: boolean;
 }
 
 export interface ScheduleView {
@@ -113,12 +117,16 @@ export async function loadHouseholdRecipientOptions(
 
   const memberIds = (rows ?? []).map((r: any) => r.family_member_id).filter(Boolean) as string[];
   const memberNameOf = new Map<string, string>();
+  const caregiverIds = new Set<string>();
   if (memberIds.length > 0) {
     const { data: memberRows } = await db
       .from("family_members")
-      .select("id, name")
+      .select("id, name, role")
       .in("id", memberIds);
-    for (const m of (memberRows ?? []) as any[]) memberNameOf.set(m.id, m.name);
+    for (const m of (memberRows ?? []) as any[]) {
+      memberNameOf.set(m.id, m.name);
+      if (m.role === "caregiver") caregiverIds.add(m.id);
+    }
   }
 
   const options: HouseholdRecipientOption[] = [];
@@ -141,6 +149,7 @@ export async function loadHouseholdRecipientOptions(
       email,
       role: row.role,
       family_member_id: row.family_member_id ?? null,
+      is_caregiver: !!row.family_member_id && caregiverIds.has(row.family_member_id),
     });
   }
   return options;
@@ -181,7 +190,7 @@ export async function loadEmailSummaries(
   const { data, error } = await db
     .from("email_schedules")
     .select(
-      "id, name, frequency, send_time, enabled, email_schedule_recipients(id, name, email, user_id, family_member_id, unsubscribed_at, weekdays, email_schedule_recipient_calendars(calendar_source_id))",
+      "id, name, frequency, send_time, enabled, email_schedule_recipients(id, name, email, user_id, family_member_id, unsubscribed_at, weekdays, content_mode, include_related_on_shift_days, email_schedule_recipient_calendars(calendar_source_id))",
     )
     .eq("family_id", current.familyId)
     .order("created_at", { ascending: true });
@@ -215,6 +224,8 @@ export async function loadEmailSummaries(
         (c: any) => c.calendar_source_id,
       ),
       weekdays: (r.weekdays ?? []) as string[],
+      content_mode: r.content_mode === "caregiver_shifts" ? "caregiver_shifts" : "calendars",
+      include_related_on_shift_days: !!r.include_related_on_shift_days,
     })),
   }));
 
@@ -358,18 +369,28 @@ export async function saveRecipient(
     user_id: string;
     calendar_source_ids?: string[];
     weekdays?: string[] | null;
+    content_mode?: "calendars" | "caregiver_shifts";
+    include_related_on_shift_days?: boolean;
     resubscribe?: boolean;
   },
 ): Promise<{ id: string }> {
   const familyId = await ownerFamily(db, userId);
   const sourceIds = [...new Set(input.calendar_source_ids ?? [])];
-  await assertSelectableCalendars(db, familyId, sourceIds);
+  const shiftMode = input.content_mode === "caregiver_shifts";
+  const includeRelated = shiftMode && !!input.include_related_on_shift_days;
+  // Shift summaries need calendars only for the optional related events.
+  if (!shiftMode || includeRelated || sourceIds.length > 0) {
+    await assertSelectableCalendars(db, familyId, sourceIds);
+  }
 
   // Recipients must be people who already have access to this household.
   const options = await loadHouseholdRecipientOptions(db, admin, familyId);
   const person = options.find((o) => o.user_id === input.user_id);
   if (!person) {
     throw new Error("Pick someone who has access to this household");
+  }
+  if (shiftMode && !person.is_caregiver) {
+    throw new Error("Scheduled-days summaries are only for caregivers");
   }
   const name = person.name;
   const email = normalizeEmailAddress(person.email);
@@ -380,7 +401,9 @@ export async function saveRecipient(
     email,
     user_id: person.user_id,
     family_member_id: person.family_member_id,
-    weekdays: normalizeWeekdays(input.weekdays),
+    weekdays: shiftMode ? [] : normalizeWeekdays(input.weekdays),
+    content_mode: shiftMode ? "caregiver_shifts" : "calendars",
+    include_related_on_shift_days: includeRelated,
     ...(input.resubscribe ? { unsubscribed_at: null } : {}),
   };
 

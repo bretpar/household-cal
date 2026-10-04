@@ -70,6 +70,8 @@ export const saveEmailRecipient = createServerFn({ method: "POST" })
       user_id: string;
       calendar_source_ids?: string[];
       weekdays?: string[] | null;
+      content_mode?: "calendars" | "caregiver_shifts";
+      include_related_on_shift_days?: boolean;
       resubscribe?: boolean;
     }) => data,
   )

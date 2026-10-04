@@ -12,7 +12,9 @@ import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 
 import { emailSelectableCalendars, isAcceptedHouseholdRecipient } from "./eligibility";
 import {
+  buildCaregiverShiftDays,
   buildSummaryDays,
+  caregiverSummaryCopy,
   eventsForSelection,
   selectedDaysInWindow,
   summaryCopy,
@@ -61,6 +63,8 @@ export interface RecipientRow {
   calendar_source_ids: string[];
   /** weekday codes this recipient receives; empty = every day */
   weekdays: string[];
+  content_mode: "calendars" | "caregiver_shifts";
+  include_related_on_shift_days: boolean;
 }
 
 interface HouseholdData {
@@ -70,11 +74,19 @@ interface HouseholdData {
   mainSourceId: string | null;
   /** calendars this household may include in email summaries */
   eligibleSourceIds: string[];
+  /** the owner-chosen Babysitter calendar */
+  babysitterSourceId: string | null;
+  /** member id -> event ids of Babysitter shifts assigned to that caregiver */
+  shiftEventIdsByMember: Map<string, Set<string>>;
 }
 
 async function loadHousehold(admin: AnyDb, familyId: string): Promise<HouseholdData> {
-  const [familyRes, membersRes, sourcesRes, eventsRes, categoriesRes] = await Promise.all([
-    admin.from("families").select("id, timezone").eq("id", familyId).maybeSingle(),
+  const [familyRes, membersRes, sourcesRes, eventsRes, categoriesRes, shiftsRes] = await Promise.all([
+    admin
+      .from("families")
+      .select("id, timezone, babysitter_calendar_source_id")
+      .eq("id", familyId)
+      .maybeSingle(),
     admin.from("family_members").select("id, initial, color, active").eq("family_id", familyId),
     admin
       .from("calendar_sources")
@@ -85,7 +97,20 @@ async function loadHousehold(admin: AnyDb, familyId: string): Promise<HouseholdD
       .select("*, event_members(family_member_id, weekdays), event_sync_links(calendar_source_id)")
       .eq("family_id", familyId),
     admin.from("event_categories").select("id, name, color").eq("family_id", familyId),
+    admin
+      .from("babysitter_shifts")
+      .select("event_id, assignee_member_id")
+      .eq("family_id", familyId)
+      .eq("assignment", "caregiver"),
   ]);
+  if (shiftsRes.error) throw shiftsRes.error;
+  const shiftEventIdsByMember = new Map<string, Set<string>>();
+  for (const row of (shiftsRes.data ?? []) as any[]) {
+    if (!row.assignee_member_id) continue;
+    const set = shiftEventIdsByMember.get(row.assignee_member_id) ?? new Set<string>();
+    set.add(row.event_id);
+    shiftEventIdsByMember.set(row.assignee_member_id, set);
+  }
 
   const categoryById = new Map(
     ((categoriesRes?.data ?? []) as any[]).map((c) => [c.id, { name: c.name, color: c.color }]),
@@ -137,6 +162,8 @@ async function loadHousehold(admin: AnyDb, familyId: string): Promise<HouseholdD
     events,
     mainSourceId: sources.find((s) => s.is_main)?.id ?? sources[0]?.id ?? null,
     eligibleSourceIds: emailSelectableCalendars(sources).map((s) => s.id),
+    babysitterSourceId: (familyRes.data?.babysitter_calendar_source_id as string) ?? null,
+    shiftEventIdsByMember,
   };
 }
 
@@ -160,6 +187,8 @@ async function loadRecipients(admin: AnyDb, scheduleId: string): Promise<Recipie
       (c: any) => c.calendar_source_id,
     ),
     weekdays: (r.weekdays ?? []) as string[],
+    content_mode: r.content_mode === "caregiver_shifts" ? "caregiver_shifts" : "calendars",
+    include_related_on_shift_days: !!r.include_related_on_shift_days,
   }));
 }
 
@@ -183,25 +212,139 @@ async function loadAcceptedHouseholdUserIds(
 async function loadRestrictedCaregivers(
   admin: AnyDb,
   familyId: string,
-): Promise<{ userIds: Set<string>; memberIds: Set<string> }> {
+): Promise<RestrictedCaregivers> {
   const { data, error } = await admin
     .from("babysitter_access_profiles")
-    .select("family_user_id, family_users!inner(user_id, family_member_id)")
+    .select(
+      "family_user_id, family_users!inner(user_id, family_member_id), babysitter_access_calendars(calendar_source_id)",
+    )
     .eq("family_id", familyId);
   if (error) throw error;
   const userIds = new Set<string>();
   const memberIds = new Set<string>();
+  const permittedByUser = new Map<string, Set<string>>();
   for (const row of (data ?? []) as any[]) {
     const fu = Array.isArray(row.family_users) ? row.family_users[0] : row.family_users;
-    if (fu?.user_id) userIds.add(fu.user_id);
+    const permitted = new Set<string>(
+      ((row.babysitter_access_calendars ?? []) as any[]).map((c) => c.calendar_source_id),
+    );
+    if (fu?.user_id) {
+      userIds.add(fu.user_id);
+      permittedByUser.set(fu.user_id, permitted);
+    }
     if (fu?.family_member_id) memberIds.add(fu.family_member_id);
   }
-  return { userIds, memberIds };
+  return { userIds, memberIds, permittedByUser };
+}
+
+interface RestrictedCaregivers {
+  userIds: Set<string>;
+  memberIds: Set<string>;
+  /** calendars a babysitter-profile login may read */
+  permittedByUser: Map<string, Set<string>>;
+}
+
+/**
+ * Babysitter-profile logins may receive only the caregiver "scheduled days"
+ * summary: their own shifts plus related events from calendars they are
+ * already permitted to read, on those days only.
+ */
+function isBlockedRecipient(
+  r: { user_id: string | null; family_member_id?: string | null; content_mode?: string },
+  restricted: RestrictedCaregivers,
+): boolean {
+  if (r.content_mode === "caregiver_shifts" && r.family_member_id) return false;
+  return isRestrictedRecipient(r, restricted);
+}
+
+/** Builds a caregiver's scheduled-days summary. */
+export function renderCaregiverSummary(
+  household: HouseholdData,
+  recipient: Pick<
+    RecipientRow,
+    "calendar_source_ids" | "unsubscribe_token" | "name" | "family_member_id"
+  > & { include_related_on_shift_days?: boolean },
+  window: SummaryWindow,
+  permittedSourceIds: Set<string> | null,
+): RenderedSummary {
+  const shiftIds = recipient.family_member_id
+    ? (household.shiftEventIdsByMember.get(recipient.family_member_id) ?? new Set<string>())
+    : new Set<string>();
+  const shiftEvents = household.babysitterSourceId
+    ? household.events.filter(
+        (e) => shiftIds.has(e.id) && e.calendar_source_id === household.babysitterSourceId,
+      )
+    : [];
+  let related: SummaryEvent[] = [];
+  if (recipient.include_related_on_shift_days) {
+    const eligible = new Set(household.eligibleSourceIds);
+    const sourceIds = recipient.calendar_source_ids.filter(
+      (id) =>
+        eligible.has(id) &&
+        id !== household.babysitterSourceId &&
+        (!permittedSourceIds || permittedSourceIds.has(id)),
+    );
+    if (sourceIds.length > 0) {
+      related = eventsForSelection(household.events, {
+        sourceIds,
+        // a babysitter login never gets main-calendar fallbacks it can't read
+        mainSourceId: permittedSourceIds ? null : household.mainSourceId,
+      });
+    }
+  }
+  const days = buildCaregiverShiftDays(
+    shiftEvents,
+    related,
+    window,
+    household.timezone,
+    household.members,
+  );
+  const firstName = recipient.name.split(" ")[0] || recipient.name;
+  const copy = caregiverSummaryCopy(firstName, window);
+  return {
+    subject: copy.subject,
+    dayCount: days.length,
+    templateData: {
+      subject: copy.subject,
+      heading: copy.heading,
+      intro: copy.intro,
+      emptyMessage: copy.emptyMessage,
+      days: days.map((day) => ({
+        label: day.label,
+        items: day.items.map((item) => ({
+          title: item.title,
+          time: item.time,
+          badges: item.badges,
+          categoryColor: item.categoryColor ?? null,
+          categoryName: item.categoryName ?? null,
+        })),
+      })),
+      calendarUrl: SITE_URL,
+      unsubscribeUrl: `${SITE_URL}/unsubscribe/${recipient.unsubscribe_token}`,
+    },
+  };
+}
+
+function renderForRecipient(
+  household: HouseholdData,
+  recipient: RecipientRow,
+  frequency: SummaryFrequency,
+  window: SummaryWindow,
+  restricted: RestrictedCaregivers,
+): RenderedSummary {
+  if (recipient.content_mode === "caregiver_shifts") {
+    const permitted =
+      recipient.user_id && restricted.userIds.has(recipient.user_id)
+        ? (restricted.permittedByUser.get(recipient.user_id) ?? new Set<string>())
+        : null;
+    return renderCaregiverSummary(household, recipient, window, permitted);
+  }
+  return renderSummary(household, recipient, frequency, window);
 }
 
 function isRestrictedRecipient(
   r: { user_id: string | null; family_member_id?: string | null },
-  restricted: { userIds: Set<string>; memberIds: Set<string> },
+  restricted: RestrictedCaregivers,
 ): boolean {
   return (
     (!!r.user_id && restricted.userIds.has(r.user_id)) ||
@@ -313,7 +456,7 @@ export async function runSchedule(
     loadRestrictedCaregivers(admin, schedule.family_id),
   ]);
   const recipients = loadedRecipients.filter(
-    (r) => !r.unsubscribed_at && !isRestrictedRecipient(r, restricted),
+    (r) => !r.unsubscribed_at && !isBlockedRecipient(r, restricted),
   );
   let sent = 0;
   let skipped = 0;
@@ -332,6 +475,19 @@ export async function runSchedule(
       continue;
     }
 
+    const rendered = renderForRecipient(
+      household,
+      recipient,
+      schedule.frequency,
+      due.window,
+      restricted,
+    );
+    // Caregivers with no assigned shifts this period get no empty email.
+    if (recipient.content_mode === "caregiver_shifts" && rendered.dayCount === 0) {
+      skipped += 1;
+      continue;
+    }
+
     // Claim the (recipient, period) slot first — the unique index makes a
     // retried job a no-op instead of a second email.
     const claim = await admin.from("email_summary_sends").insert({
@@ -346,7 +502,6 @@ export async function runSchedule(
       continue;
     }
 
-    const rendered = renderSummary(household, recipient, schedule.frequency, due.window);
     try {
       const result = await sendTemplateEmail("calendar-summary", recipient.email, {
         idempotencyKey: `summary-${recipient.id}-${due.window.periodKey}`,
@@ -465,20 +620,22 @@ export async function sendSummaryPreview(
   ]);
   if (recipientId) {
     const chosen = allRecipients.find((r) => r.id === recipientId);
-    if (chosen && isRestrictedRecipient(chosen, restricted)) {
+    if (chosen && isBlockedRecipient(chosen, restricted)) {
       throw new Error("Babysitters don't receive summary emails yet");
     }
   }
-  const recipients = allRecipients.filter((r) => !isRestrictedRecipient(r, restricted));
+  const recipients = allRecipients.filter((r) => !isBlockedRecipient(r, restricted));
   const recipient =
     (recipientId ? recipients.find((r) => r.id === recipientId) : recipients[0]) ?? null;
   const window = previewWindow(schedule.frequency, new Date(), household.timezone);
-  const rendered = renderSummary(
-    household,
-    recipient ?? { calendar_source_ids: [], unsubscribe_token: "preview", weekdays: [] },
-    schedule.frequency,
-    window,
-  );
+  const rendered = recipient
+    ? renderForRecipient(household, recipient, schedule.frequency, window, restricted)
+    : renderSummary(
+        household,
+        { calendar_source_ids: [], unsubscribe_token: "preview", weekdays: [] },
+        schedule.frequency,
+        window,
+      );
   const result = await sendTemplateEmail("calendar-summary", to, {
     idempotencyKey: `summary-preview-${schedule.id}-${recipient?.id ?? "all"}-${Date.now()}`,
     templateData: { ...rendered.templateData, subject: `${rendered.subject} (preview)` },

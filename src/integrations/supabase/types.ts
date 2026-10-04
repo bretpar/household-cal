@@ -410,11 +410,13 @@ export type Database = {
       }
       email_schedule_recipients: {
         Row: {
+          content_mode: string
           created_at: string
           email: string
           family_id: string
           family_member_id: string | null
           id: string
+          include_related_on_shift_days: boolean
           name: string
           schedule_id: string
           unsubscribe_token: string
@@ -424,11 +426,13 @@ export type Database = {
           weekdays: string[]
         }
         Insert: {
+          content_mode?: string
           created_at?: string
           email: string
           family_id: string
           family_member_id?: string | null
           id?: string
+          include_related_on_shift_days?: boolean
           name: string
           schedule_id: string
           unsubscribe_token?: string
@@ -438,11 +442,13 @@ export type Database = {
           weekdays?: string[]
         }
         Update: {
+          content_mode?: string
           created_at?: string
           email?: string
           family_id?: string
           family_member_id?: string | null
           id?: string
+          include_related_on_shift_days?: boolean
           name?: string
           schedule_id?: string
           unsubscribe_token?: string
