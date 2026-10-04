@@ -130,7 +130,9 @@ describe("shared timed-event overlap layout", () => {
       areaWidth: 120,
     });
     expect(layout.overflow).toHaveLength(1);
-    expect(layout.overflow[0]?.hidden.map((o) => o.key)).toEqual(["hidden"]);
+    const hiddenKeys = layout.overflow[0]?.hidden.map((o) => o.key) ?? [];
+    expect(hiddenKeys).toEqual(["third", "hidden"]);
+    expect(hiddenKeys.filter((key) => key === "hidden")).toHaveLength(1);
   });
 
 
