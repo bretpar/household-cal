@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { CalendarDays, Copy, Lock, MapPin, NotebookPen, Pencil, Repeat, Trash2 } from "lucide-react";
+import { CalendarDays, Copy, MapPin, NotebookPen, Pencil, Repeat, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { reportEventSaved } from "@/lib/google-sync-feedback";
@@ -112,7 +112,6 @@ export function EventDetailsDialog() {
     copyOccurrence,
     members,
     categoryAppearanceFor,
-    sources,
   } = useCalendar();
 
   const [mode, setMode] = useState<Mode>("details");
@@ -144,15 +143,6 @@ export function EventDetailsDialog() {
   // Apple/iCloud subscriptions are mirrors: nothing about them can change here.
   const readOnly = event.read_only === true;
   const mayEdit = canEdit && !readOnly;
-  // The banner names the real provider from the calendar source record.
-  const sourceProvider = sources.find((s) => s.id === event.calendar_source_id)?.provider;
-  const providerName =
-    sourceProvider === "google"
-      ? "Google Calendar"
-      : sourceProvider === "ics"
-        ? "Apple Calendar"
-        : null;
-
   // only shown when someone in the series has their own weekdays
   const perPersonDays = event.participants
     .filter((p) => p.weekdays && p.weekdays.length > 0)
@@ -235,11 +225,11 @@ export function EventDetailsDialog() {
         {mode === "details" ? (
           <>
             <DialogHeader className="max-sm:pr-8">
-              <DialogTitle className="flex items-center gap-2 pr-20">
+              <DialogTitle className="flex items-center gap-2 pr-24">
                 <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
                 <span className="min-w-0 truncate">{event.title}</span>
               </DialogTitle>
-              <DialogDescription className="flex items-center gap-1.5">
+              <DialogDescription className="flex items-center gap-1.5 pr-24">
                 <span
                   className={`h-2.5 w-2.5 shrink-0 rounded-full ${appearance.swatch}`}
                   aria-hidden
@@ -250,9 +240,11 @@ export function EventDetailsDialog() {
                   ? typeLabel
                   : `${appearance.label} · ${typeLabel}`}
               </DialogDescription>
-              {mayEdit ? (
-                // Copy sits immediately left of Edit in the upper-right.
-                <div className="absolute top-3.5 right-4 flex items-center gap-1 sm:top-5 sm:right-6">
+              {mayEdit || occurrence.member_ids.length > 0 ? (
+                // Upper-right: Copy/Edit (when allowed), member badges directly below.
+                <div className="absolute top-3.5 right-4 flex max-w-[8rem] flex-col items-end gap-1 sm:top-5 sm:right-6">
+                  {mayEdit ? (
+                  <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -279,6 +271,15 @@ export function EventDetailsDialog() {
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
+                  </div>
+                  ) : null}
+                  {occurrence.member_ids.length > 0 ? (
+                    <MemberBadgeRow
+                      ids={occurrence.member_ids}
+                      size="md"
+                      className="flex-wrap justify-end gap-1"
+                    />
+                  ) : null}
                 </div>
               ) : null}
             </DialogHeader>
@@ -289,23 +290,6 @@ export function EventDetailsDialog() {
                 <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 {format(start, "EEEE, MMM d")} · {formatTimeRange(start, end, event.all_day)}
               </p>
-              {readOnly && providerName ? (
-                <div className="flex items-start gap-2 rounded-xl border border-border-soft bg-surface-muted px-3 py-2 text-xs">
-                  <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span>
-                    <span className="block font-bold">Synced from {providerName} · Read only</span>
-                    <span className="mt-0.5 block text-muted-foreground">
-                      To change this event, edit it in {providerName}. It will update here on
-                      the next refresh.
-                    </span>
-                  </span>
-                </div>
-              ) : null}
-              {occurrence.member_ids.length > 0 ? (
-                <div className="flex items-center gap-2">
-                  <MemberBadgeRow ids={occurrence.member_ids} size="md" />
-                </div>
-              ) : null}
               {event.needs_family_assignment ? (
                 <p className="rounded-xl bg-surface-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
                   Came from Google · needs family assignment
