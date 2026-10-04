@@ -1350,6 +1350,7 @@ export type Database = {
         Row: {
           actual_end: string
           actual_start: string
+          actual_time_confirmed: boolean
           caregiver_actual_end: string | null
           caregiver_actual_start: string | null
           caregiver_note: string | null
@@ -1372,6 +1373,7 @@ export type Database = {
         Insert: {
           actual_end: string
           actual_start: string
+          actual_time_confirmed?: boolean
           caregiver_actual_end?: string | null
           caregiver_actual_start?: string | null
           caregiver_note?: string | null
@@ -1394,6 +1396,7 @@ export type Database = {
         Update: {
           actual_end?: string
           actual_start?: string
+          actual_time_confirmed?: boolean
           caregiver_actual_end?: string | null
           caregiver_actual_start?: string | null
           caregiver_note?: string | null
