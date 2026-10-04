@@ -241,10 +241,17 @@ export async function timesheetStartDate(admin: AnyDb, memberId: string): Promis
   return (data?.timesheet_start_date as string | null) ?? null;
 }
 
+/** Caregiver-confirmed Actual differs from the scheduled shift (manual entries have no schedule). */
+export function isCaregiverAdjusted(e: { is_manual: boolean; actual_time_confirmed?: boolean; scheduled_start: string | null; scheduled_end: string | null; actual_start: string; actual_end: string }) {
+  if (e.is_manual || !e.actual_time_confirmed || !e.scheduled_start || !e.scheduled_end) return false;
+  const t = (x: string) => Math.floor(new Date(x).getTime() / 60000);
+  return t(e.actual_start) !== t(e.scheduled_start) || t(e.actual_end) !== t(e.scheduled_end);
+}
+
 export async function loadEntries(admin: AnyDb, timesheetId: string, tz: string) {
   const { data, error } = await admin
     .from("timesheet_entries")
-    .select("id, event_id, work_date, scheduled_title, scheduled_start, scheduled_end, actual_start, actual_end, is_manual, note, owner_edited_at")
+    .select("id, event_id, work_date, scheduled_title, scheduled_start, scheduled_end, actual_start, actual_end, is_manual, note, owner_edited_at, actual_time_confirmed")
     .eq("timesheet_id", timesheetId)
     .order("actual_start", { ascending: true });
   if (error) throw new Error(error.message);

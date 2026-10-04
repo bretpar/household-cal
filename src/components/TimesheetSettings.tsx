@@ -3,6 +3,7 @@ import { useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Flag } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -303,15 +304,21 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
                   <span className="font-semibold">{fmtDate(e.work_date)}</span>
                   <span>{formatDisplayHours(hoursBetween(e.actual_start, e.actual_end))}</span>
                 </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold">{fmtTime(e.actual_start, tz)}–{fmtTime(e.actual_end, tz)}</p>
+                  {e.caregiver_adjusted ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-destructive">
+                      <Flag className="h-3 w-3" aria-hidden /> Adjusted
+                    </span>
+                  ) : null}
+                </div>
                 {e.is_manual ? (
                   <p className="text-xs font-semibold text-primary">Manually added</p>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Scheduled · {fmtTime(e.scheduled_start, tz)}–{fmtTime(e.scheduled_end, tz)}
+                    Scheduled {fmtTime(e.scheduled_start, tz)}–{fmtTime(e.scheduled_end, tz)}
                   </p>
                 )}
-                <p className="mt-1 text-xs font-semibold text-muted-foreground">Actual</p>
-                <p className="text-xs">{fmtTime(e.actual_start, tz)} <span aria-hidden>→</span> {fmtTime(e.actual_end, tz)}</p>
                 {e.owner_edited_at ? <p className="text-xs font-semibold text-muted-foreground">Edited by parent</p> : null}
                 {e.note ? <p className="text-xs text-muted-foreground">{e.note}</p> : null}
               </div>

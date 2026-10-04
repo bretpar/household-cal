@@ -21,6 +21,9 @@ export interface TimesheetEntry {
   note: string | null;
   /** set when a household Owner adjusted this entry during review */
   owner_edited_at?: string | null;
+  actual_time_confirmed?: boolean;
+  /** frozen at caregiver submission: caregiver-confirmed Actual differed from Scheduled */
+  caregiver_adjusted?: boolean;
 }
 
 export interface TimesheetView {
@@ -177,7 +180,12 @@ export const submitTimesheet = createServerFn({ method: "POST" })
     const admin = await s.adminDb();
     const sheet = await s.editableSheet(admin, me.memberId, data.timesheet_id);
     const { timeZone } = await s.loadPaySettings(admin, me.familyId);
-    const entries = await s.loadEntries(admin, sheet.id, timeZone);
+    const entries = (await s.loadEntries(admin, sheet.id, timeZone)).map((e: any) => ({
+      ...e,
+      submitted_scheduled_start: e.scheduled_start,
+      submitted_scheduled_end: e.scheduled_end,
+      caregiver_adjusted: s.isCaregiverAdjusted(e),
+    }));
     const { error } = await admin
       .from("timesheets")
       .update({
@@ -390,7 +398,14 @@ export const ownerEditEntry = createServerFn({ method: "POST" })
     }
     const up = await admin.from("timesheet_entries").update(patch).eq("id", entry.id);
     if (up.error) throw new Error(up.error.message);
-    const entries = await s.loadEntries(admin, sheet.id, tz);
+    // Carry the frozen submission audit fields forward; owner edits never set caregiver_adjusted.
+    const prior = new Map(((sheet.snapshot?.entries ?? []) as any[]).map((p) => [p.id, p]));
+    const entries = (await s.loadEntries(admin, sheet.id, tz)).map((e: any) => {
+      const p = prior.get(e.id);
+      return p
+        ? { ...e, scheduled_start: p.scheduled_start, scheduled_end: p.scheduled_end, submitted_scheduled_start: p.submitted_scheduled_start, submitted_scheduled_end: p.submitted_scheduled_end, caregiver_adjusted: p.caregiver_adjusted }
+        : e;
+    });
     const { error } = await admin
       .from("timesheets")
       .update({
