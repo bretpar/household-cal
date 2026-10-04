@@ -209,15 +209,17 @@ export async function ensureTimesheet(
     // Shifts before the caregiver's Timesheet start date are never added.
     const shifts = (await scheduledShifts(admin, familyId, memberId, { start: sheet.period_start, end: sheet.period_end }, timeZone))
       .filter((sh) => !startDate || sh.work_date >= startDate);
-    const existing = await admin.from("timesheet_entries").select("id, occurrence_key, is_manual").eq("timesheet_id", sheet.id);
+    const existing = await admin.from("timesheet_entries").select("id, occurrence_key, is_manual, actual_time_confirmed").eq("timesheet_id", sheet.id);
     if (existing.error) throw new Error(existing.error.message);
     const byKey = new Map<string, any>((existing.data ?? []).filter((r: any) => r.occurrence_key).map((r: any) => [r.occurrence_key, r]));
     const live = new Set(shifts.map((s) => s.occurrence_key));
     for (const s of shifts) {
       const hit = byKey.get(s.occurrence_key);
       if (hit) {
-        // Scheduled time is reference info: refresh it; never touch actual time.
-        await admin.from("timesheet_entries").update({ scheduled_title: s.title, scheduled_start: s.start, scheduled_end: s.end }).eq("id", hit.id);
+        // Scheduled always refreshes; Actual follows only while it is still the unconfirmed default.
+        const patch: Record<string, unknown> = { scheduled_title: s.title, scheduled_start: s.start, scheduled_end: s.end };
+        if (!hit.actual_time_confirmed) { patch["actual_start"] = s.start; patch["actual_end"] = s.end; }
+        await admin.from("timesheet_entries").update(patch).eq("id", hit.id);
       } else {
         const r = await admin.from("timesheet_entries").insert({
           timesheet_id: sheet.id, family_id: familyId, event_id: s.event_id, occurrence_key: s.occurrence_key,
