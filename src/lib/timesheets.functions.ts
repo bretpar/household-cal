@@ -380,6 +380,7 @@ export const ownerEditEntry = createServerFn({ method: "POST" })
       note: data.note?.trim() || null,
       owner_edited_at: new Date().toISOString(),
       owner_edited_by: context.userId,
+      actual_time_confirmed: true,
     };
     // Keep the caregiver-entered values the first time an Owner changes this entry.
     if (!entry.owner_edited_at) {
