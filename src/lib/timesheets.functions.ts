@@ -136,7 +136,7 @@ export const saveTimesheetEntry = createServerFn({ method: "POST" })
     if (data.entry_id) {
       const { error } = await admin
         .from("timesheet_entries")
-        .update({ actual_start: start.toISOString(), actual_end: end.toISOString(), note })
+        .update({ actual_start: start.toISOString(), actual_end: end.toISOString(), note, actual_time_confirmed: true })
         .eq("id", data.entry_id)
         .eq("timesheet_id", sheet.id);
       if (error) throw new Error(error.message);
@@ -380,6 +380,7 @@ export const ownerEditEntry = createServerFn({ method: "POST" })
       note: data.note?.trim() || null,
       owner_edited_at: new Date().toISOString(),
       owner_edited_by: context.userId,
+      actual_time_confirmed: true,
     };
     // Keep the caregiver-entered values the first time an Owner changes this entry.
     if (!entry.owner_edited_at) {
@@ -605,7 +606,7 @@ export const ownerSaveManagedEntry = createServerFn({ method: "POST" })
     if (data.entry_id) {
       const { error } = await admin
         .from("timesheet_entries")
-        .update({ actual_start: start.toISOString(), actual_end: end.toISOString(), note, owner_edited_at: now, owner_edited_by: context.userId })
+        .update({ actual_start: start.toISOString(), actual_end: end.toISOString(), note, actual_time_confirmed: true, owner_edited_at: now, owner_edited_by: context.userId })
         .eq("id", data.entry_id)
         .eq("timesheet_id", sheet.id);
       if (error) throw new Error(error.message);
