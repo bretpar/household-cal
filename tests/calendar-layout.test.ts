@@ -117,7 +117,7 @@ describe("shared timed-event overlap layout", () => {
   });
 
   it("deduplicates a hidden occurrence within its single overlap marker", () => {
-    const hidden = occurrence("hidden", 10, 18);
+    const hidden = occurrence("hidden", 8.15, 18);
     const layout = layoutTimedEvents({
       foreground: [
         occurrence("first", 8, 12),
