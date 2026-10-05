@@ -95,6 +95,55 @@ function hasParticipantsOn(event: SummaryEvent, dayKey: string): boolean {
   return participantsOn(event, dayKey).length > 0;
 }
 
+const DAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
+
+/**
+ * True when a day key satisfies a monthly BYDAY token such as "WE" (every
+ * Wednesday of the month), "1WE" (first Wednesday) or "-1WE" (last
+ * Wednesday). Mirrors matchesMonthlyByDayToken in src/lib/family-data.ts so
+ * email summaries expand monthly BYDAY rules exactly like the calendar UI.
+ */
+function matchesMonthlyByDayToken(dayKey: string, token: string): boolean {
+  const match = /^(-?\d+)?(MO|TU|WE|TH|FR|SA|SU)$/.exec(token);
+  if (!match) return false;
+  const { year, month, day } = parseDayKey(dayKey);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (DAY_CODES[date.getUTCDay()] !== match[2]) return false;
+  const ordinal = match[1] ? Number(match[1]) : null;
+  if (ordinal === null) return true;
+  if (ordinal > 0) {
+    // nth occurrence of this weekday within the month
+    return Math.floor((day - 1) / 7) + 1 === ordinal;
+  }
+  // negative ordinal counts from the end of the month (-1 = last):
+  // exactly |ordinal| - 1 more occurrences of this weekday remain this month
+  let remaining = 0;
+  for (let d = day + 7; ; d += 7) {
+    const probe = new Date(Date.UTC(year, month - 1, d));
+    if (probe.getUTCMonth() !== month - 1) break;
+    remaining++;
+  }
+  return remaining === Math.abs(ordinal) - 1;
+}
+
+/** Zero-based occurrence index for a monthly BYDAY series, or null. */
+function monthlyByDayIndex(startKey: string, dayKey: string, rule: { interval: number; byDay: string[] }): number | null {
+  const start = parseDayKey(startKey);
+  const day = parseDayKey(dayKey);
+  const months = (day.year - start.year) * 12 + (day.month - start.month);
+  if (months % rule.interval !== 0) return null;
+  const matches = (key: string) => rule.byDay.some((t) => matchesMonthlyByDayToken(key, t));
+  if (!matches(dayKey)) return null;
+  // Count matching days from the series start so COUNT limits stay correct.
+  let index = 0;
+  for (let key = startKey; key < dayKey; key = addDays(key, 1)) {
+    const d = parseDayKey(key);
+    const m = (d.year - start.year) * 12 + (d.month - start.month);
+    if (m % rule.interval === 0 && matches(key)) index++;
+  }
+  return index;
+}
+
 export function occursOnDayKey(event: SummaryEvent, dayKey: string, timeZone: string): boolean {
   const startKey = dayKeyInZone(new Date(event.start_at), timeZone);
   if (event.excluded_dates?.includes(dayKey)) return false;
