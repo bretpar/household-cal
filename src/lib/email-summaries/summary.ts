@@ -159,11 +159,17 @@ export function occursOnDayKey(event: SummaryEvent, dayKey: string, timeZone: st
   if (rule.freq === "DAILY") {
     index = dayDiff % rule.interval === 0 ? dayDiff / rule.interval : null;
   } else if (rule.freq === "MONTHLY") {
-    const start = parseDayKey(startKey);
-    const day = parseDayKey(dayKey);
-    if (start.day !== day.day) return false;
-    const months = (day.year - start.year) * 12 + (day.month - start.month);
-    index = months % rule.interval === 0 ? months / rule.interval : null;
+    if (rule.byDay && rule.byDay.length > 0) {
+      // BYDAY form: "WE" (every Wednesday), "1WE" (first), "-1WE" (last)
+      index = monthlyByDayIndex(startKey, dayKey, { interval: rule.interval, byDay: rule.byDay });
+    } else {
+      // Day-of-month form: repeats on the same numbered day each month.
+      const start = parseDayKey(startKey);
+      const day = parseDayKey(dayKey);
+      if (start.day !== day.day) return false;
+      const months = (day.year - start.year) * 12 + (day.month - start.month);
+      index = months % rule.interval === 0 ? months / rule.interval : null;
+    }
   } else {
     const codes = rule.byDay ?? [weekdayCode(startKey)];
     if (!codes.includes(weekdayCode(dayKey))) return false;
