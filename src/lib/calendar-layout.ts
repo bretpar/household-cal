@@ -126,7 +126,7 @@ export function layoutBackground(
   foreground: Occurrence[],
   areaWidth = 160,
 ): BackgroundPlacement[] {
-  const headerLayout = layoutHeaderCollisions(coverage, areaWidth, 100);
+  const headerLayout = layoutHeaderCollisions(coverage, areaWidth, 100, 0, false);
 
   return coverage.map((o) => {
     const horizontal = headerLayout.visible.get(o.key) ?? {
@@ -212,6 +212,7 @@ function layoutHeaderCollisions(
   areaWidth: number,
   areaWidthPct: number,
   areaLeftPct = 100 - areaWidthPct,
+  limitToCapacity = true,
 ): HeaderLayout {
   const ordered = [...occurrences].sort(
     (a, b) =>
@@ -263,7 +264,9 @@ function layoutHeaderCollisions(
       1,
       Math.floor(Math.max(usableWidth, 1) / (CALENDAR_TOKENS.minOverlapColumnPx + CALENDAR_TOKENS.card.gapPx)),
     );
-    const visibleCount = laneCount <= 2 ? laneCount : Math.max(2, Math.min(laneCount, capacity));
+    const visibleCount = limitToCapacity
+      ? laneCount <= 2 ? laneCount : Math.max(2, Math.min(laneCount, capacity))
+      : laneCount;
     const isCollision = items.length > 1;
     const priorBodyOverlap = (occurrence: Occurrence) =>
       ordered.some(
