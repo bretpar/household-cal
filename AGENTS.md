@@ -22,3 +22,4 @@
 - Owner-managed time cards (timesheets.owner_managed) exist only for Timesheet-enabled caregivers with no household login; Owners edit and approve them directly, no emails. Why: sign-in caregivers keep the certified submit/review flow.
 - Timesheet status "closed" (Owner-only closeTimesheet) is read-only history and excluded from every actionable query; family_members.timesheet_start_date (NULL = no limit) filters shifts and actionable periods. Why: retire obsolete periods without deleting data.
 - Day, 3-Day, and Week timed cards use the shared header-collision layout in calendar-layout.ts for both background and foreground events. Why: protect rendered headers without changing true event times or narrowing whole overlap groups.
+- Agent integrations (MCP) live in src/lib/mcp/ (read-only tools, Supabase OAuth, RLS as caller). Why: assistants act as the signed-in user.

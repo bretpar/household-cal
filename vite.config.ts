@@ -9,6 +9,7 @@ import path from "node:path";
 
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { loadEnv } from "vite";
+import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/tanstack/vite";
 
 // Server routes (e.g. transactional email) need non-VITE_ env vars in process.env.
 const serverEnv = loadEnv(process.env["NODE_ENV"] === "production" ? "production" : "development", process.cwd(), "");
@@ -38,6 +39,7 @@ const buildId = new Date().toISOString();
 
 export default defineConfig({
   vite: {
+    plugins: [mcpPlugin()],
     define: {
       __OFC_BUILD_ID__: JSON.stringify(buildId),
       __OFC_APP_VERSION__: JSON.stringify(appVersion),
