@@ -68,4 +68,47 @@ describe('summaries', () => {
 
     expect(selected.map((event) => event.title)).toEqual(['Michelle', 'Kids Place'])
   })
+  it('monthly BYDAY=1WE anchored Monday occurs on the first Wednesday, not the anchor', () => {
+    // VA Monthly Meeting: stored Monday Oct 5 2026, rule FREQ=MONTHLY;BYDAY=1WE
+    const event = {
+      id: 'va', title: 'VA Monthly Meeting', start_at: '2026-10-05T17:00:00Z', end_at: '2026-10-05T18:00:00Z',
+      all_day: false, calendar_source_id: null, display_mode: 'events',
+      recurrence_rule: 'FREQ=MONTHLY;BYDAY=1WE', recurrence_until: null, excluded_dates: [],
+      participants: [], member_ids: [],
+    }
+    expect(occursOnDayKey(event as any, '2026-10-05', tz)).toBe(false)
+    expect(occursOnDayKey(event as any, '2026-10-07', tz)).toBe(true)
+    expect(occursOnDayKey(event as any, '2026-10-14', tz)).toBe(false)
+    expect(occursOnDayKey(event as any, '2026-11-04', tz)).toBe(true)
+    // weekly email window Mon Oct 5 – Sun Oct 11 shows it on Wednesday
+    const w = previewWindow('weekly', new Date('2026-10-05T01:05:00Z'), tz)
+    const days = buildSummaryDays([event] as any, w, tz, [])
+    expect(days.map((d) => d.dayKey)).toEqual(['2026-10-07'])
+    expect(days[0].items[0].time).toContain('10:00 AM')
+  })
+  it('monthly without BYDAY still repeats on the same numbered day', () => {
+    const event = {
+      id: 'm', title: 'Rent', start_at: '2026-10-05T15:00:00Z', end_at: '2026-10-05T16:00:00Z',
+      all_day: false, calendar_source_id: null, display_mode: 'events',
+      recurrence_rule: 'FREQ=MONTHLY', recurrence_until: null, excluded_dates: [],
+      participants: [], member_ids: [],
+    }
+    expect(occursOnDayKey(event as any, '2026-10-05', tz)).toBe(true)
+    expect(occursOnDayKey(event as any, '2026-11-05', tz)).toBe(true)
+    expect(occursOnDayKey(event as any, '2026-11-06', tz)).toBe(false)
+  })
+  it('monthly BYDAY still respects COUNT and recurrence_until', () => {
+    const base = {
+      id: 'c', title: 'Club', start_at: '2026-10-05T17:00:00Z', end_at: '2026-10-05T18:00:00Z',
+      all_day: false, calendar_source_id: null, display_mode: 'events',
+      excluded_dates: [], participants: [], member_ids: [],
+    }
+    const counted = { ...base, recurrence_rule: 'FREQ=MONTHLY;BYDAY=1WE;COUNT=2', recurrence_until: null }
+    expect(occursOnDayKey(counted as any, '2026-10-07', tz)).toBe(true)
+    expect(occursOnDayKey(counted as any, '2026-11-04', tz)).toBe(true)
+    expect(occursOnDayKey(counted as any, '2026-12-02', tz)).toBe(false)
+    const limited = { ...base, recurrence_rule: 'FREQ=MONTHLY;BYDAY=1WE', recurrence_until: '2026-11-30' }
+    expect(occursOnDayKey(limited as any, '2026-11-04', tz)).toBe(true)
+    expect(occursOnDayKey(limited as any, '2026-12-02', tz)).toBe(false)
+  })
 })
