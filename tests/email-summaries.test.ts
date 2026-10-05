@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { dueRun, previewWindow } from '@/lib/email-summaries/window'
-import { buildSummaryDays, summaryCopy, eventsForSelection, selectedDaysInWindow } from '@/lib/email-summaries/summary'
+import { buildSummaryDays, summaryCopy, eventsForSelection, selectedDaysInWindow, occursOnDayKey } from '@/lib/email-summaries/summary'
 import { normalizeWeekdays } from '@/lib/email-summaries/settings.server'
 
 const tz = 'America/Los_Angeles'
