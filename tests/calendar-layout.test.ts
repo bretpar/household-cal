@@ -297,8 +297,8 @@ describe("shared timed-event overlap layout", () => {
   it("separates colliding background headers while a later activity stays wide", () => {
     const backgrounds = [
       occurrence("michelle", 7.5, 17),
-      occurrence("elaine", 7.75, 16.75),
-      occurrence("va", 8, 18, "VA shift"),
+      occurrence("blaine", 7.75, 16.75),
+      occurrence("va", 8, 18, "VA 8a Shift"),
     ];
     const activity = occurrence("kids", 9, 13, "Kids Place");
     const backgroundLayout = layoutBackground(backgrounds, [activity], 300);
@@ -314,5 +314,37 @@ describe("shared timed-event overlap layout", () => {
     ]);
     expect(foregroundLayout.foreground[0]?.widthPct).toBe(88);
     expect(foregroundLayout.foreground[0]?.top).toBe(9 * 45);
+  });
+
+  it("keeps every colliding background constrained below foreground capacity", () => {
+    const backgrounds = [
+      occurrence("michelle", 7.5, 17),
+      occurrence("blaine", 7.75, 16.75),
+      occurrence("va", 8, 18, "VA 8a Shift"),
+    ];
+    const activity = occurrence("kids", 9, 13, "Kids Place");
+    const narrow = layoutBackground(backgrounds, [activity], 150);
+    const normal = layoutBackground(backgrounds, [activity], 300);
+
+    expect(narrow).toHaveLength(3);
+    expect(narrow.map((item) => item.widthPct)).toEqual([100 / 3, 100 / 3, 100 / 3]);
+    expect(narrow.every((item) => item.widthPct < 100)).toBe(true);
+    expect(normal.map((item) => [item.leftPct, item.widthPct])).toEqual([
+      [0, 100 / 3],
+      [100 / 3, 100 / 3],
+      [200 / 3, 100 / 3],
+    ]);
+
+    const foreground = layoutTimedEvents({
+      foreground: [
+        occurrence("first", 8, 12),
+        occurrence("second", 8.05, 13),
+        occurrence("third", 8.1, 14),
+      ],
+      coverage: backgrounds,
+      areaWidth: 120,
+    });
+    expect(foreground.foreground).toHaveLength(2);
+    expect(foreground.overflow[0]?.hidden.map((item) => item.key)).toEqual(["third"]);
   });
 });
