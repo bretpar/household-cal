@@ -239,11 +239,10 @@ function AuthLoadingShell() {
 
 function LandingPage() {
   const navigate = useNavigate();
-  // Start in "checking" whenever a persisted session might exist, so the
-  // landing page never paints for an already-signed-in user.
-  const [checking, setChecking] = useState(
-    () => peekSessionStatus() !== false || hasCachedSession(),
-  );
+  // The landing copy has to be in the HTML a crawler receives, so the page
+  // always renders it. A visitor who is already signed in gets the opaque splash
+  // overlay on top until the session check sends them to their calendar.
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     initAnalytics();
@@ -261,10 +260,9 @@ function LandingPage() {
     };
   }, [navigate]);
 
-  if (checking) return <AuthLoadingShell />;
-
   return (
     <div className="min-h-screen bg-background">
+      {checking ? <AuthLoadingShell /> : null}
       <header className="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-4 sm:flex sm:justify-between sm:px-6 sm:py-5 lg:px-8">
         <div className="flex min-w-0 items-center gap-2.5">
           <img
@@ -394,6 +392,48 @@ function LandingPage() {
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Ask ChatGPT or Claude about upcoming family events, with read-only access.
             </p>
+          </article>
+        </section>
+
+        {/* Childcare & caregiver timesheets (SEO differentiator) */}
+        <section
+          id="childcare"
+          className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8"
+        >
+          <article className="rounded-3xl border border-border-soft bg-card p-6 shadow-soft sm:p-10">
+            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-accent">
+              <Baby className="h-5 w-5 text-accent-foreground" aria-hidden />
+            </div>
+            <h2 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
+              Childcare built into your family calendar
+            </h2>
+            <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
+              Schedule babysitters and nannies alongside your family activities, share only the
+              schedule they need, and keep track of caregiver hours with built-in timesheets.
+            </p>
+            <ul className="mt-6 flex flex-wrap gap-2">
+              {["Babysitter scheduling", "Caregiver access", "Nanny timesheets", "Weekly schedules"].map(
+                (item) => (
+                  <li
+                    key={item}
+                    className="rounded-full border border-border-soft bg-surface-muted px-3 py-1 text-xs font-bold text-muted-foreground"
+                  >
+                    {item}
+                  </li>
+                ),
+              )}
+            </ul>
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <span
+                aria-disabled="true"
+                title="Childcare & caregiver feature page coming soon"
+                className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-input bg-card px-4 text-[13px] font-bold text-primary sm:h-11 sm:w-auto sm:px-5 sm:text-sm"
+              >
+                Explore childcare &amp; caregiver features
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </span>
+              <span className="text-xs font-semibold text-muted-foreground">Coming soon</span>
+            </div>
           </article>
         </section>
 
