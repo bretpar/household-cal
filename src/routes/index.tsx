@@ -397,6 +397,48 @@ function LandingPage() {
           </article>
         </section>
 
+        {/* Childcare & caregiver timesheets (SEO differentiator) */}
+        <section
+          id="childcare"
+          className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8"
+        >
+          <article className="rounded-3xl border border-border-soft bg-card p-6 shadow-soft sm:p-10">
+            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-accent">
+              <Baby className="h-5 w-5 text-accent-foreground" aria-hidden />
+            </div>
+            <h2 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
+              Childcare built into your family calendar
+            </h2>
+            <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
+              Schedule babysitters and nannies alongside your family activities, share only the
+              schedule they need, and keep track of caregiver hours with built-in timesheets.
+            </p>
+            <ul className="mt-6 flex flex-wrap gap-2">
+              {["Babysitter scheduling", "Caregiver access", "Nanny timesheets", "Weekly schedules"].map(
+                (item) => (
+                  <li
+                    key={item}
+                    className="rounded-full border border-border-soft bg-surface-muted px-3 py-1 text-xs font-bold text-muted-foreground"
+                  >
+                    {item}
+                  </li>
+                ),
+              )}
+            </ul>
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <span
+                aria-disabled="true"
+                title="Childcare & caregiver feature page coming soon"
+                className="inline-flex h-11 cursor-default items-center gap-2 rounded-full border border-input bg-card px-5 text-sm font-bold text-primary"
+              >
+                Explore childcare &amp; caregiver features
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </span>
+              <span className="text-xs font-semibold text-muted-foreground">Coming soon</span>
+            </div>
+          </article>
+        </section>
+
         {/* Mobile showcase */}
         <section className="border-y border-border-soft bg-surface">
           <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] lg:gap-12 lg:px-8">
