@@ -239,11 +239,10 @@ function AuthLoadingShell() {
 
 function LandingPage() {
   const navigate = useNavigate();
-  // Start in "checking" whenever a persisted session might exist, so the
-  // landing page never paints for an already-signed-in user.
-  const [checking, setChecking] = useState(
-    () => peekSessionStatus() !== false || hasCachedSession(),
-  );
+  // The landing copy has to be in the HTML a crawler receives, so the page
+  // always renders it. A visitor who is already signed in gets the opaque splash
+  // overlay on top until the session check sends them to their calendar.
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     initAnalytics();
