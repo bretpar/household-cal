@@ -261,10 +261,9 @@ function LandingPage() {
     };
   }, [navigate]);
 
-  if (checking) return <AuthLoadingShell />;
-
   return (
     <div className="min-h-screen bg-background">
+      {checking ? <AuthLoadingShell /> : null}
       <header className="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-4 sm:flex sm:justify-between sm:px-6 sm:py-5 lg:px-8">
         <div className="flex min-w-0 items-center gap-2.5">
           <img
