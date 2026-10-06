@@ -86,7 +86,7 @@ export default defineTool({
     const { data, error } = await q;
     if (error) throw new ToolError(error.message);
     const events = (data ?? [])
-      .filter((e) => !e.recurrence_rule || !e.recurrence_until || e.recurrence_until >= from.slice(0, 10))
+      .filter((e) => !e.recurrence_rule || seriesOccursInRange(e, dayKeyOf(from), dayKeyOf(to)))
       .map((e) => ({
         id: e.id,
         title: e.title,
