@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
   Baby,
+  Bot,
   CalendarDays,
   CalendarSync,
   Check,
@@ -64,6 +65,11 @@ const FAQ_ITEMS = [
     question: "Is my family calendar private?",
     answer:
       "Yes. Each household's calendar is only visible to the people you invite to it.",
+  },
+  {
+    question: "Can I connect ChatGPT or Claude to my family calendar?",
+    answer:
+      "Yes. If you use a compatible AI assistant, you can connect it to your Our Family Calendar account to ask about upcoming events and schedules. It is read-only, and it can only see what that signed-in household member can already see in the app.",
   },
 ];
 
@@ -375,6 +381,24 @@ function LandingPage() {
               </article>
             ))}
           </div>
+          <article className="mt-4 flex items-start gap-4 rounded-3xl border border-border-soft bg-card p-6 shadow-soft sm:mt-6 sm:items-center sm:gap-5 sm:p-7">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-accent">
+              <Bot className="h-5 w-5 text-accent-foreground" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <h3 className="flex flex-wrap items-center gap-2 text-lg font-bold">
+                AI assistant access
+                <span className="rounded-full bg-surface-muted px-2.5 py-0.5 text-xs font-bold text-muted-foreground">
+                  Bonus
+                </span>
+              </h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                Connect compatible AI assistants like ChatGPT or Claude to your family calendar and
+                ask about upcoming schedules and events. Access is read-only and follows each
+                household member&rsquo;s existing calendar permissions.
+              </p>
+            </div>
+          </article>
         </section>
 
         {/* Mobile showcase */}
