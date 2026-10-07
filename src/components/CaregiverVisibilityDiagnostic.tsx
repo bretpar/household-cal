@@ -42,6 +42,10 @@ export function CaregiverVisibilityDiagnostic() {
               <p className="font-sans font-bold">Access summary</p>
               <p>{r.name} · {r.scope} · authorized shift day: {r.authorized ? "Yes" : "No"}</p>
               {r.load_error ? <p className="text-destructive">secure load error: {r.load_error}</p> : null}
+              <p>member: {r.identity.family_member_id ?? "NULL"}</p>
+              <p>membership: {r.identity.membership_id} · role {r.identity.role}</p>
+              <p>auth user: {r.identity.user_id}</p>
+              <p>access profile family_user_id: {r.identity.profile_family_user_id}</p>
               {r.calendars.map((c) => <p key={c.id}>• {c.name} · {c.id}{c.external_id ? ` · ${c.external_id}` : ""}</p>)}
             </div>
             <div className="space-y-2">
@@ -52,8 +56,16 @@ export function CaregiverVisibilityDiagnostic() {
                   <p>{e.id}</p>
                   <p>{e.calendar} · {e.calendar_source_id}</p>
                   <p>{e.kind}{e.recurrence_rule ? ` · ${e.recurrence_rule}` : ""}</p>
-                  {e.assignment ? <p>shift: {e.assignment}</p> : null}
+                  <p>{e.detail.start_at} → {e.detail.end_at}</p>
+                  <p>type {e.detail.event_type} · display {e.detail.display_mode ?? "?"}</p>
+                  {e.detail.shift ? (
+                    <p>shift row: {e.detail.shift.assignment} · member {e.detail.shift.assignee_member_id ?? "NULL"} · fu {e.detail.shift.family_user_id ?? "NULL"} · name {e.detail.shift.assignee_name ?? "NULL"}</p>
+                  ) : <p>shift row: none</p>}
+                  <p>event_members: {e.detail.event_members.length ? e.detail.event_members.join(", ") : "none"}</p>
                   <p className={e.decision.startsWith("INCLUDED") ? "text-foreground" : "text-destructive"}>{e.decision}</p>
+                  <p>Event SELECT RLS: {e.detail.event_rls}</p>
+                  <p>Shift SELECT RLS: {e.detail.shift_rls}</p>
+                  {e.detail.flags.map((f) => <p key={f} className="text-destructive">⚠ {f}</p>)}
                   {e.client_note ? <p className="text-muted-foreground">client: {e.client_note}</p> : null}
                 </div>
               ))}
