@@ -76,17 +76,17 @@ const FAQ_ITEMS = [
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Shared Family Calendar App | Our Family Calendar" },
+      { title: "Our Family Calendar | Shared Family Calendar, Childcare & Timesheets" },
       {
         name: "description",
         content:
-          "Keep your whole family organized with one shared family calendar. Coordinate school, sports, work, childcare and appointments, sync with Google Calendar, and invite caregivers.",
+          "Organize your family’s schedule in one shared calendar. Coordinate kids’ activities, babysitters and caregivers, share schedules, and track childcare hours with built-in timesheets.",
       },
-      { property: "og:title", content: "Shared Family Calendar App | Our Family Calendar" },
+      { property: "og:title", content: "Our Family Calendar | Shared Family Calendar, Childcare & Timesheets" },
       {
         property: "og:description",
         content:
-          "One shared family calendar for school, sports, work, childcare and appointments — with Google Calendar sync and caregiver access.",
+          "Organize your family’s schedule in one shared calendar. Coordinate kids’ activities, babysitters and caregivers, share schedules, and track childcare hours with built-in timesheets.",
       },
       { property: "og:url", content: `${SITE_URL}/` },
       { property: "og:image", content: OG_IMAGE_URL },
@@ -105,6 +105,34 @@ export const Route = createFileRoute("/")({
             name: item.question,
             acceptedAnswer: { "@type": "Answer", text: item.answer },
           })),
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "WebSite",
+              name: "Our Family Calendar",
+              url: `${SITE_URL}/`,
+            },
+            {
+              "@type": "Organization",
+              name: "Our Family Calendar",
+              url: `${SITE_URL}/`,
+              logo: `${SITE_URL}/launch-logo.png`,
+            },
+            {
+              "@type": "SoftwareApplication",
+              name: "Our Family Calendar",
+              applicationCategory: "ProductivityApplication",
+              operatingSystem: "Web",
+              url: `${SITE_URL}/`,
+              description:
+                "A shared family calendar for activities, childcare scheduling and caregiver timesheets, on phone, tablet and computer.",
+            },
+          ],
         }),
       },
     ],
