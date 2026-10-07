@@ -104,7 +104,7 @@ export const runCaregiverDiagnostic = createServerFn({ method: "POST" })
     }
     const tz = (fam.data?.timezone as string) || "UTC";
     const dayOf = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date(iso));
-    const span = (s: string, e: string) => [dayOf(s), dayOf(new Date(Math.max(Date.parse(s), Date.parse(e) - 1)).toISOString())];
+    const span = (s: string, e: string): [string, string] => [dayOf(s), dayOf(new Date(Math.max(Date.parse(s), Date.parse(e) - 1)).toISOString())];
 
     // Mirror of babysitter_membership(): viewer membership with an access profile.
     const fuId = fu.data.id as string;
