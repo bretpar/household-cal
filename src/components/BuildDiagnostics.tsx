@@ -22,7 +22,7 @@ export function BuildDiagnostics() {
       </h2>
       <dl className="space-y-1.5 rounded-3xl border border-dashed border-border bg-card p-4 text-sm">
         <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-muted-foreground">Build (deployed at)</dt>
+          <dt className="text-muted-foreground">Build (deployed at · revision)</dt>
           <dd className="font-mono text-xs">{__OFC_BUILD_ID__}</dd>
         </div>
         <div className="flex items-baseline justify-between gap-3">
