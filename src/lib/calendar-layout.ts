@@ -258,6 +258,8 @@ function layoutHeaderCollisions(
 
   const visible = new Map<string, HeaderPlacement>();
   const hidden: HeaderLayout["hidden"] = [];
+  // Keep chronological paint priority across header groups in this body cluster.
+  const stackOrders = new Map(ordered.map((occurrence, index) => [occurrence.key, index]));
   groups.forEach((items, cluster) => {
     const laneCount = Math.max(...items.map((item) => item.lane)) + 1;
     const capacity = Math.max(
@@ -276,7 +278,7 @@ function layoutHeaderCollisions(
           !items.some((item) => item.occurrence.key === prior.key),
       );
 
-    for (const [stackOrder, item] of items.entries()) {
+    for (const item of items) {
       if (item.lane >= visibleCount) continue;
       const staggerPct = !isCollision && priorBodyOverlap(item.occurrence)
         ? Math.min(14, (BACKGROUND_INDENT_PX / Math.max(1, areaWidth)) * 100)
@@ -290,7 +292,7 @@ function layoutHeaderCollisions(
         leftPct,
         widthPct,
         widthPx: Math.max(0, (areaWidth * widthPct) / 100 - CALENDAR_TOKENS.card.gapPx),
-        stackOrder,
+        stackOrder: stackOrders.get(item.occurrence.key) ?? 0,
       });
     }
     const hiddenOccurrences = items
