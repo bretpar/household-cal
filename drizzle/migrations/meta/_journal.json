@@ -57,6 +57,13 @@
       "when": 1791147978145,
       "tag": "0007_recipient_caregiver_shift_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791440057993,
+      "tag": "0008_caregiver_shift_select_by_member",
+      "breakpoints": true
     }
   ]
 }
