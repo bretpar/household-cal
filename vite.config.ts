@@ -35,7 +35,18 @@ const appVersion: string = (() => {
     return "unknown";
   }
 })();
-const buildId = new Date().toISOString();
+// Short Git revision when the builder has Git metadata; otherwise "unknown".
+const gitSha: string = (() => {
+  try {
+    return require("node:child_process")
+      .execSync("git rev-parse --short HEAD", { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim() || "unknown";
+  } catch {
+    return "unknown";
+  }
+})();
+const buildId = `${new Date().toISOString()} · ${gitSha}`;
 
 export default defineConfig({
   vite: {
