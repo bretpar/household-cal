@@ -353,7 +353,7 @@ export async function loadFamilyBundle(
   return { family, members, sources, events, activities, categories };
 }
 
-function shiftFrom(rows: unknown): ShiftAssignment | null {
+export function shiftFrom(rows: unknown): ShiftAssignment | null {
   const r = (Array.isArray(rows) ? rows[0] : rows) as
     | { assignment: string; family_user_id: string | null; assignee_name: string | null; assignee_member_id?: string | null }
     | undefined
