@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCalendar } from "@/lib/calendar-store";
-import { listDiagnosticCaregivers, runCaregiverDiagnostic } from "@/lib/caregiver-diagnostic.functions";
+import { auditCaregiverShiftLinkage, listDiagnosticCaregivers, runCaregiverDiagnostic } from "@/lib/caregiver-diagnostic.functions";
 
 /** Temporary, read-only owner diagnostic. Rendered only inside unlocked Maintenance. */
 export function CaregiverVisibilityDiagnostic() {
@@ -20,6 +20,10 @@ export function CaregiverVisibilityDiagnostic() {
     queryFn: () => list({ data: { family_id: family!.id } }),
   });
   const m = useMutation({ mutationFn: () => run({ data: { membership_id: who, date } }) });
+  const audit = useServerFn(auditCaregiverShiftLinkage);
+  const [from, setFrom] = useState(new Date().toISOString().slice(0, 10));
+  const [to, setTo] = useState(new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10));
+  const a = useMutation({ mutationFn: () => audit({ data: { membership_id: who, from, to } }) });
   if (!isOwner) return null;
   const r = m.data;
 
@@ -70,6 +74,36 @@ export function CaregiverVisibilityDiagnostic() {
                 </div>
               ))}
             </div>
+          </div>
+        ) : null}
+      </div>
+      <div className="space-y-2 rounded-3xl border border-dashed border-border bg-card p-4 text-sm">
+        <p className="font-bold">Caregiver shift linkage audit</p>
+        <p className="text-xs text-muted-foreground">Uses the caregiver chosen above. Read-only.</p>
+        <div className="grid grid-cols-2 gap-2">
+          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
+        <Button size="sm" disabled={!who || !from || !to || a.isPending} onClick={() => a.mutate()}>
+          {a.isPending ? "Auditing…" : "Run audit"}
+        </Button>
+        {a.isError ? <p className="text-destructive">{a.error instanceof Error ? a.error.message : "Failed"}</p> : null}
+        {a.data ? (
+          <div className="space-y-2 pt-2 font-mono text-xs break-words">
+            <p>member {a.data.identity.family_member_id ?? "NULL"} · membership {a.data.identity.membership_id}</p>
+            <p className="font-sans font-semibold">
+              Total {a.data.summary.total} · OK {a.data.summary.ok} · Problematic {a.data.summary.problematic} · NULL fu {a.data.summary.null_fu} · Stale fu {a.data.summary.stale_fu}
+            </p>
+            {a.data.rows.map((r) => (
+              <div key={r.event_id} className="rounded-xl border border-border-soft p-2">
+                <p className={r.status === "OK" ? "font-sans font-semibold" : "font-sans font-semibold text-destructive"}>{r.status} · {r.title}</p>
+                <p>{r.event_id}{r.recurring ? " · recurring" : ""}</p>
+                <p>{r.start_at} → {r.end_at}</p>
+                <p>assignee_member_id {r.assignee_member_id ?? "NULL"} · family_user_id {r.family_user_id ?? "NULL"}</p>
+                <p>Event SELECT RLS: {r.event_ok ? "YES" : "NO"} — {r.event_rls}</p>
+                <p>Shift SELECT RLS: {r.shift_ok ? "YES" : "NO"} — {r.shift_rls}</p>
+              </div>
+            ))}
           </div>
         ) : null}
       </div>
