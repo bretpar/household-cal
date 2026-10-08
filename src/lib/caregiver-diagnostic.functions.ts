@@ -193,3 +193,92 @@ export const runCaregiverDiagnostic = createServerFn({ method: "POST" })
       events,
     };
   });
+
+/** Mirror of the current bs_select policy (family_user_id OR assignee_member_id match for an active viewer membership). */
+function shiftRlsVerdict(s: any, fuId: string, memId: string | null, membershipActive: boolean): { ok: boolean; text: string } {
+  if (!membershipActive) return { ok: false, text: "NO: babysitter_membership() null for this role" };
+  if (s.family_user_id === fuId) return { ok: true, text: "YES: family_user_id = babysitter_membership()" };
+  if (s.assignment === "caregiver" && memId && s.assignee_member_id === memId)
+    return { ok: true, text: "YES: assignee_member_id = my_caregiver_member_id()" };
+  return { ok: false, text: "NO: neither family_user_id nor assignee_member_id matches" };
+}
+
+export interface LinkageRow {
+  event_id: string; title: string; start_at: string; end_at: string; recurring: boolean;
+  assignee_member_id: string | null; family_user_id: string | null;
+  event_rls: string; event_ok: boolean; shift_rls: string; shift_ok: boolean;
+  status: "OK" | "family_user_id NULL" | "stale/different family_user_id" | "assignment mismatch" | "other RLS mismatch";
+}
+
+/** Read-only audit of every shift assigned to one caregiver in a date range. */
+export const auditCaregiverShiftLinkage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    membership_id: z.string().uuid(),
+    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+    const fu = await admin.from("family_users").select("id, family_id, role, family_member_id").eq("id", data.membership_id).maybeSingle();
+    if (fu.error) throw fu.error;
+    if (!fu.data) throw new Error("Caregiver not found");
+    const familyId = fu.data.family_id as string;
+    await assertOwner(context, familyId);
+    const fuId = fu.data.id as string;
+    const memId = (fu.data.family_member_id as string | null) ?? null;
+    const membershipActive = fu.data.role === "viewer";
+    const [prof, cals] = await Promise.all([
+      admin.from("babysitter_access_profiles").select("date_scope").eq("family_user_id", fuId).maybeSingle(),
+      admin.from("babysitter_access_calendars").select("calendar_source_id").eq("family_user_id", fuId),
+    ]);
+    for (const r of [prof, cals]) if (r.error) throw r.error;
+    const scope = (prof.data?.date_scope as string) ?? "none";
+    const permitted = new Set<string>((cals.data ?? []).map((c: any) => c.calendar_source_id));
+
+    const lo = `${data.from}T00:00:00Z`;
+    const hi = new Date(Date.parse(`${data.to}T00:00:00Z`) + 86_400_000).toISOString();
+    const or = memId ? `family_user_id.eq.${fuId},assignee_member_id.eq.${memId}` : `family_user_id.eq.${fuId}`;
+    const res = await admin.from("babysitter_shifts")
+      .select("event_id, assignment, assignee_member_id, family_user_id, events!inner(id, title, start_at, end_at, recurrence_rule, calendar_source_id)")
+      .eq("family_id", familyId).or(or).lt("events.start_at", hi);
+    if (res.error) throw res.error;
+
+    const rows: LinkageRow[] = (res.data ?? [])
+      .filter((s: any) => s.events.recurrence_rule || s.events.end_at >= lo)
+      .map((s: any) => {
+        const e = s.events;
+        let event_rls: string;
+        if (!membershipActive) event_rls = `NO-RLS-LIMIT: role ${fu.data.role}`;
+        else if (!e.calendar_source_id || !permitted.has(e.calendar_source_id)) event_rls = "NO: calendar not permitted";
+        else if (scope === "all_permitted") event_rls = "YES: all_permitted + permitted calendar";
+        else if (e.recurrence_rule) event_rls = "NO: recurring master denied for shift_days_only";
+        else if (s.assignment === "caregiver" && s.family_user_id === fuId) event_rls = "YES: own shift via family_user_id";
+        else if (s.assignment === "caregiver" && memId && s.assignee_member_id === memId) event_rls = "YES: own shift via assignee_member_id";
+        else event_rls = "NO: no matching caregiver shift";
+        const event_ok = event_rls.startsWith("YES") || event_rls.startsWith("NO-RLS-LIMIT");
+        const sh = shiftRlsVerdict(s, fuId, memId, membershipActive);
+        const status: LinkageRow["status"] =
+          s.assignment !== "caregiver" || (memId && s.assignee_member_id !== memId) ? "assignment mismatch"
+          : s.family_user_id == null ? "family_user_id NULL"
+          : s.family_user_id !== fuId ? "stale/different family_user_id"
+          : event_ok && sh.ok ? "OK" : "other RLS mismatch";
+        return {
+          event_id: e.id, title: e.title, start_at: e.start_at, end_at: e.end_at, recurring: !!e.recurrence_rule,
+          assignee_member_id: s.assignee_member_id, family_user_id: s.family_user_id,
+          event_rls, event_ok, shift_rls: sh.text, shift_ok: sh.ok, status,
+        };
+      })
+      .sort((a: LinkageRow, b: LinkageRow) => Number(a.status === "OK") - Number(b.status === "OK") || a.start_at.localeCompare(b.start_at));
+
+    const count = (st: string) => rows.filter((r) => r.status === st).length;
+    return {
+      identity: { family_member_id: memId, membership_id: fuId },
+      summary: {
+        total: rows.length, ok: count("OK"), problematic: rows.length - count("OK"),
+        null_fu: count("family_user_id NULL"), stale_fu: count("stale/different family_user_id"),
+      },
+      rows,
+    };
+  });
