@@ -282,6 +282,27 @@ describe("shared timed-event overlap layout", () => {
     expect(layout.foreground[1]?.top).toBe(9 * 45);
   });
 
+  it.each([120, 160, 300])("paints a later wide card above both earlier columns at %ipx", (areaWidth) => {
+    const events = [
+      occurrence("swim", 9, 12, "Swim"),
+      occurrence("pickup", 9 + 5 / 60, 12, "Pickup"),
+      occurrence("dentist", 10, 11, "Dentist"),
+    ];
+    const layout = layoutTimedEvents({ foreground: events, coverage: [], areaWidth });
+    expect(layout.foreground.map((item) => [item.occurrence.key, item.stackOrder])).toEqual([
+      ["swim", 0],
+      ["pickup", 1],
+      ["dentist", 2],
+    ]);
+    expect(layout.foreground.slice(0, 2).map((item) => item.widthPct)).toEqual([50, 50]);
+    expect(layout.foreground[2]?.widthPct).toBeGreaterThan(80);
+    expect(layout.foreground[2]?.top).toBe(10 * 45);
+    expect(layout.foreground[2]?.height).toBe(45);
+    expect(layout.overflow).toHaveLength(0);
+    const reversed = layoutTimedEvents({ foreground: [...events].reverse(), coverage: [], areaWidth });
+    expect(reversed.foreground).toEqual(layout.foreground);
+  });
+
   it("accounts for a wrapped title when deciding that close headers collide", () => {
     const layout = layoutTimedEvents({
       foreground: [
