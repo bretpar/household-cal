@@ -12,6 +12,10 @@ export interface IcsEvent {
   uid: string;
   /** set when this VEVENT overrides one occurrence of `uid` */
   recurrenceId: string | null;
+  /** yyyy-MM-dd household-local date of the original occurrence RECURRENCE-ID replaces */
+  recurrenceDay?: string | null;
+  /** true when RECURRENCE-ID carries RANGE=THISANDFUTURE */
+  recurrenceThisAndFuture?: boolean;
   title: string;
   location: string | null;
   description: string | null;
@@ -172,6 +176,17 @@ function dayKeyUtc(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+/**
+ * Calendar date of an occurrence on the same basis recurrence expansion uses:
+ * DATE values are taken literally, DATE-TIME values as the household-local day
+ * (so 5 PM Pacific on Oct 8 stays Oct 8 even though it is Oct 9 in UTC).
+ */
+export function icsLocalDayKey(moment: IcsMoment, zone: string): string {
+  if (moment.allDay) return dayKeyUtc(moment.date);
+  const tz = isValidTimeZone(zone) ? zone : "UTC";
+  return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(moment.date);
+}
+
 /** Keeps only the RRULE parts the app's own recurrence engine understands. */
 function simplifyRrule(rule: string): { rule: string | null; until: string | null } {
   const parts = rule
@@ -247,6 +262,8 @@ export function parseIcs(text: string, fallbackZone = "UTC"): IcsEvent[] {
         events.push({
           uid: current.uid,
           recurrenceId: current.recurrenceId ?? null,
+          recurrenceDay: current.recurrenceDay ?? null,
+          recurrenceThisAndFuture: current.recurrenceThisAndFuture ?? false,
           title: current.title?.trim() || "Busy",
           location: current.location ?? null,
           description: current.description ?? null,
@@ -304,12 +321,15 @@ export function parseIcs(text: string, fallbackZone = "UTC"): IcsEvent[] {
       case "EXDATE": {
         for (const piece of line.value.split(",")) {
           const moment = parseIcsDate(piece, line.params, fallbackZone);
-          if (moment) (current.excludedDates ??= []).push(dayKeyUtc(moment.date));
+          if (moment) (current.excludedDates ??= []).push(icsLocalDayKey(moment, fallbackZone));
         }
         break;
       }
       case "RECURRENCE-ID": {
         current.recurrenceId = line.value.trim();
+        const moment = parseIcsDate(line.value, line.params, fallbackZone);
+        current.recurrenceDay = moment ? icsLocalDayKey(moment, fallbackZone) : null;
+        current.recurrenceThisAndFuture = (line.params["RANGE"] ?? "").toUpperCase() === "THISANDFUTURE";
         break;
       }
       case "STATUS": {
@@ -346,4 +366,26 @@ export function withinWindow(event: IcsEvent, window: IcsWindow): boolean {
     return `${event.recurrenceUntil}T23:59:59.999Z` >= window.from;
   }
   return event.endAt >= window.from && event.startAt <= window.to;
+}
+
+/**
+ * Removes each changed or cancelled occurrence's ORIGINAL date from its
+ * recurring master (same UID), so only the exception renders. Exceptions keep
+ * their own identity; masters are never dropped.
+ *
+ * TODO: RANGE=THISANDFUTURE would need the master split at that date. It is not
+ * treated as a one-day exception here; the master is left unchanged and the
+ * exception row is imported as before.
+ */
+export function applyRecurrenceExceptions(events: IcsEvent[]): IcsEvent[] {
+  const daysByUid = new Map<string, string[]>();
+  for (const e of events) {
+    if (!e.recurrenceId || !e.recurrenceDay || e.recurrenceThisAndFuture) continue;
+    daysByUid.set(e.uid, [...(daysByUid.get(e.uid) ?? []), e.recurrenceDay]);
+  }
+  return events.map((e) => {
+    const extra = !e.recurrenceId && e.recurrenceRule ? daysByUid.get(e.uid) : undefined;
+    if (!extra) return e;
+    return { ...e, excludedDates: Array.from(new Set([...e.excludedDates, ...extra])).sort() };
+  });
 }
