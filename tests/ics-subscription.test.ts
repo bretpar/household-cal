@@ -149,3 +149,70 @@ describe("subscription links", () => {
     expect(() => normalizeSubscriptionUrl("")).toThrow();
   });
 });
+
+describe("subscription recurrence exceptions", () => {
+  const LA = "America/Los_Angeles";
+  const window = { from: "2026-09-01T00:00:00.000Z", to: "2027-09-01T00:00:00.000Z" };
+  const feed = (extra: string, exdate = "") => `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:pickup
+SUMMARY:Pickup
+DTSTART;TZID=America/Los_Angeles:20261001T170000
+DTEND;TZID=America/Los_Angeles:20261001T180000
+RRULE:FREQ=WEEKLY;BYDAY=TH
+${exdate}END:VEVENT
+${extra}END:VCALENDAR`;
+  const moved = (start: string, status = "") => `BEGIN:VEVENT
+UID:pickup
+RECURRENCE-ID;TZID=America/Los_Angeles:20261008T170000
+SUMMARY:Pickup
+DTSTART;TZID=America/Los_Angeles:${start}
+DURATION:PT1H
+${status}END:VEVENT
+`;
+  const master = (rows: { external_event_id: string; excluded_dates: string[] }[]) =>
+    rows.find((r) => r.external_event_id === "pickup")!;
+
+  it("5 PM occurrence moved to 4 PM shows only the 4 PM exception", () => {
+    const plan = planIcsImport(parseIcs(feed(moved("20261008T160000")), LA), [], window);
+    expect(master(plan.create).excluded_dates).toEqual(["2026-10-08"]);
+    const exc = plan.create.find((r) => r.external_event_id === "pickup::20261008T170000")!;
+    expect(exc.start_at).toBe("2026-10-08T23:00:00.000Z");
+  });
+
+  it("repeated refresh keeps one exception with a stable identity", () => {
+    const first = planIcsImport(parseIcs(feed(moved("20261008T160000")), LA), [], window);
+    const existing = first.create.map((r, i) => ({ id: `r${i}`, external_event_id: r.external_event_id }));
+    const second = planIcsImport(parseIcs(feed(moved("20261008T153000")), LA), existing, window);
+    expect(second.create).toHaveLength(0);
+    expect(second.deleteIds).toHaveLength(0);
+    expect(second.update.map((u) => u.row.external_event_id).sort()).toEqual(["pickup", "pickup::20261008T170000"]);
+  });
+
+  it("Pacific 5 PM EXDATE on Oct 8 stays Oct 8", () => {
+    const [e] = parseIcs(feed("", "EXDATE;TZID=America/Los_Angeles:20261008T170000\n"), LA);
+    expect(e.excludedDates).toEqual(["2026-10-08"]);
+  });
+
+  it("occurrence moved to another date suppresses the original date", () => {
+    const plan = planIcsImport(parseIcs(feed(moved("20261010T090000")), LA), [], window);
+    expect(master(plan.create).excluded_dates).toEqual(["2026-10-08"]);
+    expect(plan.create.find((r) => r.external_event_id !== "pickup")!.start_at.slice(0, 10)).toBe("2026-10-10");
+  });
+
+  it("cancelled exception suppresses the original without a replacement", () => {
+    const plan = planIcsImport(parseIcs(feed(moved("20261008T170000", "STATUS:CANCELLED\n")), LA), [], window);
+    expect(plan.create).toHaveLength(1);
+    expect(master(plan.create).excluded_dates).toEqual(["2026-10-08"]);
+  });
+
+  it("whole-series change without exceptions updates normally", () => {
+    const first = planIcsImport(parseIcs(feed(""), LA), [], window);
+    const changed = feed("").replace("20261001T170000", "20261001T163000");
+    const second = planIcsImport(parseIcs(changed, LA), [{ id: "m", external_event_id: "pickup" }], window);
+    expect(first.create).toHaveLength(1);
+    expect(second.update).toHaveLength(1);
+    expect(second.update[0].row.start_at).toBe("2026-10-01T23:30:00.000Z");
+    expect(second.update[0].row.excluded_dates).toEqual([]);
+  });
+});
