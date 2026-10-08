@@ -282,7 +282,7 @@ describe("shared timed-event overlap layout", () => {
     expect(layout.foreground[1]?.top).toBe(9 * 45);
   });
 
-  it.each([120, 160, 420])("paints a later wide card above both earlier columns at %ipx", (areaWidth) => {
+  it.each([120, 160, 300])("paints a later wide card above both earlier columns at %ipx", (areaWidth) => {
     const events = [
       occurrence("swim", 9, 12, "Swim"),
       occurrence("pickup", 9 + 5 / 60, 12, "Pickup"),
