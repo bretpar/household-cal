@@ -24,6 +24,29 @@ export function CaregiverVisibilityDiagnostic() {
   const [from, setFrom] = useState(new Date().toISOString().slice(0, 10));
   const [to, setTo] = useState(new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10));
   const a = useMutation({ mutationFn: () => audit({ data: { membership_id: who, from, to } }) });
+  const [copied, setCopied] = useState(false);
+  const copyAudit = async (full: boolean) => {
+    const d = a.data;
+    if (!d) return;
+    const name = (cg.data ?? []).find((c: { membership_id: string }) => c.membership_id === who)?.name ?? who;
+    const rows = full ? d.rows : d.rows.filter((r) => r.status !== "OK");
+    const lines = [
+      `Caregiver: ${name}`, `Date range: ${from} – ${to}`, "", "SUMMARY",
+      `- Total shifts: ${d.summary.total}`, `- OK: ${d.summary.ok}`, `- Problematic: ${d.summary.problematic}`,
+      `- Missing family_user_id: ${d.summary.null_fu}`, `- Stale/mismatched family_user_id: ${d.summary.stale_fu}`,
+      `- Shift access NO: ${d.rows.filter((r) => !r.shift_ok).length}`, "", full ? "ALL SHIFTS" : "PROBLEM SHIFTS",
+    ];
+    if (!rows.length) lines.push(full ? "No shifts found in this range." : "No problematic shifts found in this range.");
+    for (const r of rows) lines.push("",
+      `${r.title}`, `- Event id: ${r.event_id}${r.recurring ? " (recurring)" : ""}`, `- Date/time: ${r.start_at} → ${r.end_at}`,
+      `- assignee_member_id: ${r.assignee_member_id ?? "NULL"}`, `- family_user_id: ${r.family_user_id ?? "NULL"}`,
+      `- Caregiver membership id: ${d.identity.membership_id}`,
+      `- Event SELECT RLS: ${r.event_ok ? "YES" : "NO"} — ${r.event_rls}`, `- Shift SELECT RLS: ${r.shift_ok ? "YES" : "NO"} — ${r.shift_rls}`,
+      `- Status: ${r.status}`);
+    await navigator.clipboard.writeText(lines.join("\n"));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
   if (!isOwner) return null;
   const r = m.data;
 
@@ -90,6 +113,11 @@ export function CaregiverVisibilityDiagnostic() {
         {a.isError ? <p className="text-destructive">{a.error instanceof Error ? a.error.message : "Failed"}</p> : null}
         {a.data ? (
           <div className="space-y-2 pt-2 font-mono text-xs break-words">
+            <div className="flex flex-wrap items-center gap-2 font-sans">
+              <Button size="sm" variant="outline" onClick={() => void copyAudit(false)}>Copy audit summary</Button>
+              <Button size="sm" variant="ghost" onClick={() => void copyAudit(true)}>Copy full audit</Button>
+              {copied ? <span className="text-xs text-muted-foreground">Audit copied</span> : null}
+            </div>
             <p>member {a.data.identity.family_member_id ?? "NULL"} · membership {a.data.identity.membership_id}</p>
             <p className="font-sans font-semibold">
               Total {a.data.summary.total} · OK {a.data.summary.ok} · Problematic {a.data.summary.problematic} · NULL fu {a.data.summary.null_fu} · Stale fu {a.data.summary.stale_fu}
