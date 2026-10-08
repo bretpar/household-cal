@@ -6,7 +6,7 @@
  * fingerprint (title + times + repeat rule) against the destination calendar,
  * because `external_event_id` is owned by Google sync for linked calendars.
  */
-import { parseIcs, type IcsEvent } from "@/lib/ics/parse";
+import { applyRecurrenceExceptions, parseIcs, type IcsEvent } from "@/lib/ics/parse";
 
 type Db = { from: (table: string) => any };
 
@@ -43,11 +43,6 @@ export function unsupportedFields(text: string): string[] {
   return checks.filter(([re]) => re.test(text)).map(([, label]) => label);
 }
 
-function exceptionDay(recurrenceId: string): string | null {
-  const m = /^(\d{4})(\d{2})(\d{2})/.exec(recurrenceId.trim());
-  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
-}
-
 export interface PreparedRow {
   title: string;
   start_at: string;
@@ -62,13 +57,7 @@ export interface PreparedRow {
 
 /** Parses and orders importable rows; changed occurrences are removed from their series. */
 export function prepareRows(text: string, zone: string): { rows: PreparedRow[]; cancelled: number } {
-  const events = parseIcs(text, zone);
-  const exceptionsByUid = new Map<string, string[]>();
-  for (const e of events) {
-    if (!e.recurrenceId) continue;
-    const day = exceptionDay(e.recurrenceId);
-    if (day) exceptionsByUid.set(e.uid, [...(exceptionsByUid.get(e.uid) ?? []), day]);
-  }
+  const events = applyRecurrenceExceptions(parseIcs(text, zone));
   let cancelled = 0;
   const rows: PreparedRow[] = [];
   const ordered = [...events].sort((a, b) => a.startAt.localeCompare(b.startAt));
@@ -77,7 +66,6 @@ export function prepareRows(text: string, zone: string): { rows: PreparedRow[]; 
       cancelled += 1;
       continue;
     }
-    const extra = !e.recurrenceId && e.recurrenceRule ? exceptionsByUid.get(e.uid) ?? [] : [];
     rows.push({
       title: e.title.slice(0, 200),
       start_at: e.startAt,
@@ -87,7 +75,7 @@ export function prepareRows(text: string, zone: string): { rows: PreparedRow[]; 
       notes: e.description,
       recurrence_rule: e.recurrenceRule,
       recurrence_until: e.recurrenceUntil,
-      excluded_dates: Array.from(new Set([...e.excludedDates, ...extra])).sort(),
+      excluded_dates: e.excludedDates,
     });
   }
   return { rows, cancelled };

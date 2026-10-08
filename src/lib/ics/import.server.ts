@@ -10,7 +10,7 @@
  * is what makes disconnecting safe: only rows carrying that source id are removed.
  */
 
-import { icsExternalId, parseIcs, withinWindow, type IcsEvent } from "@/lib/ics/parse";
+import { applyRecurrenceExceptions, icsExternalId, parseIcs, withinWindow, type IcsEvent } from "@/lib/ics/parse";
 
 type Db = { from: (table: string) => any };
 
@@ -141,7 +141,7 @@ export function planIcsImport(
   deleteIds: string[];
 } {
   const desired = new Map<string, DesiredRow>();
-  for (const event of feedEvents) {
+  for (const event of applyRecurrenceExceptions(feedEvents)) {
     if (event.cancelled) continue;
     if (!withinWindow(event, window)) continue;
     desired.set(icsExternalId(event), desiredRow(event));
