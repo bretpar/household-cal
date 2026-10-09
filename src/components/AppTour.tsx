@@ -9,7 +9,7 @@ import { getVerifiedMembership } from "@/lib/auth-guard";
 import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
 import { useCaregiver } from "@/lib/use-caregiver";
-import { shouldAutoStartTour, tourSteps, tourStorageKey, type TourStatus } from "@/lib/app-tour";
+import { TOUR_VERSION, shouldAutoStartTour, tourSteps, tourStorageKey, type TourStatus } from "@/lib/app-tour";
 
 const TourContext = createContext<(() => void) | null>(null);
 
