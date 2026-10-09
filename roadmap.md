@@ -1,9 +1,9 @@
 # Roadmap
 
 ## Comparison-page trust and usability
-- [ ] Review desktop/mobile presentation and factual claims.
-- [ ] Fix comparison readability, claim qualifications, and signup links.
-- [ ] Verify page links, images, and sharing details in the preview.
+- [x] Review desktop/mobile presentation and factual claims.
+- [x] Fix comparison readability, claim qualifications, and signup links.
+- [x] Verify page links, images, and sharing details in the preview.
 
 ## First-login app tour
 - [x] Replace multi-page spotlights with four role-aware bottom-tab tips on Today.
