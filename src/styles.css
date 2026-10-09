@@ -407,7 +407,7 @@
 }
 /* The logo softly grows and fades as the heart opens around it. */
 .heart-reveal .startup-splash-logo {
-  animation: heart-logo-out 700ms ease-in forwards;
+  animation: heart-logo-out 1000ms ease-in forwards;
 }
 @keyframes heart-logo-out {
   to {
@@ -428,7 +428,7 @@
   mask-composite: exclude;
   -webkit-mask-size: 1px 1px, 100% 100%;
   mask-size: 1px 1px, 100% 100%;
-  animation: heart-open 1000ms cubic-bezier(0.7, 0, 0.3, 1) forwards;
+  animation: heart-open 1500ms cubic-bezier(0.7, 0, 0.3, 1) forwards;
 }
 /* Fully open at 92%: the last ~8% runs with the overlay already fully
    transparent, so removal on animationend never shows a colour switch. */
