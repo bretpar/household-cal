@@ -82,3 +82,7 @@
 - [x] Move provider-specific actions into each calendar panel and consolidate all add flows behind one button.
 - [x] Keep Google account-level sync controls in one compact expandable section.
 - [x] Phase 2B: link empty OFC calendars to empty Google calendars (owner-only, 2-slot limit)
+
+## Babysitter Calendar event validation
+- [x] Let a Babysitter calendar event save with an assigned caregiver and no family members.
+- [x] Keep requiring a family member on regular family calendars, and apply the same rule when editing.
