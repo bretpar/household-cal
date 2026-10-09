@@ -188,6 +188,7 @@ export function EventDetailsDialog() {
           draftFromFormState(
             scope === "series" ? stateForSeriesScope(state, occurrence) : state,
             event.calendar_source_id,
+            family?.babysitter_calendar_source_id ?? null,
           ),
           scope,
         ),

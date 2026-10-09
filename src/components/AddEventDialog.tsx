@@ -121,7 +121,7 @@ export function EventComposerContent({
       busy: saving,
       setBusy: setSaving,
       perform: () =>
-        addEvent(draftFromFormState(state, destinationId)),
+        addEvent(draftFromFormState(state, destinationId, family?.babysitter_calendar_source_id ?? null)),
       onSuccess: (result) => {
         // The household save is authoritative here; Google mirroring is
         // reported separately so a slow Google call never looks like a failure.

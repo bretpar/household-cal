@@ -466,6 +466,7 @@ export function defaultCalendarSourceId(
 export function draftFromFormState(
   state: EventFormState,
   calendarSourceId: string | null = null,
+  babysitterCalendarSourceId: string | null = null,
 ): EventDraft {
   const baseRule = ruleForFormState(state);
   const repeats = Boolean(baseRule);
@@ -493,7 +494,10 @@ export function draftFromFormState(
     recurrence_until:
       repeats && state.recurrenceEnd === "on" ? state.recurrenceUntil || null : null,
     calendar_source_id: state.calendarSourceId ?? calendarSourceId,
-    ...(state.babysitter ? { babysitter_assignment: state.babysitter } : {}),
+    ...(state.babysitter && babysitterCalendarSourceId &&
+    eventDestinationId(state, calendarSourceId) === babysitterCalendarSourceId
+      ? { babysitter_assignment: state.babysitter }
+      : {}),
     member_ids: state.members,
     member_weekdays:
       repeats && usesPerPersonDays(state)
@@ -541,9 +545,14 @@ export function validateFormState(
   context: EventValidationContext = {},
 ): string | null {
   if (!state.title.trim()) return "Please add an event name";
-  if (state.babysitter === null) return "Choose the assigned babysitter";
-  if (state.babysitter?.kind === "other" && !state.babysitter.name.trim()) {
-    return "Enter the babysitter's name";
+  const destination = eventDestinationId(state, context.fallbackCalendarSourceId);
+  const onBabysitterCalendar =
+    !!context.babysitterCalendarSourceId &&
+    destination === context.babysitterCalendarSourceId;
+  if (onBabysitterCalendar && !hasAssignedCaregiver(state)) {
+    return state.babysitter?.kind === "other"
+      ? "Enter the babysitter's name"
+      : "Choose the assigned babysitter";
   }
   if (!state.date || !state.endDate) return "Choose a start and end date";
   if (state.endDate < state.date) return "The end date can't be before the start date";
@@ -553,12 +562,8 @@ export function validateFormState(
   // Childcare names the caregiver, so family members stay optional. So does a
   // Babysitter calendar event once a caregiver is assigned: the caregiver — not
   // a household member — is who that day belongs to.
-  const destination = eventDestinationId(state, context.fallbackCalendarSourceId);
-  const onBabysitterCalendar =
-    !!context.babysitterCalendarSourceId &&
-    destination === context.babysitterCalendarSourceId;
   const membersOptional =
-    state.eventType === "childcare" || (onBabysitterCalendar && hasAssignedCaregiver(state));
+    state.eventType === "childcare" || onBabysitterCalendar;
   if (!membersOptional && state.members.length === 0) {
     return "Choose at least one family member";
   }
@@ -656,8 +661,7 @@ export function EventFormFields({
       ?.id ?? null;
   const shownCalendarSourceId =
     state.calendarSourceId ?? defaultCalendarSourceId(sources) ?? familyCalendarId;
-  // On the Babysitter calendar the assigned caregiver, not a household member,
-  // is who the event is about — so "Who?" is optional there too.
+  // Use the household calendar identity, never its display name.
   const onBabysitterCalendar =
     !!family?.babysitter_calendar_source_id &&
     shownCalendarSourceId === family.babysitter_calendar_source_id;
@@ -678,12 +682,9 @@ export function EventFormFields({
     enabled: canEdit,
     staleTime: 5 * 60_000,
   }).data;
-  const showShift =
-    !!shiftSettings?.calendar_source_id &&
-    shownCalendarSourceId === shiftSettings.calendar_source_id &&
-    !state.allDay;
-  // Show/hide the required babysitter selector as the calendar changes; new
-  // shifts start from the household default (never retroactive).
+  const showShift = onBabysitterCalendar;
+  // Initialize new shifts from the household default, preserving the selection
+  // when the user switches away and back.
   useEffect(() => {
     if (!shiftSettings) return;
     if (showShift && state.babysitter === undefined) {
@@ -693,8 +694,6 @@ export function EventFormFields({
         ...state,
         babysitter: ok ? { kind: "caregiver", family_member_id: def } : null,
       });
-    } else if (!showShift && state.babysitter !== undefined) {
-      onChange({ ...state, babysitter: undefined });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showShift, shiftSettings, state.babysitter]);
@@ -1094,43 +1093,97 @@ export function EventFormFields({
         ) : null}
       </div>
 
-      {/* Household Event Categories (Settings → Event Categories) are the only
-          source of truth here. event_type is derived from the chosen category
-          so behaviour like childcare coverage keeps working. */}
-      <div className="min-w-0 space-y-1">
-        <Label>Category</Label>
-        <Select
-          value={resolvedCategoryValue ?? UNCATEGORIZED_VALUE}
-          onValueChange={(v) => setCategory(v === UNCATEGORIZED_VALUE ? null : v)}
-        >
-          <SelectTrigger className="h-10 rounded-xl sm:h-11">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((category) => (
-              <SelectItem key={category.id} value={category.id}>
-                <span className="flex items-center gap-2">
-                  <span
-                    className={cn("h-3 w-3 rounded-full", categoryAppearance(category).swatch)}
-                    aria-hidden
-                  />
-                  {category.name}
-                </span>
-              </SelectItem>
-            ))}
-            <SelectItem value={UNCATEGORIZED_VALUE}>
-              <span className="flex items-center gap-2">
-                <span
-                  className={cn("h-3 w-3 rounded-full", UNCATEGORIZED_APPEARANCE.swatch)}
-                  aria-hidden
-                />
-                {UNCATEGORIZED_LABEL}
-              </span>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {pickerOptions.length > 0 ? (
+        <div className="space-y-1">
+          <Label>Calendar</Label>
+          <Select
+            value={shownCalendarSourceId ?? ""}
+            onValueChange={(v) => set("calendarSourceId", v)}
+          >
+            <SelectTrigger className="h-10 rounded-xl sm:h-11">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {pickerOptions.map((s) => (
+                <SelectItem
+                  key={s.id}
+                  value={s.id}
+                  disabled={!destinations.some((d) => d.id === s.id)}
+                >
+                  {s.name} · {providerLabel(s)}
+                  {s.provider === "google" && s.is_main ? " · Main" : ""}
+                  {!s.active ? " · Archived" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
 
+      {showShift ? (
+        <div className="space-y-1">
+          <Label htmlFor={`${idPrefix}-babysitter`}>Assigned babysitter</Label>
+          <Select
+            value={shiftValue}
+            onValueChange={(v) =>
+              onChange({
+                ...state,
+                babysitter:
+                  v === "none"
+                    ? { kind: "none" }
+                    : v === "other"
+                      ? { kind: "other", name: "" }
+                      : { kind: "caregiver", family_member_id: v },
+              })
+            }
+          >
+            <SelectTrigger id={`${idPrefix}-babysitter`} className="h-10 rounded-xl sm:h-11">
+              <SelectValue placeholder="Choose a babysitter" />
+            </SelectTrigger>
+            <SelectContent>
+              {[...(shiftSettings?.caregivers ?? [])]
+                .sort((a, b) =>
+                  a.family_member_id === shiftSettings?.default_member_id
+                    ? -1
+                    : b.family_member_id === shiftSettings?.default_member_id
+                      ? 1
+                      : 0,
+                )
+                .map((c) => (
+                  <SelectItem key={c.family_member_id} value={c.family_member_id}>
+                    {c.name}
+                    {c.family_member_id === shiftSettings?.default_member_id ? " · Default" : ""}
+                  </SelectItem>
+                ))}
+              {state.babysitter?.kind === "caregiver" &&
+              !shiftSettings?.caregivers.some(
+                (c) => c.family_member_id === shiftValue,
+              ) ? (
+                // Legacy assignment to a caregiver no longer active: show it, never offer it.
+                <SelectItem value={shiftValue} disabled>
+                  Archived caregiver
+                </SelectItem>
+              ) : null}
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+          {state.babysitter?.kind === "other" ? (
+            <Input
+              aria-label="Babysitter's name"
+              value={state.babysitter.name}
+              maxLength={120}
+              onChange={(e) =>
+                onChange({ ...state, babysitter: { kind: "other", name: e.target.value } })
+              }
+              placeholder="Babysitter's name"
+              className="h-10 rounded-xl sm:h-11"
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {!onBabysitterCalendar ? (
+        <>
       <div className="space-y-1.5">
         <Label>
           Who?
@@ -1179,95 +1232,42 @@ export function EventFormFields({
       </div>
 
 
-      {pickerOptions.length > 0 ? (
-        <div className="space-y-1">
-          <Label>Calendar</Label>
-          <Select
-            value={shownCalendarSourceId ?? ""}
-            onValueChange={(v) => set("calendarSourceId", v)}
-          >
-            <SelectTrigger className="h-10 rounded-xl sm:h-11">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {pickerOptions.map((s) => (
-                <SelectItem
-                  key={s.id}
-                  value={s.id}
-                  disabled={!destinations.some((d) => d.id === s.id)}
-                >
-                  {s.name} · {providerLabel(s)}
-                  {s.provider === "google" && s.is_main ? " · Main" : ""}
-                  {!s.active ? " · Archived" : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      ) : null}
-
-      {showShift && shiftSettings ? (
-        <div className="space-y-1">
-          <Label htmlFor={`${idPrefix}-babysitter`}>Assigned babysitter</Label>
-          <Select
-            value={shiftValue}
-            onValueChange={(v) =>
-              onChange({
-                ...state,
-                babysitter:
-                  v === "none"
-                    ? { kind: "none" }
-                    : v === "other"
-                      ? { kind: "other", name: "" }
-                      : { kind: "caregiver", family_member_id: v },
-              })
-            }
-          >
-            <SelectTrigger id={`${idPrefix}-babysitter`} className="h-10 rounded-xl sm:h-11">
-              <SelectValue placeholder="Choose a babysitter" />
-            </SelectTrigger>
-            <SelectContent>
-              {[...shiftSettings.caregivers]
-                .sort((a, b) =>
-                  a.family_member_id === shiftSettings.default_member_id
-                    ? -1
-                    : b.family_member_id === shiftSettings.default_member_id
-                      ? 1
-                      : 0,
-                )
-                .map((c) => (
-                  <SelectItem key={c.family_member_id} value={c.family_member_id}>
-                    {c.name}
-                    {c.family_member_id === shiftSettings.default_member_id ? " · Default" : ""}
-                  </SelectItem>
-                ))}
-              {state.babysitter?.kind === "caregiver" &&
-              !shiftSettings.caregivers.some(
-                (c) => c.family_member_id === shiftValue,
-              ) ? (
-                // Legacy assignment to a caregiver no longer active: show it, never offer it.
-                <SelectItem value={shiftValue} disabled>
-                  Archived caregiver
-                </SelectItem>
-              ) : null}
-              <SelectItem value="other">Other</SelectItem>
-              <SelectItem value="none">None</SelectItem>
-            </SelectContent>
-          </Select>
-          {state.babysitter?.kind === "other" ? (
-            <Input
-              aria-label="Babysitter's name"
-              value={state.babysitter.name}
-              maxLength={120}
-              onChange={(e) =>
-                onChange({ ...state, babysitter: { kind: "other", name: e.target.value } })
-              }
-              placeholder="Babysitter's name"
-              className="h-10 rounded-xl sm:h-11"
-            />
-          ) : null}
-        </div>
-      ) : null}
+      {/* Household Event Categories (Settings → Event Categories) are the only
+          source of truth here. event_type is derived from the chosen category
+          so behaviour like childcare coverage keeps working. */}
+      <div className="min-w-0 space-y-1">
+        <Label>Category</Label>
+        <Select
+          value={resolvedCategoryValue ?? UNCATEGORIZED_VALUE}
+          onValueChange={(v) => setCategory(v === UNCATEGORIZED_VALUE ? null : v)}
+        >
+          <SelectTrigger className="h-10 rounded-xl sm:h-11">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                <span className="flex items-center gap-2">
+                  <span
+                    className={cn("h-3 w-3 rounded-full", categoryAppearance(category).swatch)}
+                    aria-hidden
+                  />
+                  {category.name}
+                </span>
+              </SelectItem>
+            ))}
+            <SelectItem value={UNCATEGORIZED_VALUE}>
+              <span className="flex items-center gap-2">
+                <span
+                  className={cn("h-3 w-3 rounded-full", UNCATEGORIZED_APPEARANCE.swatch)}
+                  aria-hidden
+                />
+                {UNCATEGORIZED_LABEL}
+              </span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-location`}>Location</Label>
@@ -1278,6 +1278,9 @@ export function EventFormFields({
         />
 
       </div>
+
+        </>
+      ) : null}
 
       <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-notes`}>Notes</Label>
