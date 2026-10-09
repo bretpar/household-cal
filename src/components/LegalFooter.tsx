@@ -8,6 +8,9 @@ export function LegalFooter() {
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 text-[11px] text-muted-foreground lg:px-8">
         <span>© {year} Our Family Calendar</span>
         <nav className="flex items-center gap-4">
+          <Link to="/best-shared-calendar-app" className="hover:text-foreground">
+            Compare
+          </Link>
           <Link to="/privacy" className="hover:text-foreground">
             Privacy
           </Link>
