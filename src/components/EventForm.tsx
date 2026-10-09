@@ -524,6 +524,18 @@ export function eventDestinationId(
   return state.calendarSourceId ?? fallbackCalendarSourceId ?? null;
 }
 
+/**
+ * True when the form already names who is covering — a caregiver record or a
+ * typed-in name. On the Babysitter calendar that is the answer to "Who?", so a
+ * household member is not also required.
+ */
+export function hasAssignedCaregiver(state: EventFormState): boolean {
+  const assignment = state.babysitter;
+  if (assignment?.kind === "caregiver") return assignment.family_member_id.trim().length > 0;
+  if (assignment?.kind === "other") return assignment.name.trim().length > 0;
+  return false;
+}
+
 export function validateFormState(
   state: EventFormState,
   context: EventValidationContext = {},
@@ -538,15 +550,16 @@ export function validateFormState(
   if (!state.allDay && combine(state.endDate, state.endTime) <= combine(state.date, state.startTime)) {
     return "The event must end after it starts";
   }
-  // Childcare names the caregiver, so family members stay optional. The same
-  // goes for the household Babysitter calendar: the assigned caregiver — not a
-  // household member — is what makes that day count, and that caregiver is
-  // already required above.
+  // Childcare names the caregiver, so family members stay optional. So does a
+  // Babysitter calendar event once a caregiver is assigned: the caregiver — not
+  // a household member — is who that day belongs to.
   const destination = eventDestinationId(state, context.fallbackCalendarSourceId);
   const onBabysitterCalendar =
     !!context.babysitterCalendarSourceId &&
     destination === context.babysitterCalendarSourceId;
-  if (!onBabysitterCalendar && state.eventType !== "childcare" && state.members.length === 0) {
+  const membersOptional =
+    state.eventType === "childcare" || (onBabysitterCalendar && hasAssignedCaregiver(state));
+  if (!membersOptional && state.members.length === 0) {
     return "Choose at least one family member";
   }
   const repeats =
@@ -1121,7 +1134,8 @@ export function EventFormFields({
       <div className="space-y-1.5">
         <Label>
           Who?
-          {state.eventType === "childcare" || onBabysitterCalendar ? (
+          {state.eventType === "childcare" ||
+          (onBabysitterCalendar && hasAssignedCaregiver(state)) ? (
             <span className="ml-1 font-semibold text-muted-foreground">(optional)</span>
           ) : null}
         </Label>
