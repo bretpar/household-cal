@@ -5,7 +5,7 @@ import { CopiedEventBar } from "@/components/CopiedEventBar";
 import { EventDetailsDialog } from "@/components/EventDetailsDialog";
 import { PasteEventDialog } from "@/components/PasteEventDialog";
 import { StartupHeartReveal, StartupSplash } from "@/components/StartupSplash";
-import { hasLayoutMounted, markLayoutMounted, resolveGuard } from "@/lib/auth-guard";
+import { hasLayoutMounted, markLayoutMounted, resolveGuard, retryGuard } from "@/lib/auth-guard";
 import { CalendarProvider, useCalendar } from "@/lib/calendar-store";
 import { UserPreferencesProvider } from "@/lib/user-preferences";
 import { useCaregiver } from "@/lib/use-caregiver";
@@ -40,6 +40,10 @@ function AuthenticatedLayout() {
   // every pathname change is what made tab switches flash an empty screen.
   const [everReady, setEverReady] = useState(false);
   const [calState, setCalState] = useState({ loading: true, failed: false });
+  // Household verification exhausted its fallback: show the access-error
+  // screen with a retry instead of loading forever. No tabs or household
+  // data mount while this is set.
+  const [accessError, setAccessError] = useState(false);
 
   useEffect(() => {
     markLayoutMounted();
@@ -58,6 +62,10 @@ function AuthenticatedLayout() {
         }
         return;
       }
+      if ("accessError" in result) {
+        setAccessError(true);
+        return;
+      }
       setEverReady(true);
     })();
     return () => {
@@ -65,6 +73,25 @@ function AuthenticatedLayout() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, everReady]);
+
+  // Try again: drop stale failed/in-flight guard state and re-run the full
+  // auth + household check; success mounts the shell fresh (caregiver
+  // classification and the calendar bundle then load from scratch).
+  const retryAccess = () => {
+    setAccessError(false);
+    void (async () => {
+      const result = await retryGuard(pathname);
+      if ("redirectTo" in result) {
+        if (result.redirectTo !== pathname) navigate({ to: result.redirectTo, replace: true });
+        return;
+      }
+      if ("accessError" in result) {
+        setAccessError(true);
+        return;
+      }
+      setEverReady(true);
+    })();
+  };
 
   // One overlay instance for guard + household + first calendar load: it sits
   // in a fixed slot so it is never unmounted/recreated between those phases.
