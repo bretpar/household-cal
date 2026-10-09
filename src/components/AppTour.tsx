@@ -12,6 +12,7 @@ import { useCaregiver } from "@/lib/use-caregiver";
 import { TOUR_VERSION, shouldAutoStartTour, tourSteps, tourStorageKey, type TourStatus } from "@/lib/app-tour";
 
 const TourContext = createContext<(() => void) | null>(null);
+type Placement = { left: number; top: number; width: number; height: number; x: number; y: number; below: boolean; radius: number };
 
 function visibleTarget(id: string): HTMLElement | undefined {
   return Array.from(document.querySelectorAll<HTMLElement>("[data-tour-target]")).find((el) =>
@@ -25,17 +26,29 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
   const { resolved, failed, isCaregiver } = useCaregiver();
   const [userId, setUserId] = useState<string | null>(null);
   const [index, setIndex] = useState<number | null>(null);
-  const [placement, setPlacement] = useState<{ left: number; top: number; width: number; height: number; x: number; y: number; below: boolean; radius: number } | null>(null);
+  const [placement, setPlacement] = useState<Placement | null>(null);
+  const placementRef = useRef<Placement | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const focusBefore = useRef<HTMLElement | null>(null);
   const autoChecked = useRef<string | null>(null);
-  const steps = useMemo(() => tourSteps(isCaregiver, isOwner, hasFeature("timesheets", { familyId: family?.id })), [isCaregiver, isOwner, family?.id]);
+  const steps = useMemo(() => {
+    const ordered = tourSteps(isCaregiver, isOwner, hasFeature("timesheets", { familyId: family?.id }));
+    // Swap the parent tour's Calendar and Family initials steps only; caregiver
+    // steps have different content and retain their existing permission flow.
+    if (!isCaregiver) {
+      const second = ordered[1];
+      const third = ordered[2];
+      if (second && third) { ordered[1] = third; ordered[2] = second; }
+    }
+    return ordered;
+  }, [isCaregiver, isOwner, family?.id]);
   const step = index === null ? undefined : steps[index];
   const accessReady = resolved && !failed && !!family;
 
   const start = useCallback(() => {
     if (!accessReady || !userId || getVerifiedMembership()?.userId !== userId) return;
     focusBefore.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    placementRef.current = null;
     setPlacement(null);
     setIndex(0);
   }, [accessReady, userId]);
@@ -49,12 +62,13 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
       ).then(() => {}, () => {});
     }
     setIndex(null);
+    placementRef.current = null;
     setPlacement(null);
     focusBefore.current?.focus();
   }, [userId]);
 
   useEffect(() => {
-    if (!accessReady) { setIndex(null); setPlacement(null); return; }
+    if (!accessReady) { setIndex(null); placementRef.current = null; setPlacement(null); return; }
     let cancelled = false;
     void supabase.auth.getSession().then(({ data }) => {
       const user = data.session?.user;
@@ -84,8 +98,12 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!step || !accessReady) return;
-    setPlacement(null);
+    // Keep the portal and its last rounded cutout mounted while locating the
+    // next target. Clearing placement here exposed the undimmed page each step.
     let cancelled = false;
+    const previous = placementRef.current;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let transitionStarted: number | undefined;
     let openedFilter: HTMLElement | undefined;
     const began = Date.now();
     let frame = 0;
@@ -94,6 +112,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       if (getVerifiedMembership()?.userId !== userId) {
         setIndex(null);
+        placementRef.current = null;
         setPlacement(null);
         return;
       }
@@ -119,8 +138,11 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
         frame = requestAnimationFrame(measure);
         return;
       }
-      const r = target.getBoundingClientRect();
-      if (r.bottom < 0 || r.top > window.innerHeight) target.scrollIntoView({ block: "center", behavior: "instant" });
+      let r = target.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight) {
+        target.scrollIntoView({ block: "center", behavior: "instant" });
+        r = target.getBoundingClientRect();
+      }
       const pad = 4;
       // Match the spotlight's corner radius to the target (e.g. rounded bottom
       // nav items) so the highlight never shows square corners.
@@ -136,7 +158,20 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
       const x = Math.max(12, Math.min(left + width / 2 - cardWidth / 2, window.innerWidth - cardWidth - 12));
       const y = below ? top + height + 12 : Math.max(12, top - cardHeight - 12);
       const next = { left, top, width, height, x, y, below, radius };
-      setPlacement((old) => old && Object.keys(next).every((key) => old[key as keyof typeof old] === next[key as keyof typeof next]) ? old : next);
+      const now = performance.now();
+      transitionStarted ??= now;
+      const progress = previous && !reducedMotion ? Math.min(1, (now - transitionStarted) / 160) : 1;
+      const eased = 1 - (1 - progress) ** 3;
+      const displayed: Placement = { ...next };
+      if (previous && progress < 1) {
+        for (const key of ["left", "top", "width", "height", "x", "y", "radius"] as const) {
+          displayed[key] = previous[key] + (next[key] - previous[key]) * eased;
+        }
+      }
+      // One shared animated geometry drives the SVG cutout, outline and card,
+      // so their boundaries cannot diverge during the short movement.
+      placementRef.current = displayed;
+      setPlacement((old) => old && Object.keys(displayed).every((key) => old[key as keyof Placement] === displayed[key as keyof Placement]) ? old : displayed);
       frame = requestAnimationFrame(measure);
     };
     frame = requestAnimationFrame(measure);
@@ -149,7 +184,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!placement || index === null) return;
-    cardRef.current?.focus();
+    cardRef.current?.focus({ preventScroll: true });
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); finish("dismissed"); }
     };
