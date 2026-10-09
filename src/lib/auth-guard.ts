@@ -151,7 +151,18 @@ async function resolveGuardUncached(pathname: string, gen: number) {
       return { redirectTo: "/onboarding" as const };
     }
   }
-  return { user: data.user };
+  // Household verification and its fallback both failed: report an explicit,
+  // recoverable access error instead of an unverified user, so the shell can
+  // show the access-error screen with a retry instead of loading forever.
+  return { accessError: true as const };
+}
+
+/** Clears stale guard state and re-runs the full auth + household check. */
+export function retryGuard(pathname: string) {
+  guardCache = null;
+  guardInFlight = null;
+  verifiedMembership = null;
+  return resolveGuard(pathname);
 }
 
 /** Called by the layout after its first browser mount. */
