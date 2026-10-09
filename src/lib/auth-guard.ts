@@ -99,8 +99,15 @@ async function currentUser() {
 }
 
 async function resolveGuardUncached(pathname: string, gen: number) {
+  // Run the sign-in and household checks in parallel: the server verifies the
+  // caller's token itself, so a successful household answer already proves the
+  // session is valid and the tabs don't wait for two sequential round-trips.
+  const membershipPromise = withTimeout(ensureFamilyMembership(), AUTH_TIMEOUT_MS, "Household");
   const user = await currentUser();
-  if (!user) return { redirectTo: "/auth" as const };
+  if (!user) {
+    membershipPromise.catch(() => {});
+    return { redirectTo: "/auth" as const };
+  }
   const data = { user };
 
   // resolves an existing membership or claims a pending invitation; brand-new
@@ -110,7 +117,7 @@ async function resolveGuardUncached(pathname: string, gen: number) {
   const onOnboarding = pathname.startsWith("/onboarding");
   let resolved: { family_id: string | null; role?: string | null } | undefined;
   try {
-    resolved = await withTimeout(ensureFamilyMembership(), AUTH_TIMEOUT_MS, "Household");
+    resolved = await membershipPromise;
   } catch {
     // leave `resolved` undefined so the error path below keeps the user in-app
   }
