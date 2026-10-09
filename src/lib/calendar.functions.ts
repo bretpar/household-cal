@@ -34,7 +34,19 @@ export const ensureFamilyMembership = createServerFn({ method: "POST" })
     const familyId = await resolveMembership(supabaseAdmin as unknown as Db, context.userId, () =>
       claimPendingInvitations(supabaseAdmin as never, context.userId, email),
     );
-    return { family_id: familyId };
+    // Role lets the client choose its navigation without waiting for the full
+    // calendar bundle. Data access is still enforced by RLS everywhere.
+    let role: string | null = null;
+    if (familyId) {
+      const { data } = await supabaseAdmin
+        .from("family_users")
+        .select("role")
+        .eq("family_id", familyId)
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      role = (data?.role as string | undefined) ?? null;
+    }
+    return { family_id: familyId, role };
   });
 
 

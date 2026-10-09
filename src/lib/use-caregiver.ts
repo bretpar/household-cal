@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { getVerifiedMembership } from "@/lib/auth-guard";
 import { FAMILY_BUNDLE_KEY, useCalendar } from "@/lib/calendar-store";
 
 export const IS_CAREGIVER_KEY = ["is-caregiver"] as const;
@@ -13,8 +14,11 @@ export const IS_CAREGIVER_KEY = ["is-caregiver"] as const;
  */
 export function useCaregiver(): { isCaregiver: boolean; resolved: boolean } {
   const { family } = useCalendar();
-  const familyId = family?.id ?? null;
-  const viewer = family?.role === "viewer";
+  // Before the calendar bundle arrives, use the membership the startup guard
+  // already verified so navigation can be decided without waiting on events.
+  const verified = family ? null : getVerifiedMembership();
+  const familyId = family?.id ?? verified?.family_id ?? null;
+  const viewer = (family?.role ?? verified?.role) === "viewer";
   const q = useQuery({
     queryKey: [...IS_CAREGIVER_KEY, familyId],
     // Polled for every member so role/access changes reach open sessions (~30s).

@@ -596,6 +596,14 @@ function CalendarPage() {
           </div>
         ) : null}
 
+        {loading ? (
+          <div role="status" aria-label="Loading events" className="mb-2 flex animate-pulse items-center gap-2">
+            <div className="h-2 flex-1 rounded-full bg-secondary" />
+            <span className="text-xs font-semibold text-muted-foreground">Loading events…</span>
+            <div className="h-2 flex-1 rounded-full bg-secondary" />
+          </div>
+        ) : null}
+
         {/* Announces the newly active period to screen readers on navigation. */}
         <p aria-live="polite" className="sr-only">
           {label}
