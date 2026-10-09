@@ -199,8 +199,7 @@
 }
 
 .app-tour-dimmer {
-  position: absolute;
-  background: var(--tour-overlay);
+  fill: var(--tour-overlay);
   pointer-events: auto;
 }
 
