@@ -363,6 +363,17 @@ function CalendarPage() {
   };
   const label = labelFor(visibleDate ?? anchor);
 
+  /** Jump straight to a picked date, keeping the current view and filters. */
+  const jumpToDate = (day: Date) => {
+    haptic();
+    if (mode === "month") {
+      setAnchor(day);
+      monthScrollRef.current?.scrollToMonth(day, "smooth");
+      return;
+    }
+    setAnchor(weekStartAnchor(day));
+  };
+
 
   const viewLabel = (v: ViewMode) =>
     v === "week" && isMobile && !isLandscape ? "3 Day" : CALENDAR_VIEW_LABEL[v];
