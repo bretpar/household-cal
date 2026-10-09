@@ -12,7 +12,7 @@ Production: ourfamilycalendar.com (this project, its own backend). Staging: a se
 
 ## Each release
 1. Make the change in this (production) project — do NOT publish.
-2. Note the revision shown in Settings → Advanced / Maintenance → Build diagnostics in the preview (or the Git SHA on GitHub main).
+2. Note the revision shown in Settings → Account → Maintenance → Build diagnostics in the preview (or the Git SHA on GitHub main).
 3. Bring that same revision to staging (sync the staging repo/project from main at that SHA), publish staging.
 4. Codex QA on staging; confirm staging Build diagnostics revision == approved SHA.
 5. Publish production only if no newer edits landed since the approved SHA; confirm production revision == approved SHA.
