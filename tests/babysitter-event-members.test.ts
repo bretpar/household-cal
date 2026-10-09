@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   eventDestinationId,
+  draftFromFormState,
   validateFormState,
   type EventFormState,
 } from "@/components/EventForm";
@@ -106,10 +107,25 @@ describe("event member validation", () => {
         state({ calendarSourceId: BABYSITTER_CALENDAR, babysitter: { kind: "none" } }),
         context,
       ),
-    ).toBe("Choose at least one family member");
+    ).toBe("Choose the assigned babysitter");
   });
 
   it("keeps childcare optional", () => {
     expect(validateFormState(state({ eventType: "childcare" }), context)).toBeNull();
+  });
+
+  it("requires an assignment even with selected members or an all-day event", () => {
+    expect(validateFormState(state({ calendarSourceId: BABYSITTER_CALENDAR, allDay: true, members: ["parent"] }), context)).toBe("Choose the assigned babysitter");
+  });
+
+  it("ignores a hidden empty caregiver assignment on other calendars", () => {
+    expect(validateFormState(state({ members: ["parent"], babysitter: { kind: "other", name: "" } }), context)).toBeNull();
+  });
+
+  it("submits preserved caregiver values only to the Babysitter calendar", () => {
+    const form = state({ members: ["parent"], babysitter: { kind: "caregiver", family_member_id: CAREGIVER } });
+    expect(draftFromFormState(form, FAMILY_CALENDAR, BABYSITTER_CALENDAR)).not.toHaveProperty("babysitter_assignment");
+    expect(draftFromFormState({ ...form, calendarSourceId: BABYSITTER_CALENDAR }, FAMILY_CALENDAR, BABYSITTER_CALENDAR).babysitter_assignment).toEqual(form.babysitter);
+    expect(form.babysitter).toEqual({ kind: "caregiver", family_member_id: CAREGIVER });
   });
 });

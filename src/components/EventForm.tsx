@@ -466,6 +466,7 @@ export function defaultCalendarSourceId(
 export function draftFromFormState(
   state: EventFormState,
   calendarSourceId: string | null = null,
+  babysitterCalendarSourceId: string | null = null,
 ): EventDraft {
   const baseRule = ruleForFormState(state);
   const repeats = Boolean(baseRule);
@@ -493,7 +494,10 @@ export function draftFromFormState(
     recurrence_until:
       repeats && state.recurrenceEnd === "on" ? state.recurrenceUntil || null : null,
     calendar_source_id: state.calendarSourceId ?? calendarSourceId,
-    ...(state.babysitter ? { babysitter_assignment: state.babysitter } : {}),
+    ...(state.babysitter && babysitterCalendarSourceId &&
+    eventDestinationId(state, calendarSourceId) === babysitterCalendarSourceId
+      ? { babysitter_assignment: state.babysitter }
+      : {}),
     member_ids: state.members,
     member_weekdays:
       repeats && usesPerPersonDays(state)
@@ -541,9 +545,14 @@ export function validateFormState(
   context: EventValidationContext = {},
 ): string | null {
   if (!state.title.trim()) return "Please add an event name";
-  if (state.babysitter === null) return "Choose the assigned babysitter";
-  if (state.babysitter?.kind === "other" && !state.babysitter.name.trim()) {
-    return "Enter the babysitter's name";
+  const destination = eventDestinationId(state, context.fallbackCalendarSourceId);
+  const onBabysitterCalendar =
+    !!context.babysitterCalendarSourceId &&
+    destination === context.babysitterCalendarSourceId;
+  if (onBabysitterCalendar && !hasAssignedCaregiver(state)) {
+    return state.babysitter?.kind === "other"
+      ? "Enter the babysitter's name"
+      : "Choose the assigned babysitter";
   }
   if (!state.date || !state.endDate) return "Choose a start and end date";
   if (state.endDate < state.date) return "The end date can't be before the start date";
@@ -553,12 +562,8 @@ export function validateFormState(
   // Childcare names the caregiver, so family members stay optional. So does a
   // Babysitter calendar event once a caregiver is assigned: the caregiver — not
   // a household member — is who that day belongs to.
-  const destination = eventDestinationId(state, context.fallbackCalendarSourceId);
-  const onBabysitterCalendar =
-    !!context.babysitterCalendarSourceId &&
-    destination === context.babysitterCalendarSourceId;
   const membersOptional =
-    state.eventType === "childcare" || (onBabysitterCalendar && hasAssignedCaregiver(state));
+    state.eventType === "childcare" || onBabysitterCalendar;
   if (!membersOptional && state.members.length === 0) {
     return "Choose at least one family member";
   }
@@ -678,10 +683,7 @@ export function EventFormFields({
     enabled: canEdit,
     staleTime: 5 * 60_000,
   }).data;
-  const showShift =
-    !!shiftSettings?.calendar_source_id &&
-    shownCalendarSourceId === shiftSettings.calendar_source_id &&
-    !state.allDay;
+  const showShift = onBabysitterCalendar;
   // Show/hide the required babysitter selector as the calendar changes; new
   // shifts start from the household default (never retroactive).
   useEffect(() => {
@@ -693,8 +695,6 @@ export function EventFormFields({
         ...state,
         babysitter: ok ? { kind: "caregiver", family_member_id: def } : null,
       });
-    } else if (!showShift && state.babysitter !== undefined) {
-      onChange({ ...state, babysitter: undefined });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showShift, shiftSettings, state.babysitter]);
@@ -1206,7 +1206,7 @@ export function EventFormFields({
         </div>
       ) : null}
 
-      {showShift && shiftSettings ? (
+      {showShift ? (
         <div className="space-y-1">
           <Label htmlFor={`${idPrefix}-babysitter`}>Assigned babysitter</Label>
           <Select
@@ -1227,22 +1227,22 @@ export function EventFormFields({
               <SelectValue placeholder="Choose a babysitter" />
             </SelectTrigger>
             <SelectContent>
-              {[...shiftSettings.caregivers]
+              {[...(shiftSettings?.caregivers ?? [])]
                 .sort((a, b) =>
-                  a.family_member_id === shiftSettings.default_member_id
+                  a.family_member_id === shiftSettings?.default_member_id
                     ? -1
-                    : b.family_member_id === shiftSettings.default_member_id
+                    : b.family_member_id === shiftSettings?.default_member_id
                       ? 1
                       : 0,
                 )
                 .map((c) => (
                   <SelectItem key={c.family_member_id} value={c.family_member_id}>
                     {c.name}
-                    {c.family_member_id === shiftSettings.default_member_id ? " · Default" : ""}
+                    {c.family_member_id === shiftSettings?.default_member_id ? " · Default" : ""}
                   </SelectItem>
                 ))}
               {state.babysitter?.kind === "caregiver" &&
-              !shiftSettings.caregivers.some(
+              !shiftSettings?.caregivers.some(
                 (c) => c.family_member_id === shiftValue,
               ) ? (
                 // Legacy assignment to a caregiver no longer active: show it, never offer it.
@@ -1251,7 +1251,6 @@ export function EventFormFields({
                 </SelectItem>
               ) : null}
               <SelectItem value="other">Other</SelectItem>
-              <SelectItem value="none">None</SelectItem>
             </SelectContent>
           </Select>
           {state.babysitter?.kind === "other" ? (
