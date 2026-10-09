@@ -81,6 +81,7 @@ function ActivitiesPage() {
                 key={t}
                 type="button"
                 role="tab"
+                data-tour-target={t === "recurring" ? "activities-recurring" : "activities-timesheets"}
                 aria-selected={tab === t}
                 onClick={() => void navigate({ search: t === "timesheets" ? { tab: "timesheets" } : {} })}
                 className={cn(
