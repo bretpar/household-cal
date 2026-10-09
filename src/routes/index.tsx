@@ -305,7 +305,7 @@ function LandingPage() {
           </span>
         </div>
         <nav className="flex shrink-0 items-center gap-1.5 sm:gap-2" aria-label="Account">
-          <Link to="/auth" search={{ mode: "signup" }}>
+          <Link to="/auth" search={{ mode: "signin" }}>
             <Button
               variant="ghost"
               className="h-10 rounded-full px-3 font-bold sm:px-4"
@@ -344,7 +344,7 @@ function LandingPage() {
                   Start your family calendar
                 </Button>
               </Link>
-              <Link to="/auth" search={{ mode: "signup" }}>
+              <Link to="/auth" search={{ mode: "signin" }}>
                 <Button
                   variant="outline"
                   size="lg"
