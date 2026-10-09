@@ -100,14 +100,18 @@ export function EventComposerContent({
   submitLabel?: string;
   calendarSourceId?: string | null;
 }) {
-  const { addEvent, sources } = useCalendar();
+  const { addEvent, sources, family } = useCalendar();
   const [saving, setSaving] = useState(false);
   // Shown inside the dialog so a blocked submit is never silent, even if a
   // toast is off-screen or covered.
   const [formError, setFormError] = useState<string | null>(null);
 
   const submit = async () => {
-    const error = validateFormState(state);
+    const destinationId = calendarSourceId ?? defaultCalendarSourceId(sources);
+    const error = validateFormState(state, {
+      babysitterCalendarSourceId: family?.babysitter_calendar_source_id ?? null,
+      fallbackCalendarSourceId: destinationId,
+    });
     setFormError(error);
     if (error) {
       toast.error(error);
@@ -117,9 +121,7 @@ export function EventComposerContent({
       busy: saving,
       setBusy: setSaving,
       perform: () =>
-        addEvent(
-          draftFromFormState(state, calendarSourceId ?? defaultCalendarSourceId(sources)),
-        ),
+        addEvent(draftFromFormState(state, destinationId)),
       onSuccess: (result) => {
         // The household save is authoritative here; Google mirroring is
         // reported separately so a slow Google call never looks like a failure.

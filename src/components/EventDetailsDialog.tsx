@@ -111,6 +111,7 @@ export function EventDetailsDialog() {
     deleteEvent,
     copyOccurrence,
     members,
+    family,
     categoryAppearanceFor,
   } = useCalendar();
 
@@ -158,7 +159,10 @@ export function EventDetailsDialog() {
   // one occurrence.
   const requestSave = () => {
     if (!state) return;
-    const error = validateFormState(state);
+    const error = validateFormState(state, {
+      babysitterCalendarSourceId: family?.babysitter_calendar_source_id ?? null,
+      fallbackCalendarSourceId: event.calendar_source_id,
+    });
     setFormError(error);
     if (error) {
       toast.error(error);

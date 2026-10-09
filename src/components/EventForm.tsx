@@ -505,7 +505,29 @@ export function draftFromFormState(
 }
 
 
-export function validateFormState(state: EventFormState): string | null {
+/**
+ * Where a save is actually heading, plus the household Babysitter calendar, so
+ * the same member rule can be applied when creating and when editing.
+ */
+export interface EventValidationContext {
+  /** The household Babysitter calendar id, when the family has one. */
+  babysitterCalendarSourceId?: string | null;
+  /** Destination used when the form itself hasn't picked one. */
+  fallbackCalendarSourceId?: string | null;
+}
+
+/** The calendar a save is heading to: the form's own choice wins over the caller's default. */
+export function eventDestinationId(
+  state: EventFormState,
+  fallbackCalendarSourceId?: string | null,
+): string | null {
+  return state.calendarSourceId ?? fallbackCalendarSourceId ?? null;
+}
+
+export function validateFormState(
+  state: EventFormState,
+  context: EventValidationContext = {},
+): string | null {
   if (!state.title.trim()) return "Please add an event name";
   if (state.babysitter === null) return "Choose the assigned babysitter";
   if (state.babysitter?.kind === "other" && !state.babysitter.name.trim()) {
@@ -516,8 +538,15 @@ export function validateFormState(state: EventFormState): string | null {
   if (!state.allDay && combine(state.endDate, state.endTime) <= combine(state.date, state.startTime)) {
     return "The event must end after it starts";
   }
-  // Childcare names the caregiver, so family members stay optional.
-  if (state.eventType !== "childcare" && state.members.length === 0) {
+  // Childcare names the caregiver, so family members stay optional. The same
+  // goes for the household Babysitter calendar: the assigned caregiver — not a
+  // household member — is what makes that day count, and that caregiver is
+  // already required above.
+  const destination = eventDestinationId(state, context.fallbackCalendarSourceId);
+  const onBabysitterCalendar =
+    !!context.babysitterCalendarSourceId &&
+    destination === context.babysitterCalendarSourceId;
+  if (!onBabysitterCalendar && state.eventType !== "childcare" && state.members.length === 0) {
     return "Choose at least one family member";
   }
   const repeats =
@@ -601,7 +630,7 @@ export function EventFormFields({
   onChange: (next: EventFormState) => void;
   idPrefix?: string;
 }) {
-  const { members, styleFor, sources, categories } = useCalendar();
+  const { members, styleFor, sources, categories, family } = useCalendar();
   // Advanced recurrence controls stay tucked away until the user asks for them.
   const [repeatOpen, setRepeatOpen] = useState(false);
   // Caregivers are family-member records internally but are not household
@@ -614,6 +643,11 @@ export function EventFormFields({
       ?.id ?? null;
   const shownCalendarSourceId =
     state.calendarSourceId ?? defaultCalendarSourceId(sources) ?? familyCalendarId;
+  // On the Babysitter calendar the assigned caregiver, not a household member,
+  // is who the event is about — so "Who?" is optional there too.
+  const onBabysitterCalendar =
+    !!family?.babysitter_calendar_source_id &&
+    shownCalendarSourceId === family.babysitter_calendar_source_id;
   // An existing event may live on a calendar that no longer accepts new events
   // (archived or legacy); show it so the destination is always visible.
   const currentSource = shownCalendarSourceId
@@ -1087,7 +1121,7 @@ export function EventFormFields({
       <div className="space-y-1.5">
         <Label>
           Who?
-          {state.eventType === "childcare" ? (
+          {state.eventType === "childcare" || onBabysitterCalendar ? (
             <span className="ml-1 font-semibold text-muted-foreground">(optional)</span>
           ) : null}
         </Label>
