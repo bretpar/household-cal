@@ -55,7 +55,7 @@ export function AppShell({
   compactMobileLandscape?: boolean;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { isCaregiver, resolved: caregiverResolved } = useCaregiver();
+  const { isCaregiver, resolved: caregiverResolved, failed: accessFailed, retry: retryAccess } = useCaregiver();
   const { isOwner, family } = useCalendar();
   const timesheetsOn = hasFeature("timesheets", { familyId: family?.id });
   // No tabs until caregiver status is known, so a caregiver never sees parent tabs.
@@ -160,7 +160,24 @@ export function AppShell({
             : "px-4 pt-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-12 lg:px-8",
         )}
       >
-        {showContentSkeleton ? <PageContentSkeleton /> : children}
+        {accessFailed && !caregiverResolved ? (
+          <div className="mx-auto max-w-sm space-y-3 py-12 text-center">
+            <p className="text-sm text-muted-foreground">We couldn't confirm your access.</p>
+            <button
+              type="button"
+              onClick={retryAccess}
+              className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            >
+              Try again
+            </button>
+          </div>
+        ) : !caregiverResolved ? (
+          <PageContentSkeleton />
+        ) : showContentSkeleton ? (
+          <PageContentSkeleton />
+        ) : (
+          children
+        )}
       </main>
 
 

@@ -102,12 +102,12 @@ function CalendarLoadReporter({
   onChange: (s: { loading: boolean; failed: boolean }) => void;
 }) {
   const { loadError } = useCalendar();
-  const { resolved } = useCaregiver();
+  const { resolved, failed } = useCaregiver();
   // The shell (tabs) shows once membership and caregiver status are verified;
   // calendar events load independently behind in-page loading states.
-  const busy = !resolved && !loadError;
+  const busy = !resolved && !loadError && !failed;
   useEffect(() => {
-    onChange({ loading: busy, failed: loadError });
-  }, [busy, loadError, onChange]);
+    onChange({ loading: busy, failed: loadError || failed });
+  }, [busy, loadError, failed, onChange]);
   return null;
 }
