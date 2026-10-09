@@ -60,6 +60,57 @@ const LANDSCAPE_NAV = [
   { to: "/family", label: "Family" },
 ] as const;
 
+/** Tappable date heading: opens a compact month picker anchored beneath it. */
+function DateJumpPicker({
+  label,
+  anchor,
+  onPick,
+  align = "center",
+  className,
+}: {
+  label: string;
+  anchor: Date;
+  onPick: (day: Date) => void;
+  align?: "start" | "center" | "end";
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Choose a date, currently ${label}`}
+          className={cn(
+            "inline-flex min-w-0 items-center justify-center gap-1 rounded-full px-2 py-0.5 transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            className,
+          )}
+        >
+          {/* Keyed so the text crossfades on handoff; layout never moves. */}
+          <span key={label} className="inline-block truncate animate-fade-in">
+            {label}
+          </span>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align={align} className="w-auto p-0">
+        <Calendar
+          mode="single"
+          selected={anchor}
+          defaultMonth={anchor}
+          initialFocus
+          className="pointer-events-auto p-3"
+          onSelect={(day) => {
+            if (!day) return;
+            onPick(day);
+            setOpen(false);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 const CAREGIVER_LANDSCAPE_NAV = [
   { to: "/today", label: "Today" },
   { to: "/timesheet", label: "Timesheet" },
