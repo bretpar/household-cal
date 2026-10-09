@@ -118,7 +118,7 @@ export function MarketingFeaturePage(props: {
             alt={props.image.alt}
             width={props.image.width}
             height={props.image.height}
-            className="mx-auto block h-auto w-full rounded-3xl border border-border-soft shadow-lifted"
+            className="mx-auto block h-auto max-h-[75vh] w-auto max-w-full rounded-3xl border border-border-soft shadow-lifted"
             loading="eager"
           />
         </figure>
