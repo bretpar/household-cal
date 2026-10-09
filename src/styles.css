@@ -46,6 +46,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
+  --color-tour-overlay: var(--tour-overlay);
 
   /* Brand palette straight from the logo */
   --color-brand-navy: var(--brand-navy);
@@ -114,6 +115,7 @@
 }
 
 :root {
+  --tour-overlay: oklch(0.22 0 0 / 0.68);
   --radius: 1rem;
 
   /* Logo brand colors */
@@ -194,6 +196,12 @@
 
   --shared: #f7f5f1;
   --shared-strong: #e7e4de;
+}
+
+.app-tour-dimmer {
+  position: absolute;
+  background: var(--tour-overlay);
+  pointer-events: auto;
 }
 
 @layer base {

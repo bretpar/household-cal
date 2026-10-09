@@ -138,6 +138,7 @@ export function AppShell({
                 <Link
                   key={to}
                   to={to}
+                  data-tour-target={to}
                   preload="intent"
                   className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary lg:px-4"
                   activeProps={{ className: "bg-secondary text-foreground" }}
@@ -189,6 +190,7 @@ export function AppShell({
             <Link
               key={to}
               to={to}
+              data-tour-target={to}
               preload="intent"
               // preload="intent" already warms the route on touch/hover; only
               // highlight the tab here so we don't fire duplicate preloads.

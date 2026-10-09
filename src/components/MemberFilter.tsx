@@ -14,6 +14,7 @@ export function PeopleFilterButton({ className }: { className?: string }) {
       <PopoverTrigger asChild>
         <button
           type="button"
+          data-tour-target="people-filter"
           aria-label={count ? `People filter — ${count} active` : "People filter"}
           className={cn(
             "flex h-11 min-w-0 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors",
@@ -28,7 +29,9 @@ export function PeopleFilterButton({ className }: { className?: string }) {
           <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto max-w-[calc(100vw-2rem)] rounded-2xl p-3">
+      <PopoverContent align="start" className="w-auto max-w-[calc(100vw-2rem)] rounded-2xl p-3" onInteractOutside={(event) => {
+        if (event.target instanceof Element && event.target.closest(".app-tour-tooltip")) event.preventDefault();
+      }}>
         <MemberFilter excludeCaregivers hideSummary />
       </PopoverContent>
     </Popover>
@@ -56,7 +59,7 @@ export function MemberFilter({
   const hidden = all ? [] : visible.filter((m) => !selectedMembers.includes(m.id));
 
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
+    <div data-tour-target="people" className={cn("flex flex-col gap-1.5", className)}>
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"

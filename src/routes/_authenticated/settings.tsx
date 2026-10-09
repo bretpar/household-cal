@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/AppShell";
+import { ReplayAppTour } from "@/components/AppTour";
 import { CaregiverOnly } from "@/components/CaregiverGate";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 
@@ -23,6 +24,8 @@ export const Route = createFileRoute("/_authenticated/settings")({
       { name: "description", content: "Your household, family colors and calendars you can view." },
       { property: "og:title", content: "Caregiver Settings — Family Calendar" },
       { property: "og:description", content: "Read-only caregiver settings." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: CaregiverSettingsRoute,
@@ -94,6 +97,7 @@ function CaregiverSettings() {
 
         <section className="space-y-3 border-t border-border-soft pt-5" aria-label="Account">
           <ChangePasswordDialog />
+          <ReplayAppTour />
           <SignOutButton />
         </section>
 

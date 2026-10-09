@@ -10,6 +10,7 @@ import {
 
 
 import { AccountDeletion } from "@/components/AccountDeletion";
+import { ReplayAppTour } from "@/components/AppTour";
 import { AppShell } from "@/components/AppShell";
 import { ParentOnly } from "@/components/CaregiverGate";
 import { CalendarAppearanceSettings } from "@/components/CalendarAppearanceSettings";
@@ -145,6 +146,7 @@ function FamilyPage() {
             </p>
           </div>
           <ChangePasswordDialog />
+          <ReplayAppTour />
           <AccountDeletion />
           <GoogleCalendarMaintenance>
             <BuildDiagnostics />
