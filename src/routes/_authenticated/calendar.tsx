@@ -470,7 +470,7 @@ function CalendarPage() {
         {/* Desktop / tablet header — unchanged */}
         <header className="hidden grid-cols-[minmax(0,1fr)_auto] items-center gap-3 md:grid">
           <h1 className="truncate text-2xl font-bold sm:text-3xl">Calendar</h1>
-          <AddEventDialog defaultDate={anchor} />
+          <span data-tour-target="calendar-add" className="inline-flex"><AddEventDialog defaultDate={anchor} /></span>
         </header>
 
         {/* Compact phone toolbar: navigation, Today and + on one row. */}
@@ -503,7 +503,7 @@ function CalendarPage() {
           >
             Today
           </Button>
-          <AddEventDialog defaultDate={anchor} compact />
+          <span data-tour-target="calendar-add" className="inline-flex"><AddEventDialog defaultDate={anchor} compact /></span>
         </div>
 
         {/* One-row phone landscape workspace toolbar. */}
@@ -551,7 +551,7 @@ function CalendarPage() {
             onValueChange={(next: ViewMode) => changeView(next)}
 
           >
-            <SelectTrigger className="h-8 w-[5.75rem] shrink-0 rounded-full border-border-soft bg-surface px-2 text-xs font-semibold shadow-none">
+            <SelectTrigger data-tour-target="calendar-views" className="h-8 w-[5.75rem] shrink-0 rounded-full border-border-soft bg-surface px-2 text-xs font-semibold shadow-none">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -563,7 +563,7 @@ function CalendarPage() {
             </SelectContent>
           </Select>
           <CalendarFiltersSheet iconOnly className="h-8 w-8 border-0 bg-transparent" />
-          <AddEventDialog defaultDate={anchor} compact className="h-8 w-8" />
+          <span data-tour-target="calendar-add" className="inline-flex"><AddEventDialog defaultDate={anchor} compact className="h-8 w-8" /></span>
         </div>
 
         <div className="hidden flex-wrap items-center justify-between gap-3 md:flex">
@@ -601,7 +601,7 @@ function CalendarPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex rounded-full bg-surface-muted p-1">
+            <div data-tour-target="calendar-views" className="flex rounded-full bg-surface-muted p-1">
               {(["month", "week", "day"] as ViewMode[]).map((v) => (
                 <button
                   key={v}
@@ -622,7 +622,7 @@ function CalendarPage() {
 
         {/* Phone view switcher + filters */}
         <div className="calendar-mobile-view-controls flex shrink-0 items-center gap-2 md:hidden">
-          <div className="flex min-w-0 flex-1 rounded-full bg-surface-muted p-1">
+          <div data-tour-target="calendar-views" className="flex min-w-0 flex-1 rounded-full bg-surface-muted p-1">
             {phoneViews.map((v) => (
               <button
                 key={v}

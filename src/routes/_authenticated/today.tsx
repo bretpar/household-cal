@@ -49,6 +49,7 @@ function TodayPage() {
             <AddEventDialog defaultDate={today} />
           </div>
         </header>
+        <div data-tour-target="today-agenda">
         <AgendaView
           anchor={today}
           events={visibleEvents}
@@ -58,6 +59,7 @@ function TodayPage() {
           loadError={loadError}
           onPaste={canEdit && copiedEvent ? startPaste : undefined}
         />
+        </div>
       </div>
     </AppShell>
   );

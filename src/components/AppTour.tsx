@@ -14,19 +14,13 @@ import { TOUR_VERSION, shouldAutoStartTour, tourSteps, tourStorageKey, type Tour
 const TourContext = createContext<(() => void) | null>(null);
 type Placement = { left: number; top: number; width: number; height: number; x: number; y: number; below: boolean; radius: number };
 
-// Each step's own page. Ids come only from the role-filtered tourSteps list,
-// so caregivers are never sent to a page outside their tour.
-const STEP_ROUTES = {
-  "/today": "/today", people: "/today", "/calendar": "/calendar", "/activities": "/activities",
-  "/timesheet": "/timesheet", "/settings": "/settings", "/family": "/family",
-} as const;
-type StepRoute = (typeof STEP_ROUTES)[keyof typeof STEP_ROUTES];
-const stepRoute = (id: string) => (STEP_ROUTES as Record<string, StepRoute | undefined>)[id];
-
-function visibleTarget(id: string): HTMLElement | undefined {
-  return Array.from(document.querySelectorAll<HTMLElement>("[data-tour-target]")).find((el) =>
-    el.dataset["tourTarget"] === id && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0,
-  );
+function visibleTarget(...ids: string[]): HTMLElement | undefined {
+  const all = Array.from(document.querySelectorAll<HTMLElement>("[data-tour-target]"));
+  for (const id of ids) {
+    const el = all.find((e) => e.dataset["tourTarget"] === id && e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height > 0);
+    if (el) return el;
+  }
+  return undefined;
 }
 
 export function AppTourProvider({ children }: { children: ReactNode }) {
@@ -46,15 +40,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
   const focusBefore = useRef<HTMLElement | null>(null);
   const autoChecked = useRef<string | null>(null);
   const steps = useMemo(() => {
-    const ordered = tourSteps(isCaregiver, isOwner, hasFeature("timesheets", { familyId: family?.id }));
-    // Swap the parent tour's Calendar and Family initials steps only; caregiver
-    // steps have different content and retain their existing permission flow.
-    if (!isCaregiver) {
-      const second = ordered[1];
-      const third = ordered[2];
-      if (second && third) { ordered[1] = third; ordered[2] = second; }
-    }
-    return ordered;
+    return tourSteps(isCaregiver, isOwner, hasFeature("timesheets", { familyId: family?.id }));
   }, [isCaregiver, isOwner, family?.id]);
   const step = index === null ? undefined : steps[index];
   const accessReady = resolved && !failed && !!family;
@@ -127,7 +113,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
     let openedFilter: HTMLElement | undefined;
     const began = Date.now();
     let frame = 0;
-    const dest = stepRoute(step.id);
+    const dest = step.route;
     const needsNav = !!dest && window.location.pathname !== dest;
     if (dest && needsNav) void navigate({ to: dest }).catch(() => {});
     let lastRect = "";
@@ -158,7 +144,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
           openedFilter = trigger;
         }
       }
-      const target = visibleTarget(step.id);
+      const target = visibleTarget(...step.targets);
       if (!target) {
         if (Date.now() - began > 3000) {
           if (index !== null && index < steps.length - 1) setIndex(index + 1);

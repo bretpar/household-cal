@@ -24,12 +24,12 @@ describe("app tour eligibility", () => {
 
 describe("role-specific targets", () => {
   it("never offers parent-only targets to caregivers", () => {
-    expect(tourSteps(true, false, true).map((s) => s.id)).toEqual(["/today", "/calendar", "/timesheet", "/settings"]);
+    expect(tourSteps(true, false, true).map((s) => s.id)).toEqual(["today-schedule", "calendar-views", "timesheet", "settings"]);
   });
   it("omits unavailable caregiver timesheets", () => {
-    expect(tourSteps(true, false, false).map((s) => s.id)).toEqual(["/today", "/calendar", "/settings"]);
+    expect(tourSteps(true, false, false).map((s) => s.id)).toEqual(["today-schedule", "calendar-views", "settings"]);
   });
   it("offers parents the existing family controls", () => {
-    expect(tourSteps(false, true, true).map((s) => s.id)).toEqual(["/today", "/calendar", "people", "/activities", "/family"]);
+    expect(tourSteps(false, true, true).map((s) => s.id)).toEqual(["today-schedule", "people", "people-filter", "calendar-views", "calendar-events", "activities", "timesheets", "family"]);
   });
 });
