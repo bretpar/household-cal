@@ -25,7 +25,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
   const { resolved, failed, isCaregiver } = useCaregiver();
   const [userId, setUserId] = useState<string | null>(null);
   const [index, setIndex] = useState<number | null>(null);
-  const [placement, setPlacement] = useState<{ left: number; top: number; width: number; height: number; x: number; y: number; below: boolean } | null>(null);
+  const [placement, setPlacement] = useState<{ left: number; top: number; width: number; height: number; x: number; y: number; below: boolean; radius: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const focusBefore = useRef<HTMLElement | null>(null);
   const autoChecked = useRef<string | null>(null);
@@ -109,6 +109,10 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
       const r = target.getBoundingClientRect();
       if (r.bottom < 0 || r.top > window.innerHeight) target.scrollIntoView({ block: "center", behavior: "instant" });
       const pad = 4;
+      // Match the spotlight's corner radius to the target (e.g. rounded bottom
+      // nav items) so the highlight never shows square corners.
+      const targetRadius = parseFloat(getComputedStyle(target).borderTopLeftRadius) || 0;
+      const radius = targetRadius > 0 ? Math.min(targetRadius + pad, 24) : 8;
       const left = Math.max(4, r.left - pad);
       const top = Math.max(4, r.top - pad);
       const width = Math.min(window.innerWidth - left - 4, r.width + pad * 2);
@@ -118,7 +122,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
       const below = window.innerHeight - (top + height) >= cardHeight + 24;
       const x = Math.max(12, Math.min(left + width / 2 - cardWidth / 2, window.innerWidth - cardWidth - 12));
       const y = below ? top + height + 12 : Math.max(12, top - cardHeight - 12);
-      const next = { left, top, width, height, x, y, below };
+      const next = { left, top, width, height, x, y, below, radius };
       setPlacement((old) => old && Object.keys(next).every((key) => old[key as keyof typeof old] === next[key as keyof typeof next]) ? old : next);
       frame = requestAnimationFrame(measure);
     };
@@ -148,13 +152,15 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
         <div className="app-tour-dimmer" style={{ left: 0, top: placement.top, width: placement.left, height: placement.height }} />
         <div className="app-tour-dimmer" style={{ left: placement.left + placement.width, top: placement.top, right: 0, height: placement.height }} />
         <div className="app-tour-dimmer" style={{ left: 0, top: placement.top + placement.height, bottom: 0, width: "100%" }} />
-        <div className="absolute rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-background" style={{ left: placement.left, top: placement.top, width: placement.width, height: placement.height }} />
+        <div className="absolute ring-2 ring-primary ring-offset-2 ring-offset-background" style={{ left: placement.left, top: placement.top, width: placement.width, height: placement.height, borderRadius: placement.radius }} />
         <div ref={cardRef} role="dialog" aria-labelledby="app-tour-title" aria-describedby="app-tour-description" tabIndex={-1} className="app-tour-tooltip pointer-events-auto absolute w-80 max-w-[calc(100vw-24px)] rounded-2xl border border-border bg-popover p-4 text-popover-foreground shadow-lifted outline-none" style={{ left: placement.x, top: placement.y, maxHeight: placement.below ? `calc(100dvh - ${placement.y + 12}px)` : Math.max(100, placement.top - 24), overflowY: "auto" }}>
           <span aria-hidden className={`absolute h-3 w-3 rotate-45 border-border bg-popover ${placement.below ? "top-0 border-t border-l" : "bottom-0 border-r border-b"}`} style={{ left: Math.max(16, Math.min(placement.width / 2 + placement.left - placement.x, Math.min(320, window.innerWidth - 24) - 24)) }} />
-          <p className="text-xs font-semibold text-muted-foreground" aria-live="polite">{(index ?? 0) + 1} / {steps.length}</p>
-          <h2 id="app-tour-title" className="mt-1 text-lg font-bold">{step.title}</h2>
-          <p id="app-tour-description" className="mt-2 text-sm leading-relaxed">{step.description}</p>
-          <div className="mt-4 flex items-center justify-between gap-2">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="app-tour-title" className="text-lg font-bold">{step.title}</h2>
+            <p className="shrink-0 text-xs font-semibold text-muted-foreground" aria-live="polite">{(index ?? 0) + 1} / {steps.length}</p>
+          </div>
+          <p id="app-tour-description" className="mt-1 text-sm leading-relaxed">{step.description}</p>
+          <div className="mt-3 flex items-center justify-between gap-2">
             <Button variant="ghost" size="sm" onClick={() => finish("dismissed")}>Skip</Button>
             <div className="flex gap-1">
               <Button variant="ghost" size="sm" disabled={index === 0} onClick={() => setIndex((value) => Math.max(0, (value ?? 0) - 1))}><ArrowLeft />Back</Button>
