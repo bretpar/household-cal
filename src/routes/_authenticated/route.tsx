@@ -130,7 +130,7 @@ function AuthenticatedLayout() {
       {/* Onboarding / no-household screens have no calendar to wait for: once
           the guard passes, the splash must never stay above them. */}
       <StartupHeartReveal
-        loading={!everReady && !accessError ? true : !pathname.startsWith("/onboarding") && calState.loading}
+        loading={splashLoading}
         failed={accessError || calState.failed || (everReady && pathname.startsWith("/onboarding"))}
       />
     </>
