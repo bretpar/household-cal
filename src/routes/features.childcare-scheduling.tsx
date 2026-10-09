@@ -23,6 +23,13 @@ const FAQ = [
   { question: "What can a caregiver see on the calendar?", answer: "Only the calendars you choose. You can also limit their view to the days they're scheduled to work. Caregivers can't edit family events." },
 ];
 
+const TIMESHEET_STEPS = [
+  { title: "Schedule a caregiver", body: "Assign babysitter or nanny shifts on your family calendar." },
+  { title: "Start with scheduled hours", body: "Time cards are automatically prefilled from those scheduled shifts." },
+  { title: "Record actual hours", body: "Caregivers adjust their actual hours when needed and submit their timesheets." },
+  { title: "Review and confirm", body: "Parents review the time card and confirm the hours in one place." },
+];
+
 export const Route = createFileRoute("/features/childcare-scheduling")({
   head: () =>
     featureHead({
@@ -45,6 +52,31 @@ function ChildcarePage() {
       image={{ src: mobileDayAsset.url, alt: "Our Family Calendar mobile Day view showing activities and babysitter coverage" }}
       sectionsTitle="How childcare scheduling works"
       sections={SECTIONS}
+      extra={
+        <section className="border-y border-border-soft bg-surface">
+          <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
+            <p className="text-sm font-bold uppercase tracking-wide text-primary">Scheduled shifts → actual hours → parent confirmation</p>
+            <h2 className="mt-3 font-display text-3xl font-bold sm:text-4xl">From the family schedule to a confirmed timesheet</h2>
+            <p className="mt-4 max-w-3xl text-muted-foreground">
+              A babysitter timesheet or nanny hours tracker works best when it starts with the
+              schedule you already use. Built-in timesheets keep caregiver scheduling and
+              hour tracking together, so you don't have to maintain two separate systems.
+            </p>
+            <ol className="mt-8 grid gap-6 sm:grid-cols-2">
+              {TIMESHEET_STEPS.map((step, index) => (
+                <li key={step.title} className="flex gap-4">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent font-bold text-accent-foreground" aria-hidden>{index + 1}</span>
+                  <div>
+                    <h3 className="font-display text-xl font-bold">{step.title}</h3>
+                    <p className="mt-2 text-muted-foreground">{step.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-8 text-sm text-muted-foreground">Timesheets track hours only — they don't handle payroll, payments or taxes.</p>
+          </div>
+        </section>
+      }
       faq={FAQ}
       related={
         <>

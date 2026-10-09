@@ -1,5 +1,10 @@
 # Roadmap
 
+## Childcare timesheet marketing
+- [ ] Add neutral timesheet comparison row and linked childcare explanation.
+- [ ] Emphasize the scheduled-to-actual workflow on the childcare page and parent confirmation on the homepage.
+- [ ] Verify the changed public sections and links without publishing.
+
 ## Comparison-page trust and usability
 - [x] Review desktop/mobile presentation and factual claims.
 - [x] Fix comparison readability, claim qualifications, and signup links.
