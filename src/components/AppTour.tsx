@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,15 @@ import { TOUR_VERSION, shouldAutoStartTour, tourSteps, tourStorageKey, type Tour
 const TourContext = createContext<(() => void) | null>(null);
 type Placement = { left: number; top: number; width: number; height: number; x: number; y: number; below: boolean; radius: number };
 
+// Each step's own page. Ids come only from the role-filtered tourSteps list,
+// so caregivers are never sent to a page outside their tour.
+const STEP_ROUTES = {
+  "/today": "/today", people: "/today", "/calendar": "/calendar", "/activities": "/activities",
+  "/timesheet": "/timesheet", "/settings": "/settings", "/family": "/family",
+} as const;
+type StepRoute = (typeof STEP_ROUTES)[keyof typeof STEP_ROUTES];
+const stepRoute = (id: string) => (STEP_ROUTES as Record<string, StepRoute | undefined>)[id];
+
 function visibleTarget(id: string): HTMLElement | undefined {
   return Array.from(document.querySelectorAll<HTMLElement>("[data-tour-target]")).find((el) =>
     el.dataset["tourTarget"] === id && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0,
@@ -22,6 +31,8 @@ function visibleTarget(id: string): HTMLElement | undefined {
 
 export function AppTourProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
+  const router = useRouter();
+  const origin = useRef<string | null>(null);
   const { family, isOwner } = useCalendar();
   const { resolved, failed, isCaregiver } = useCaregiver();
   const [userId, setUserId] = useState<string | null>(null);
@@ -48,6 +59,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
   const start = useCallback(() => {
     if (!accessReady || !userId || getVerifiedMembership()?.userId !== userId) return;
     focusBefore.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    origin.current = window.location.pathname + window.location.search;
     placementRef.current = null;
     setPlacement(null);
     setIndex(0);
@@ -64,8 +76,11 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
     setIndex(null);
     placementRef.current = null;
     setPlacement(null);
+    const back = origin.current;
+    origin.current = null;
+    if (back && back !== window.location.pathname + window.location.search) router.history.push(back);
     focusBefore.current?.focus();
-  }, [userId]);
+  }, [userId, router]);
 
   useEffect(() => {
     if (!accessReady) { setIndex(null); placementRef.current = null; setPlacement(null); return; }
@@ -90,6 +105,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
             return;
           }
           focusBefore.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          origin.current = window.location.pathname + window.location.search;
           setIndex(0);
         }, () => {});
     }).catch(() => {});
@@ -107,7 +123,10 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
     let openedFilter: HTMLElement | undefined;
     const began = Date.now();
     let frame = 0;
-    if (step.id === "people") void navigate({ to: "/today" }).catch(() => {});
+    const dest = stepRoute(step.id);
+    const needsNav = !!dest && window.location.pathname !== dest;
+    if (dest && needsNav) void navigate({ to: dest }).catch(() => {});
+    let arrived: number | undefined;
     const measure = () => {
       if (cancelled) return;
       if (getVerifiedMembership()?.userId !== userId) {
@@ -120,6 +139,19 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
       if (document.querySelector(".startup-splash-bg")) {
         frame = requestAnimationFrame(measure);
         return;
+      }
+      // Keep the previous dimmed cutout until the destination page has
+      // rendered and settled, so the highlight never jumps mid-layout.
+      if (dest && window.location.pathname !== dest && Date.now() - began < 3000) {
+        frame = requestAnimationFrame(measure);
+        return;
+      }
+      if (needsNav) {
+        arrived ??= performance.now();
+        if (performance.now() - arrived < (reducedMotion ? 60 : 140)) {
+          frame = requestAnimationFrame(measure);
+          return;
+        }
       }
       if (step.id === "people" && !visibleTarget("people")) {
         const trigger = visibleTarget("people-filter");
