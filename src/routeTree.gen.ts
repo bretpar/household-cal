@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BestSharedCalendarAppRouteImport } from './routes/best-shared-calendar-app'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as NativeGoogleAuthRouteImport } from './routes/native-google-auth'
 import { Route as PrivacyRouteImport } from './routes/privacy'
@@ -53,6 +54,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BestSharedCalendarAppRoute = BestSharedCalendarAppRouteImport.update({
+  id: '/best-shared-calendar-app',
+  path: '/best-shared-calendar-app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McpRoute = McpRouteImport.update({
@@ -210,6 +216,7 @@ const LovableEmailTransactionalPreviewRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/best-shared-calendar-app': typeof BestSharedCalendarAppRoute
   '/mcp': typeof McpRoute
   '/native-google-auth': typeof NativeGoogleAuthRoute
   '/privacy': typeof PrivacyRoute
@@ -242,6 +249,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/best-shared-calendar-app': typeof BestSharedCalendarAppRoute
   '/mcp': typeof McpRoute
   '/native-google-auth': typeof NativeGoogleAuthRoute
   '/privacy': typeof PrivacyRoute
@@ -276,6 +284,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/best-shared-calendar-app': typeof BestSharedCalendarAppRoute
   '/mcp': typeof McpRoute
   '/native-google-auth': typeof NativeGoogleAuthRoute
   '/privacy': typeof PrivacyRoute
@@ -310,6 +319,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/best-shared-calendar-app'
     | '/mcp'
     | '/native-google-auth'
     | '/privacy'
@@ -342,6 +352,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/best-shared-calendar-app'
     | '/mcp'
     | '/native-google-auth'
     | '/privacy'
@@ -375,6 +386,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/best-shared-calendar-app'
     | '/mcp'
     | '/native-google-auth'
     | '/privacy'
@@ -409,6 +421,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  BestSharedCalendarAppRoute: typeof BestSharedCalendarAppRoute
   McpRoute: typeof McpRoute
   NativeGoogleAuthRoute: typeof NativeGoogleAuthRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -452,6 +465,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/best-shared-calendar-app': {
+      id: '/best-shared-calendar-app'
+      path: '/best-shared-calendar-app'
+      fullPath: '/best-shared-calendar-app'
+      preLoaderRoute: typeof BestSharedCalendarAppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcp': {
@@ -682,6 +702,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  BestSharedCalendarAppRoute: BestSharedCalendarAppRoute,
   McpRoute: McpRoute,
   NativeGoogleAuthRoute: NativeGoogleAuthRoute,
   PrivacyRoute: PrivacyRoute,
