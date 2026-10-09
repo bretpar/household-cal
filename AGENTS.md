@@ -24,3 +24,5 @@
 - Day, 3-Day, and Week timed cards use the shared header-collision layout in calendar-layout.ts for both background and foreground events; stack priority follows deterministic occurrence order across header groups within each body-overlap cluster. Why: protect later headers without changing true event times or narrowing whole overlap groups.
 - Agent integrations (MCP) live in src/lib/mcp/ (read-only tools, Supabase OAuth, RLS as caller). Why: assistants act as the signed-in user.
 - App tours live in the authenticated provider, enter Today once, and highlight real bottom tabs through scoped CSS without geometry tracking; versioned state stays per verified user in app_tour_states. Why: fixed walkthroughs avoid route/loading/positioning races while retaining existing eligibility and persistence.
+
+- The public comparison guide renders desktop rows and mobile feature lists from the same comparison data. Why: keep both presentations consistent without horizontal scrolling on phones.

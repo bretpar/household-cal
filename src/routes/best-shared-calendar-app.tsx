@@ -3,13 +3,13 @@ import { Check, Minus } from "lucide-react";
 
 import logoAsset from "@/assets/logo.png.asset.json";
 import heroMonthAsset from "@/assets/landing-hero-month-desktop.png.asset.json";
-import ogImageAsset from "@/assets/landing-og-image.png.asset.json";
+import mobileDayAsset from "@/assets/landing-mobile-day.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { LegalFooter } from "@/components/LegalFooter";
 
 const SITE_URL = "https://ourfamilycalendar.com";
 const PAGE_URL = `${SITE_URL}/best-shared-calendar-app`;
-const OG_IMAGE_URL = `${SITE_URL}${ogImageAsset.url}`;
+const OG_IMAGE_URL = `${SITE_URL}${heroMonthAsset.url}`;
 const TITLE = "Best Shared Calendar App for Families | Our Family Calendar";
 const DESCRIPTION =
   "Looking for the best shared calendar app? Compare what matters for families: color-coded members, Google Calendar sync, caregiver access and childcare in one schedule.";
@@ -29,21 +29,21 @@ const CRITERIA = [
   },
   {
     title: "Caregivers get the right amount of access",
-    body: "Invite babysitters, nannies and grandparents, and control who can make changes. Caregiver coverage shows right inside the family schedule.",
+    body: "Invite babysitters, nannies and grandparents with view-only caregiver access. Choose the calendars they can see and, if needed, limit visibility to their assigned shift days. Caregiver coverage shows inside the family schedule.",
   },
   {
     title: "It stays a calendar",
-    body: "No special hardware and no cluttered feature bundles — just a clear, calendar-first view of what's happening next.",
+    body: "Use your phone, tablet or computer without buying a dedicated calendar display. The shared schedule stays at the center of the experience.",
   },
 ];
 
 type Mark = "yes" | "no" | string;
 const ROWS: { label: string; ours: Mark; general: Mark; wall: Mark }[] = [
   { label: "Shared household schedule", ours: "yes", general: "yes", wall: "yes" },
-  { label: "Color and initials per family member", ours: "yes", general: "Manual", wall: "Often" },
-  { label: "Google Calendar integration", ours: "yes", general: "Varies", wall: "Often" },
-  { label: "Babysitter & caregiver access controls", ours: "yes", general: "Limited", wall: "Varies" },
-  { label: "Childcare visible in the family schedule", ours: "yes", general: "no", wall: "Varies" },
+  { label: "Color and initials per family member", ours: "yes", general: "Varies by app", wall: "Varies by device" },
+  { label: "Google Calendar integration", ours: "yes", general: "Varies by app", wall: "Varies by device" },
+  { label: "Babysitter & caregiver access controls", ours: "yes", general: "Varies by app", wall: "Varies by device" },
+  { label: "Childcare visible in the family schedule", ours: "yes", general: "Can add events", wall: "Varies by device" },
   { label: "Special hardware required", ours: "no", general: "no", wall: "yes" },
 ];
 
@@ -51,12 +51,12 @@ const FAQ = [
   {
     question: "What is the best shared calendar app for families?",
     answer:
-      "The best shared calendar app for a family is one everyone can read at a glance, that connects to the calendars you already use, and that lets you include caregivers safely. Our Family Calendar was built around exactly those needs.",
+      "There is no single best app for every family. Look for a readable shared schedule, compatibility with your existing calendars and the right caregiver permissions. Our Family Calendar is an option for households that want member colors, Google Calendar connection and view-only caregiver access in one place.",
   },
   {
     question: "Can I share the calendar with a babysitter?",
     answer:
-      "Yes. You can invite babysitters, nannies and other caregivers and choose what they can see and change.",
+      "Yes. Caregiver access is view-only: caregivers cannot edit family events. The household owner chooses which calendars they can see and can restrict visibility to assigned shift days.",
   },
   {
     question: "Does it sync with Google Calendar?",
@@ -117,34 +117,44 @@ function BestSharedCalendarPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
-        <Link to="/" className="flex min-w-0 items-center gap-2.5">
+        <Link to="/" className="flex min-w-0 items-center gap-2">
           <img src={logoAsset.url} alt="Our Family Calendar logo" className="h-9 w-9 shrink-0 rounded-xl object-contain sm:h-10 sm:w-10" />
-          <span className="truncate font-display text-base font-bold sm:text-lg">Our Family Calendar</span>
+          <span className="font-display text-sm font-bold sm:text-lg">Our Family Calendar</span>
         </Link>
-        <Link to="/auth">
-          <Button className="h-10 rounded-full px-5 font-bold">Get started</Button>
-        </Link>
+        <Button asChild className="h-11 shrink-0 rounded-full px-4 font-bold">
+          <Link to="/auth" search={{ mode: "signup" }}>Get started</Link>
+        </Button>
       </header>
 
       <main>
         <section className="mx-auto max-w-4xl px-4 pb-12 pt-6 text-center sm:px-6 sm:pt-12 lg:px-8">
           <p className="text-sm font-bold uppercase tracking-wide text-primary">Family scheduling, simplified</p>
           <h1 className="mt-3 font-display text-4xl font-bold sm:text-5xl">
-            The best shared calendar app for busy families
+            Choosing the best shared calendar app for your family
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-            Most shared calendars were built for work teams. Our Family Calendar is built for households — kids'
-            activities, parents' schedules and the babysitter, all in one view.
+            Compare the features that matter to your household. Our Family Calendar brings kids' activities,
+            parents' schedules and caregiver coverage into one shared view.
           </p>
           <div className="mt-7">
-            <Link to="/auth">
-              <Button size="lg" className="h-12 rounded-full px-7 font-bold">Create your family calendar</Button>
-            </Link>
+            <Button asChild size="lg" className="h-12 rounded-full px-7 font-bold">
+              <Link to="/auth" search={{ mode: "signup" }}>Create your family calendar</Link>
+            </Button>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Already have an account? <Link to="/auth" search={{ mode: "signin" }} className="font-semibold text-primary underline underline-offset-4">Sign in</Link>
+            </p>
           </div>
           <img
             src={heroMonthAsset.url}
             alt="Our Family Calendar month view with color-coded family events"
-            className="mx-auto mt-10 w-full rounded-3xl border border-border-soft shadow-lifted"
+            width={1171}
+            height={884}
+            className="mx-auto mt-10 hidden w-full rounded-3xl border border-border-soft shadow-lifted sm:block"
+          />
+          <img
+            src={mobileDayAsset.url}
+            alt="Our Family Calendar phone day view with family events and caregiver coverage"
+            className="mx-auto mt-8 w-full max-w-[280px] rounded-3xl border border-border-soft shadow-lifted sm:hidden"
           />
         </section>
 
@@ -167,7 +177,31 @@ function BestSharedCalendarPage() {
 
         <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
           <h2 className="font-display text-3xl font-bold sm:text-4xl">How the options compare</h2>
-          <div className="mt-8 overflow-x-auto rounded-3xl border border-border-soft bg-card shadow-soft">
+          <p className="mt-3 max-w-3xl text-muted-foreground">
+            This is a feature guide from Our Family Calendar, not an independent ranking. Other columns describe
+            product categories, not specific brands; features and sharing permissions vary by product and plan.
+            Childcare events can be added to general calendars, but dedicated caregiver visibility controls vary.
+          </p>
+          <div className="mt-6 space-y-3 md:hidden">
+            {ROWS.map((r) => (
+              <div key={r.label} className="rounded-lg border border-border-soft bg-card p-4">
+                <h3 className="font-semibold">{r.label}</h3>
+                <dl className="mt-3 space-y-3 text-sm">
+                  {[
+                    { name: "Our Family Calendar", value: r.ours, highlight: true },
+                    { name: "General shared calendar", value: r.general, highlight: false },
+                    { name: "Wall calendar device", value: r.wall, highlight: false },
+                  ].map((option) => (
+                    <div key={option.name} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+                      <dt className={option.highlight ? "font-semibold text-primary" : "text-muted-foreground"}>{option.name}</dt>
+                      <dd><Cell value={option.value} highlight={option.highlight} /></dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8 hidden overflow-x-auto rounded-lg border border-border-soft bg-card shadow-soft md:block">
             <table className="w-full min-w-[560px] text-left text-sm">
               <thead>
                 <tr className="border-b border-border-soft">
@@ -209,11 +243,9 @@ function BestSharedCalendarPage() {
               Try the shared calendar made for families
             </h2>
             <div className="mt-7">
-              <Link to="/auth">
-                <Button size="lg" variant="secondary" className="h-12 rounded-full bg-primary-foreground px-7 font-bold text-primary hover:bg-primary-foreground/90">
-                  Get started
-                </Button>
-              </Link>
+              <Button asChild size="lg" variant="secondary" className="h-12 rounded-full bg-primary-foreground px-7 font-bold text-primary hover:bg-primary-foreground/90">
+                <Link to="/auth" search={{ mode: "signup" }}>Get started</Link>
+              </Button>
             </div>
           </div>
         </section>
