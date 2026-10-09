@@ -26,10 +26,6 @@ export function BuildDiagnostics() {
           <dd className="font-mono text-xs">{__OFC_BUILD_ID__}</dd>
         </div>
         <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-muted-foreground">Source verification test</dt>
-          <dd className="font-mono text-xs">active</dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-3">
           <dt className="text-muted-foreground">App version</dt>
           <dd className="font-mono text-xs">{__OFC_APP_VERSION__}</dd>
         </div>

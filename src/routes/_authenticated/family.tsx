@@ -4,9 +4,9 @@ import {
   CalendarDays,
   ClipboardList,
   House,
-  LockKeyhole,
   UserRound,
 } from "lucide-react";
+
 
 
 import { AccountDeletion } from "@/components/AccountDeletion";
@@ -146,22 +146,13 @@ function FamilyPage() {
           </div>
           <ChangePasswordDialog />
           <AccountDeletion />
+          <GoogleCalendarMaintenance>
+            <BuildDiagnostics />
+            <CaregiverVisibilityDiagnostic />
+            <DeveloperTools />
+          </GoogleCalendarMaintenance>
         </SettingsSection>
 
-        <section className="border-t border-border-soft pt-5">
-          <SettingsSection
-            title="Advanced / Maintenance"
-            description="Locked troubleshooting and support tools"
-            icon={<LockKeyhole className="h-5 w-5" aria-hidden />}
-            tone="muted"
-          >
-            <GoogleCalendarMaintenance>
-              <BuildDiagnostics />
-              <CaregiverVisibilityDiagnostic />
-              <DeveloperTools />
-            </GoogleCalendarMaintenance>
-          </SettingsSection>
-        </section>
 
         <section className="space-y-3 border-t border-border-soft pt-5" aria-label="Account security">
           <SignOutButton />
