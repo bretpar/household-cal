@@ -438,30 +438,19 @@ function CalendarPage() {
     ) : (
       // Desktop day view: the hourly timeline owns vertical scrolling so the
       // wheel moves through hours instead of the page.
-      <div className="flex h-full min-h-0 flex-col">
-        <WeekView
-          anchor={at}
-          events={visibleEvents}
-          selectedMembers={selectedMembers}
-          days={1}
-          onCreateRange={onCreateRange}
-          bare
-          fill
-          active={active}
-          onTimelineScroll={syncTimelineScroll}
-          onEventDragChange={handleEventDragChange}
-          recenterSignal={todaySignal}
-        />
-        <div className="max-h-[30%] shrink-0 overflow-y-auto border-t border-border-soft p-4">
-        <AgendaView
-          anchor={at}
-          events={visibleEvents}
-          selectedMembers={selectedMembers}
-          onPaste={onPaste}
-          loading={loading}
-        />
-        </div>
-      </div>
+      <WeekView
+        anchor={at}
+        events={visibleEvents}
+        selectedMembers={selectedMembers}
+        days={1}
+        onCreateRange={onCreateRange}
+        bare
+        fill
+        active={active}
+        onTimelineScroll={syncTimelineScroll}
+        onEventDragChange={handleEventDragChange}
+        recenterSignal={todaySignal}
+      />
     );
 
   return (
