@@ -8,37 +8,27 @@ export function shouldAutoStartTour(createdAt: string, saved: string | null): bo
   return saved === null && Number.isFinite(Date.parse(createdAt)) && Date.parse(createdAt) >= Date.parse(TOUR_LAUNCH_DATE);
 }
 
-export type TourRoute = "/today" | "/calendar" | "/activities" | "/timesheet" | "/settings" | "/family";
-
 export interface TourStep {
   id: string;
   title: string;
   description: string;
-  /** Page this tip lives on; consecutive tips on one page never navigate. */
-  route: TourRoute;
-  /** Spotlight anchors in priority order; the first visible one is used. */
-  targets: string[];
+  /** Existing bottom tab to highlight, never a navigation destination. */
+  tab: "/today" | "/calendar" | "/activities" | "/timesheet" | "/settings" | "/family";
 }
 
 export function tourSteps(caregiver: boolean, owner: boolean, timesheets: boolean): TourStep[] {
-  if (caregiver) {
-    const steps: TourStep[] = [
-      { id: "today-schedule", route: "/today", targets: ["today-agenda", "/today"], title: "Today", description: "Your upcoming shifts and the family plans shared with you." },
-      { id: "calendar-views", route: "/calendar", targets: ["calendar-views", "/calendar"], title: "Calendar", description: "Switch views and move between dates. Your access is read-only." },
-    ];
-    if (timesheets) steps.push({ id: "timesheet", route: "/timesheet", targets: ["/timesheet"], title: "Timesheet", description: "Review your actual hours and submit your time card." });
-    steps.push({ id: "settings", route: "/settings", targets: ["/settings"], title: "Settings", description: "Your account and notification preferences. Replay this tour anytime." });
-    return steps;
-  }
-  const steps: TourStep[] = [
-    { id: "today-schedule", route: "/today", targets: ["today-agenda", "/today"], title: "Today's schedule", description: "Your family's upcoming plans at a glance." },
-    { id: "people", route: "/today", targets: ["people"], title: "Family initials & colors", description: "Each initial and color is a family member, so you can see who's involved." },
-    { id: "people-filter", route: "/today", targets: ["people-filter"], title: "Family filters", description: "Show or hide family members to focus on their plans." },
-    { id: "calendar-views", route: "/calendar", targets: ["calendar-views", "/calendar"], title: "Calendar views", description: "Switch between Day, 3-Day, Week and Month." },
-    { id: "calendar-events", route: "/calendar", targets: ["calendar-add", "/calendar"], title: "Events", description: "Tap any event to see details, or add a new one here." },
-    { id: "activities", route: "/activities", targets: ["activities-recurring", "/activities"], title: "Activities", description: "Your family's recurring activities and their schedules." },
+  return [
+    { id: "today", tab: "/today", title: "Today", description: caregiver
+      ? "Your upcoming shifts and shared family plans for the next three days."
+      : "Your family's upcoming three-day schedule, with everyone's plans together." },
+    { id: "calendar", tab: "/calendar", title: "Calendar", description: caregiver
+      ? "Browse shared plans by date in Day, 3-Day, Week or Month. Your access is read-only."
+      : "Browse your family's plans in Day, 3-Day, Week or Month." },
+    { id: "activities", tab: caregiver ? timesheets ? "/timesheet" : "/calendar" : "/activities", title: caregiver ? timesheets ? "Timesheet" : "Shared plans" : owner && timesheets ? "Activities & Timesheets" : "Activities", description: caregiver
+      ? timesheets ? "Review your actual hours and submit your time card." : "The Calendar shows only the family plans shared with you."
+      : owner && timesheets ? "Find recurring activities and review caregiver time cards." : "Find your family's recurring activities and their schedules." },
+    { id: "settings", tab: caregiver ? "/settings" : "/family", title: "Settings", description: caregiver
+      ? "Your account and notification preferences. Replay this tour under Account."
+      : "Household members, notifications and calendar connections. Replay this tour under Account." },
   ];
-  if (owner && timesheets) steps.push({ id: "timesheets", route: "/activities", targets: ["activities-timesheets"], title: "Timesheets", description: "Review and confirm caregiver hours here." });
-  steps.push({ id: "family", route: "/family", targets: ["/family"], title: "Settings", description: "Household members, notifications and calendar connections. Replay this tour under Account." });
-  return steps;
 }

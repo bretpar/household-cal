@@ -115,7 +115,7 @@
 }
 
 :root {
-  --tour-overlay: oklch(0.22 0 0 / 0.68);
+  --tour-overlay: oklch(0.22 0 0 / 0.42);
   --radius: 1rem;
 
   /* Logo brand colors */
@@ -198,9 +198,40 @@
   --shared-strong: #e7e4de;
 }
 
-.app-tour-dimmer {
-  fill: var(--tour-overlay);
-  pointer-events: auto;
+/* Fixed walkthrough: lift the real bottom nav; dim it except the selected tab.
+   No masks, measured rectangles, animation frames or page-element tracking. */
+body:has(.app-tour-layer) {
+  overflow: hidden;
+}
+body:has(.app-tour-layer) .app-shell-bottom-nav {
+  display: block;
+  z-index: 81;
+  pointer-events: none;
+}
+body:has(.app-tour-layer) .app-shell-bottom-nav::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--tour-overlay);
+  pointer-events: none;
+}
+body:has(.app-tour-layer[data-tour-tab="/today"]) .app-shell-bottom-link[data-tour-target="/today"],
+body:has(.app-tour-layer[data-tour-tab="/calendar"]) .app-shell-bottom-link[data-tour-target="/calendar"],
+body:has(.app-tour-layer[data-tour-tab="/activities"]) .app-shell-bottom-link[data-tour-target="/activities"],
+body:has(.app-tour-layer[data-tour-tab="/timesheet"]) .app-shell-bottom-link[data-tour-target="/timesheet"],
+body:has(.app-tour-layer[data-tour-tab="/family"]) .app-shell-bottom-link[data-tour-target="/family"],
+body:has(.app-tour-layer[data-tour-tab="/settings"]) .app-shell-bottom-link[data-tour-target="/settings"] {
+  z-index: 1;
+  background: var(--accent);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+.app-tour-tooltip {
+  z-index: 82;
+  bottom: calc(6.5rem + env(safe-area-inset-bottom));
+  height: 188px;
+  max-height: calc(100dvh - 7.25rem - env(safe-area-inset-bottom));
 }
 
 @layer base {
