@@ -12,17 +12,24 @@ export const IS_CAREGIVER_KEY = ["is-caregiver"] as const;
  * profile) in the current household. Reads the existing is_babysitter()
  * database helper; access itself is still enforced by RLS.
  */
-export function useCaregiver(): { isCaregiver: boolean; resolved: boolean } {
+export function useCaregiver(): {
+  isCaregiver: boolean;
+  resolved: boolean;
+  /** Role/caregiver lookup failed with no prior answer; offer a retry. */
+  failed: boolean;
+  retry: () => void;
+} {
   const { family } = useCalendar();
   // Before the calendar bundle arrives, use the membership the startup guard
   // already verified so navigation can be decided without waiting on events.
   const verified = family ? null : getVerifiedMembership();
   const familyId = family?.id ?? verified?.family_id ?? null;
-  const viewer = (family?.role ?? verified?.role) === "viewer";
+  const role = family?.role ?? verified?.role ?? null;
+  const viewer = role === "viewer";
   const q = useQuery({
     queryKey: [...IS_CAREGIVER_KEY, familyId],
     // Polled for every member so role/access changes reach open sessions (~30s).
-    enabled: !!familyId,
+    enabled: !!familyId && viewer,
     staleTime: 30_000,
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
@@ -42,8 +49,15 @@ export function useCaregiver(): { isCaregiver: boolean; resolved: boolean } {
     }
     last.current = q.data;
   }, [q.data, qc]);
-  if (!familyId) return { isCaregiver: false, resolved: false };
-  if (!viewer) return { isCaregiver: false, resolved: true };
-  // Keep the last known answer during refetches; only a first load is unresolved.
-  return { isCaregiver: q.data === true, resolved: q.data !== undefined || q.isError };
+  const retry = () => {
+    void qc.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+    void q.refetch();
+  };
+  // Missing household or role: unresolved. A loaded household without a role is a failure.
+  if (!familyId || !role) return { isCaregiver: false, resolved: false, failed: !!family, retry };
+  if (!viewer) return { isCaregiver: false, resolved: true, failed: false, retry };
+  // Keep the last known successful answer during refetches; a failed first
+  // lookup stays unresolved (never defaults to parent access).
+  const resolved = q.data !== undefined;
+  return { isCaregiver: q.data === true, resolved, failed: !resolved && q.isError, retry };
 }

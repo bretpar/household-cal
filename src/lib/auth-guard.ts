@@ -27,33 +27,43 @@ let verifiedMembership: { userId: string; family_id: string; role: string | null
 export function getVerifiedMembership() {
   return verifiedMembership;
 }
-let guardInFlight: { pathname: string; promise: ReturnType<typeof resolveGuardUncached> } | null =
-  null;
+let guardInFlight: {
+  pathname: string;
+  gen: number;
+  promise: ReturnType<typeof resolveGuardUncached>;
+} | null = null;
+/** Bumped on every auth identity change; results from older generations are discarded. */
+let authGeneration = 0;
 if (typeof window !== "undefined") {
   supabase.auth.onAuthStateChange((event) => {
     if (event !== "TOKEN_REFRESHED" && event !== "INITIAL_SESSION") {
+      authGeneration++;
       guardCache = null;
+      guardInFlight = null;
       verifiedMembership = null;
     }
   });
 }
 
-export async function resolveGuard(pathname: string) {
+export async function resolveGuard(pathname: string): ReturnType<typeof resolveGuardUncached> {
+  const gen = authGeneration;
   const onOnboarding = pathname.startsWith("/onboarding");
   if (guardCache && !onOnboarding && Date.now() - guardCache.at < GUARD_TTL_MS) {
     // Local session read only (no network); confirms the same user is still signed in.
     const { data } = await withTimeout(supabase.auth.getSession(), AUTH_TIMEOUT_MS, "Session");
-    if (data.session?.user.id === guardCache.userId) {
+    if (gen === authGeneration && guardCache && data.session?.user.id === guardCache.userId) {
       return { user: guardCache.user as NonNullable<typeof data.session>["user"], family_id: guardCache.family_id };
     }
     guardCache = null;
   }
   // Share one in-flight check between beforeLoad and the mount effect.
-  if (guardInFlight?.pathname === pathname) return guardInFlight.promise;
-  const promise = resolveGuardUncached(pathname);
-  guardInFlight = { pathname, promise };
+  if (guardInFlight?.pathname === pathname && guardInFlight.gen === gen) return guardInFlight.promise;
+  const promise = resolveGuardUncached(pathname, gen);
+  guardInFlight = { pathname, gen, promise };
   try {
     const result = await promise;
+    // Auth changed while this check ran: discard it and check the current user.
+    if (gen !== authGeneration) return resolveGuard(pathname);
     if ("family_id" in result && result.family_id && result.user) {
       guardCache = { userId: result.user.id, family_id: result.family_id, at: Date.now(), user: result.user };
     }
@@ -88,7 +98,7 @@ async function currentUser() {
   }
 }
 
-async function resolveGuardUncached(pathname: string) {
+async function resolveGuardUncached(pathname: string, gen: number) {
   const user = await currentUser();
   if (!user) return { redirectTo: "/auth" as const };
   const data = { user };
@@ -108,6 +118,7 @@ async function resolveGuardUncached(pathname: string) {
   if (resolved) {
     if (!resolved.family_id && !onOnboarding) return { redirectTo: "/onboarding" as const };
     if (resolved.family_id && onOnboarding) return { redirectTo: "/calendar" as const };
+    if (gen !== authGeneration) return { user: data.user };
     verifiedMembership = resolved.family_id
       ? { userId: user.id, family_id: resolved.family_id, role: resolved.role ?? null }
       : null;
