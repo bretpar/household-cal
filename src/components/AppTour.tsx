@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Loader2, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +38,9 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [index, setIndex] = useState<number | null>(null);
   const [placement, setPlacement] = useState<Placement | null>(null);
+  // The step the card currently shows; it only catches up with `index` once
+  // the destination page and its spotlight target are mounted and settled.
+  const [shownIndex, setShownIndex] = useState<number | null>(null);
   const placementRef = useRef<Placement | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const focusBefore = useRef<HTMLElement | null>(null);
@@ -74,6 +77,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
       ).then(() => {}, () => {});
     }
     setIndex(null);
+    setShownIndex(null);
     placementRef.current = null;
     setPlacement(null);
     const back = origin.current;
@@ -126,7 +130,8 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
     const dest = stepRoute(step.id);
     const needsNav = !!dest && window.location.pathname !== dest;
     if (dest && needsNav) void navigate({ to: dest }).catch(() => {});
-    let arrived: number | undefined;
+    let lastRect = "";
+    let stableFrames = 0;
     const measure = () => {
       if (cancelled) return;
       if (getVerifiedMembership()?.userId !== userId) {
@@ -145,13 +150,6 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
       if (dest && window.location.pathname !== dest && Date.now() - began < 3000) {
         frame = requestAnimationFrame(measure);
         return;
-      }
-      if (needsNav) {
-        arrived ??= performance.now();
-        if (performance.now() - arrived < (reducedMotion ? 60 : 140)) {
-          frame = requestAnimationFrame(measure);
-          return;
-        }
       }
       if (step.id === "people" && !visibleTarget("people")) {
         const trigger = visibleTarget("people-filter");
@@ -174,6 +172,20 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
       if (r.bottom < 0 || r.top > window.innerHeight) {
         target.scrollIntoView({ block: "center", behavior: "instant" });
         r = target.getBoundingClientRect();
+      }
+      // Page-ready gate: the target must have real, unchanged coordinates for a
+      // few consecutive frames (route mounted, layout settled) before the card
+      // and spotlight advance together. Bounded by the 3s fallback.
+      if (transitionStarted === undefined) {
+        const key = `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`;
+        const valid = r.width > 0 && r.height > 0;
+        stableFrames = valid && key === lastRect ? stableFrames + 1 : 0;
+        lastRect = key;
+        if (stableFrames < (needsNav ? 3 : 1) && Date.now() - began < 3000) {
+          frame = requestAnimationFrame(measure);
+          return;
+        }
+        setShownIndex(index);
       }
       const pad = 4;
       // Match the spotlight's corner radius to the target (e.g. rounded bottom
@@ -225,6 +237,8 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
   }, [index, !!placement, finish]);
 
   // The dimmer and blue outline share one rounded boundary, including corners.
+  const pending = index !== shownIndex;
+  const shownStep = (shownIndex === null ? undefined : steps[shownIndex]) ?? step;
   const spotlightRadius = placement ? Math.min(placement.radius, placement.width / 2, placement.height / 2) : 0;
 
   return <TourContext.Provider value={start}>
@@ -251,15 +265,15 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
         <div ref={cardRef} role="dialog" aria-labelledby="app-tour-title" aria-describedby="app-tour-description" tabIndex={-1} className="app-tour-tooltip pointer-events-auto absolute w-80 max-w-[calc(100vw-24px)] rounded-2xl border border-border bg-popover p-4 text-popover-foreground shadow-lifted outline-none" style={{ left: placement.x, top: placement.y, maxHeight: placement.below ? `calc(100dvh - ${placement.y + 12}px)` : Math.max(100, placement.top - 24), overflowY: "auto" }}>
           <span aria-hidden className={`absolute h-3 w-3 rotate-45 border-border bg-popover ${placement.below ? "top-0 border-t border-l" : "bottom-0 border-r border-b"}`} style={{ left: Math.max(16, Math.min(placement.width / 2 + placement.left - placement.x, Math.min(320, window.innerWidth - 24) - 24)) }} />
           <div className="flex items-baseline justify-between gap-3">
-            <h2 id="app-tour-title" className="text-lg font-bold">{step.title}</h2>
-            <p className="shrink-0 text-xs font-semibold text-muted-foreground" aria-live="polite">{(index ?? 0) + 1} / {steps.length}</p>
+            <h2 id="app-tour-title" className="text-lg font-bold">{shownStep?.title}</h2>
+            <p className="shrink-0 text-xs font-semibold text-muted-foreground" aria-live="polite">{(shownIndex ?? index ?? 0) + 1} / {steps.length}</p>
           </div>
-          <p id="app-tour-description" className="mt-1 text-sm leading-relaxed">{step.description}</p>
+          <p id="app-tour-description" className="mt-1 text-sm leading-relaxed">{shownStep?.description}</p>
           <div className="mt-3 flex items-center justify-between gap-2">
             <Button variant="ghost" size="sm" onClick={() => finish("dismissed")}>Skip</Button>
             <div className="flex gap-1">
-              <Button variant="ghost" size="sm" disabled={index === 0} onClick={() => setIndex((value) => Math.max(0, (value ?? 0) - 1))}><ArrowLeft />Back</Button>
-              <Button size="sm" onClick={() => index === steps.length - 1 ? finish("completed") : setIndex((value) => (value ?? 0) + 1)}>{index === steps.length - 1 ? <>Done<Check /></> : <>Next<ArrowRight /></>}</Button>
+              <Button variant="ghost" size="sm" disabled={pending || shownIndex === 0} onClick={() => setIndex((value) => Math.max(0, (value ?? 0) - 1))}><ArrowLeft />Back</Button>
+              <Button size="sm" disabled={pending} aria-busy={pending} onClick={() => index === steps.length - 1 ? finish("completed") : setIndex((value) => (value ?? 0) + 1)}>{pending ? <><Loader2 className="animate-spin motion-reduce:animate-none" />Next</> : index === steps.length - 1 ? <>Done<Check /></> : <>Next<ArrowRight /></>}</Button>
             </div>
           </div>
         </div>
