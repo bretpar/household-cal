@@ -661,8 +661,7 @@ export function EventFormFields({
       ?.id ?? null;
   const shownCalendarSourceId =
     state.calendarSourceId ?? defaultCalendarSourceId(sources) ?? familyCalendarId;
-  // On the Babysitter calendar the assigned caregiver, not a household member,
-  // is who the event is about — so "Who?" is optional there too.
+  // Use the household calendar identity, never its display name.
   const onBabysitterCalendar =
     !!family?.babysitter_calendar_source_id &&
     shownCalendarSourceId === family.babysitter_calendar_source_id;
@@ -684,8 +683,8 @@ export function EventFormFields({
     staleTime: 5 * 60_000,
   }).data;
   const showShift = onBabysitterCalendar;
-  // Show/hide the required babysitter selector as the calendar changes; new
-  // shifts start from the household default (never retroactive).
+  // Initialize new shifts from the household default, preserving the selection
+  // when the user switches away and back.
   useEffect(() => {
     if (!shiftSettings) return;
     if (showShift && state.babysitter === undefined) {
@@ -1094,91 +1093,6 @@ export function EventFormFields({
         ) : null}
       </div>
 
-      {/* Household Event Categories (Settings → Event Categories) are the only
-          source of truth here. event_type is derived from the chosen category
-          so behaviour like childcare coverage keeps working. */}
-      <div className="min-w-0 space-y-1">
-        <Label>Category</Label>
-        <Select
-          value={resolvedCategoryValue ?? UNCATEGORIZED_VALUE}
-          onValueChange={(v) => setCategory(v === UNCATEGORIZED_VALUE ? null : v)}
-        >
-          <SelectTrigger className="h-10 rounded-xl sm:h-11">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((category) => (
-              <SelectItem key={category.id} value={category.id}>
-                <span className="flex items-center gap-2">
-                  <span
-                    className={cn("h-3 w-3 rounded-full", categoryAppearance(category).swatch)}
-                    aria-hidden
-                  />
-                  {category.name}
-                </span>
-              </SelectItem>
-            ))}
-            <SelectItem value={UNCATEGORIZED_VALUE}>
-              <span className="flex items-center gap-2">
-                <span
-                  className={cn("h-3 w-3 rounded-full", UNCATEGORIZED_APPEARANCE.swatch)}
-                  aria-hidden
-                />
-                {UNCATEGORIZED_LABEL}
-              </span>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label>
-          Who?
-          {state.eventType === "childcare" ||
-          (onBabysitterCalendar && hasAssignedCaregiver(state)) ? (
-            <span className="ml-1 font-semibold text-muted-foreground">(optional)</span>
-          ) : null}
-        </Label>
-        <div className="flex flex-wrap gap-2">
-          {activeMembers.map((member) => {
-            const on = state.members.includes(member.id);
-            return (
-              <button
-                key={member.id}
-                type="button"
-                aria-pressed={on}
-                onClick={() =>
-                  set(
-                    "members",
-                    on
-                      ? state.members.filter((m) => m !== member.id)
-                      : [...state.members, member.id],
-                  )
-                }
-                className={cn(
-                  "flex h-10 max-w-full min-w-0 items-center gap-2 rounded-full pr-4 pl-1.5 text-sm font-semibold transition-all sm:h-11",
-                  on
-                    ? cn(styleFor(member.id).soft, "ring-2", styleFor(member.id).ring)
-                    : "bg-surface-muted text-muted-foreground",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
-                    styleFor(member.id).badge,
-                    !on && "opacity-60",
-                  )}
-                >
-                  {member.initial}
-                </span>
-                <span className="min-w-0 truncate">{member.name}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-
       {pickerOptions.length > 0 ? (
         <div className="space-y-1">
           <Label>Calendar</Label>
@@ -1268,6 +1182,93 @@ export function EventFormFields({
         </div>
       ) : null}
 
+      {!onBabysitterCalendar ? (
+        <>
+      <div className="space-y-1.5">
+        <Label>
+          Who?
+          {state.eventType === "childcare" ||
+          (onBabysitterCalendar && hasAssignedCaregiver(state)) ? (
+            <span className="ml-1 font-semibold text-muted-foreground">(optional)</span>
+          ) : null}
+        </Label>
+        <div className="flex flex-wrap gap-2">
+          {activeMembers.map((member) => {
+            const on = state.members.includes(member.id);
+            return (
+              <button
+                key={member.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() =>
+                  set(
+                    "members",
+                    on
+                      ? state.members.filter((m) => m !== member.id)
+                      : [...state.members, member.id],
+                  )
+                }
+                className={cn(
+                  "flex h-10 max-w-full min-w-0 items-center gap-2 rounded-full pr-4 pl-1.5 text-sm font-semibold transition-all sm:h-11",
+                  on
+                    ? cn(styleFor(member.id).soft, "ring-2", styleFor(member.id).ring)
+                    : "bg-surface-muted text-muted-foreground",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
+                    styleFor(member.id).badge,
+                    !on && "opacity-60",
+                  )}
+                >
+                  {member.initial}
+                </span>
+                <span className="min-w-0 truncate">{member.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+
+      {/* Household Event Categories (Settings → Event Categories) are the only
+          source of truth here. event_type is derived from the chosen category
+          so behaviour like childcare coverage keeps working. */}
+      <div className="min-w-0 space-y-1">
+        <Label>Category</Label>
+        <Select
+          value={resolvedCategoryValue ?? UNCATEGORIZED_VALUE}
+          onValueChange={(v) => setCategory(v === UNCATEGORIZED_VALUE ? null : v)}
+        >
+          <SelectTrigger className="h-10 rounded-xl sm:h-11">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                <span className="flex items-center gap-2">
+                  <span
+                    className={cn("h-3 w-3 rounded-full", categoryAppearance(category).swatch)}
+                    aria-hidden
+                  />
+                  {category.name}
+                </span>
+              </SelectItem>
+            ))}
+            <SelectItem value={UNCATEGORIZED_VALUE}>
+              <span className="flex items-center gap-2">
+                <span
+                  className={cn("h-3 w-3 rounded-full", UNCATEGORIZED_APPEARANCE.swatch)}
+                  aria-hidden
+                />
+                {UNCATEGORIZED_LABEL}
+              </span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-location`}>Location</Label>
         <LocationAutocomplete
@@ -1277,6 +1278,9 @@ export function EventFormFields({
         />
 
       </div>
+
+        </>
+      ) : null}
 
       <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-notes`}>Notes</Label>
