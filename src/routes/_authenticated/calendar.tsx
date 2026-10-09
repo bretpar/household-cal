@@ -9,7 +9,7 @@ import {
   startOfWeek,
 } from "date-fns";
 
-import { ChevronLeft, ChevronRight, Menu } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Menu } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { AddEventDialog } from "@/components/AddEventDialog";
@@ -21,6 +21,12 @@ import { MonthScrollView, type MonthScrollHandle } from "@/components/MonthScrol
 import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +59,57 @@ const LANDSCAPE_NAV = [
   { to: "/activities", label: "Activities" },
   { to: "/family", label: "Family" },
 ] as const;
+
+/** Tappable date heading: opens a compact month picker anchored beneath it. */
+function DateJumpPicker({
+  label,
+  anchor,
+  onPick,
+  align = "center",
+  className,
+}: {
+  label: string;
+  anchor: Date;
+  onPick: (day: Date) => void;
+  align?: "start" | "center" | "end";
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Choose a date, currently ${label}`}
+          className={cn(
+            "inline-flex min-w-0 items-center justify-center gap-1 rounded-full px-2 py-0.5 transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            className,
+          )}
+        >
+          {/* Keyed so the text crossfades on handoff; layout never moves. */}
+          <span key={label} className="inline-block truncate animate-fade-in">
+            {label}
+          </span>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align={align} className="w-auto p-0">
+        <Calendar
+          mode="single"
+          selected={anchor}
+          defaultMonth={anchor}
+          initialFocus
+          className="pointer-events-auto p-3"
+          onSelect={(day) => {
+            if (!day) return;
+            onPick(day);
+            setOpen(false);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 const CAREGIVER_LANDSCAPE_NAV = [
   { to: "/today", label: "Today" },
@@ -306,6 +363,17 @@ function CalendarPage() {
   };
   const label = labelFor(visibleDate ?? anchor);
 
+  /** Jump straight to a picked date, keeping the current view and filters. */
+  const jumpToDate = (day: Date) => {
+    haptic();
+    if (mode === "month") {
+      setAnchor(day);
+      monthScrollRef.current?.scrollToMonth(day, "smooth");
+      return;
+    }
+    setAnchor(weekStartAnchor(day));
+  };
+
 
   const viewLabel = (v: ViewMode) =>
     v === "week" && isMobile && !isLandscape ? "3 Day" : CALENDAR_VIEW_LABEL[v];
@@ -416,11 +484,8 @@ function CalendarPage() {
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <span className="min-w-0 flex-1 truncate text-center text-sm font-bold">
-            {/* Keyed so the text crossfades on handoff; layout never moves. */}
-            <span key={label} className="inline-block animate-fade-in">
-              {label}
-            </span>
+          <span className="flex min-w-0 flex-1 justify-center text-sm font-bold">
+            <DateJumpPicker label={label} anchor={visibleDate ?? anchor} onPick={jumpToDate} />
           </span>
           <Button
             variant="ghost"
@@ -471,10 +536,8 @@ function CalendarPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="min-w-0 flex-1 truncate text-sm font-bold">
-            <span key={label} className="inline-block animate-fade-in">
-              {label}
-            </span>
+          <span className="flex min-w-0 flex-1 text-sm font-bold">
+            <DateJumpPicker label={label} anchor={visibleDate ?? anchor} onPick={jumpToDate} align="start" />
           </span>
           <Button
             variant="ghost"
@@ -515,10 +578,8 @@ function CalendarPage() {
               <ChevronLeft className="h-5 w-5" />
             </Button>
             {/* The header stays put: only the grid content animates. */}
-            <span className="min-w-0 flex-1 truncate text-base font-bold sm:text-lg">
-              <span key={label} className="inline-block animate-fade-in">
-                {label}
-              </span>
+            <span className="flex min-w-0 flex-1 text-base font-bold sm:text-lg">
+              <DateJumpPicker label={label} anchor={visibleDate ?? anchor} onPick={jumpToDate} align="start" />
             </span>
             <Button
               variant="ghost"
