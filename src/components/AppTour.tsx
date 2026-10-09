@@ -34,7 +34,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
   const accessReady = resolved && !failed && !!family;
 
   const start = useCallback(() => {
-    if (!accessReady || !userId) return;
+    if (!accessReady || !userId || getVerifiedMembership()?.userId !== userId) return;
     focusBefore.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setPlacement(null);
     setIndex(0);
@@ -79,6 +79,11 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
     if (step.id === "people") void navigate({ to: "/today" }).catch(() => {});
     const measure = () => {
       if (cancelled) return;
+      if (getVerifiedMembership()?.userId !== userId) {
+        setIndex(null);
+        setPlacement(null);
+        return;
+      }
       // Wait for the existing heart reveal and any page transition, not events.
       if (document.querySelector(".startup-splash-bg")) {
         frame = requestAnimationFrame(measure);
@@ -123,7 +128,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
       cancelAnimationFrame(frame);
       if (openedFilter?.getAttribute("aria-expanded") === "true") openedFilter.click();
     };
-  }, [step, accessReady, index, steps.length, finish, navigate]);
+  }, [step, accessReady, index, steps.length, finish, navigate, userId]);
 
   useEffect(() => {
     if (!placement || index === null) return;
@@ -145,7 +150,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
         <div className="app-tour-dimmer" style={{ left: 0, top: placement.top + placement.height, bottom: 0, width: "100%" }} />
         <div className="absolute rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-background" style={{ left: placement.left, top: placement.top, width: placement.width, height: placement.height }} />
         <div ref={cardRef} role="dialog" aria-labelledby="app-tour-title" aria-describedby="app-tour-description" tabIndex={-1} className="app-tour-tooltip pointer-events-auto absolute w-80 max-w-[calc(100vw-24px)] rounded-2xl border border-border bg-popover p-4 text-popover-foreground shadow-lifted outline-none" style={{ left: placement.x, top: placement.y, maxHeight: placement.below ? `calc(100dvh - ${placement.y + 12}px)` : Math.max(100, placement.top - 24), overflowY: "auto" }}>
-          <span aria-hidden className={`absolute h-3 w-3 rotate-45 border-border bg-popover ${placement.below ? "-top-1.5 border-t border-l" : "-bottom-1.5 border-r border-b"}`} style={{ left: Math.max(16, Math.min(placement.width / 2 + placement.left - placement.x, Math.min(320, window.innerWidth - 24) - 24)) }} />
+          <span aria-hidden className={`absolute h-3 w-3 rotate-45 border-border bg-popover ${placement.below ? "top-0 border-t border-l" : "bottom-0 border-r border-b"}`} style={{ left: Math.max(16, Math.min(placement.width / 2 + placement.left - placement.x, Math.min(320, window.innerWidth - 24) - 24)) }} />
           <p className="text-xs font-semibold text-muted-foreground" aria-live="polite">{(index ?? 0) + 1} / {steps.length}</p>
           <h2 id="app-tour-title" className="mt-1 text-lg font-bold">{step.title}</h2>
           <p id="app-tour-description" className="mt-2 text-sm leading-relaxed">{step.description}</p>

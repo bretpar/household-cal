@@ -1,8 +1,8 @@
 # Roadmap
 
 ## First-login app tour
-- [ ] Add role-specific spotlight tour, new-user-only automatic eligibility and versioned per-user persistence.
-- [ ] Add Settings replay, responsive positioning and focused tour-rule checks.
+- [x] Add role-specific spotlight tour, new-user-only automatic eligibility and versioned per-user persistence.
+- [x] Add Settings replay, responsive positioning and focused tour-rule checks.
 
 ## Calendar horizontal navigation physics
 - [x] Mobile 3-Day: continuous strip of single-day columns (~viewport/3 wide), one persistent horizontal scroll surface, snap one day at a time, buffered offscreen days, rebase only after settle with zero visible movement.
