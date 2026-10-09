@@ -157,15 +157,30 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("keydown", escape);
   }, [index, !!placement, finish]);
 
+  // The dimmer and blue outline share one rounded boundary, including corners.
+  const spotlightRadius = placement ? Math.min(placement.radius, placement.width / 2, placement.height / 2) : 0;
+
   return <TourContext.Provider value={start}>
     {children}
     {step && placement && accessReady && createPortal(
       <div className="app-tour-layer fixed inset-0 z-[80] pointer-events-none">
-        <div className="app-tour-dimmer" style={{ left: 0, top: 0, width: "100%", height: placement.top }} />
-        <div className="app-tour-dimmer" style={{ left: 0, top: placement.top, width: placement.left, height: placement.height }} />
-        <div className="app-tour-dimmer" style={{ left: placement.left + placement.width, top: placement.top, right: 0, height: placement.height }} />
-        <div className="app-tour-dimmer" style={{ left: 0, top: placement.top + placement.height, bottom: 0, width: "100%" }} />
-        <div className="absolute ring-2 ring-primary ring-offset-2 ring-offset-background" style={{ left: placement.left, top: placement.top, width: placement.width, height: placement.height, borderRadius: placement.radius }} />
+        <svg aria-hidden className="absolute inset-0 h-full w-full">
+          <path
+            className="app-tour-dimmer"
+            fillRule="evenodd"
+            d={`M0 0H${window.innerWidth}V${window.innerHeight}H0Z
+              M${placement.left + spotlightRadius} ${placement.top}
+              h${placement.width - 2 * spotlightRadius}
+              a${spotlightRadius} ${spotlightRadius} 0 0 1 ${spotlightRadius} ${spotlightRadius}
+              v${placement.height - 2 * spotlightRadius}
+              a${spotlightRadius} ${spotlightRadius} 0 0 1 ${-spotlightRadius} ${spotlightRadius}
+              h${-placement.width + 2 * spotlightRadius}
+              a${spotlightRadius} ${spotlightRadius} 0 0 1 ${-spotlightRadius} ${-spotlightRadius}
+              v${-placement.height + 2 * spotlightRadius}
+              a${spotlightRadius} ${spotlightRadius} 0 0 1 ${spotlightRadius} ${-spotlightRadius}Z`}
+          />
+        </svg>
+        <div className="absolute ring-2 ring-primary" style={{ left: placement.left, top: placement.top, width: placement.width, height: placement.height, borderRadius: spotlightRadius }} />
         <div ref={cardRef} role="dialog" aria-labelledby="app-tour-title" aria-describedby="app-tour-description" tabIndex={-1} className="app-tour-tooltip pointer-events-auto absolute w-80 max-w-[calc(100vw-24px)] rounded-2xl border border-border bg-popover p-4 text-popover-foreground shadow-lifted outline-none" style={{ left: placement.x, top: placement.y, maxHeight: placement.below ? `calc(100dvh - ${placement.y + 12}px)` : Math.max(100, placement.top - 24), overflowY: "auto" }}>
           <span aria-hidden className={`absolute h-3 w-3 rotate-45 border-border bg-popover ${placement.below ? "top-0 border-t border-l" : "bottom-0 border-r border-b"}`} style={{ left: Math.max(16, Math.min(placement.width / 2 + placement.left - placement.x, Math.min(320, window.innerWidth - 24) - 24)) }} />
           <div className="flex items-baseline justify-between gap-3">
