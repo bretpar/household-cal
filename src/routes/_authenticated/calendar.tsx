@@ -484,11 +484,8 @@ function CalendarPage() {
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <span className="min-w-0 flex-1 truncate text-center text-sm font-bold">
-            {/* Keyed so the text crossfades on handoff; layout never moves. */}
-            <span key={label} className="inline-block animate-fade-in">
-              {label}
-            </span>
+          <span className="flex min-w-0 flex-1 justify-center text-sm font-bold">
+            <DateJumpPicker label={label} anchor={visibleDate ?? anchor} onPick={jumpToDate} />
           </span>
           <Button
             variant="ghost"
@@ -539,10 +536,8 @@ function CalendarPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="min-w-0 flex-1 truncate text-sm font-bold">
-            <span key={label} className="inline-block animate-fade-in">
-              {label}
-            </span>
+          <span className="flex min-w-0 flex-1 text-sm font-bold">
+            <DateJumpPicker label={label} anchor={visibleDate ?? anchor} onPick={jumpToDate} align="start" />
           </span>
           <Button
             variant="ghost"
@@ -583,10 +578,8 @@ function CalendarPage() {
               <ChevronLeft className="h-5 w-5" />
             </Button>
             {/* The header stays put: only the grid content animates. */}
-            <span className="min-w-0 flex-1 truncate text-base font-bold sm:text-lg">
-              <span key={label} className="inline-block animate-fade-in">
-                {label}
-              </span>
+            <span className="flex min-w-0 flex-1 text-base font-bold sm:text-lg">
+              <DateJumpPicker label={label} anchor={visibleDate ?? anchor} onPick={jumpToDate} align="start" />
             </span>
             <Button
               variant="ghost"
