@@ -26,3 +26,4 @@
 - App tours live in the authenticated provider, enter Today once, and highlight real bottom tabs through scoped CSS without geometry tracking; versioned state stays per verified user in app_tour_states. Why: fixed walkthroughs avoid route/loading/positioning races while retaining existing eligibility and persistence.
 
 - The public comparison guide renders desktop rows and mobile feature lists from the same comparison data. Why: keep both presentations consistent without horizontal scrolling on phones.
+- Desktop/tablet Calendar Day renders only WeekView, which fills the calendar surface; the agenda list stays on Today only. Why: the embedded agenda strip squeezed the hourly timeline and duplicated Today's schedule.
