@@ -22,14 +22,23 @@ describe("app tour eligibility", () => {
   });
 });
 
-describe("role-specific targets", () => {
-  it("never offers parent-only targets to caregivers", () => {
-    expect(tourSteps(true, false, true).map((s) => s.id)).toEqual(["today-schedule", "calendar-views", "timesheet", "settings"]);
+describe("simple bottom-navigation tour", () => {
+  it("uses exactly four steps for every access combination", () => {
+    for (const caregiver of [true, false]) {
+      for (const owner of [true, false]) {
+        for (const timesheets of [true, false]) {
+          expect(tourSteps(caregiver, owner, timesheets).map((s) => s.id)).toEqual(["today", "calendar", "activities", "settings"]);
+        }
+      }
+    }
   });
-  it("omits unavailable caregiver timesheets", () => {
-    expect(tourSteps(true, false, false).map((s) => s.id)).toEqual(["today-schedule", "calendar-views", "settings"]);
+  it("highlights only the four existing parent tabs", () => {
+    expect(tourSteps(false, true, true).map((s) => s.tab)).toEqual(["/today", "/calendar", "/activities", "/family"]);
   });
-  it("offers parents the existing family controls", () => {
-    expect(tourSteps(false, true, true).map((s) => s.id)).toEqual(["today-schedule", "people", "people-filter", "calendar-views", "calendar-events", "activities", "timesheets", "family"]);
+  it("never highlights parent-only tabs for caregivers", () => {
+    expect(tourSteps(true, false, true).map((s) => s.tab)).toEqual(["/today", "/calendar", "/timesheet", "/settings"]);
+  });
+  it("does not highlight an unavailable caregiver Timesheet tab", () => {
+    expect(tourSteps(true, false, false).map((s) => s.tab)).toEqual(["/today", "/calendar", "/calendar", "/settings"]);
   });
 });
