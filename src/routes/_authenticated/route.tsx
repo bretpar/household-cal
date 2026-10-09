@@ -95,6 +95,14 @@ function AuthenticatedLayout() {
 
   // One overlay instance for guard + household + first calendar load: it sits
   // in a fixed slot so it is never unmounted/recreated between those phases.
+  // When access could not be verified the splash steps aside at once — the
+  // error message and its retry button must stay visible and clickable, and
+  // the calendar's own loading state is irrelevant there.
+  const splashLoading = accessError
+    ? false
+    : !everReady
+      ? true
+      : !pathname.startsWith("/onboarding") && calState.loading;
   return (
     <>
       {everReady ? (
