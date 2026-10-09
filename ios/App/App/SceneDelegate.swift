@@ -14,9 +14,21 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard scene is UIWindowScene else { return }
-        // Match the cream launch screen so no black frame shows between the
-        // launch storyboard and the web view's first paint.
-        window?.backgroundColor = UIColor(red: 0xFA / 255.0, green: 0xF8 / 255.0, blue: 0xF4 / 255.0, alpha: 1)
+        // Cover every native surface before the first frame, including WKWebView's
+        // unpainted backing layer (which can otherwise flash black on cold launch).
+        // Keep the existing splash hide timing and web heart reveal unchanged.
+        let launchBackground = UIColor(red: 0xFA / 255.0, green: 0xF8 / 255.0, blue: 0xF4 / 255.0, alpha: 1)
+        window?.backgroundColor = launchBackground
+        if let controller = window?.rootViewController as? CAPBridgeViewController {
+            controller.loadViewIfNeeded()
+            controller.view.backgroundColor = launchBackground
+            if let webView = controller.webView {
+                webView.isOpaque = false
+                webView.backgroundColor = launchBackground
+                webView.scrollView.backgroundColor = launchBackground
+                webView.underPageBackgroundColor = launchBackground
+            }
+        }
         // Cold launch via custom scheme or Universal Link.
         if let urlContext = connectionOptions.urlContexts.first {
             forward(urlContext)
