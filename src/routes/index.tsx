@@ -76,20 +76,22 @@ const FAQ_ITEMS = [
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Our Family Calendar | Shared Family Calendar, Childcare & Timesheets" },
+      { title: "Our Family Calendar | Shared Family Calendar & Scheduling App" },
       {
         name: "description",
         content:
-          "Organize your family’s schedule in one shared calendar. Coordinate kids’ activities, babysitters and caregivers, share schedules, and track childcare hours with built-in timesheets.",
+          "Organize your family’s schedules, kids’ activities, and babysitter shifts in one shared calendar. Sync with Google Calendar and simplify family planning.",
       },
-      { property: "og:title", content: "Our Family Calendar | Shared Family Calendar, Childcare & Timesheets" },
+      { property: "og:title", content: "Our Family Calendar | Shared Family Calendar & Scheduling App" },
       {
         property: "og:description",
         content:
-          "Organize your family’s schedule in one shared calendar. Coordinate kids’ activities, babysitters and caregivers, share schedules, and track childcare hours with built-in timesheets.",
+          "Organize your family’s schedules, kids’ activities, and babysitter shifts in one shared calendar. Sync with Google Calendar and simplify family planning.",
       },
       { property: "og:url", content: `${SITE_URL}/` },
       { property: "og:image", content: OG_IMAGE_URL },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:image", content: OG_IMAGE_URL },
       { name: "robots", content: "index, follow" },
     ],
@@ -303,7 +305,7 @@ function LandingPage() {
           </span>
         </div>
         <nav className="flex shrink-0 items-center gap-1.5 sm:gap-2" aria-label="Account">
-          <Link to="/auth">
+          <Link to="/auth" search={{ mode: "signin" }}>
             <Button
               variant="ghost"
               className="h-10 rounded-full px-3 font-bold sm:px-4"
@@ -312,7 +314,7 @@ function LandingPage() {
               Sign in
             </Button>
           </Link>
-          <Link to="/auth" className="hidden sm:inline-flex">
+          <Link to="/auth" search={{ mode: "signup" }} className="hidden sm:inline-flex">
             <Button className="h-10 rounded-full px-5 font-bold">Get started</Button>
           </Link>
         </nav>
@@ -333,7 +335,7 @@ function LandingPage() {
               understand.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Link to="/auth">
+              <Link to="/auth" search={{ mode: "signup" }}>
                 <Button
                   size="lg"
                   className="h-12 rounded-full px-6 font-bold"
@@ -342,7 +344,7 @@ function LandingPage() {
                   Start your family calendar
                 </Button>
               </Link>
-              <Link to="/auth">
+              <Link to="/auth" search={{ mode: "signin" }}>
                 <Button
                   variant="outline"
                   size="lg"
@@ -382,6 +384,12 @@ function LandingPage() {
             </p>
             <p className="mt-4 text-base text-muted-foreground sm:text-lg">
               Our Family Calendar gives your household one shared place to see what's next.
+            </p>
+            <p className="mt-4 text-sm text-muted-foreground">
+              See how the{" "}
+              <Link to="/features/family-calendar" className="font-semibold text-primary underline underline-offset-4">shared family calendar</Link>{" "}
+              works, or{" "}
+              <Link to="/best-shared-calendar-app" className="font-semibold text-primary underline underline-offset-4">compare shared calendar apps</Link>.
             </p>
           </div>
         </section>
@@ -452,15 +460,13 @@ function LandingPage() {
               )}
             </ul>
             <div className="mt-7 flex flex-wrap items-center gap-3">
-              <span
-                aria-disabled="true"
-                title="Childcare & caregiver feature page coming soon"
-                className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-input bg-card px-4 text-[13px] font-bold text-primary sm:h-11 sm:w-auto sm:px-5 sm:text-sm"
+              <Link
+                to="/features/childcare-scheduling"
+                className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-input bg-card px-4 text-[13px] font-bold text-primary hover:bg-accent sm:h-11 sm:w-auto sm:px-5 sm:text-sm"
               >
-                Explore childcare &amp; caregiver features
+                Explore babysitter &amp; nanny scheduling
                 <ArrowRight className="h-4 w-4" aria-hidden />
-              </span>
-              <span className="text-xs font-semibold text-muted-foreground">Coming soon</span>
+              </Link>
             </div>
           </article>
         </section>
@@ -697,7 +703,7 @@ function LandingPage() {
               One shared place for school, activities, appointments, work and childcare.
             </p>
             <div className="mt-7">
-              <Link to="/auth">
+              <Link to="/auth" search={{ mode: "signup" }}>
                 <Button
                   size="lg"
                   variant="secondary"

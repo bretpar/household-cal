@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
 Allow: /best-shared-calendar-app
+Allow: /features/
 Allow: /privacy
 Allow: /terms
 Disallow: /today

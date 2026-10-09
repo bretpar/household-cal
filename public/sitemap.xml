@@ -11,6 +11,16 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://ourfamilycalendar.com/features/family-calendar</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ourfamilycalendar.com/features/childcare-scheduling</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://ourfamilycalendar.com/privacy</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
