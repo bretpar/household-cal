@@ -445,7 +445,8 @@ function LandingPage() {
             </h2>
             <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
               Schedule babysitters and nannies alongside your family activities, share only the
-              schedule they need, and keep track of caregiver hours with built-in timesheets.
+              schedule they need, and keep track of hours with built-in caregiver timesheets
+              and parent confirmation.
             </p>
             <ul className="mt-6 flex flex-wrap gap-2">
               {["Babysitter scheduling", "Caregiver access", "Nanny timesheets", "Weekly schedules"].map(

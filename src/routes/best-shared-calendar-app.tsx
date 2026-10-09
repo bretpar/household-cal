@@ -44,6 +44,7 @@ const ROWS: { label: string; ours: Mark; general: Mark; wall: Mark }[] = [
   { label: "Google Calendar integration", ours: "yes", general: "Varies by app", wall: "Varies by device" },
   { label: "Babysitter & caregiver access controls", ours: "yes", general: "Varies by app", wall: "Varies by device" },
   { label: "Childcare visible in the family schedule", ours: "yes", general: "Can add events", wall: "Varies by device" },
+  { label: "Integrated caregiver timesheets and parent confirmation", ours: "yes", general: "Varies by product", wall: "Varies by product" },
   { label: "Special hardware required", ours: "no", general: "no", wall: "yes" },
 ];
 
@@ -223,6 +224,23 @@ function BestSharedCalendarPage() {
               </tbody>
             </table>
           </div>
+        </section>
+
+        <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+          <h2 className="font-display text-3xl font-bold sm:text-4xl">
+            More than a calendar: childcare scheduling and timesheets together.
+          </h2>
+          <p className="mt-4 text-muted-foreground">
+            Schedule caregivers alongside your family activities. Our Family Calendar automatically
+            prefills time cards from scheduled shifts, lets caregivers record actual hours, and
+            gives parents a place to review and confirm their timesheets. Your babysitter timesheet
+            stays connected to the schedule it came from, rather than in a separate hour-tracking system.
+          </p>
+          <p className="mt-4">
+            <Link to="/features/childcare-scheduling" className="font-semibold text-primary underline underline-offset-4">
+              Explore caregiver scheduling and timesheets
+            </Link>
+          </p>
         </section>
 
         <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
