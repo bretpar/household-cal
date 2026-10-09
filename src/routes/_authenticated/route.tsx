@@ -107,12 +107,23 @@ function AuthenticatedLayout() {
             <CalendarLoadReporter onChange={setCalState} />
           </CalendarProvider>
         </UserPreferencesProvider>
+      ) : accessError ? (
+        <div className="mx-auto max-w-sm space-y-3 px-4 py-24 text-center">
+          <p className="text-sm text-muted-foreground">We couldn't confirm your access.</p>
+          <button
+            type="button"
+            onClick={retryAccess}
+            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            Try again
+          </button>
+        </div>
       ) : null}
       {/* Onboarding / no-household screens have no calendar to wait for: once
           the guard passes, the splash must never stay above them. */}
       <StartupHeartReveal
-        loading={!everReady || (!pathname.startsWith("/onboarding") && calState.loading)}
-        failed={calState.failed || (everReady && pathname.startsWith("/onboarding"))}
+        loading={!everReady && !accessError ? true : !pathname.startsWith("/onboarding") && calState.loading}
+        failed={accessError || calState.failed || (everReady && pathname.startsWith("/onboarding"))}
       />
     </>
   );
