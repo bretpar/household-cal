@@ -87,13 +87,10 @@ export function StartupHeartReveal({ loading, failed }: { loading: boolean; fail
   useEffect(() => {
     if (phase !== "hold" || loading) return;
     revealUsed = true;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    // Desktop/tablet browsers and signed-out visitors: no animation.
-    if (failed || reduce || !usesBrandedSplash() || !hasCachedSession()) {
-      setPhase("done");
-      return;
-    }
-    setPhase("reveal");
+    // Routine startup no longer plays the blocking heart reveal: the overlay
+    // drops as soon as the authenticated shell is ready.
+    void failed;
+    setPhase("done");
   }, [phase, loading, failed]);
 
   useEffect(() => {

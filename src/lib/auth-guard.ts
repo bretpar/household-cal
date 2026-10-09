@@ -22,11 +22,19 @@ let hasMountedOnce = false;
  */
 const GUARD_TTL_MS = 5 * 60_000;
 let guardCache: { userId: string; family_id: string; at: number; user: unknown } | null = null;
+/** Membership verified by the last guard pass (cleared on any auth change). */
+let verifiedMembership: { userId: string; family_id: string; role: string | null } | null = null;
+export function getVerifiedMembership() {
+  return verifiedMembership;
+}
 let guardInFlight: { pathname: string; promise: ReturnType<typeof resolveGuardUncached> } | null =
   null;
 if (typeof window !== "undefined") {
   supabase.auth.onAuthStateChange((event) => {
-    if (event !== "TOKEN_REFRESHED" && event !== "INITIAL_SESSION") guardCache = null;
+    if (event !== "TOKEN_REFRESHED" && event !== "INITIAL_SESSION") {
+      guardCache = null;
+      verifiedMembership = null;
+    }
   });
 }
 
@@ -90,7 +98,7 @@ async function resolveGuardUncached(pathname: string) {
   // A failed lookup must NOT be treated as "no household" — keep established
   // users in the app instead of bouncing them through onboarding.
   const onOnboarding = pathname.startsWith("/onboarding");
-  let resolved: { family_id: string | null } | undefined;
+  let resolved: { family_id: string | null; role?: string | null } | undefined;
   try {
     resolved = await withTimeout(ensureFamilyMembership(), AUTH_TIMEOUT_MS, "Household");
   } catch {
@@ -100,6 +108,9 @@ async function resolveGuardUncached(pathname: string) {
   if (resolved) {
     if (!resolved.family_id && !onOnboarding) return { redirectTo: "/onboarding" as const };
     if (resolved.family_id && onOnboarding) return { redirectTo: "/calendar" as const };
+    verifiedMembership = resolved.family_id
+      ? { userId: user.id, family_id: resolved.family_id, role: resolved.role ?? null }
+      : null;
     return { user: data.user, family_id: resolved.family_id };
   }
 
