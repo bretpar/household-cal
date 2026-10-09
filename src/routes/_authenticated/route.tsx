@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect, useNavigate, useRouterState } from "
 import { useEffect, useState } from "react";
 
 import { CopiedEventBar } from "@/components/CopiedEventBar";
+import { AppTourProvider } from "@/components/AppTour";
 import { EventDetailsDialog } from "@/components/EventDetailsDialog";
 import { PasteEventDialog } from "@/components/PasteEventDialog";
 import { StartupHeartReveal, StartupSplash } from "@/components/StartupSplash";
@@ -108,11 +109,13 @@ function AuthenticatedLayout() {
       {everReady ? (
         <UserPreferencesProvider>
           <CalendarProvider>
+            <AppTourProvider>
             <Outlet />
             <EventDetailsDialog />
             <PasteEventDialog />
             <CopiedEventBar />
             <CalendarLoadReporter onChange={setCalState} />
+            </AppTourProvider>
           </CalendarProvider>
         </UserPreferencesProvider>
       ) : accessError ? (
