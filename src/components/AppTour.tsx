@@ -9,7 +9,7 @@ import { getVerifiedMembership } from "@/lib/auth-guard";
 import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
 import { useCaregiver } from "@/lib/use-caregiver";
-import { shouldAutoStartTour, tourSteps, tourStorageKey, type TourStatus } from "@/lib/app-tour";
+import { TOUR_VERSION, shouldAutoStartTour, tourSteps, tourStorageKey, type TourStatus } from "@/lib/app-tour";
 
 const TourContext = createContext<(() => void) | null>(null);
 
@@ -42,7 +42,11 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
 
   const finish = useCallback((status: TourStatus) => {
     if (userId) {
-      try { localStorage.setItem(tourStorageKey(userId), JSON.stringify({ status, at: new Date().toISOString() })); } catch { /* optional device preference */ }
+      try { localStorage.setItem(tourStorageKey(userId), JSON.stringify({ status, at: new Date().toISOString() })); } catch { /* local cache only */ }
+      void supabase.from("app_tour_states").upsert(
+        { user_id: userId, tour_version: TOUR_VERSION, status, updated_at: new Date().toISOString() },
+        { onConflict: "user_id,tour_version" },
+      ).then(() => {}, () => {});
     }
     setIndex(null);
     setPlacement(null);
@@ -59,12 +63,21 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
       setUserId(user.id);
       if (autoChecked.current === user.id) return;
       autoChecked.current = user.id;
-      try {
-        if (shouldAutoStartTour(user.created_at, localStorage.getItem(tourStorageKey(user.id)))) {
+      let local: string | null = null;
+      try { local = localStorage.getItem(tourStorageKey(user.id)); } catch { /* ignore */ }
+      if (!shouldAutoStartTour(user.created_at, local)) return;
+      // Cross-device state: only auto-start once the backend confirms no saved row.
+      void supabase.from("app_tour_states").select("status")
+        .eq("user_id", user.id).eq("tour_version", TOUR_VERSION).maybeSingle()
+        .then(({ data: row, error }) => {
+          if (cancelled || error || getVerifiedMembership()?.userId !== user.id) return;
+          if (row) {
+            try { localStorage.setItem(tourStorageKey(user.id), JSON.stringify({ status: row.status })); } catch { /* ignore */ }
+            return;
+          }
           focusBefore.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
           setIndex(0);
-        }
-      } catch { /* No reliable persistence: manual replay remains available. */ }
+        }, () => {});
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [accessReady, family?.id]);

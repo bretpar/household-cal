@@ -133,6 +133,27 @@ export type Database = {
           },
         ]
       }
+      app_tour_states: {
+        Row: {
+          status: string
+          tour_version: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          status: string
+          tour_version: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          status?: string
+          tour_version?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       babysitter_access_calendars: {
         Row: {
           calendar_source_id: string
