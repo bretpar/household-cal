@@ -264,6 +264,13 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       return hit?.bundle;
     },
     initialDataUpdatedAt: () => (cachedRef.current?.key === queryKeyStr ? 0 : undefined),
+    // While a new date window loads, keep the previous window's events on
+    // screen — but only for the same verified user/household/role, so another
+    // account's or permission level's events can never appear.
+    placeholderData: (prev, prevQuery) =>
+      prevQuery && prevQuery.queryKey[1] === scopeKey && prev?.family?.id === scope?.familyId
+        ? prev
+        : undefined,
     retry: 1,
     // Foreground returns within this window reuse the populated in-memory
     // bundle instead of refetching on focus; explicit invalidations still
