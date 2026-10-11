@@ -234,9 +234,7 @@ function ShellFrame({
             : "px-4 pt-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-12 lg:px-8",
         )}
       >
-        {!active ? (
-          children
-        ) : accessFailed && !caregiverResolved ? (
+        {active && accessFailed && !caregiverResolved ? (
           <div className="mx-auto max-w-sm space-y-3 py-12 text-center">
             <p className="text-sm text-muted-foreground">We couldn't confirm your access.</p>
             <button
@@ -247,13 +245,18 @@ function ShellFrame({
               Try again
             </button>
           </div>
-        ) : !caregiverResolved ? (
+        ) : active && (!caregiverResolved || showContentSkeleton) ? (
           <PageContentSkeleton />
-        ) : showContentSkeleton ? (
-          <PageContentSkeleton />
-        ) : (
-          children
-        )}
+        ) : null}
+        {/* Route content stays mounted (it declares the shell); it is only
+            hidden while access or a tab transition is pending. */}
+        <div
+          className={
+            active && (!caregiverResolved || showContentSkeleton) ? "hidden" : "contents"
+          }
+        >
+          {children}
+        </div>
       </main>
 
 
