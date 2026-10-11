@@ -162,35 +162,19 @@ function AuthenticatedLayout() {
   // When access could not be verified the splash steps aside at once — the
   // error message and its retry button must stay visible and clickable, and
   // the calendar's own loading state is irrelevant there.
-  const splashLoading = accessError
+  const splashLoading = accessError || navAccessError
     ? false
     : !everReady
       ? true
       : !pathname.startsWith("/onboarding") && calState.loading;
   return (
     <>
-      {everReady ? (
+      {everReady && !navAccessError ? (
         <UserPreferencesProvider>
           <CalendarProvider>
             <AppTourProvider>
             <PersistentAppShell>
-              {navAccessError ? (
-                <AppShell lockChrome>
-                <div role="alert" className="mx-auto max-w-sm space-y-3 px-4 py-12 text-center">
-                  <p className="text-sm text-muted-foreground">We couldn't confirm your access.</p>
-                  <button
-                    type="button"
-                    onClick={retryNavigation}
-                    disabled={navRetrying}
-                    className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-                  >
-                    {navRetrying ? "Checking…" : "Try again"}
-                  </button>
-                </div>
-                </AppShell>
-              ) : (
-                <Outlet />
-              )}
+              <Outlet />
             </PersistentAppShell>
             <EventDetailsDialog />
             <PasteEventDialog />
@@ -199,15 +183,16 @@ function AuthenticatedLayout() {
             </AppTourProvider>
           </CalendarProvider>
         </UserPreferencesProvider>
-      ) : accessError ? (
-        <div className="mx-auto max-w-sm space-y-3 px-4 py-24 text-center">
+      ) : accessError || navAccessError ? (
+        <div role="alert" className="mx-auto max-w-sm space-y-3 px-4 py-24 text-center">
           <p className="text-sm text-muted-foreground">We couldn't confirm your access.</p>
           <button
             type="button"
             onClick={retryAccess}
-            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            disabled={checking}
+            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
-            Try again
+            {checking ? "Checking…" : "Try again"}
           </button>
         </div>
       ) : null}
