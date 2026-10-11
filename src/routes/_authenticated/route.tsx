@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { CopiedEventBar } from "@/components/CopiedEventBar";
 import { AppTourProvider } from "@/components/AppTour";
-import { AppShell, PersistentAppShell } from "@/components/AppShell";
+import { PersistentAppShell } from "@/components/AppShell";
 import { EventDetailsDialog } from "@/components/EventDetailsDialog";
 import { PasteEventDialog } from "@/components/PasteEventDialog";
 import { StartupHeartReveal, StartupSplash } from "@/components/StartupSplash";
@@ -96,10 +96,14 @@ function AuthenticatedLayout() {
   const verifying = useRef(false);
   const pathRef = useRef(pathname);
   pathRef.current = pathname;
+  const router = useRouter();
+  const [checking, setChecking] = useState(false);
+  // One bounded verification. A failure leaves the neutral error screen in
+  // place and never schedules another check on its own.
   const reverify = () => {
     if (verifying.current) return;
     verifying.current = true;
-    setAccessError(false);
+    setChecking(true);
     void (async () => {
       try {
         const path = pathRef.current;
@@ -113,58 +117,32 @@ function AuthenticatedLayout() {
           setAccessError(true);
           return;
         }
+        // Refresh route context (guard cache makes this pass without a
+        // round-trip) so a stale navigation error doesn't re-trigger.
+        await router.invalidate();
+        setAccessError(false);
         setEverReady(true);
       } catch {
         setEverReady(false);
         setAccessError(true);
       } finally {
         verifying.current = false;
+        setChecking(false);
       }
     })();
   };
   const retryAccess = reverify;
 
   // Navigation-level guard failure: beforeLoad returned { accessError } after
-  // the layout was already mounted. Block the destination page (never render
-  // it on stale membership) while keeping the shared header and tabs.
-  const router = useRouter();
+  // the layout was mounted. Tear down the protected shell (no tabs, no role
+  // state, no page) and show the same neutral error screen as startup.
   const routeContext = Route.useRouteContext() as Record<string, unknown>;
   const navAccessError = everReady && routeContext?.["accessError"] === true;
-  const [navRetrying, setNavRetrying] = useState(false);
-  const retryNavigation = () => {
-    // Shares the reverify lock: retryGuard clears membership, and the
-    // lost-membership effect must not start a second, competing check.
-    if (navRetrying || verifying.current) return;
-    verifying.current = true;
-    setNavRetrying(true);
-    void (async () => {
-      try {
-        const path = pathRef.current;
-        // Full bounded auth + household re-check (clears stale guard state).
-        const result = await retryGuard(path);
-        if ("redirectTo" in result) {
-          if (result.redirectTo !== path) navigate({ to: result.redirectTo, replace: true });
-          return;
-        }
-        // Failed retry: keep the existing error state and Try again; do not
-        // re-run beforeLoad (it would repeat the same failing verification).
-        if ("accessError" in result) return;
-        // Success: re-run beforeLoad once so the route context reflects the
-        // fresh result; the guard cache makes this pass without a round-trip.
-        await router.invalidate();
-      } catch {
-        // Stay on the content-only error state; Try again remains available.
-      } finally {
-        verifying.current = false;
-        setNavRetrying(false);
-        // A household loss from another cause (e.g. an auth re-emit) during
-        // the retry was suppressed by the shared lock; run one follow-up
-        // verification now that the lock is free. Still a single check at a
-        // time: reverify no-ops while any verification is in flight.
-        if (!getVerifiedMembership() && !pathRef.current.startsWith("/onboarding")) reverify();
-      }
-    })();
-  };
+  useEffect(() => {
+    if (!navAccessError) return;
+    setEverReady(false);
+    setAccessError(true);
+  }, [navAccessError]);
 
   // Warm resume: explicitly rerun the bounded auth + household verification.
   useAppResume(() => {
@@ -184,35 +162,19 @@ function AuthenticatedLayout() {
   // When access could not be verified the splash steps aside at once — the
   // error message and its retry button must stay visible and clickable, and
   // the calendar's own loading state is irrelevant there.
-  const splashLoading = accessError
+  const splashLoading = accessError || navAccessError
     ? false
     : !everReady
       ? true
       : !pathname.startsWith("/onboarding") && calState.loading;
   return (
     <>
-      {everReady ? (
+      {everReady && !navAccessError ? (
         <UserPreferencesProvider>
           <CalendarProvider>
             <AppTourProvider>
             <PersistentAppShell>
-              {navAccessError ? (
-                <AppShell lockChrome>
-                <div role="alert" className="mx-auto max-w-sm space-y-3 px-4 py-12 text-center">
-                  <p className="text-sm text-muted-foreground">We couldn't confirm your access.</p>
-                  <button
-                    type="button"
-                    onClick={retryNavigation}
-                    disabled={navRetrying}
-                    className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-                  >
-                    {navRetrying ? "Checking…" : "Try again"}
-                  </button>
-                </div>
-                </AppShell>
-              ) : (
-                <Outlet />
-              )}
+              <Outlet />
             </PersistentAppShell>
             <EventDetailsDialog />
             <PasteEventDialog />
@@ -221,15 +183,16 @@ function AuthenticatedLayout() {
             </AppTourProvider>
           </CalendarProvider>
         </UserPreferencesProvider>
-      ) : accessError ? (
-        <div className="mx-auto max-w-sm space-y-3 px-4 py-24 text-center">
+      ) : accessError || navAccessError ? (
+        <div role="alert" className="mx-auto max-w-sm space-y-3 px-4 py-24 text-center">
           <p className="text-sm text-muted-foreground">We couldn't confirm your access.</p>
           <button
             type="button"
             onClick={retryAccess}
-            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            disabled={checking}
+            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
-            Try again
+            {checking ? "Checking…" : "Try again"}
           </button>
         </div>
       ) : null}
@@ -237,7 +200,7 @@ function AuthenticatedLayout() {
           the guard passes, the splash must never stay above them. */}
       <StartupHeartReveal
         loading={splashLoading}
-        failed={accessError || calState.failed || (everReady && pathname.startsWith("/onboarding"))}
+        failed={accessError || navAccessError || calState.failed || (everReady && pathname.startsWith("/onboarding"))}
       />
     </>
   );
