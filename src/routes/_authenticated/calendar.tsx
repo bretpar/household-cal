@@ -660,10 +660,14 @@ function CalendarPage() {
         ) : null}
 
         {loading ? (
-          <div role="status" aria-label="Loading events" className="mb-2 flex animate-pulse items-center gap-2">
-            <div className="h-2 flex-1 rounded-full bg-secondary" />
-            <span className="text-xs font-semibold text-muted-foreground">Loading events…</span>
-            <div className="h-2 flex-1 rounded-full bg-secondary" />
+          // Zero-height slot: the indicator overlays the surface so the
+          // timeline never changes height while uncovered dates load.
+          <div className="pointer-events-none relative z-10 h-0">
+            <div role="status" aria-label="Loading events" className="absolute inset-x-6 top-2 flex animate-pulse items-center gap-2 rounded-full bg-surface/90 px-3 py-1">
+              <div className="h-2 flex-1 rounded-full bg-secondary" />
+              <span className="text-xs font-semibold text-muted-foreground">Loading events…</span>
+              <div className="h-2 flex-1 rounded-full bg-secondary" />
+            </div>
           </div>
         ) : loadError ? (
           <p role="status" className="mb-2 text-center text-xs font-semibold text-destructive">

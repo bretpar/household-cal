@@ -142,6 +142,17 @@ export function todayWindow(today = new Date()) {
 }
 const defaultRange = () => todayWindow();
 
+/** Days of coverage added around a newly required window. */
+const WINDOW_PAD = 7;
+/** Prefetch the next window once visible dates come this close to the edge. */
+const EDGE_DAYS = 2;
+const addDaysLocal = (d: Date, n: number) =>
+  new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const parseKey = (key: string) => {
+  const [y = 0, m = 1, d = 1] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
 function currentScope(): EventCacheScope | null {
   const m = getVerifiedMembership();
   return m ? { userId: m.userId, familyId: m.family_id, role: m.role } : null;
@@ -171,11 +182,29 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const [pasteDate, setPasteDate] = useState<Date | null>(null);
   const [range, setRange] = useState(defaultRange);
 
-  // Views report their visible dates; each window is its own query entry so
-  // revisiting a period is instant and a stale window never shows wrong dates.
+  // Views report their visible dates. The query window only changes when the
+  // visible dates leave the loaded coverage; the new window is padded and
+  // prefetched near the edge so day-by-day navigation never blanks events.
+  // Each window is still its own query entry, so wrong dates never show.
+  const prefetchRef = useRef<(r: { from: string; to: string }) => void>(() => {});
   const setVisibleRange = useCallback((from: Date, to: Date) => {
     const next = { from: dayKeyOf(from), to: dayKeyOf(to) };
-    setRange((prev) => (prev.from === next.from && prev.to === next.to ? prev : next));
+    const padded = {
+      from: dayKeyOf(addDaysLocal(from, -WINDOW_PAD)),
+      to: dayKeyOf(addDaysLocal(to, WINDOW_PAD)),
+    };
+    setRange((prev) => {
+      if (!(next.from >= prev.from && next.to <= prev.to)) {
+        // The exact Today window stays unpadded so its persisted cache applies.
+        const t = todayWindow();
+        return t.from === next.from && t.to === next.to ? next : padded;
+      }
+      const nearEdge =
+        next.from < dayKeyOf(addDaysLocal(parseKey(prev.from), EDGE_DAYS)) ||
+        next.to > dayKeyOf(addDaysLocal(parseKey(prev.to), -EDGE_DAYS));
+      if (nearEdge) queueMicrotask(() => prefetchRef.current(padded));
+      return prev;
+    });
   }, []);
 
   // Query identity is bound to the verified user + household + role, so a
@@ -195,29 +224,39 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const queryKey = [...FAMILY_BUNDLE_KEY, scopeKey, range.from, range.to] as const;
   const queryKeyStr = queryKey.join("|");
 
+  // Bounded so a request stalled by iOS suspension can't hold the startup
+  // screen forever; one retry, then the existing error/retry UI shows.
+  const fetchWindow = async (win: { from: string; to: string }) => {
+    const startScope = currentScope();
+    const result = await withTimeout(fetchBundle({ data: win }), 20_000, "Calendar");
+    // A late response for a different account/household/role is discarded
+    // so it can never populate (or be saved under) another calendar.
+    if (!sameScope(startScope, currentScope()) || result.family?.id !== startScope?.familyId) {
+      throw new Error("Calendar scope changed");
+    }
+    const today = todayWindow();
+    if (
+      today.from === win.from &&
+      today.to === win.to &&
+      (result.family?.role ?? null) === startScope?.role
+    ) {
+      writeEventCache(startScope!, win, result);
+    }
+    return result;
+  };
+  prefetchRef.current = (win) => {
+    if (!scope) return;
+    void queryClient.prefetchQuery({
+      queryKey: [...FAMILY_BUNDLE_KEY, scopeKey, win.from, win.to],
+      queryFn: () => fetchWindow(win),
+      staleTime: 5 * 60 * 1000,
+    });
+  };
+
   const bundle = useQuery({
     queryKey,
     enabled: !!scope,
-    // Bounded so a request stalled by iOS suspension can't hold the startup
-    // screen forever; one retry, then the existing error/retry UI shows.
-    queryFn: async () => {
-      const startScope = currentScope();
-      const result = await withTimeout(fetchBundle({ data: range }), 20_000, "Calendar");
-      // A late response for a different account/household/role is discarded
-      // so it can never populate (or be saved under) another calendar.
-      if (!sameScope(startScope, currentScope()) || result.family?.id !== startScope?.familyId) {
-        throw new Error("Calendar scope changed");
-      }
-      const today = todayWindow();
-      if (
-        today.from === range.from &&
-        today.to === range.to &&
-        (result.family?.role ?? null) === startScope?.role
-      ) {
-        writeEventCache(startScope!, range, result);
-      }
-      return result;
-    },
+    queryFn: () => fetchWindow(range),
     initialData: () => {
       if (!isTodayWindow || !scope) return undefined;
       const hit = readEventCache(scope, range, dayKeyOf(new Date()));
