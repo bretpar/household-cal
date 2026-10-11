@@ -129,21 +129,33 @@ function ShellFrame({
   active,
   fitViewport,
   compactMobileLandscape,
+  lockChrome,
 }: {
   children: ReactNode;
   active: boolean;
   fitViewport: boolean;
   compactMobileLandscape: boolean;
+  lockChrome: boolean;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isCaregiver, resolved: caregiverResolved, failed: accessFailed, retry: retryAccess } = useCaregiver();
   const { isOwner, family } = useCalendar();
   const timesheetsOn = hasFeature("timesheets", { familyId: family?.id });
+  // Last verified, identity-scoped role answer. On access-error pages
+  // (lockChrome) it keeps the correct tabs visible while a retry re-verifies;
+  // with no verified answer yet, the shell stays neutral (no tabs).
+  const lastVerified = useRef<{ isCaregiver: boolean; timesheetsOn: boolean } | null>(null);
+  useEffect(() => {
+    if (caregiverResolved) lastVerified.current = { isCaregiver, timesheetsOn };
+  }, [caregiverResolved, isCaregiver, timesheetsOn]);
+  const chromeResolved = caregiverResolved || (lockChrome && lastVerified.current !== null);
+  const chromeCaregiver = caregiverResolved ? isCaregiver : (lastVerified.current?.isCaregiver ?? false);
+  const chromeTimesheetsOn = caregiverResolved ? timesheetsOn : (lastVerified.current?.timesheetsOn ?? false);
   // No tabs until caregiver status is known, so a caregiver never sees parent tabs.
-  const nav = !caregiverResolved
+  const nav = !chromeResolved
     ? []
-    : isCaregiver
-      ? CAREGIVER_NAV.filter((n) => n.to !== "/timesheet" || timesheetsOn)
+    : chromeCaregiver
+      ? CAREGIVER_NAV.filter((n) => n.to !== "/timesheet" || chromeTimesheetsOn)
       : NAV;
   const ownerPending = usePendingTimesheetCount(!isCaregiver && isOwner && timesheetsOn);
   const myActions = useMyTimesheetActionCount(isCaregiver && timesheetsOn);
