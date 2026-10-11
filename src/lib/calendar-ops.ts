@@ -153,10 +153,17 @@ export function asEventInput(data: unknown): EventInput {
   return raw as unknown as EventInput;
 }
 
+/** Inclusive yyyy-mm-dd window of dates the caller is actually viewing. */
+export interface EventRange {
+  from: string;
+  to: string;
+}
+
 export async function loadFamilyBundle(
   db: Db,
   userId: string,
-  secureOccurrences?: (familyId: string, sources: CalendarSource[]) => Promise<CalendarEvent[]>,
+  secureOccurrences?: (familyId: string, sources: CalendarSource[], range?: EventRange) => Promise<CalendarEvent[]>,
+  range?: EventRange,
 ): Promise<FamilyBundle> {
   const { data: memberships, error: mErr } = await db
     .from("family_users")
@@ -211,10 +218,21 @@ export async function loadFamilyBundle(
       .select("*")
       .eq("family_id", familyId)
       .order("sort_order", { ascending: true }),
-    db
-      .from("events")
-      .select("*, event_members(family_member_id, weekdays), babysitter_shifts(assignment, family_user_id, assignee_name, assignee_member_id)")
-      .eq("family_id", familyId),
+    (() => {
+      let q = db
+        .from("events")
+        .select("*, event_members(family_member_id, weekdays), babysitter_shifts(assignment, family_user_id, assignee_name, assignee_member_id)")
+        .eq("family_id", familyId);
+      if (range) {
+        // Bounded load: one-off events overlapping the window (padded a day on
+        // each side for timezone spill and multi-day spans) plus every
+        // recurring master, whose occurrences are expanded client-side.
+        const fromIso = `${shiftDayKey(range.from, -1)}T00:00:00Z`;
+        const toIso = `${shiftDayKey(range.to, 2)}T00:00:00Z`;
+        q = q.or(`and(start_at.lt.${toIso},end_at.gt.${fromIso}),not.recurrence_rule.is.null`);
+      }
+      return q;
+    })(),
 
     db
       .from("activities")
@@ -346,7 +364,7 @@ export async function loadFamilyBundle(
     if (!secureOccurrences) throw new Error("Calendar could not be loaded securely");
     const safe = events.filter((e) => !e.recurrence_rule);
     const seen = new Set(safe.map((e) => e.id));
-    const extra = (await secureOccurrences(familyId, sources)).filter((e) => !seen.has(e.id));
+    const extra = (await secureOccurrences(familyId, sources, range)).filter((e) => !seen.has(e.id));
     return { family, members, sources, events: [...safe, ...extra], activities, categories };
   }
 
