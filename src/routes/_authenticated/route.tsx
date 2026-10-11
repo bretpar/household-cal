@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { CopiedEventBar } from "@/components/CopiedEventBar";
 import { AppTourProvider } from "@/components/AppTour";
+import { PersistentAppShell } from "@/components/AppShell";
 import { EventDetailsDialog } from "@/components/EventDetailsDialog";
 import { PasteEventDialog } from "@/components/PasteEventDialog";
 import { StartupHeartReveal, StartupSplash } from "@/components/StartupSplash";
@@ -36,6 +37,9 @@ export const Route = createFileRoute("/_authenticated")({
   },
   component: AuthenticatedLayout,
   pendingComponent: StartupLoading,
+  // Once the layout is mounted, keep the shell + current page on screen while
+  // a tab navigation re-checks access, instead of swapping in the splash.
+  pendingMs: 60_000,
 });
 
 function AuthenticatedLayout() {
@@ -149,7 +153,9 @@ function AuthenticatedLayout() {
         <UserPreferencesProvider>
           <CalendarProvider>
             <AppTourProvider>
-            <Outlet />
+            <PersistentAppShell>
+              <Outlet />
+            </PersistentAppShell>
             <EventDetailsDialog />
             <PasteEventDialog />
             <CopiedEventBar />
@@ -181,6 +187,8 @@ function AuthenticatedLayout() {
 
 /** Branded startup screen matching the native iOS launch screen. */
 function StartupLoading() {
+  // Only the initial document startup may show the full-screen splash.
+  if (hasLayoutMounted()) return null;
   return <StartupSplash />;
 }
 
