@@ -93,6 +93,7 @@ export async function loadSecureCaregiverOccurrences(
   familyId: string,
   sources: CalendarSource[],
   trace?: VisibilityTrace,
+  range?: { from: string; to: string },
 ): Promise<CalendarEvent[]> {
   const note = (id: string, why: string) => { if (trace && !trace.decisions[id]) trace.decisions[id] = why; };
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -123,8 +124,10 @@ export async function loadSecureCaregiverOccurrences(
     .or(fuRes.data.family_member_id ? `family_user_id.eq.${fuId},assignee_member_id.eq.${fuRes.data.family_member_id}` : `family_user_id.eq.${fuId}`);
   if (shiftsRes.error) throw shiftsRes.error;
   const today = new Date().toISOString().slice(0, 10);
-  const fromKey = addDays(today, -180);
-  const lastKey = addDays(today, 400);
+  // Bounded loads only expand occurrences inside the viewed window; unpadded
+  // callers (diagnostics) keep the full history window.
+  const fromKey = range?.from ?? addDays(today, -180);
+  const lastKey = range?.to ?? addDays(today, 400);
   const authorized = new Set<string>();
   const ownIds = new Set<string>();
   for (const row of shiftsRes.data ?? []) {

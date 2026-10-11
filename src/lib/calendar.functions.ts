@@ -52,10 +52,19 @@ export const ensureFamilyMembership = createServerFn({ method: "POST" })
 
 export const getFamilyBundle = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<FamilyBundle> => {
+  .inputValidator((data?: { from?: string; to?: string }) => ({
+    from: typeof data?.from === "string" ? data.from : undefined,
+    to: typeof data?.to === "string" ? data.to : undefined,
+  }))
+  .handler(async ({ data, context }): Promise<FamilyBundle> => {
     const { loadSecureCaregiverOccurrences } = await import("@/lib/caregiver-occurrences.server");
-    return loadFamilyBundle(context.supabase as unknown as Db, context.userId, (familyId, sources) =>
-      loadSecureCaregiverOccurrences(context.userId, familyId, sources),
+    const range = data.from && data.to ? { from: data.from, to: data.to } : undefined;
+    return loadFamilyBundle(
+      context.supabase as unknown as Db,
+      context.userId,
+      (familyId, sources, r) =>
+        loadSecureCaregiverOccurrences(context.userId, familyId, sources, undefined, r),
+      range,
     );
   });
 
