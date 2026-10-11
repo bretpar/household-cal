@@ -141,7 +141,7 @@ type ViewMode = CalendarViewMode;
 
 function CalendarPage() {
   const { isCaregiver } = useCaregiver();
-  const { events, visibleEvents, selectedMembers, canEdit, loading, copiedEvent, startPaste, family } =
+  const { events, visibleEvents, selectedMembers, canEdit, loading, copiedEvent, startPaste, family, setVisibleRange } =
     useCalendar();
   const onPaste = canEdit && copiedEvent ? startPaste : undefined;
   // Press-and-hold creation on touch devices; the Add Event button stays the fallback.
@@ -326,6 +326,18 @@ function CalendarPage() {
   useEffect(() => {
     setVisibleDate(null);
   }, [mode, anchor]);
+
+  // Fetch only the events for the dates on screen (padded), per view.
+  useEffect(() => {
+    if (mode === "month") {
+      const base = visibleDate ?? anchor;
+      setVisibleRange(addDays(startOfMonth(base), -7), addDays(endOfMonth(base), 7));
+    } else if (mode === "week") {
+      setVisibleRange(addDays(anchor, -2), addDays(anchor, weekDays + 1));
+    } else {
+      setVisibleRange(addDays(anchor, -2), addDays(anchor, (isMobile && !isLandscape ? 3 : 1) + 2));
+    }
+  }, [mode, anchor, visibleDate, weekDays, isMobile, isLandscape, setVisibleRange]);
 
   // Last single day the user was looking at. Week view anchors on a week
   // boundary, so this is what Week -> Day restores instead of the week's first
