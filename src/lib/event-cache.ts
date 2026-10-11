@@ -23,6 +23,15 @@ interface CachedEntry extends EventCacheScope {
   bundle: FamilyBundle;
 }
 
+/**
+ * Only full-access household roles are persisted. Viewers (including
+ * caregivers with date/calendar limits) always load live, so a saved copy can
+ * never outlive a permission change.
+ */
+export function isCacheableRole(role: string | null): boolean {
+  return role === "owner" || role === "editor";
+}
+
 function storage(): Storage | null {
   try {
     return typeof window === "undefined" ? null : window.localStorage;
@@ -39,6 +48,10 @@ export function readEventCache(
 ): { bundle: FamilyBundle; savedAt: number } | null {
   const store = storage();
   if (!store || !scope) return null;
+  if (!isCacheableRole(scope.role)) {
+    store.removeItem(STORAGE_KEY);
+    return null;
+  }
   try {
     const raw = store.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -73,7 +86,7 @@ export function writeEventCache(
   bundle: FamilyBundle,
 ) {
   const store = storage();
-  if (!store || bundle.family?.id !== scope.familyId) return;
+  if (!store || bundle.family?.id !== scope.familyId || !isCacheableRole(scope.role)) return;
   const entry: CachedEntry = { ...scope, ...range, savedAt: Date.now(), bundle };
   try {
     store.setItem(STORAGE_KEY, JSON.stringify(entry));

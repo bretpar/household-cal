@@ -141,7 +141,7 @@ type ViewMode = CalendarViewMode;
 
 function CalendarPage() {
   const { isCaregiver } = useCaregiver();
-  const { events, visibleEvents, selectedMembers, canEdit, loading, copiedEvent, startPaste, family, setVisibleRange } =
+  const { events, visibleEvents, selectedMembers, canEdit, loading, loadError, refreshFailed, copiedEvent, startPaste, family, setVisibleRange } =
     useCalendar();
   const onPaste = canEdit && copiedEvent ? startPaste : undefined;
   // Press-and-hold creation on touch devices; the Add Event button stays the fallback.
@@ -216,7 +216,7 @@ function CalendarPage() {
   }, []);
 
   const mode: ViewMode = view;
-  const isEmpty = !loading && events.length === 0;
+  const isEmpty = !loading && !loadError && !refreshFailed && events.length === 0;
 
   // Week view is a 7-day calendar where there is room, and a 3-day calendar on
   // phones so each column is wide enough to read.
@@ -665,6 +665,14 @@ function CalendarPage() {
             <span className="text-xs font-semibold text-muted-foreground">Loading events…</span>
             <div className="h-2 flex-1 rounded-full bg-secondary" />
           </div>
+        ) : loadError ? (
+          <p role="status" className="mb-2 text-center text-xs font-semibold text-destructive">
+            Couldn’t load events. Pull to refresh or reopen the app.
+          </p>
+        ) : refreshFailed ? (
+          <p role="status" className="mb-2 text-center text-xs text-muted-foreground">
+            Couldn't refresh — showing the last loaded events.
+          </p>
         ) : null}
 
         {/* Announces the newly active period to screen readers on navigation. */}

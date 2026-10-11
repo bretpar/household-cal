@@ -178,47 +178,60 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     setRange((prev) => (prev.from === next.from && prev.to === next.to ? prev : next));
   }, []);
 
+  // Query identity is bound to the verified user + household + role, so a
+  // different account or permission level can never share a cache entry.
+  const scope = currentScope();
+  const scopeKey = scope ? `${scope.userId}:${scope.familyId}:${scope.role ?? ""}` : "none";
+
   // Only the Today window is persisted; the saved copy paints instantly and is
   // marked stale (updatedAt 0) so the server refresh always runs right away.
+  // Read lazily when the query entry is created (never memoized across
+  // clears), so cleanup on sign-out/switch can't be undone by stale state.
   const isTodayWindow = (() => {
     const t = todayWindow();
     return t.from === range.from && t.to === range.to;
   })();
-  const cached = useMemo(
-    () => (isTodayWindow ? readEventCache(currentScope(), range, dayKeyOf(new Date())) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isTodayWindow, range.from, range.to],
-  );
+  const cachedRef = useRef<{ key: string; savedAt: number } | null>(null);
+  const queryKey = [...FAMILY_BUNDLE_KEY, scopeKey, range.from, range.to] as const;
+  const queryKeyStr = queryKey.join("|");
 
   const bundle = useQuery({
-    queryKey: [...FAMILY_BUNDLE_KEY, range.from, range.to],
+    queryKey,
+    enabled: !!scope,
     // Bounded so a request stalled by iOS suspension can't hold the startup
     // screen forever; one retry, then the existing error/retry UI shows.
     queryFn: async () => {
-      const scope = currentScope();
+      const startScope = currentScope();
       const result = await withTimeout(fetchBundle({ data: range }), 20_000, "Calendar");
-      // Persist only if the same verified user/household/role is still signed
-      // in, so a late response can never land under a different account.
+      // A late response for a different account/household/role is discarded
+      // so it can never populate (or be saved under) another calendar.
+      if (!sameScope(startScope, currentScope()) || result.family?.id !== startScope?.familyId) {
+        throw new Error("Calendar scope changed");
+      }
       const today = todayWindow();
       if (
         today.from === range.from &&
         today.to === range.to &&
-        sameScope(scope, currentScope()) &&
-        result.family?.id === scope?.familyId &&
-        (result.family?.role ?? null) === scope?.role
+        (result.family?.role ?? null) === startScope?.role
       ) {
-        writeEventCache(scope!, range, result);
+        writeEventCache(startScope!, range, result);
       }
       return result;
     },
-    initialData: cached?.bundle,
-    initialDataUpdatedAt: () => (cached ? 0 : undefined),
+    initialData: () => {
+      if (!isTodayWindow || !scope) return undefined;
+      const hit = readEventCache(scope, range, dayKeyOf(new Date()));
+      cachedRef.current = hit ? { key: queryKeyStr, savedAt: hit.savedAt } : null;
+      return hit?.bundle;
+    },
+    initialDataUpdatedAt: () => (cachedRef.current?.key === queryKeyStr ? 0 : undefined),
     retry: 1,
     // Foreground returns within this window reuse the populated in-memory
     // bundle instead of refetching on focus; explicit invalidations still
     // refetch immediately regardless of staleness.
     staleTime: 5 * 60 * 1000,
   });
+  const cached = cachedRef.current?.key === queryKeyStr ? cachedRef.current : null;
 
   // App-open freshness: pull Google changes in the background (never blocking
   // render) and refetch the bundle only when something was actually imported.
@@ -303,7 +316,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     const role = data?.family?.role ?? null;
 
     return {
-      loading: bundle.isLoading,
+      loading: bundle.isPending && !bundle.isError,
       loadError: bundle.isError && !bundle.data,
       family: data?.family ?? null,
       role,
@@ -383,7 +396,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       refreshFailed: bundle.isError && !!bundle.data,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bundle.data, bundle.isLoading, bundle.isError, bundle.isFetching, bundle.dataUpdatedAt, cached, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);
+  }, [bundle.data, bundle.isLoading, bundle.isPending, bundle.isError, bundle.isFetching, bundle.dataUpdatedAt, cached, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;
 }

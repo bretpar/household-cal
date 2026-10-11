@@ -229,7 +229,7 @@ export async function loadFamilyBundle(
         // recurring master, whose occurrences are expanded client-side.
         const fromIso = `${shiftDayKey(range.from, -1)}T00:00:00Z`;
         const toIso = `${shiftDayKey(range.to, 2)}T00:00:00Z`;
-        q = q.or(`and(start_at.lt.${toIso},end_at.gt.${fromIso}),not.recurrence_rule.is.null`);
+        q = q.or(`and(start_at.lt.${toIso},end_at.gt.${fromIso}),recurrence_rule.not.is.null`);
       }
       return q;
     })(),
