@@ -77,7 +77,13 @@ function AuthenticatedLayout() {
       if ("redirectTo" in result) {
         // Only redirect when the guard disagrees with the current path; on
         // the destination path the guard passes, so no redirect loop forms.
+        // A redirect inside the authenticated area (e.g. fresh signup ->
+        // /onboarding) means verification succeeded: mount the shell so the
+        // redirected Outlet can render and the splash can clear. Redirects
+        // outside it (e.g. /login) unmount this layout, so everReady is
+        // irrelevant there and stays false.
         if (result.redirectTo !== pathname) {
+          if (result.redirectTo.startsWith("/onboarding")) setEverReady(true);
           navigate({ to: result.redirectTo, replace: true });
         }
         return;
@@ -116,6 +122,13 @@ function AuthenticatedLayout() {
         const path = pathRef.current;
         const result = await retryGuard(path);
         if ("redirectTo" in result) {
+          // A retry that redirects into the authenticated area (e.g.
+          // /onboarding) verified access: clear the error and mount the
+          // shell so the destination can render.
+          if (result.redirectTo.startsWith("/onboarding")) {
+            setAccessError(false);
+            setEverReady(true);
+          }
           if (result.redirectTo !== path) navigate({ to: result.redirectTo, replace: true });
           return;
         }
