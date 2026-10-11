@@ -129,7 +129,7 @@ function AuthenticatedLayout() {
   // it on stale membership) while keeping the shared header and tabs.
   const router = useRouter();
   const routeContext = Route.useRouteContext() as Record<string, unknown>;
-  const navAccessError = everReady && routeContext?.accessError === true;
+  const navAccessError = everReady && routeContext?.["accessError"] === true;
   const [navRetrying, setNavRetrying] = useState(false);
   const retryNavigation = () => {
     if (navRetrying) return;
