@@ -1,12 +1,20 @@
 import { createFileRoute, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { CopiedEventBar } from "@/components/CopiedEventBar";
 import { AppTourProvider } from "@/components/AppTour";
 import { EventDetailsDialog } from "@/components/EventDetailsDialog";
 import { PasteEventDialog } from "@/components/PasteEventDialog";
 import { StartupHeartReveal, StartupSplash } from "@/components/StartupSplash";
-import { hasLayoutMounted, markLayoutMounted, resolveGuard, retryGuard } from "@/lib/auth-guard";
+import {
+  getVerifiedMembership,
+  hasLayoutMounted,
+  markLayoutMounted,
+  resolveGuard,
+  retryGuard,
+  subscribeVerifiedMembership,
+} from "@/lib/auth-guard";
+import { useAppResume } from "@/lib/use-app-resume";
 import { CalendarProvider, useCalendar } from "@/lib/calendar-store";
 import { UserPreferencesProvider } from "@/lib/user-preferences";
 import { useCaregiver } from "@/lib/use-caregiver";
@@ -78,21 +86,52 @@ function AuthenticatedLayout() {
   // Try again: drop stale failed/in-flight guard state and re-run the full
   // auth + household check; success mounts the shell fresh (caregiver
   // classification and the calendar bundle then load from scratch).
-  const retryAccess = () => {
+  // Shared by Try again, warm resume and lost-membership recovery. Handles
+  // success, redirects and access errors even while the shell is mounted:
+  // on failure the shell unmounts (no stale tabs) and the error UI shows.
+  const verifying = useRef(false);
+  const pathRef = useRef(pathname);
+  pathRef.current = pathname;
+  const reverify = () => {
+    if (verifying.current) return;
+    verifying.current = true;
     setAccessError(false);
     void (async () => {
-      const result = await retryGuard(pathname);
-      if ("redirectTo" in result) {
-        if (result.redirectTo !== pathname) navigate({ to: result.redirectTo, replace: true });
-        return;
-      }
-      if ("accessError" in result) {
+      try {
+        const path = pathRef.current;
+        const result = await retryGuard(path);
+        if ("redirectTo" in result) {
+          if (result.redirectTo !== path) navigate({ to: result.redirectTo, replace: true });
+          return;
+        }
+        if ("accessError" in result) {
+          setEverReady(false);
+          setAccessError(true);
+          return;
+        }
+        setEverReady(true);
+      } catch {
+        setEverReady(false);
         setAccessError(true);
-        return;
+      } finally {
+        verifying.current = false;
       }
-      setEverReady(true);
     })();
   };
+  const retryAccess = reverify;
+
+  // Warm resume: explicitly rerun the bounded auth + household verification.
+  useAppResume(() => {
+    if (everReady || accessError) reverify();
+  });
+
+  // An auth re-emit (e.g. Safari SIGNED_IN on foreground) clears the verified
+  // membership; re-verify instead of leaving the calendar disabled.
+  const membership = useSyncExternalStore(subscribeVerifiedMembership, getVerifiedMembership, () => null);
+  useEffect(() => {
+    if (everReady && !membership && !pathname.startsWith("/onboarding")) reverify();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [everReady, membership]);
 
   // One overlay instance for guard + household + first calendar load: it sits
   // in a fixed slot so it is never unmounted/recreated between those phases.

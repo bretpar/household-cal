@@ -1,3 +1,4 @@
+import { withTimeout } from "@/lib/with-timeout";
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -206,7 +207,9 @@ function RootComponent() {
       curtain.setAttribute("aria-hidden", "true");
       curtain.style.cssText = "position:fixed;inset:0;z-index:70;background:var(--background)";
       document.body.appendChild(curtain);
-      void supabase.auth.getUser().then(({ data, error }) => {
+      // Bounded: if the check stalls, fail closed by reloading, which reruns
+      // the full verification instead of leaving the curtain up forever.
+      void withTimeout(supabase.auth.getUser(), 10_000, "Auth").then(({ data, error }) => {
         const userId = data.user?.id ?? null;
         // Network/server failures are not proof the session is gone: keep the
         // restored page and only bounce to sign-in on a definitive auth answer.
@@ -221,7 +224,7 @@ function RootComponent() {
           return;
         }
         curtain.remove();
-      });
+      }, () => window.location.reload());
     };
     window.addEventListener("pageshow", onPageShow);
     return () => {
