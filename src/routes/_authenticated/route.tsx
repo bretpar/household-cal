@@ -157,6 +157,11 @@ function AuthenticatedLayout() {
       } finally {
         verifying.current = false;
         setNavRetrying(false);
+        // A household loss from another cause (e.g. an auth re-emit) during
+        // the retry was suppressed by the shared lock; run one follow-up
+        // verification now that the lock is free. Still a single check at a
+        // time: reverify no-ops while any verification is in flight.
+        if (!getVerifiedMembership() && !pathRef.current.startsWith("/onboarding")) reverify();
       }
     })();
   };
