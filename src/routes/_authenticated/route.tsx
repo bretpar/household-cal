@@ -201,6 +201,7 @@ function AuthenticatedLayout() {
                     {navRetrying ? "Checking…" : "Try again"}
                   </button>
                 </div>
+                </AppShell>
               ) : (
                 <Outlet />
               )}
