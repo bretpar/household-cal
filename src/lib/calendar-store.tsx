@@ -187,6 +187,45 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   // prefetched near the edge so day-by-day navigation never blanks events.
   // Each window is still its own query entry, so wrong dates never show.
   const prefetchRef = useRef<(r: { from: string; to: string }) => void>(() => {});
+  const scopeKeyRef = useRef("none");
+  // Bumped on every bundle invalidation (edit, delete, Google sync, resume);
+  // a fetch that started before the bump can never become reusable data.
+  const genRef = useRef(0);
+  useEffect(
+    () =>
+      queryClient.getQueryCache().subscribe((e) => {
+        if (
+          e.type === "updated" &&
+          e.action.type === "invalidate" &&
+          e.query.queryKey[0] === FAMILY_BUNDLE_KEY[0]
+        ) {
+          genRef.current += 1;
+        }
+      }),
+    [queryClient],
+  );
+  // Same-scope, fresh (not invalidated) loaded window that covers the dates.
+  const findCovering = useCallback(
+    (next: { from: string; to: string }) => {
+      const hits = queryClient.getQueryCache().findAll({
+        queryKey: [...FAMILY_BUNDLE_KEY, scopeKeyRef.current],
+      });
+      const hit = hits.find((q) => {
+        const [, , from, to] = q.queryKey as [string, string, string, string];
+        return (
+          q.state.status === "success" &&
+          !q.state.isInvalidated &&
+          q.state.dataUpdatedAt > 0 &&
+          from <= next.from &&
+          to >= next.to
+        );
+      });
+      if (!hit) return null;
+      const [, , from, to] = hit.queryKey as [string, string, string, string];
+      return { from, to };
+    },
+    [queryClient],
+  );
   const setVisibleRange = useCallback((from: Date, to: Date) => {
     const next = { from: dayKeyOf(from), to: dayKeyOf(to) };
     const padded = {
@@ -197,15 +236,18 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       if (!(next.from >= prev.from && next.to <= prev.to)) {
         // The exact Today window stays unpadded so its persisted cache applies.
         const t = todayWindow();
-        return t.from === next.from && t.to === next.to ? next : padded;
+        if (t.from === next.from && t.to === next.to) return next;
+        // Adopt an already-fetched window (e.g. a finished prefetch) that
+        // covers the destination instead of starting a different query.
+        return findCovering(next) ?? padded;
       }
       const nearEdge =
         next.from < dayKeyOf(addDaysLocal(parseKey(prev.from), EDGE_DAYS)) ||
         next.to > dayKeyOf(addDaysLocal(parseKey(prev.to), -EDGE_DAYS));
-      if (nearEdge) queueMicrotask(() => prefetchRef.current(padded));
+      if (nearEdge && !findCovering(padded)) queueMicrotask(() => prefetchRef.current(padded));
       return prev;
     });
-  }, []);
+  }, [findCovering]);
 
   // Query identity is bound to the verified user + household + role, so a
   // different account or permission level can never share a cache entry.
