@@ -23,7 +23,7 @@
 - Owner-managed time cards (timesheets.owner_managed) exist only for Timesheet-enabled caregivers with no household login; Owners edit and approve them directly, no emails. Why: sign-in caregivers keep the certified submit/review flow.
 - Timesheet status "closed" (Owner-only closeTimesheet) is read-only history excluded from actionable queries; family_members.timesheet_start_date (NULL = no limit) filters shifts and periods. Why: retire obsolete periods without deleting data.
 - Day, 3-Day, and Week timed cards use the shared header-collision layout in calendar-layout.ts; stack priority follows deterministic occurrence order within each body-overlap cluster. Why: protect later headers without changing true event times.
-- Agent integrations (MCP) live in src/lib/mcp/ (read-only tools, Supabase OAuth, RLS as caller). Why: assistants act as the signed-in user.
+- Agent integrations (MCP) live in src/lib/mcp/ (read-only, Supabase OAuth, RLS as caller). Why: assistants act as the signed-in user.
 - App tours live in the authenticated provider, enter Today once, and highlight real bottom tabs through scoped CSS; versioned state stays per verified user in app_tour_states. Why: fixed walkthroughs avoid route/loading/positioning races.
 - The public comparison guide renders desktop rows and mobile feature lists from the same data. Why: no horizontal scrolling on phones.
 - Desktop/tablet Calendar Day renders only WeekView, filling the calendar surface; the agenda list stays on Today. Why: the embedded strip squeezed the timeline and duplicated Today's schedule.
