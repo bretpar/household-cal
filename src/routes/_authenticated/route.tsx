@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { CopiedEventBar } from "@/components/CopiedEventBar";
 import { AppTourProvider } from "@/components/AppTour";
-import { AppShell, PersistentAppShell } from "@/components/AppShell";
+import { PersistentAppShell } from "@/components/AppShell";
 import { EventDetailsDialog } from "@/components/EventDetailsDialog";
 import { PasteEventDialog } from "@/components/PasteEventDialog";
 import { StartupHeartReveal, StartupSplash } from "@/components/StartupSplash";
@@ -200,7 +200,7 @@ function AuthenticatedLayout() {
           the guard passes, the splash must never stay above them. */}
       <StartupHeartReveal
         loading={splashLoading}
-        failed={accessError || calState.failed || (everReady && pathname.startsWith("/onboarding"))}
+        failed={accessError || navAccessError || calState.failed || (everReady && pathname.startsWith("/onboarding"))}
       />
     </>
   );
