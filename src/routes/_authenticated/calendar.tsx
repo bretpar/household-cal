@@ -216,7 +216,7 @@ function CalendarPage() {
   }, []);
 
   const mode: ViewMode = view;
-  const isEmpty = !loading && !loadError && !refreshFailed && events.length === 0;
+  const isEmpty = !loading && !loadingRange && !loadError && !refreshFailed && events.length === 0;
 
   // Week view is a 7-day calendar where there is room, and a 3-day calendar on
   // phones so each column is wide enough to read.
