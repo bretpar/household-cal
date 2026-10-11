@@ -146,8 +146,11 @@ function AuthenticatedLayout() {
           if (result.redirectTo !== path) navigate({ to: result.redirectTo, replace: true });
           return;
         }
-        // Re-run beforeLoad so the route context reflects the fresh result;
-        // on success the guard cache makes this pass without another round-trip.
+        // Failed retry: keep the existing error state and Try again; do not
+        // re-run beforeLoad (it would repeat the same failing verification).
+        if ("accessError" in result) return;
+        // Success: re-run beforeLoad once so the route context reflects the
+        // fresh result; the guard cache makes this pass without a round-trip.
         await router.invalidate();
       } catch {
         // Stay on the content-only error state; Try again remains available.
@@ -189,7 +192,7 @@ function AuthenticatedLayout() {
             <AppTourProvider>
             <PersistentAppShell>
               {navAccessError ? (
-                <AppShell>
+                <AppShell lockChrome>
                 <div role="alert" className="mx-auto max-w-sm space-y-3 px-4 py-12 text-center">
                   <p className="text-sm text-muted-foreground">We couldn't confirm your access.</p>
                   <button

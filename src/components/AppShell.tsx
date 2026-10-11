@@ -39,7 +39,7 @@ const CAREGIVER_NAV = [
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
-type ShellOptions = { fitViewport: boolean; compactMobileLandscape: boolean };
+type ShellOptions = { fitViewport: boolean; compactMobileLandscape: boolean; lockChrome: boolean };
 type ShellRegistry = { register: (id: object, o: ShellOptions) => void; unregister: (id: object) => void };
 const ShellContext = createContext<ShellRegistry | null>(null);
 
@@ -57,21 +57,29 @@ export function AppShell({
    */
   fitViewport = false,
   compactMobileLandscape = false,
+  lockChrome = false,
 }: {
   children: ReactNode;
   fitViewport?: boolean;
   /** Compact chrome for the phone Calendar in landscape. */
   compactMobileLandscape?: boolean;
+  /**
+   * Access-error pages: keep the header/tabs from the last verified role and
+   * never swap the content for permission skeletons. With no verified role
+   * yet, a minimal neutral shell (no tabs) is shown instead of privileged
+   * links.
+   */
+  lockChrome?: boolean;
 }) {
   const registry = useContext(ShellContext);
   const id = useRef({}).current;
   useLayoutEffect(() => {
-    registry?.register(id, { fitViewport, compactMobileLandscape });
-  }, [registry, id, fitViewport, compactMobileLandscape]);
+    registry?.register(id, { fitViewport, compactMobileLandscape, lockChrome });
+  }, [registry, id, fitViewport, compactMobileLandscape, lockChrome]);
   useLayoutEffect(() => () => registry?.unregister(id), [registry, id]);
   if (!registry) {
     return (
-      <ShellFrame active fitViewport={fitViewport} compactMobileLandscape={compactMobileLandscape}>
+      <ShellFrame active fitViewport={fitViewport} compactMobileLandscape={compactMobileLandscape} lockChrome={lockChrome}>
         {children}
       </ShellFrame>
     );
@@ -92,7 +100,7 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
       const all = [...entries.current.values()];
       const last = all[all.length - 1] ?? null;
       setOpts((prev) =>
-        prev && last && prev.fitViewport === last.fitViewport && prev.compactMobileLandscape === last.compactMobileLandscape
+        prev && last && prev.fitViewport === last.fitViewport && prev.compactMobileLandscape === last.compactMobileLandscape && prev.lockChrome === last.lockChrome
           ? prev
           : last,
       );
@@ -108,6 +116,7 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
         active={!!opts}
         fitViewport={opts?.fitViewport ?? false}
         compactMobileLandscape={opts?.compactMobileLandscape ?? false}
+        lockChrome={opts?.lockChrome ?? false}
       >
         {children}
       </ShellFrame>
@@ -120,21 +129,33 @@ function ShellFrame({
   active,
   fitViewport,
   compactMobileLandscape,
+  lockChrome,
 }: {
   children: ReactNode;
   active: boolean;
   fitViewport: boolean;
   compactMobileLandscape: boolean;
+  lockChrome: boolean;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isCaregiver, resolved: caregiverResolved, failed: accessFailed, retry: retryAccess } = useCaregiver();
   const { isOwner, family } = useCalendar();
   const timesheetsOn = hasFeature("timesheets", { familyId: family?.id });
+  // Last verified, identity-scoped role answer. On access-error pages
+  // (lockChrome) it keeps the correct tabs visible while a retry re-verifies;
+  // with no verified answer yet, the shell stays neutral (no tabs).
+  const lastVerified = useRef<{ isCaregiver: boolean; timesheetsOn: boolean } | null>(null);
+  useEffect(() => {
+    if (caregiverResolved) lastVerified.current = { isCaregiver, timesheetsOn };
+  }, [caregiverResolved, isCaregiver, timesheetsOn]);
+  const chromeResolved = caregiverResolved || (lockChrome && lastVerified.current !== null);
+  const chromeCaregiver = caregiverResolved ? isCaregiver : (lastVerified.current?.isCaregiver ?? false);
+  const chromeTimesheetsOn = caregiverResolved ? timesheetsOn : (lastVerified.current?.timesheetsOn ?? false);
   // No tabs until caregiver status is known, so a caregiver never sees parent tabs.
-  const nav = !caregiverResolved
+  const nav = !chromeResolved
     ? []
-    : isCaregiver
-      ? CAREGIVER_NAV.filter((n) => n.to !== "/timesheet" || timesheetsOn)
+    : chromeCaregiver
+      ? CAREGIVER_NAV.filter((n) => n.to !== "/timesheet" || chromeTimesheetsOn)
       : NAV;
   const ownerPending = usePendingTimesheetCount(!isCaregiver && isOwner && timesheetsOn);
   const myActions = useMyTimesheetActionCount(isCaregiver && timesheetsOn);
@@ -234,7 +255,7 @@ function ShellFrame({
             : "px-4 pt-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-12 lg:px-8",
         )}
       >
-        {active && accessFailed && !caregiverResolved ? (
+        {active && !lockChrome && accessFailed && !caregiverResolved ? (
           <div className="mx-auto max-w-sm space-y-3 py-12 text-center">
             <p className="text-sm text-muted-foreground">We couldn't confirm your access.</p>
             <button
@@ -245,14 +266,15 @@ function ShellFrame({
               Try again
             </button>
           </div>
-        ) : active && (!caregiverResolved || showContentSkeleton) ? (
+        ) : active && !lockChrome && (!caregiverResolved || showContentSkeleton) ? (
           <PageContentSkeleton />
         ) : null}
         {/* Route content stays mounted (it declares the shell); it is only
-            hidden while access or a tab transition is pending. */}
+            hidden while access or a tab transition is pending. Locked-chrome
+            (access-error) pages always render their own content. */}
         <div
           className={
-            active && (!caregiverResolved || showContentSkeleton) ? "hidden" : "contents"
+            active && !lockChrome && (!caregiverResolved || showContentSkeleton) ? "hidden" : "contents"
           }
         >
           {children}
