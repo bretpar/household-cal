@@ -18,6 +18,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { installNativeAuthListener } from "@/lib/native-auth";
 import { sanitizeReturnPath } from "@/lib/return-path";
 import { hideNativeSplash } from "@/lib/native-splash";
+import { clearEventCache } from "@/lib/event-cache";
 
 
 function NotFoundComponent() {
