@@ -18,6 +18,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { installNativeAuthListener } from "@/lib/native-auth";
 import { sanitizeReturnPath } from "@/lib/return-path";
 import { hideNativeSplash } from "@/lib/native-splash";
+import { clearEventCache } from "@/lib/event-cache";
 
 
 function NotFoundComponent() {
@@ -173,6 +174,7 @@ function RootComponent() {
     const dropSessionData = async () => {
       await queryClient.cancelQueries();
       queryClient.clear();
+      clearEventCache();
     };
     // Fires in this tab and (via the auth client's cross-tab broadcast) in other open tabs.
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {

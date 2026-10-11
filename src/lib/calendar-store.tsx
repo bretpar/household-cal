@@ -1,4 +1,5 @@
-import { resetGuardForResume } from "@/lib/auth-guard";
+import { getVerifiedMembership, resetGuardForResume } from "@/lib/auth-guard";
+import { readEventCache, writeEventCache, type EventCacheScope } from "@/lib/event-cache";
 import { useAppResume } from "@/lib/use-app-resume";
 import { withTimeout } from "@/lib/with-timeout";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -120,19 +121,31 @@ interface CalendarStore {
 
   /** Views report the dates on screen so only that window of events is fetched. */
   setVisibleRange: (from: Date, to: Date) => void;
+
+  /** set while events shown are the saved copy from a previous visit (ms timestamp) */
+  cachedAt: number | null;
+  /** a refresh failed while earlier events are still on screen */
+  refreshFailed: boolean;
 }
 
 const dayKeyOf = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-/** Initial window matches the Today dashboard (3 days, padded). */
-function defaultRange() {
-  const today = new Date();
+/** Initial window matches the Today dashboard: today ±2 days (end exclusive +3). */
+export function todayWindow(today = new Date()) {
   return {
-    from: dayKeyOf(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)),
+    from: dayKeyOf(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2)),
     to: dayKeyOf(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3)),
   };
 }
+const defaultRange = () => todayWindow();
+
+function currentScope(): EventCacheScope | null {
+  const m = getVerifiedMembership();
+  return m ? { userId: m.userId, familyId: m.family_id, role: m.role } : null;
+}
+const sameScope = (a: EventCacheScope | null, b: EventCacheScope | null) =>
+  !!a && !!b && a.userId === b.userId && a.familyId === b.familyId && a.role === b.role;
 
 const CalendarContext = createContext<CalendarStore | null>(null);
 
@@ -163,11 +176,41 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     setRange((prev) => (prev.from === next.from && prev.to === next.to ? prev : next));
   }, []);
 
+  // Only the Today window is persisted; the saved copy paints instantly and is
+  // marked stale (updatedAt 0) so the server refresh always runs right away.
+  const isTodayWindow = (() => {
+    const t = todayWindow();
+    return t.from === range.from && t.to === range.to;
+  })();
+  const cached = useMemo(
+    () => (isTodayWindow ? readEventCache(currentScope(), range) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isTodayWindow, range.from, range.to],
+  );
+
   const bundle = useQuery({
     queryKey: [...FAMILY_BUNDLE_KEY, range.from, range.to],
     // Bounded so a request stalled by iOS suspension can't hold the startup
     // screen forever; one retry, then the existing error/retry UI shows.
-    queryFn: () => withTimeout(fetchBundle({ data: range }), 20_000, "Calendar"),
+    queryFn: async () => {
+      const scope = currentScope();
+      const result = await withTimeout(fetchBundle({ data: range }), 20_000, "Calendar");
+      // Persist only if the same verified user/household/role is still signed
+      // in, so a late response can never land under a different account.
+      const today = todayWindow();
+      if (
+        today.from === range.from &&
+        today.to === range.to &&
+        sameScope(scope, currentScope()) &&
+        result.family?.id === scope?.familyId &&
+        (result.family?.role ?? null) === scope?.role
+      ) {
+        writeEventCache(scope!, range, result);
+      }
+      return result;
+    },
+    initialData: cached?.bundle,
+    initialDataUpdatedAt: () => (cached ? 0 : undefined),
     retry: 1,
     // Foreground returns within this window reuse the populated in-memory
     // bundle instead of refetching on focus; explicit invalidations still
@@ -195,6 +238,13 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   // Warm resume (e.g. iOS app reopened after a while): reset any stuck auth
   // check and refresh quietly. The loaded calendar stays on screen because
   // the bundle keeps its data while refetching; Google refresh stays best-effort.
+  // Reconnection: revalidate quietly; displayed events stay until replaced.
+  useEffect(() => {
+    const onOnline = () => void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [queryClient]);
+
   useAppResume(() => {
     resetGuardForResume();
     void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
@@ -325,9 +375,12 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       closeOccurrence: () => setActive(null),
 
       setVisibleRange,
+
+      cachedAt: cached && bundle.data && bundle.dataUpdatedAt === 0 ? cached.savedAt : null,
+      refreshFailed: bundle.isError && !!bundle.data,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bundle.data, bundle.isLoading, bundle.isError, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);
+  }, [bundle.data, bundle.isLoading, bundle.isError, bundle.dataUpdatedAt, cached, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;
 }

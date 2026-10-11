@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { addDays, format } from "date-fns";
 
@@ -29,15 +29,21 @@ export const Route = createFileRoute("/_authenticated/today")({
 });
 
 function TodayPage() {
-  const { visibleEvents, selectedMembers, canEdit, copiedEvent, startPaste, loading, loadError, setVisibleRange } =
+  const { visibleEvents, selectedMembers, canEdit, copiedEvent, startPaste, loading, loadError, setVisibleRange, cachedAt, refreshFailed } =
     useCalendar();
+  // Re-check the date every minute so the window rolls forward past midnight.
+  const [dayStamp, setDayStamp] = useState(() => new Date().toDateString());
+  useEffect(() => {
+    const id = window.setInterval(() => setDayStamp(new Date().toDateString()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
   const today = new Date();
 
-  // The dashboard shows three days; fetch just that window (padded).
+  // Today ±2 days: the same window the calendar store persists.
   useEffect(() => {
-    setVisibleRange(addDays(today, -1), addDays(today, 3));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setVisibleRange]);
+    const now = new Date();
+    setVisibleRange(addDays(now, -2), addDays(now, 3));
+  }, [setVisibleRange, dayStamp]);
 
   return (
     <AppShell>
@@ -56,6 +62,13 @@ function TodayPage() {
             <AddEventDialog defaultDate={today} />
           </div>
         </header>
+        {(cachedAt || refreshFailed) && (
+          <p role="status" className="text-xs text-muted-foreground">
+            {refreshFailed
+              ? "Couldn't refresh — showing the last loaded events."
+              : `Updating… last updated ${format(cachedAt!, "h:mm a")}`}
+          </p>
+        )}
         <div data-tour-target="today-agenda">
         <AgendaView
           anchor={today}
