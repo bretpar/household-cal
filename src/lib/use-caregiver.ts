@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { getVerifiedMembership } from "@/lib/auth-guard";
+import { getVerifiedMembership, subscribeVerifiedMembership } from "@/lib/auth-guard";
+import { withTimeout } from "@/lib/with-timeout";
 import { FAMILY_BUNDLE_KEY, useCalendar } from "@/lib/calendar-store";
 
 export const IS_CAREGIVER_KEY = ["is-caregiver"] as const;
@@ -22,7 +23,8 @@ export function useCaregiver(): {
   const { family } = useCalendar();
   // Before the calendar bundle arrives, use the membership the startup guard
   // already verified so navigation can be decided without waiting on events.
-  const verified = family ? null : getVerifiedMembership();
+  const membership = useSyncExternalStore(subscribeVerifiedMembership, getVerifiedMembership, () => null);
+  const verified = family ? null : membership;
   const familyId = family?.id ?? verified?.family_id ?? null;
   const role = family?.role ?? verified?.role ?? null;
   const viewer = role === "viewer";
@@ -34,7 +36,12 @@ export function useCaregiver(): {
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("is_babysitter", { _family_id: familyId! });
+      // Bounded: a stalled lookup (e.g. after an iOS resume) fails closed and retries.
+      const { data, error } = await withTimeout(
+        Promise.resolve(supabase.rpc("is_babysitter", { _family_id: familyId! })),
+        10_000,
+        "Caregiver lookup",
+      );
       if (error) throw error;
       return data === true;
     },

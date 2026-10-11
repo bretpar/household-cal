@@ -27,6 +27,21 @@ let verifiedMembership: { userId: string; family_id: string; role: string | null
 export function getVerifiedMembership() {
   return verifiedMembership;
 }
+/** Subscribers (React via useSyncExternalStore) re-render when membership changes. */
+const membershipListeners = new Set<() => void>();
+function setVerifiedMembership(next: typeof verifiedMembership) {
+  if (
+    next === verifiedMembership ||
+    (next && verifiedMembership && next.userId === verifiedMembership.userId &&
+      next.family_id === verifiedMembership.family_id && next.role === verifiedMembership.role)
+  ) return;
+  verifiedMembership = next;
+  membershipListeners.forEach((l) => l());
+}
+export function subscribeVerifiedMembership(listener: () => void) {
+  membershipListeners.add(listener);
+  return () => void membershipListeners.delete(listener);
+}
 let guardInFlight: {
   pathname: string;
   gen: number;
@@ -40,7 +55,7 @@ if (typeof window !== "undefined") {
       authGeneration++;
       guardCache = null;
       guardInFlight = null;
-      verifiedMembership = null;
+      setVerifiedMembership(null);
     }
   });
 }
@@ -126,9 +141,11 @@ async function resolveGuardUncached(pathname: string, gen: number) {
     if (!resolved.family_id && !onOnboarding) return { redirectTo: "/onboarding" as const };
     if (resolved.family_id && onOnboarding) return { redirectTo: "/calendar" as const };
     if (gen !== authGeneration) return { user: data.user };
-    verifiedMembership = resolved.family_id
-      ? { userId: user.id, family_id: resolved.family_id, role: resolved.role ?? null }
-      : null;
+    setVerifiedMembership(
+      resolved.family_id
+        ? { userId: user.id, family_id: resolved.family_id, role: resolved.role ?? null }
+        : null,
+    );
     return { user: data.user, family_id: resolved.family_id };
   }
 
@@ -161,7 +178,7 @@ async function resolveGuardUncached(pathname: string, gen: number) {
 export function retryGuard(pathname: string) {
   guardCache = null;
   guardInFlight = null;
-  verifiedMembership = null;
+  setVerifiedMembership(null);
   return resolveGuard(pathname);
 }
 

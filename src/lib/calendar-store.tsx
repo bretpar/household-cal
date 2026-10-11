@@ -1,10 +1,10 @@
-import { getVerifiedMembership, resetGuardForResume } from "@/lib/auth-guard";
+import { getVerifiedMembership, subscribeVerifiedMembership } from "@/lib/auth-guard";
 import { readEventCache, writeEventCache, type EventCacheScope } from "@/lib/event-cache";
 import { useAppResume } from "@/lib/use-app-resume";
 import { withTimeout } from "@/lib/with-timeout";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import {
   createEvent,
@@ -253,6 +253,9 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
 
   // Query identity is bound to the verified user + household + role, so a
   // different account or permission level can never share a cache entry.
+  // Re-render when verification (re)establishes or clears the membership so
+  // fetching resumes/stops reactively; the snapshot itself stays a verified value.
+  useSyncExternalStore(subscribeVerifiedMembership, getVerifiedMembership, () => null);
   const scope = currentScope();
   const scopeKey = scope ? `${scope.userId}:${scope.familyId}:${scope.role ?? ""}` : "none";
   scopeKeyRef.current = scopeKey;
@@ -356,8 +359,8 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("online", onOnline);
   }, [queryClient]);
 
+  // Guard re-verification on resume is owned by the authenticated layout.
   useAppResume(() => {
-    resetGuardForResume();
     void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
     if (!bundle.data?.family) return;
     void refreshGoogle()
