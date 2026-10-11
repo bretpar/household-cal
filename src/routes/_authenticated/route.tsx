@@ -58,11 +58,18 @@ function AuthenticatedLayout() {
   // data mount while this is set.
   const [accessError, setAccessError] = useState(false);
 
+  // The bootstrap verification below is for genuine initial startup only.
+  // Once it has run (any outcome), a later failure must NOT retrigger it:
+  // setting everReady=false on the error path would otherwise re-fire this
+  // effect and loop guard calls. Recovery after that point is explicit
+  // (Try again / resume reverify) only.
+  const bootstrapDone = useRef(false);
   useEffect(() => {
     markLayoutMounted();
     // After the first pass, beforeLoad gates every client navigation; running
     // the guard here again would only duplicate its auth + household requests.
-    if (everReady) return;
+    if (everReady || bootstrapDone.current) return;
+    bootstrapDone.current = true;
     let cancelled = false;
     void (async () => {
       const result = await resolveGuard(pathname);
