@@ -34,6 +34,8 @@ function storage(): Storage | null {
 export function readEventCache(
   scope: EventCacheScope | null,
   range: { from: string; to: string },
+  /** Today's date key; a saved window from an earlier day is reused if it still covers it. */
+  anchor?: string,
 ): { bundle: FamilyBundle; savedAt: number } | null {
   const store = storage();
   if (!store || !scope) return null;
@@ -41,12 +43,14 @@ export function readEventCache(
     const raw = store.getItem(STORAGE_KEY);
     if (!raw) return null;
     const entry = JSON.parse(raw) as CachedEntry;
+    const covers = anchor
+      ? entry.from <= anchor && anchor < entry.to
+      : entry.from === range.from && entry.to === range.to;
     const matches =
       entry.userId === scope.userId &&
       entry.familyId === scope.familyId &&
       entry.role === scope.role &&
-      entry.from === range.from &&
-      entry.to === range.to &&
+      covers &&
       Date.now() - entry.savedAt < MAX_AGE_MS &&
       entry.bundle?.family?.id === scope.familyId;
     if (!matches) {
