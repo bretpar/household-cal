@@ -316,7 +316,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     const role = data?.family?.role ?? null;
 
     return {
-      loading: bundle.isLoading,
+      loading: bundle.isPending && !bundle.isError,
       loadError: bundle.isError && !bundle.data,
       family: data?.family ?? null,
       role,
@@ -396,7 +396,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       refreshFailed: bundle.isError && !!bundle.data,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bundle.data, bundle.isLoading, bundle.isError, bundle.isFetching, bundle.dataUpdatedAt, cached, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);
+  }, [bundle.data, bundle.isLoading, bundle.isPending, bundle.isError, bundle.isFetching, bundle.dataUpdatedAt, cached, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;
 }
