@@ -123,11 +123,18 @@ function AuthenticatedLayout() {
         const result = await retryGuard(path);
         if ("redirectTo" in result) {
           // A retry that redirects into the authenticated area (e.g.
-          // /onboarding) verified access: clear the error and mount the
-          // shell so the destination can render.
+          // /onboarding) verified access. Await the navigation FIRST so the
+          // destination's fresh route context replaces the stale one; only
+          // then clear the error and mount the shell. Clearing readiness
+          // before the navigation settles would let the previous route's
+          // stale accessError reset it and hide onboarding again.
           if (result.redirectTo.startsWith("/onboarding")) {
+            if (result.redirectTo !== path) {
+              await navigate({ to: result.redirectTo, replace: true });
+            }
             setAccessError(false);
             setEverReady(true);
+            return;
           }
           if (result.redirectTo !== path) navigate({ to: result.redirectTo, replace: true });
           return;
