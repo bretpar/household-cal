@@ -1,9 +1,9 @@
 # Roadmap
 
 ## Mobile Day / 3-Day native alignment
-- [ ] Replace custom mobile horizontal movement with gutter-aware native scroll snapping.
-- [ ] Commit dates only after actual settling; preserve event gestures and vertical position during navigation/rebasing.
-- [ ] Check focused source changes and preview diagnostics; no QA suites or publishing.
+- [x] Replace custom mobile horizontal movement with gutter-aware native scroll snapping.
+- [x] Commit dates only after actual settling; preserve event gestures and vertical position during navigation/rebasing.
+- [x] Check focused source changes and preview diagnostics; no QA suites or publishing. Real iPhone Safari/WebView momentum and long-press interactions remain unverified.
 
 ## Childcare timesheet marketing
 - [x] Add neutral timesheet comparison row and linked childcare explanation.
@@ -23,7 +23,7 @@
 ## Calendar horizontal navigation physics
 - [x] Mobile 3-Day: continuous strip of single-day columns (~viewport/3 wide), one persistent horizontal scroll surface, snap one day at a time, buffered offscreen days, rebase only after settle with zero visible movement.
 - [x] Mobile Day: same strip with one full-width column per snap point.
-- [x] Soft settle for the day strip (month + desktop keep their existing page carousel): velocity + distance aware, ~30-35% threshold or fast flick, brief coast then ease-out settle 250-400ms proportional to remaining distance, no bounce, no visible rebase jump.
+- [x] Mobile day strips use native mandatory horizontal snapping; desktop retains its trackpad soft settle, and Month keeps its existing carousel.
 - [x] Header label updates only after settle; preserve vertical scroll, current-time positioning, event placement, long-press drag, filters, data, desktop Week.
 
 ## Month view header handoff
