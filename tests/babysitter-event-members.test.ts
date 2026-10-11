@@ -6,6 +6,7 @@ import {
   validateFormState,
   type EventFormState,
 } from "@/components/EventForm";
+import { syncShiftAssignment } from "@/lib/calendar-ops";
 
 const BABYSITTER_CALENDAR = "calendar-babysitter";
 const FAMILY_CALENDAR = "calendar-family";
@@ -127,5 +128,75 @@ describe("event member validation", () => {
     expect(draftFromFormState(form, FAMILY_CALENDAR, BABYSITTER_CALENDAR)).not.toHaveProperty("babysitter_assignment");
     expect(draftFromFormState({ ...form, calendarSourceId: BABYSITTER_CALENDAR }, FAMILY_CALENDAR, BABYSITTER_CALENDAR).babysitter_assignment).toEqual(form.babysitter);
     expect(form.babysitter).toEqual({ kind: "caregiver", family_member_id: CAREGIVER });
+  });
+});
+
+describe("syncShiftAssignment", () => {
+  // Minimal fake db covering the queries syncShiftAssignment makes.
+  function fakeDb(inserted: unknown[]) {
+    return {
+      from(table: string) {
+        if (table === "families") {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: { babysitter_calendar_source_id: BABYSITTER_CALENDAR },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "family_members") {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({
+                    data: { id: CAREGIVER, role: "caregiver", active: true, removed_at: null },
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "babysitter_access_profiles") {
+          return {
+            select: () => ({
+              eq: () => ({ eq: () => ({ limit: async () => ({ data: [], error: null }) }) }),
+            }),
+          };
+        }
+        // babysitter_shifts
+        return {
+          delete: () => ({ eq: async () => ({ error: null }) }),
+          insert: async (row: unknown) => {
+            inserted.push(row);
+            return { error: null };
+          },
+        };
+      },
+    };
+  }
+
+  it("stores the assigned caregiver for an all-day Babysitter calendar event", async () => {
+    const inserted: unknown[] = [];
+    await syncShiftAssignment(fakeDb(inserted) as never, "family-1", "event-1", {
+      calendar_source_id: BABYSITTER_CALENDAR,
+      all_day: true,
+      babysitter_assignment: { kind: "caregiver", family_member_id: CAREGIVER },
+    });
+    expect(inserted).toEqual([
+      {
+        family_id: "family-1",
+        event_id: "event-1",
+        assignment: "caregiver",
+        family_user_id: null,
+        assignee_name: null,
+        assignee_member_id: CAREGIVER,
+      },
+    ]);
   });
 });
