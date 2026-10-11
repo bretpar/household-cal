@@ -173,6 +173,7 @@ function RootComponent() {
     const dropSessionData = async () => {
       await queryClient.cancelQueries();
       queryClient.clear();
+      clearEventCache();
     };
     // Fires in this tab and (via the auth client's cross-tab broadcast) in other open tabs.
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
