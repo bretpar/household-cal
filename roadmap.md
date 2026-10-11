@@ -1,5 +1,10 @@
 # Roadmap
 
+## Mobile Day / 3-Day native alignment
+- [ ] Replace custom mobile horizontal movement with gutter-aware native scroll snapping.
+- [ ] Commit dates only after actual settling; preserve event gestures and vertical position during navigation/rebasing.
+- [ ] Check focused source changes and preview diagnostics; no QA suites or publishing.
+
 ## Childcare timesheet marketing
 - [x] Add neutral timesheet comparison row and linked childcare explanation.
 - [x] Emphasize the scheduled-to-actual workflow on the childcare page and parent confirmation on the homepage.
