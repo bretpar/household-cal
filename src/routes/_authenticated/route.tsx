@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { CopiedEventBar } from "@/components/CopiedEventBar";
 import { AppTourProvider } from "@/components/AppTour";
-import { PersistentAppShell } from "@/components/AppShell";
+import { AppShell, PersistentAppShell } from "@/components/AppShell";
 import { EventDetailsDialog } from "@/components/EventDetailsDialog";
 import { PasteEventDialog } from "@/components/PasteEventDialog";
 import { StartupHeartReveal, StartupSplash } from "@/components/StartupSplash";
@@ -132,7 +132,10 @@ function AuthenticatedLayout() {
   const navAccessError = everReady && routeContext?.["accessError"] === true;
   const [navRetrying, setNavRetrying] = useState(false);
   const retryNavigation = () => {
-    if (navRetrying) return;
+    // Shares the reverify lock: retryGuard clears membership, and the
+    // lost-membership effect must not start a second, competing check.
+    if (navRetrying || verifying.current) return;
+    verifying.current = true;
     setNavRetrying(true);
     void (async () => {
       try {
@@ -149,6 +152,7 @@ function AuthenticatedLayout() {
       } catch {
         // Stay on the content-only error state; Try again remains available.
       } finally {
+        verifying.current = false;
         setNavRetrying(false);
       }
     })();
@@ -185,6 +189,7 @@ function AuthenticatedLayout() {
             <AppTourProvider>
             <PersistentAppShell>
               {navAccessError ? (
+                <AppShell>
                 <div role="alert" className="mx-auto max-w-sm space-y-3 px-4 py-12 text-center">
                   <p className="text-sm text-muted-foreground">We couldn't confirm your access.</p>
                   <button
@@ -196,6 +201,7 @@ function AuthenticatedLayout() {
                     {navRetrying ? "Checking…" : "Try again"}
                   </button>
                 </div>
+                </AppShell>
               ) : (
                 <Outlet />
               )}
