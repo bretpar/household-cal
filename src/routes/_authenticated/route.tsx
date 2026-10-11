@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { CopiedEventBar } from "@/components/CopiedEventBar";
@@ -124,6 +124,36 @@ function AuthenticatedLayout() {
   };
   const retryAccess = reverify;
 
+  // Navigation-level guard failure: beforeLoad returned { accessError } after
+  // the layout was already mounted. Block the destination page (never render
+  // it on stale membership) while keeping the shared header and tabs.
+  const router = useRouter();
+  const routeContext = Route.useRouteContext() as Record<string, unknown>;
+  const navAccessError = everReady && routeContext?.accessError === true;
+  const [navRetrying, setNavRetrying] = useState(false);
+  const retryNavigation = () => {
+    if (navRetrying) return;
+    setNavRetrying(true);
+    void (async () => {
+      try {
+        const path = pathRef.current;
+        // Full bounded auth + household re-check (clears stale guard state).
+        const result = await retryGuard(path);
+        if ("redirectTo" in result) {
+          if (result.redirectTo !== path) navigate({ to: result.redirectTo, replace: true });
+          return;
+        }
+        // Re-run beforeLoad so the route context reflects the fresh result;
+        // on success the guard cache makes this pass without another round-trip.
+        await router.invalidate();
+      } catch {
+        // Stay on the content-only error state; Try again remains available.
+      } finally {
+        setNavRetrying(false);
+      }
+    })();
+  };
+
   // Warm resume: explicitly rerun the bounded auth + household verification.
   useAppResume(() => {
     if (everReady || accessError) reverify();
@@ -154,7 +184,21 @@ function AuthenticatedLayout() {
           <CalendarProvider>
             <AppTourProvider>
             <PersistentAppShell>
-              <Outlet />
+              {navAccessError ? (
+                <div role="alert" className="mx-auto max-w-sm space-y-3 px-4 py-12 text-center">
+                  <p className="text-sm text-muted-foreground">We couldn't confirm your access.</p>
+                  <button
+                    type="button"
+                    onClick={retryNavigation}
+                    disabled={navRetrying}
+                    className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                  >
+                    {navRetrying ? "Checking…" : "Try again"}
+                  </button>
+                </div>
+              ) : (
+                <Outlet />
+              )}
             </PersistentAppShell>
             <EventDetailsDialog />
             <PasteEventDialog />
