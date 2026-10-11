@@ -253,6 +253,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   // different account or permission level can never share a cache entry.
   const scope = currentScope();
   const scopeKey = scope ? `${scope.userId}:${scope.familyId}:${scope.role ?? ""}` : "none";
+  scopeKeyRef.current = scopeKey;
 
   // Only the Today window is persisted; the saved copy paints instantly and is
   // marked stale (updatedAt 0) so the server refresh always runs right away.
@@ -270,11 +271,16 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   // screen forever; one retry, then the existing error/retry UI shows.
   const fetchWindow = async (win: { from: string; to: string }) => {
     const startScope = currentScope();
+    const startGen = genRef.current;
     const result = await withTimeout(fetchBundle({ data: win }), 20_000, "Calendar");
     // A late response for a different account/household/role is discarded
     // so it can never populate (or be saved under) another calendar.
     if (!sameScope(startScope, currentScope()) || result.family?.id !== startScope?.familyId) {
       throw new Error("Calendar scope changed");
+    }
+    // Started before an edit/sync invalidation: outdated, never reusable.
+    if (startGen !== genRef.current) {
+      throw new Error("Calendar data outdated");
     }
     const today = todayWindow();
     if (
