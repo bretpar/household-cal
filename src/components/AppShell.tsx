@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { CalendarDays, ClipboardList, Home, Settings, Sparkles, Users } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import logoAsset from "@/assets/logo.png.asset.json";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
@@ -12,7 +12,7 @@ import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
 
 /** Content-only placeholder: the header and bottom nav stay visible around it. */
-function PageContentSkeleton() {
+export function PageContentSkeleton() {
   return (
     <div className="animate-pulse space-y-4" aria-hidden>
       <div className="h-8 w-2/3 rounded-2xl bg-secondary" />
@@ -39,6 +39,15 @@ const CAREGIVER_NAV = [
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
+type ShellOptions = { fitViewport: boolean; compactMobileLandscape: boolean };
+type ShellRegistry = { register: (id: object, o: ShellOptions) => void; unregister: (id: object) => void };
+const ShellContext = createContext<ShellRegistry | null>(null);
+
+/**
+ * Page-level shell declaration. Inside the authenticated layout it only
+ * registers this page's shell options with the one persistent frame, so the
+ * header and bottom nav never remount across tab changes.
+ */
 export function AppShell({
   children,
   /**
@@ -53,6 +62,69 @@ export function AppShell({
   fitViewport?: boolean;
   /** Compact chrome for the phone Calendar in landscape. */
   compactMobileLandscape?: boolean;
+}) {
+  const registry = useContext(ShellContext);
+  const id = useRef({}).current;
+  useLayoutEffect(() => {
+    registry?.register(id, { fitViewport, compactMobileLandscape });
+  }, [registry, id, fitViewport, compactMobileLandscape]);
+  useLayoutEffect(() => () => registry?.unregister(id), [registry, id]);
+  if (!registry) {
+    return (
+      <ShellFrame active fitViewport={fitViewport} compactMobileLandscape={compactMobileLandscape}>
+        {children}
+      </ShellFrame>
+    );
+  }
+  return <>{children}</>;
+}
+
+/**
+ * The single persistent shell for authenticated routes. Chrome shows only
+ * while a page has declared an AppShell (onboarding has none); the content
+ * slot keeps a stable position so route content never remounts on toggle.
+ */
+export function PersistentAppShell({ children }: { children: ReactNode }) {
+  const entries = useRef(new Map<object, ShellOptions>());
+  const [opts, setOpts] = useState<ShellOptions | null>(null);
+  const [registry] = useState<ShellRegistry>(() => {
+    const sync = () => {
+      const all = [...entries.current.values()];
+      const last = all[all.length - 1] ?? null;
+      setOpts((prev) =>
+        prev && last && prev.fitViewport === last.fitViewport && prev.compactMobileLandscape === last.compactMobileLandscape
+          ? prev
+          : last,
+      );
+    };
+    return {
+      register: (id, o) => { entries.current.set(id, o); sync(); },
+      unregister: (id) => { entries.current.delete(id); sync(); },
+    };
+  });
+  return (
+    <ShellContext.Provider value={registry}>
+      <ShellFrame
+        active={!!opts}
+        fitViewport={opts?.fitViewport ?? false}
+        compactMobileLandscape={opts?.compactMobileLandscape ?? false}
+      >
+        {children}
+      </ShellFrame>
+    </ShellContext.Provider>
+  );
+}
+
+function ShellFrame({
+  children,
+  active,
+  fitViewport,
+  compactMobileLandscape,
+}: {
+  children: ReactNode;
+  active: boolean;
+  fitViewport: boolean;
+  compactMobileLandscape: boolean;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isCaregiver, resolved: caregiverResolved, failed: accessFailed, retry: retryAccess } = useCaregiver();
@@ -111,14 +183,15 @@ export function AppShell({
 
     <div
       className={cn(
-        "bg-background",
+        !active && "contents",
+        active && "bg-background",
         compactMobileLandscape && "calendar-three-day-landscape",
-        fitViewport
+        !active ? null : fitViewport
           ? "flex h-[100dvh] min-h-0 flex-col overflow-hidden md:h-auto md:min-h-screen md:overflow-visible"
           : "min-h-screen",
       )}
     >
-      <header className="app-shell-header sticky top-0 z-30 shrink-0 border-b border-border-soft bg-surface/90 backdrop-blur">
+      {active && <header className="app-shell-header sticky top-0 z-30 shrink-0 border-b border-border-soft bg-surface/90 backdrop-blur">
         <div className="app-shell-header-inner mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:px-8">
 
           <Link to="/today" className="flex min-w-0 items-center gap-2">
@@ -151,17 +224,19 @@ export function AppShell({
           </div>
 
         </div>
-      </header>
+      </header>}
 
       <main
         className={cn(
-          "app-shell-main mx-auto w-full max-w-6xl",
-          fitViewport
+          !active ? "contents" : "app-shell-main mx-auto w-full max-w-6xl",
+          !active ? null : fitViewport
             ? "flex min-h-0 flex-1 flex-col overflow-hidden px-3 pt-2 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:block md:min-h-0 md:flex-none md:overflow-visible md:px-4 md:pt-5 md:pb-12 lg:px-8"
             : "px-4 pt-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-12 lg:px-8",
         )}
       >
-        {accessFailed && !caregiverResolved ? (
+        {!active ? (
+          children
+        ) : accessFailed && !caregiverResolved ? (
           <div className="mx-auto max-w-sm space-y-3 py-12 text-center">
             <p className="text-sm text-muted-foreground">We couldn't confirm your access.</p>
             <button
@@ -184,7 +259,7 @@ export function AppShell({
 
 
       {/* Phone bottom navigation */}
-      <nav className="app-shell-bottom-nav fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-30 mx-auto max-w-lg rounded-3xl border border-border-soft bg-surface/95 p-1.5 shadow-lifted backdrop-blur md:hidden">
+      {active && <nav className="app-shell-bottom-nav fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-30 mx-auto max-w-lg rounded-3xl border border-border-soft bg-surface/95 p-1.5 shadow-lifted backdrop-blur md:hidden">
         <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}>
           {nav.map(({ to, label, icon: Icon }) => (
             <Link
@@ -210,7 +285,7 @@ export function AppShell({
             </Link>
           ))}
         </div>
-      </nav>
+      </nav>}
 
     </div>
   );
