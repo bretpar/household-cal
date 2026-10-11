@@ -3,7 +3,7 @@ import { useAppResume } from "@/lib/use-app-resume";
 import { withTimeout } from "@/lib/with-timeout";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   createEvent,
@@ -117,6 +117,21 @@ interface CalendarStore {
   proposedStart: Date | null;
   openOccurrence: (occurrence: Occurrence, options?: { proposedStart?: Date }) => void;
   closeOccurrence: () => void;
+
+  /** Views report the dates on screen so only that window of events is fetched. */
+  setVisibleRange: (from: Date, to: Date) => void;
+}
+
+const dayKeyOf = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** Initial window matches the Today dashboard (3 days, padded). */
+function defaultRange() {
+  const today = new Date();
+  return {
+    from: dayKeyOf(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)),
+    to: dayKeyOf(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3)),
+  };
 }
 
 const CalendarContext = createContext<CalendarStore | null>(null);
@@ -139,12 +154,20 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   } | null>(null);
   const [copiedEvent, setCopiedEvent] = useState<EventClipboard | null>(null);
   const [pasteDate, setPasteDate] = useState<Date | null>(null);
+  const [range, setRange] = useState(defaultRange);
+
+  // Views report their visible dates; each window is its own query entry so
+  // revisiting a period is instant and a stale window never shows wrong dates.
+  const setVisibleRange = useCallback((from: Date, to: Date) => {
+    const next = { from: dayKeyOf(from), to: dayKeyOf(to) };
+    setRange((prev) => (prev.from === next.from && prev.to === next.to ? prev : next));
+  }, []);
 
   const bundle = useQuery({
-    queryKey: FAMILY_BUNDLE_KEY,
+    queryKey: [...FAMILY_BUNDLE_KEY, range.from, range.to],
     // Bounded so a request stalled by iOS suspension can't hold the startup
     // screen forever; one retry, then the existing error/retry UI shows.
-    queryFn: () => withTimeout(fetchBundle(), 20_000, "Calendar"),
+    queryFn: () => withTimeout(fetchBundle({ data: range }), 20_000, "Calendar"),
     retry: 1,
     // Foreground returns within this window reuse the populated in-memory
     // bundle instead of refetching on focus; explicit invalidations still
@@ -300,6 +323,8 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       openOccurrence: (occurrence, options) =>
         setActive({ occurrence, proposedStart: options?.proposedStart ?? null }),
       closeOccurrence: () => setActive(null),
+
+      setVisibleRange,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bundle.data, bundle.isLoading, bundle.isError, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);

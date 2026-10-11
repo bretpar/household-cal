@@ -87,3 +87,7 @@
 - [x] Reorder shared Add/Edit fields by calendar, preserve hidden state, and restrict assignment validation/submission to the Babysitter destination.
 - [x] Let a Babysitter calendar event save with an assigned caregiver and no family members.
 - [x] Keep requiring a family member on regular family calendars, and apply the same rule when editing.
+
+## Bounded calendar event loading (V1 iPhone performance)
+- [x] Range-scoped family bundle: views report visible dates, server fetches only overlapping events plus recurring masters.
+- [x] Bound caregiver occurrence expansion to the viewed range; diagnostics keep the full window.
