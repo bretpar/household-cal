@@ -128,6 +128,8 @@ interface CalendarStore {
   refreshing: boolean;
   /** a refresh failed while earlier events are still on screen */
   refreshFailed: boolean;
+  /** newly reached dates are loading while the previous window stays on screen */
+  loadingRange: boolean;
 }
 
 const dayKeyOf = (d: Date) =>
@@ -488,9 +490,10 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       cachedAt: cached && bundle.data && bundle.dataUpdatedAt === 0 ? cached.savedAt : null,
       refreshing: bundle.isFetching && !bundle.isLoading && !!bundle.data,
       refreshFailed: bundle.isError && !!bundle.data,
+      loadingRange: bundle.isPlaceholderData && bundle.isFetching,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bundle.data, bundle.isLoading, bundle.isPending, bundle.isError, bundle.isFetching, bundle.dataUpdatedAt, cached, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);
+  }, [bundle.data, bundle.isLoading, bundle.isPending, bundle.isError, bundle.isFetching, bundle.isPlaceholderData, bundle.dataUpdatedAt, cached, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;
 }

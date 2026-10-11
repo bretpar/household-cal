@@ -141,7 +141,7 @@ type ViewMode = CalendarViewMode;
 
 function CalendarPage() {
   const { isCaregiver } = useCaregiver();
-  const { events, visibleEvents, selectedMembers, canEdit, loading, loadError, refreshFailed, copiedEvent, startPaste, family, setVisibleRange } =
+  const { events, visibleEvents, selectedMembers, canEdit, loading, loadingRange, loadError, refreshFailed, copiedEvent, startPaste, family, setVisibleRange } =
     useCalendar();
   const onPaste = canEdit && copiedEvent ? startPaste : undefined;
   // Press-and-hold creation on touch devices; the Add Event button stays the fallback.
@@ -660,7 +660,7 @@ function CalendarPage() {
           </div>
         ) : null}
 
-        {loading ? (
+        {loading || loadingRange ? (
           // Zero-height slot: the indicator overlays the surface so the
           // timeline never changes height while uncovered dates load.
           <div className="pointer-events-none relative z-10 h-0">
