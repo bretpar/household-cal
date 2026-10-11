@@ -149,7 +149,7 @@ const EDGE_DAYS = 2;
 const addDaysLocal = (d: Date, n: number) =>
   new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 const parseKey = (key: string) => {
-  const [y, m, d] = key.split("-").map(Number);
+  const [y = 0, m = 1, d = 1] = key.split("-").map(Number);
   return new Date(y, m - 1, d);
 };
 
