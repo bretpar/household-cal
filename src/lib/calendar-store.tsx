@@ -3,7 +3,7 @@ import { useAppResume } from "@/lib/use-app-resume";
 import { withTimeout } from "@/lib/with-timeout";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   createEvent,

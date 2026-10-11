@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { format } from "date-fns";
+import { addDays, format } from "date-fns";
 
 import { AppShell } from "@/components/AppShell";
 import { AddEventDialog } from "@/components/AddEventDialog";
@@ -28,9 +29,15 @@ export const Route = createFileRoute("/_authenticated/today")({
 });
 
 function TodayPage() {
-  const { visibleEvents, selectedMembers, canEdit, copiedEvent, startPaste, loading, loadError } =
+  const { visibleEvents, selectedMembers, canEdit, copiedEvent, startPaste, loading, loadError, setVisibleRange } =
     useCalendar();
   const today = new Date();
+
+  // The dashboard shows three days; fetch just that window (padded).
+  useEffect(() => {
+    setVisibleRange(addDays(today, -1), addDays(today, 3));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setVisibleRange]);
 
   return (
     <AppShell>
