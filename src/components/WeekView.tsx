@@ -65,6 +65,7 @@ export function WeekView({
   dayWidth,
   scrollHostRef,
   scaleDays,
+  snapDays = false,
 }: {
   anchor: Date;
   events: CalendarEvent[];
@@ -93,6 +94,8 @@ export function WeekView({
   scrollHostRef?: Ref<HTMLDivElement> | undefined;
   /** how many day columns are visible at once (typography scale in strip mode) */
   scaleDays?: number | undefined;
+  /** Mobile strip: native horizontal snapping, with the hour gutter excluded. */
+  snapDays?: boolean;
 
 }) {
 
@@ -265,7 +268,11 @@ export function WeekView({
         ref={setStripHost}
 
         onScroll={strip ? trackScroll : undefined}
-        style={strip ? { touchAction: dragging ? "none" : "pan-y" } : undefined}
+        style={strip ? {
+          touchAction: dragging ? "none" : snapDays ? "pan-x pan-y" : "pan-y",
+          scrollSnapType: snapDays && !dragging ? "x mandatory" : undefined,
+          scrollPaddingLeft: snapDays ? gutterPx : undefined,
+        } : undefined}
         className={cn(
           "calendar-gesture-surface calendar-timeline-scroll",
           strip
@@ -286,8 +293,13 @@ export function WeekView({
         >
           <div className={cn(gutterClass, strip && "bg-surface-muted")} />
 
-          {columns.map((day) => (
-            <div key={day.toISOString()} className="px-1 py-1 text-center">
+          {columns.map((day, dayIndex) => (
+            <div
+              key={day.toISOString()}
+              data-day-snap={strip && snapDays ? dayIndex : undefined}
+              style={strip && snapDays ? { scrollSnapAlign: "none start" } : undefined}
+              className="px-1 py-1 text-center"
+            >
               <p className="text-[10px] leading-none font-bold tracking-wide text-muted-foreground uppercase">
                 {format(day, "EEE")}
               </p>

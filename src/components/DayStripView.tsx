@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { addDays, differenceInCalendarDays, startOfDay } from "date-fns";
 
 import { WeekView } from "@/components/WeekView";
@@ -17,8 +17,8 @@ const GUTTER_PX = CALENDAR_TOKENS.gutter.default;
  * Mobile Day / 3-Day calendar: one continuous strip of single-day columns.
  *
  * The mounted day window stays fixed during a gesture, so dragging moves every
- * column, its time grid and its events together with the finger. Releasing eases
- * into the nearest single day column and only then updates the anchor (and, if
+ * column, its time grid and its events together with the finger. Native snapping
+ * settles on a single day column and only then updates the anchor (and, if
  * needed, silently rebases the mounted window with the scroll position
  * compensated so nothing moves on screen).
  */
@@ -100,7 +100,7 @@ export function DayStripView({
 
   // Keep a generous buffer on both sides: rebase only once scrolling has settled
   // (this runs after a committed index change), then re-align without motion.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (index >= EDGE && index <= totalDays - visibleDays - EDGE) return;
     setWindowStart(addDays(startOfDay(anchor), -BUFFER));
   }, [anchor, index, totalDays, visibleDays]);
@@ -120,10 +120,11 @@ export function DayStripView({
           days={totalDays}
           dayWidth={columnWidth}
           scrollHostRef={hostRef}
+          snapDays={!native}
           scaleDays={visibleDays}
           onCreateRange={onCreateRange}
           onEventDragChange={onEventDragChange}
-          recenterSignal={recenterSignal}
+          recenterSignal={native ? recenterSignal : undefined}
           bare
           fill
           active

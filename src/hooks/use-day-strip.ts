@@ -4,10 +4,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
  * One continuous horizontal strip of fixed-width day columns.
  *
  * The strip is a single persistent scroll surface: the mounted range of days
- * never changes during a gesture, so the content follows the finger without any
- * rerender or page swap. On release the strip coasts briefly and then eases into
- * the nearest reached day column and only then reports the new index so the
- * header can update without moving the track.
+ * never changes during a gesture. Mobile scrolling and settling belong to the
+ * browser; dates are committed only after reaching a gutter-aware snap target.
+ * Desktop retains its existing trackpad soft settle.
  */
 export function useDayStrip({
   columnWidth,
@@ -23,7 +22,7 @@ export function useDayStrip({
   columnWidth: number;
   /** logical index of the left-most visible day inside the mounted window */
   index: number;
-  /** called once the settle animation has finished */
+  /** called only after the scroll position has settled */
   onIndexChange: (index: number) => void;
   /** haptic / a11y hook fired when a gesture commits to a new day */
   onNavigate?: (() => void) | undefined;
@@ -31,7 +30,7 @@ export function useDayStrip({
   isBlocked?: (() => boolean) | undefined;
   /** changing this re-aligns the strip instantly (window rebase, Today, view change) */
   alignKey: string | number;
-  /** desktop: use native scrolling + soft settle instead of touch gesture handling */
+  /** desktop trackpad behavior; mobile uses CSS native scroll snapping */
   native?: boolean;
   /** live left-most visible day index while scrolling (header only; never repositions) */
   onVisibleIndexChange?: ((index: number) => void) | undefined;
@@ -62,14 +61,9 @@ export function useDayStrip({
   const align = useCallback(() => {
     const node = hostRef.current;
     if (!node || columnWidth <= 0) return;
-    console.info("[day-strip-diag] align", {
-      index: indexRef.current,
-      scrollLeft: node.scrollLeft,
-      columnWidth,
-      settling: settling.current,
-    });
     cancelAnimation();
-    node.scrollLeft = indexRef.current * columnWidth;
+    // Only the horizontal coordinate changes; the mounted timeline keeps its hour.
+    node.scrollTo({ left: indexRef.current * columnWidth, behavior: "instant" });
   }, [cancelAnimation, columnWidth]);
 
   // Re-align only outside gestures: during a drag or settle the visual position
@@ -83,23 +77,6 @@ export function useDayStrip({
     const node = hostRef.current;
     if (!node || columnWidth <= 0) return;
 
-    const AXIS_THRESHOLD = 10;
-    /** 32% of a column, or a clear flick, advances exactly one day */
-    const DISTANCE_RATIO = 0.32;
-    const FLICK_VELOCITY = 0.45; // px per ms
-
-    let startX = 0;
-    let startY = 0;
-    let startScrollLeft = 0;
-    let axis: "undecided" | "x" | "y" = "undecided";
-    let active = false;
-    let lastX = 0;
-    let lastT = 0;
-    let velocity = 0;
-    let intended: number | null = null;
-
-    const track = () => node.firstElementChild as HTMLElement | null;
-
     const overlayOpen = () =>
       !!document.querySelector(
         '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
@@ -107,24 +84,63 @@ export function useDayStrip({
 
     const maxScroll = () => Math.max(0, node.scrollWidth - node.clientWidth);
 
-    const clearShift = () => {
-      const el = track();
-      if (el && el.style.transform) el.style.transform = "";
-    };
-
-    // iOS ignores programmatic scrollLeft writes mid-gesture, so whatever the
-    // engine refuses is compensated with a transform on the track: the content
-    // always tracks the finger 1:1.
-    const applyIntended = (next: number) => {
-      const clamped = Math.max(0, Math.min(maxScroll(), next));
-      intended = clamped;
-      node.scrollLeft = clamped;
-      const el = track();
-      if (el) {
-        const shift = node.scrollLeft - clamped;
-        el.style.transform = shift ? `translate3d(${shift}px, 0, 0)` : "";
-      }
-    };
+    if (!native) {
+      let touching = false;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const clearTimer = () => {
+        if (timer != null) clearTimeout(timer);
+        timer = null;
+      };
+      const snapPosition = (targetIndex: number) => {
+        // Measure the actual grid boundary, preserving fractional 3-Day widths.
+        const target = node.querySelector<HTMLElement>(`[data-day-snap="${targetIndex}"]`);
+        if (!target) return targetIndex * columnWidth;
+        const gutter = parseFloat(getComputedStyle(node).scrollPaddingLeft) || 0;
+        return node.scrollLeft + target.getBoundingClientRect().left -
+          node.getBoundingClientRect().left - node.clientLeft - gutter;
+      };
+      const finish = () => {
+        clearTimer();
+        if (touching || isBlockedRef.current?.() || overlayOpen()) return;
+        const lastIndex = Math.max(0, Math.round(maxScroll() / columnWidth));
+        const actualIndex = Math.max(0, Math.min(lastIndex, Math.round(node.scrollLeft / columnWidth)));
+        const target = Math.max(0, Math.min(maxScroll(), snapPosition(actualIndex)));
+        if (Math.abs(node.scrollLeft - target) > 0.75) {
+          // Recovery only after scrolling stops, never during a vertical gesture.
+          node.scrollTo({ left: target, behavior: "instant" });
+          schedule();
+          return;
+        }
+        onVisibleIndexChangeRef.current?.(actualIndex);
+        if (actualIndex !== indexRef.current) {
+          onNavigateRef.current?.();
+          onIndexChangeRef.current(actualIndex);
+        }
+      };
+      const schedule = () => {
+        clearTimer();
+        timer = setTimeout(finish, 180);
+      };
+      const onTouchStart = () => { touching = true; clearTimer(); };
+      const onTouchEnd = (event: TouchEvent) => {
+        touching = event.touches.length > 0;
+        if (!touching) schedule();
+      };
+      // Passive observation only: Safari owns direction locking and momentum.
+      node.addEventListener("touchstart", onTouchStart, { passive: true });
+      node.addEventListener("touchend", onTouchEnd, { passive: true });
+      node.addEventListener("touchcancel", onTouchEnd, { passive: true });
+      node.addEventListener("scroll", schedule, { passive: true });
+      node.addEventListener("scrollend", finish);
+      return () => {
+        clearTimer();
+        node.removeEventListener("touchstart", onTouchStart);
+        node.removeEventListener("touchend", onTouchEnd);
+        node.removeEventListener("touchcancel", onTouchEnd);
+        node.removeEventListener("scroll", schedule);
+        node.removeEventListener("scrollend", finish);
+      };
+    }
 
     const reduceMotion = () =>
       typeof window !== "undefined" &&
@@ -140,13 +156,6 @@ export function useDayStrip({
       const to = Math.max(0, Math.min(maxScroll(), targetIndex * columnWidth));
       const distance = to - from;
       const commit = () => {
-        console.info("[day-strip-diag] commit", {
-          targetIndex,
-          index: indexRef.current,
-          scrollLeft: node.scrollLeft,
-          columnWidth,
-          settling: settling.current,
-        });
         settling.current = false;
         node.scrollLeft = to;
         if (targetIndex !== indexRef.current) {
@@ -186,89 +195,6 @@ export function useDayStrip({
       };
       cancelAnimation();
       animation.current = requestAnimationFrame(frame);
-    };
-
-    const onTouchStart = (e: TouchEvent) => {
-      const touch = e.touches[0];
-      if (!touch || isBlockedRef.current?.() || overlayOpen()) {
-        active = false;
-        axis = "undecided";
-        return;
-      }
-      cancelAnimation();
-      settling.current = false;
-      active = true;
-      axis = "undecided";
-      intended = null;
-      velocity = 0;
-      startX = lastX = touch.clientX;
-      startY = touch.clientY;
-      lastT = performance.now();
-      startScrollLeft = node.scrollLeft;
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (!active) return;
-      if (isBlockedRef.current?.()) {
-        active = false;
-        axis = "undecided";
-        clearShift();
-        return;
-      }
-      const touch = e.touches[0];
-      if (!touch) return;
-      const dx = touch.clientX - startX;
-      const dy = touch.clientY - startY;
-      if (axis === "undecided") {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) < AXIS_THRESHOLD) return;
-        axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
-      }
-      if (axis !== "x") return;
-      if (e.cancelable) e.preventDefault();
-
-      const now = performance.now();
-      const dt = now - lastT;
-      if (dt > 0) {
-        const sample = (touch.clientX - lastX) / dt;
-        // Light smoothing keeps flick detection stable without lagging.
-        velocity = velocity * 0.4 + sample * 0.6;
-      }
-      lastX = touch.clientX;
-      lastT = now;
-      applyIntended(startScrollLeft - dx);
-    };
-
-    const onTouchEnd = () => {
-      if (!active || axis !== "x") {
-        active = false;
-        axis = "undecided";
-        return;
-      }
-      active = false;
-      axis = "undecided";
-      if (intended != null) node.scrollLeft = intended;
-      clearShift();
-
-      const current = indexRef.current;
-      const dragged = node.scrollLeft - current * columnWidth;
-      // Finger moving left (negative velocity) advances forward in time.
-      const scrollVelocity = -velocity;
-      const flick = Math.abs(scrollVelocity) >= FLICK_VELOCITY;
-      const far = Math.abs(dragged) >= columnWidth * DISTANCE_RATIO;
-      let flickDirection = 0;
-      if (far) flickDirection = dragged > 0 ? 1 : -1;
-      else if (flick) flickDirection = scrollVelocity > 0 ? 1 : -1;
-
-      const nearest = Math.round(node.scrollLeft / columnWidth);
-      let target = nearest;
-      // Tie-breaker: if the release lands closest to the starting column but the
-      // gesture clearly wanted to move, advance exactly one day.
-      if (target === current && flickDirection !== 0) {
-        target = current + flickDirection;
-      }
-      settleTo(target, scrollVelocity);
-      velocity = 0;
-      intended = null;
     };
 
     // Desktop trackpad: horizontal pans the strip and never the browser history.
@@ -312,36 +238,16 @@ export function useDayStrip({
       }, 130);
     };
 
-    if (native) {
-      node.addEventListener("scroll", onScroll, { passive: true });
-      node.addEventListener("wheel", onWheel, { passive: false });
-      return () => {
-        if (settleTimer) clearTimeout(settleTimer);
-        if (wheelTimer) clearTimeout(wheelTimer);
-        cancelAnimation();
-        node.removeEventListener("scroll", onScroll);
-        node.removeEventListener("wheel", onWheel);
-      };
-    }
-
-
-    node.addEventListener("touchstart", onTouchStart, { passive: true });
-    node.addEventListener("touchmove", onTouchMove, { passive: false });
-    node.addEventListener("touchend", onTouchEnd);
-    node.addEventListener("touchcancel", onTouchEnd);
+    node.addEventListener("scroll", onScroll, { passive: true });
     node.addEventListener("wheel", onWheel, { passive: false });
     return () => {
+      if (settleTimer) clearTimeout(settleTimer);
       if (wheelTimer) clearTimeout(wheelTimer);
-      clearShift();
       cancelAnimation();
-      node.removeEventListener("touchstart", onTouchStart);
-      node.removeEventListener("touchmove", onTouchMove);
-      node.removeEventListener("touchend", onTouchEnd);
-      node.removeEventListener("touchcancel", onTouchEnd);
+      node.removeEventListener("scroll", onScroll);
       node.removeEventListener("wheel", onWheel);
     };
-  }, [cancelAnimation, columnWidth, native]);
-
+  }, [alignKey, cancelAnimation, columnWidth, native]);
 
   return { hostRef, align };
 }
