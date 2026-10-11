@@ -172,9 +172,10 @@ function RootComponent() {
         window.location.pathname,
       );
     const dropSessionData = async () => {
+      // Saved events go first so a re-created query can never re-seed from them.
+      clearEventCache();
       await queryClient.cancelQueries();
       queryClient.clear();
-      clearEventCache();
     };
     // Fires in this tab and (via the auth client's cross-tab broadcast) in other open tabs.
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
