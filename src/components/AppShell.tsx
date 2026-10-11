@@ -39,7 +39,7 @@ const CAREGIVER_NAV = [
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
-type ShellOptions = { fitViewport: boolean; compactMobileLandscape: boolean };
+type ShellOptions = { fitViewport: boolean; compactMobileLandscape: boolean; lockChrome: boolean };
 type ShellRegistry = { register: (id: object, o: ShellOptions) => void; unregister: (id: object) => void };
 const ShellContext = createContext<ShellRegistry | null>(null);
 
@@ -57,21 +57,29 @@ export function AppShell({
    */
   fitViewport = false,
   compactMobileLandscape = false,
+  lockChrome = false,
 }: {
   children: ReactNode;
   fitViewport?: boolean;
   /** Compact chrome for the phone Calendar in landscape. */
   compactMobileLandscape?: boolean;
+  /**
+   * Access-error pages: keep the header/tabs from the last verified role and
+   * never swap the content for permission skeletons. With no verified role
+   * yet, a minimal neutral shell (no tabs) is shown instead of privileged
+   * links.
+   */
+  lockChrome?: boolean;
 }) {
   const registry = useContext(ShellContext);
   const id = useRef({}).current;
   useLayoutEffect(() => {
-    registry?.register(id, { fitViewport, compactMobileLandscape });
-  }, [registry, id, fitViewport, compactMobileLandscape]);
+    registry?.register(id, { fitViewport, compactMobileLandscape, lockChrome });
+  }, [registry, id, fitViewport, compactMobileLandscape, lockChrome]);
   useLayoutEffect(() => () => registry?.unregister(id), [registry, id]);
   if (!registry) {
     return (
-      <ShellFrame active fitViewport={fitViewport} compactMobileLandscape={compactMobileLandscape}>
+      <ShellFrame active fitViewport={fitViewport} compactMobileLandscape={compactMobileLandscape} lockChrome={lockChrome}>
         {children}
       </ShellFrame>
     );
