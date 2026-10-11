@@ -335,9 +335,9 @@ function CalendarPage() {
     } else if (mode === "week") {
       setVisibleRange(addDays(anchor, -2), addDays(anchor, weekDays + 1));
     } else {
-      setVisibleRange(addDays(anchor, -2), addDays(anchor, (isMobile && !isLandscape ? 3 : 1) + 2));
+      setVisibleRange(addDays(anchor, -2), addDays(anchor, 3));
     }
-  }, [mode, anchor, visibleDate, weekDays, isMobile, isLandscape, setVisibleRange]);
+  }, [mode, anchor, visibleDate, weekDays, setVisibleRange]);
 
   // Last single day the user was looking at. Week view anchors on a week
   // boundary, so this is what Week -> Day restores instead of the week's first
