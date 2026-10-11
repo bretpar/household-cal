@@ -60,7 +60,8 @@ export type ShiftAssignment =
 
 /**
  * Keeps the babysitter_shifts row in step with an event. Events off the
- * household Babysitter calendar (or all-day) never carry a shift.
+ * household Babysitter calendar never carry a shift; all-day Babysitter
+ * events do, since the form requires an assigned caregiver there too.
  */
 export async function syncShiftAssignment(
   db: Db,
@@ -76,8 +77,7 @@ export async function syncShiftAssignment(
   if (error) throw error;
   const onBabysitter =
     !!input.calendar_source_id &&
-    input.calendar_source_id === fam?.babysitter_calendar_source_id &&
-    !input.all_day;
+    input.calendar_source_id === fam?.babysitter_calendar_source_id;
   if (onBabysitter && input.babysitter_assignment === undefined) return;
   const del = await db.from("babysitter_shifts").delete().eq("event_id", eventId);
   if (del.error) throw del.error;
