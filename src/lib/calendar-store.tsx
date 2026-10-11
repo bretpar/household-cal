@@ -171,11 +171,25 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const [pasteDate, setPasteDate] = useState<Date | null>(null);
   const [range, setRange] = useState(defaultRange);
 
-  // Views report their visible dates; each window is its own query entry so
-  // revisiting a period is instant and a stale window never shows wrong dates.
+  // Views report their visible dates. The query window only changes when the
+  // visible dates leave the loaded coverage; the new window is padded and
+  // prefetched near the edge so day-by-day navigation never blanks events.
+  // Each window is still its own query entry, so wrong dates never show.
+  const prefetchRef = useRef<(r: { from: string; to: string }) => void>(() => {});
   const setVisibleRange = useCallback((from: Date, to: Date) => {
     const next = { from: dayKeyOf(from), to: dayKeyOf(to) };
-    setRange((prev) => (prev.from === next.from && prev.to === next.to ? prev : next));
+    const padded = {
+      from: dayKeyOf(addDaysLocal(from, -WINDOW_PAD)),
+      to: dayKeyOf(addDaysLocal(to, WINDOW_PAD)),
+    };
+    setRange((prev) => {
+      if (!(next.from >= prev.from && next.to <= prev.to)) return padded;
+      const nearEdge =
+        next.from < dayKeyOf(addDaysLocal(parseKey(prev.from), EDGE_DAYS)) ||
+        next.to > dayKeyOf(addDaysLocal(parseKey(prev.to), -EDGE_DAYS));
+      if (nearEdge) queueMicrotask(() => prefetchRef.current(padded));
+      return prev;
+    });
   }, []);
 
   // Query identity is bound to the verified user + household + role, so a
