@@ -255,7 +255,7 @@ function ShellFrame({
             : "px-4 pt-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-12 lg:px-8",
         )}
       >
-        {active && accessFailed && !caregiverResolved ? (
+        {active && !lockChrome && accessFailed && !caregiverResolved ? (
           <div className="mx-auto max-w-sm space-y-3 py-12 text-center">
             <p className="text-sm text-muted-foreground">We couldn't confirm your access.</p>
             <button
@@ -266,14 +266,15 @@ function ShellFrame({
               Try again
             </button>
           </div>
-        ) : active && (!caregiverResolved || showContentSkeleton) ? (
+        ) : active && !lockChrome && (!caregiverResolved || showContentSkeleton) ? (
           <PageContentSkeleton />
         ) : null}
         {/* Route content stays mounted (it declares the shell); it is only
-            hidden while access or a tab transition is pending. */}
+            hidden while access or a tab transition is pending. Locked-chrome
+            (access-error) pages always render their own content. */}
         <div
           className={
-            active && (!caregiverResolved || showContentSkeleton) ? "hidden" : "contents"
+            active && !lockChrome && (!caregiverResolved || showContentSkeleton) ? "hidden" : "contents"
           }
         >
           {children}
