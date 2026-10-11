@@ -100,7 +100,7 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
       const all = [...entries.current.values()];
       const last = all[all.length - 1] ?? null;
       setOpts((prev) =>
-        prev && last && prev.fitViewport === last.fitViewport && prev.compactMobileLandscape === last.compactMobileLandscape
+        prev && last && prev.fitViewport === last.fitViewport && prev.compactMobileLandscape === last.compactMobileLandscape && prev.lockChrome === last.lockChrome
           ? prev
           : last,
       );
@@ -116,6 +116,7 @@ export function PersistentAppShell({ children }: { children: ReactNode }) {
         active={!!opts}
         fitViewport={opts?.fitViewport ?? false}
         compactMobileLandscape={opts?.compactMobileLandscape ?? false}
+        lockChrome={opts?.lockChrome ?? false}
       >
         {children}
       </ShellFrame>
