@@ -327,15 +327,16 @@ function CalendarPage() {
     setVisibleDate(null);
   }, [mode, anchor]);
 
-  // Fetch only the events for the dates on screen (padded), per view.
+  // Report only the dates actually on screen (end exclusive); the store adds
+  // fetch padding, so padding never decides whether a covered day can render.
   useEffect(() => {
     if (mode === "month") {
       const base = visibleDate ?? anchor;
       setVisibleRange(addDays(startOfMonth(base), -7), addDays(endOfMonth(base), 7));
     } else if (mode === "week") {
-      setVisibleRange(addDays(anchor, -2), addDays(anchor, weekDays + 1));
+      setVisibleRange(anchor, addDays(anchor, weekDays));
     } else {
-      setVisibleRange(addDays(anchor, -2), addDays(anchor, 3));
+      setVisibleRange(anchor, addDays(anchor, 1));
     }
   }, [mode, anchor, visibleDate, weekDays, setVisibleRange]);
 
