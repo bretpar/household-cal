@@ -122,6 +122,13 @@ function AuthenticatedLayout() {
         const path = pathRef.current;
         const result = await retryGuard(path);
         if ("redirectTo" in result) {
+          // A retry that redirects into the authenticated area (e.g.
+          // /onboarding) verified access: clear the error and mount the
+          // shell so the destination can render.
+          if (result.redirectTo.startsWith("/onboarding")) {
+            setAccessError(false);
+            setEverReady(true);
+          }
           if (result.redirectTo !== path) navigate({ to: result.redirectTo, replace: true });
           return;
         }
