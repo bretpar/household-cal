@@ -194,7 +194,11 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       to: dayKeyOf(addDaysLocal(to, WINDOW_PAD)),
     };
     setRange((prev) => {
-      if (!(next.from >= prev.from && next.to <= prev.to)) return padded;
+      if (!(next.from >= prev.from && next.to <= prev.to)) {
+        // The exact Today window stays unpadded so its persisted cache applies.
+        const t = todayWindow();
+        return t.from === next.from && t.to === next.to ? next : padded;
+      }
       const nearEdge =
         next.from < dayKeyOf(addDaysLocal(parseKey(prev.from), EDGE_DAYS)) ||
         next.to > dayKeyOf(addDaysLocal(parseKey(prev.to), -EDGE_DAYS));
