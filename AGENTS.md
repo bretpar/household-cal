@@ -29,3 +29,4 @@
 
 - The public comparison guide renders desktop rows and mobile feature lists from the same comparison data. Why: keep both presentations consistent without horizontal scrolling on phones.
 - Desktop/tablet Calendar Day renders only WeekView, which fills the calendar surface; the agenda list stays on Today only. Why: the embedded agenda strip squeezed the hourly timeline and duplicated Today's schedule.
+- Calendar events load in bounded date windows: views report their visible range via setVisibleRange, the bundle query is keyed by that range, and the server returns overlapping one-offs plus all recurring masters. Why: the iPhone app no longer downloads the entire household event history on launch.
