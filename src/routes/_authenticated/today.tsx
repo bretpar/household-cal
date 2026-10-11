@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/today")({
 });
 
 function TodayPage() {
-  const { visibleEvents, selectedMembers, canEdit, copiedEvent, startPaste, loading, loadError, setVisibleRange, cachedAt, refreshFailed } =
+  const { visibleEvents, selectedMembers, canEdit, copiedEvent, startPaste, loading, loadError, setVisibleRange, cachedAt, refreshing, refreshFailed } =
     useCalendar();
   // Re-check the date every minute so the window rolls forward past midnight.
   const [dayStamp, setDayStamp] = useState(() => new Date().toDateString());
@@ -62,11 +62,13 @@ function TodayPage() {
             <AddEventDialog defaultDate={today} />
           </div>
         </header>
-        {(cachedAt || refreshFailed) && (
+        {(cachedAt || refreshFailed || refreshing) && (
           <p role="status" className="text-xs text-muted-foreground">
             {refreshFailed
               ? "Couldn't refresh — showing the last loaded events."
-              : `Updating… last updated ${format(cachedAt!, "h:mm a")}`}
+              : cachedAt
+                ? `Updating… last updated ${format(cachedAt, "h:mm a")}`
+                : "Updating…"}
           </p>
         )}
         <div data-tour-target="today-agenda">

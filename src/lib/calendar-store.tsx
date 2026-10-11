@@ -124,6 +124,8 @@ interface CalendarStore {
 
   /** set while events shown are the saved copy from a previous visit (ms timestamp) */
   cachedAt: number | null;
+  /** a background refresh is running while events are already on screen */
+  refreshing: boolean;
   /** a refresh failed while earlier events are still on screen */
   refreshFailed: boolean;
 }
@@ -183,7 +185,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     return t.from === range.from && t.to === range.to;
   })();
   const cached = useMemo(
-    () => (isTodayWindow ? readEventCache(currentScope(), range) : null),
+    () => (isTodayWindow ? readEventCache(currentScope(), range, dayKeyOf(new Date())) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [isTodayWindow, range.from, range.to],
   );
@@ -377,10 +379,11 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       setVisibleRange,
 
       cachedAt: cached && bundle.data && bundle.dataUpdatedAt === 0 ? cached.savedAt : null,
+      refreshing: bundle.isFetching && !bundle.isLoading && !!bundle.data,
       refreshFailed: bundle.isError && !!bundle.data,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bundle.data, bundle.isLoading, bundle.isError, bundle.dataUpdatedAt, cached, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);
+  }, [bundle.data, bundle.isLoading, bundle.isError, bundle.isFetching, bundle.dataUpdatedAt, cached, selectedMembers, effectiveCategory, active, copiedEvent, pasteDate]);
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;
 }
