@@ -210,7 +210,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       return result;
     },
     initialData: cached?.bundle,
-    initialDataUpdatedAt: cached ? 0 : undefined,
+    initialDataUpdatedAt: () => (cached ? 0 : undefined),
     retry: 1,
     // Foreground returns within this window reuse the populated in-memory
     // bundle instead of refetching on focus; explicit invalidations still
