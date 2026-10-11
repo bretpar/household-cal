@@ -26,5 +26,5 @@
 - Agent integrations (MCP) live in src/lib/mcp/ (read-only, Supabase OAuth, RLS as caller). Why: assistants act as the signed-in user.
 - App tours live in the authenticated provider, enter Today once, and highlight real bottom tabs through scoped CSS; versioned state stays per verified user in app_tour_states. Why: fixed walkthroughs avoid route/loading/positioning races.
 - The public comparison guide renders desktop rows and mobile feature lists from the same data. Why: no horizontal scrolling on phones.
-- Desktop/tablet Calendar Day renders only WeekView, filling the calendar surface; the agenda list stays on Today. Why: the embedded strip squeezed the timeline and duplicated Today's schedule.
+- Desktop/tablet Calendar Day renders only WeekView, filling the calendar surface; the agenda list stays on Today. Why: the embedded strip squeezed the timeline.
 - Calendar events load in bounded date windows: views report their range via setVisibleRange, the bundle query is keyed by it, and the server returns overlapping one-offs plus all recurring masters. Why: the app no longer downloads the entire event history on launch.
