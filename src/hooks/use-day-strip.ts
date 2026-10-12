@@ -230,9 +230,17 @@ export function useDayStrip({
       };
 
       const glideX = (v: number, startIndex: number) => {
-        const projected = node.scrollLeft + v * 160;
+        // iOS-style projection (UIScrollView normal deceleration ≈ 0.998/ms).
+        const projected = node.scrollLeft + v * 200;
         const lastIndex = Math.max(0, Math.round(maxScroll() / columnWidth));
+        const here = node.scrollLeft / columnWidth;
         let targetIndex = Math.round(projected / columnWidth);
+        // A deliberate flick always advances at least one day in its direction.
+        if (Math.abs(v) > 0.35) {
+          targetIndex = v > 0
+            ? Math.max(targetIndex, Math.floor(here + 0.02) + 1)
+            : Math.min(targetIndex, Math.ceil(here - 0.02) - 1);
+        }
         targetIndex = Math.max(startIndex - 3, Math.min(startIndex + 3, targetIndex));
         targetIndex = Math.max(0, Math.min(lastIndex, targetIndex));
         const from = node.scrollLeft;
@@ -243,7 +251,11 @@ export function useDayStrip({
           settled();
           return;
         }
-        const duration = 220 + 140 * Math.min(1, Math.abs(distance) / Math.max(1, columnWidth));
+        // Match the finger's release speed (ease-out cubic starts at 3·d/T) so
+        // there is no lurch on lift-off, then decelerate smoothly into the snap.
+        const sameWay = Math.sign(v) === Math.sign(distance) && Math.abs(v) > 0.05;
+        const matched = sameWay ? (3 * Math.abs(distance)) / Math.abs(v) : 360;
+        const duration = Math.max(240, Math.min(480, matched));
         const startedAt = performance.now();
         const frame = (now: number) => {
           const u = Math.min(1, (now - startedAt) / duration);
@@ -260,7 +272,7 @@ export function useDayStrip({
       };
 
       const glideY = (v0: number) => {
-        let v = Math.max(-4, Math.min(4, v0));
+        let v = Math.max(-6, Math.min(6, v0));
         if (Math.abs(v) < 0.05) {
           settled();
           return;
@@ -271,8 +283,9 @@ export function useDayStrip({
           last = now;
           const before = node.scrollTop;
           node.scrollTop = Math.max(0, Math.min(maxTop(), before + v * dt));
-          v *= Math.pow(0.996, dt);
-          if (Math.abs(v) < 0.03 || node.scrollTop === before) {
+          // iOS normal deceleration rate.
+          v *= Math.pow(0.998, dt);
+          if (Math.abs(v) < 0.02 || node.scrollTop === before) {
             settled();
             return;
           }
