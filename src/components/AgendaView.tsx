@@ -172,25 +172,28 @@ function BackgroundStrip({ coverage }: { coverage: Occurrence[] }) {
         </div>
       ) : null}
       {work.length ? (
-        <div className="relative flex min-w-0 items-center rounded-2xl bg-surface-muted/70 text-muted-foreground">
-          <WorkIcon className="ml-3 h-4 w-4 shrink-0" aria-hidden />
+        <div className="relative flex min-w-0 items-center">
           <div
             ref={scrollRef}
-            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-2 pr-6 pl-2 whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pr-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            <span className="shrink-0 text-xs font-bold text-foreground/80">Work:</span>
-            {work.map((o, i) => (
+            {work.map((o) => (
               <button
                 key={o.key}
                 type="button"
+                title={o.event.title}
                 onClick={() => openOccurrence(o)}
-                className="shrink-0 text-xs"
+                className="flex max-w-full min-w-0 shrink-0 items-center gap-2 rounded-2xl bg-surface-muted/70 px-3 py-2 text-left text-foreground"
               >
-                {i > 0 ? <span aria-hidden className="mr-1">·</span> : null}
-                {o.event.title} {time(o)}
+                <WorkIcon className="h-5 w-5 shrink-0" aria-hidden />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-bold">{o.event.title}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{time(o)}</span>
+                </span>
               </button>
             ))}
           </div>
+
           {more ? (
             <span
               aria-hidden
