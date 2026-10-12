@@ -251,15 +251,16 @@ export function useDayStrip({
           settled();
           return;
         }
-        // Match the finger's release speed (ease-out cubic starts at 3·d/T) so
-        // there is no lurch on lift-off, then decelerate smoothly into the snap.
+        // Match the finger's release speed (an ease-out quartic starts at
+        // 4·d/T) so there is no lurch on lift-off, then decelerate with a
+        // longer, softer tail so the day lands gently instead of clicking in.
         const sameWay = Math.sign(v) === Math.sign(distance) && Math.abs(v) > 0.05;
-        const matched = sameWay ? (3 * Math.abs(distance)) / Math.abs(v) : 360;
-        const duration = Math.max(240, Math.min(480, matched));
+        const matched = sameWay ? (4 * Math.abs(distance)) / Math.abs(v) : 420;
+        const duration = Math.max(320, Math.min(640, matched));
         const startedAt = performance.now();
         const frame = (now: number) => {
           const u = Math.min(1, (now - startedAt) / duration);
-          const eased = 1 - Math.pow(1 - u, 3);
+          const eased = 1 - Math.pow(1 - u, 4);
           node.scrollLeft = from + distance * eased;
           if (u < 1) {
             raf = requestAnimationFrame(frame);
