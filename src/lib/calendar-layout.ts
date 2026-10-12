@@ -86,14 +86,12 @@ export function heightForMinutes(minutes: number): number {
 }
 
 /**
- * Long day-spanning blocks (school, work) render in the all-day band.
- * Imported read-only subscription events follow their own flag only: a timed
- * feed event stays on the timeline no matter how long it runs.
+ * Only an event the user actually marked all-day belongs in the all-day band.
+ * Duration never promotes an event: a 10 AM–3 PM or 8 AM–6 PM booking stays on
+ * the hourly timeline, however long it runs.
  */
 export function isDayBlock(o: Occurrence): boolean {
-  if (o.event.all_day) return true;
-  if (o.event.read_only) return false;
-  return (o.end.getTime() - o.start.getTime()) / 3600000 >= 5;
+  return o.event.all_day === true;
 }
 
 
