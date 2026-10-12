@@ -85,12 +85,47 @@ export function useDayStrip({
     const maxScroll = () => Math.max(0, node.scrollWidth - node.clientWidth);
 
     if (!native) {
-      let touching = false;
+      /**
+       * Mobile directional gesture controller. The surface declares
+       * touch-action: none up front, so the browser never pans either axis;
+       * after LOCK_PX of travel the dominant axis is locked for the whole
+       * gesture and only that scroll coordinate is driven.
+       */
+      const LOCK_PX = 9;
       let timer: ReturnType<typeof setTimeout> | null = null;
+      let raf: number | null = null;
+      let gesture: {
+        id: number;
+        x: number;
+        y: number;
+        left: number;
+        top: number;
+        axis: "none" | "x" | "y";
+        samples: { t: number; x: number; y: number }[];
+      } | null = null;
+      let busy = false; // finger down or controller inertia running
+      let suppressClickUntil = 0;
+      let savedSnap: string | null = null;
+
       const clearTimer = () => {
         if (timer != null) clearTimeout(timer);
         timer = null;
       };
+      const stopInertia = () => {
+        if (raf != null) cancelAnimationFrame(raf);
+        raf = null;
+      };
+      const suspendSnap = () => {
+        if (savedSnap != null) return;
+        savedSnap = node.style.scrollSnapType;
+        node.style.scrollSnapType = "none";
+      };
+      const restoreSnap = () => {
+        if (savedSnap == null) return;
+        node.style.scrollSnapType = savedSnap;
+        savedSnap = null;
+      };
+      const maxTop = () => Math.max(0, node.scrollHeight - node.clientHeight);
       const snapPosition = (targetIndex: number) => {
         // Measure the actual grid boundary, preserving fractional 3-Day widths.
         const target = node.querySelector<HTMLElement>(`[data-day-snap="${targetIndex}"]`);
@@ -101,12 +136,12 @@ export function useDayStrip({
       };
       const finish = () => {
         clearTimer();
-        if (touching || isBlockedRef.current?.() || overlayOpen()) return;
+        if (busy || isBlockedRef.current?.() || overlayOpen()) return;
         const lastIndex = Math.max(0, Math.round(maxScroll() / columnWidth));
         const actualIndex = Math.max(0, Math.min(lastIndex, Math.round(node.scrollLeft / columnWidth)));
         const target = Math.max(0, Math.min(maxScroll(), snapPosition(actualIndex)));
         if (Math.abs(node.scrollLeft - target) > 0.75) {
-          // Recovery only after scrolling stops, never during a vertical gesture.
+          // Recovery only after all movement stops.
           node.scrollTo({ left: target, behavior: "instant" });
           schedule();
           return;
@@ -121,24 +156,195 @@ export function useDayStrip({
         clearTimer();
         timer = setTimeout(finish, 180);
       };
-      const onTouchStart = () => { touching = true; clearTimer(); };
-      const onTouchEnd = (event: TouchEvent) => {
-        touching = event.touches.length > 0;
-        if (!touching) schedule();
+      const settled = () => {
+        busy = false;
+        raf = null;
+        restoreSnap();
+        schedule();
       };
-      // Passive observation only: Safari owns direction locking and momentum.
+
+      const abandon = () => {
+        gesture = null;
+        stopInertia();
+        settled();
+      };
+
+      const onTouchStart = (event: TouchEvent) => {
+        // New contact always cancels controller inertia.
+        stopInertia();
+        clearTimer();
+        if (event.touches.length !== 1) {
+          // Multitouch: drop the gesture and settle where we are.
+          if (gesture) abandon();
+          return;
+        }
+        const t = event.touches[0]!;
+        busy = true;
+        gesture = {
+          id: t.identifier,
+          x: t.clientX,
+          y: t.clientY,
+          left: node.scrollLeft,
+          top: node.scrollTop,
+          axis: "none",
+          samples: [{ t: performance.now(), x: t.clientX, y: t.clientY }],
+        };
+      };
+
+      const onTouchMove = (event: TouchEvent) => {
+        const g = gesture;
+        if (!g) return;
+        // An established event drag owns the touch.
+        if (isBlockedRef.current?.()) {
+          gesture = null;
+          return;
+        }
+        const t = Array.from(event.touches).find((touch) => touch.identifier === g.id);
+        if (!t || event.touches.length !== 1) return;
+        const dx = t.clientX - g.x;
+        const dy = t.clientY - g.y;
+        if (g.axis === "none") {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) < LOCK_PX) return;
+          g.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+          if (g.axis === "x") suspendSnap();
+          suppressClickUntil = Number.POSITIVE_INFINITY;
+        }
+        if (event.cancelable) event.preventDefault();
+        if (g.axis === "x") {
+          node.scrollLeft = Math.max(0, Math.min(maxScroll(), g.left - dx));
+        } else {
+          node.scrollTop = Math.max(0, Math.min(maxTop(), g.top - dy));
+        }
+        const now = performance.now();
+        g.samples.push({ t: now, x: t.clientX, y: t.clientY });
+        while (g.samples.length > 2 && now - g.samples[0]!.t > 100) g.samples.shift();
+      };
+
+      const velocity = (g: NonNullable<typeof gesture>) => {
+        const first = g.samples[0]!;
+        const last = g.samples[g.samples.length - 1]!;
+        const dt = last.t - first.t;
+        if (dt <= 0 || performance.now() - last.t > 80) return 0;
+        // px/ms in scroll direction (finger left = scroll right).
+        return g.axis === "x" ? -(last.x - first.x) / dt : -(last.y - first.y) / dt;
+      };
+
+      const glideX = (v: number, startIndex: number) => {
+        const projected = node.scrollLeft + v * 160;
+        const lastIndex = Math.max(0, Math.round(maxScroll() / columnWidth));
+        let targetIndex = Math.round(projected / columnWidth);
+        targetIndex = Math.max(startIndex - 3, Math.min(startIndex + 3, targetIndex));
+        targetIndex = Math.max(0, Math.min(lastIndex, targetIndex));
+        const from = node.scrollLeft;
+        const to = Math.max(0, Math.min(maxScroll(), snapPosition(targetIndex)));
+        const distance = to - from;
+        if (Math.abs(distance) < 0.5) {
+          node.scrollLeft = to;
+          settled();
+          return;
+        }
+        const duration = 220 + 140 * Math.min(1, Math.abs(distance) / Math.max(1, columnWidth));
+        const startedAt = performance.now();
+        const frame = (now: number) => {
+          const u = Math.min(1, (now - startedAt) / duration);
+          const eased = 1 - Math.pow(1 - u, 3);
+          node.scrollLeft = from + distance * eased;
+          if (u < 1) {
+            raf = requestAnimationFrame(frame);
+            return;
+          }
+          node.scrollLeft = to;
+          settled();
+        };
+        raf = requestAnimationFrame(frame);
+      };
+
+      const glideY = (v0: number) => {
+        let v = Math.max(-4, Math.min(4, v0));
+        if (Math.abs(v) < 0.05) {
+          settled();
+          return;
+        }
+        let last = performance.now();
+        const frame = (now: number) => {
+          const dt = Math.min(32, now - last);
+          last = now;
+          const before = node.scrollTop;
+          node.scrollTop = Math.max(0, Math.min(maxTop(), before + v * dt));
+          v *= Math.pow(0.996, dt);
+          if (Math.abs(v) < 0.03 || node.scrollTop === before) {
+            settled();
+            return;
+          }
+          raf = requestAnimationFrame(frame);
+        };
+        raf = requestAnimationFrame(frame);
+      };
+
+      const onTouchEnd = (event: TouchEvent) => {
+        const g = gesture;
+        if (!g) {
+          if (event.touches.length === 0 && raf == null) settled();
+          return;
+        }
+        if (Array.from(event.touches).some((touch) => touch.identifier === g.id)) return;
+        gesture = null;
+        if (g.axis === "none") {
+          // A tap or held press: nothing moved.
+          suppressClickUntil = 0;
+          settled();
+          return;
+        }
+        // Swallow the click the browser may synthesize after a swipe.
+        suppressClickUntil = performance.now() + 400;
+        if (event.type === "touchcancel" || isBlockedRef.current?.()) {
+          if (g.axis === "x") glideX(0, Math.round(g.left / columnWidth));
+          else settled();
+          return;
+        }
+        const v = velocity(g);
+        if (g.axis === "x") glideX(v, Math.round(g.left / columnWidth));
+        else glideY(v);
+      };
+
+      const onClickCapture = (event: MouseEvent) => {
+        if (performance.now() > suppressClickUntil) return;
+        suppressClickUntil = 0;
+        event.stopPropagation();
+        event.preventDefault();
+      };
+
+      const onScroll = () => {
+        // Programmatic jumps (arrows, Today, rebase) still settle; controller
+        // movement waits for its own settle.
+        if (!busy) schedule();
+      };
+      const onResize = () => {
+        if (gesture) abandon();
+      };
+
       node.addEventListener("touchstart", onTouchStart, { passive: true });
+      node.addEventListener("touchmove", onTouchMove, { passive: false });
       node.addEventListener("touchend", onTouchEnd, { passive: true });
       node.addEventListener("touchcancel", onTouchEnd, { passive: true });
-      node.addEventListener("scroll", schedule, { passive: true });
-      node.addEventListener("scrollend", finish);
+      node.addEventListener("click", onClickCapture, true);
+      node.addEventListener("scroll", onScroll, { passive: true });
+      node.addEventListener("scrollend", onScroll);
+      window.addEventListener("orientationchange", onResize);
+      window.addEventListener("resize", onResize);
       return () => {
         clearTimer();
+        stopInertia();
+        restoreSnap();
         node.removeEventListener("touchstart", onTouchStart);
+        node.removeEventListener("touchmove", onTouchMove);
         node.removeEventListener("touchend", onTouchEnd);
         node.removeEventListener("touchcancel", onTouchEnd);
-        node.removeEventListener("scroll", schedule);
-        node.removeEventListener("scrollend", finish);
+        node.removeEventListener("click", onClickCapture, true);
+        node.removeEventListener("scroll", onScroll);
+        node.removeEventListener("scrollend", onScroll);
+        window.removeEventListener("orientationchange", onResize);
+        window.removeEventListener("resize", onResize);
       };
     }
 

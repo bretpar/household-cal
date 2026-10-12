@@ -29,4 +29,4 @@
 - Desktop/tablet Calendar Day renders only WeekView, filling the calendar surface; the agenda list stays on Today. Why: the embedded strip squeezed the timeline.
 - Calendar events load in bounded date windows: views report their range via setVisibleRange, the bundle query is keyed by it, and the server returns overlapping one-offs plus all recurring masters. Why: the app no longer downloads the entire event history on launch.
 - Persisted Today-window event cache (src/lib/event-cache.ts): scoped to verified user+household+role, written only when scope unchanged after fetch, cleared on sign-out/account switch. Why: instant reopen without leaking events across accounts or permissions.
-- Mobile Day/3-Day uses native horizontal scrolling, gutter-aware CSS snapping and settled-position date commits. Why: Safari owns direction locking and momentum.
+- Mobile Day/3-Day: touch-action none + single-axis gesture controller in use-day-strip.ts (axis lock, glide, gutter-aware snap, settle-then-commit). Why: native pan moved both axes.
