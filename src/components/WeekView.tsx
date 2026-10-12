@@ -269,7 +269,9 @@ export function WeekView({
 
         onScroll={strip ? trackScroll : undefined}
         style={strip ? {
-          touchAction: dragging ? "none" : snapDays ? "pan-x pan-y" : "pan-y",
+          // Mobile strip: the day-strip gesture controller owns both axes, so the
+          // browser never pans diagonally; desktop keeps native pan-y.
+          touchAction: dragging || snapDays ? "none" : "pan-y",
           scrollSnapType: snapDays && !dragging ? "x mandatory" : undefined,
           scrollPaddingLeft: snapDays ? gutterPx : undefined,
         } : undefined}
