@@ -83,6 +83,8 @@ export const MonthScrollView = forwardRef<
   /** Anchor = the week row containing the 1st of each month (the grid start). */
   const anchorRefs = useRef(new Map<string, HTMLDivElement>());
   const reportedRef = useRef<string | null>(null);
+  /** True once the initial anchor positioning succeeded or the user navigated. */
+  const initializedRef = useRef(false);
 
   // The rendered window starts around the mount-month and grows outward as the
   // user scrolls or navigates, so Month view is never capped at a fixed range.
@@ -156,7 +158,6 @@ export const MonthScrollView = forwardRef<
   // Open on the anchor month without animation — but only once the scroller has
   // real, visible layout. While hidden (display:none) every offset is 0, so
   // positioning then would leave scrollTop at 0 (the first rendered month).
-  const initializedRef = useRef(false);
   useLayoutEffect(() => {
     initializedRef.current = false;
     reportedRef.current = key(baseMonth);
