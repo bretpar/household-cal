@@ -296,6 +296,11 @@ function CalendarPage() {
   const goToday = () => {
     if (mode === "month") {
       haptic();
+      // Move the logical selection too, not just the scroll position: the
+      // month-scroll callback reports the first of the visible month, so
+      // without this the persisted date became Oct 1 and switching to Day
+      // reopened the previously selected date.
+      setAnchor(new Date());
       monthScrollRef.current?.scrollToToday();
       return;
     }
