@@ -45,7 +45,7 @@ import {
 import { usePeriodCarousel } from "@/hooks/use-period-carousel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCalendar } from "@/lib/calendar-store";
-import { readCalendarAnchor, writeCalendarAnchor } from "@/lib/calendar-anchor-session";
+import { consumeCalendarDayView, readCalendarAnchor, writeCalendarAnchor } from "@/lib/calendar-anchor-session";
 import { getVerifiedMembership, subscribeVerifiedMembership } from "@/lib/auth-guard";
 import {
   CALENDAR_VIEW_LABEL,
@@ -184,6 +184,14 @@ function CalendarPage() {
   // view never flashes Month first.
   useLayoutEffect(() => {
     if (appliedDefault || !defaultView) return;
+    // An explicit cross-screen request (e.g. tapping a Timesheet date) opens
+    // Day view on the anchored date, ahead of the saved default view.
+    if (consumeCalendarDayView()) {
+      portraitViewRef.current = "day";
+      setView("day");
+      setAppliedDefault(true);
+      return;
+    }
     if (defaultView === "month" || defaultView === "day") {
       portraitViewRef.current = defaultView;
     }
