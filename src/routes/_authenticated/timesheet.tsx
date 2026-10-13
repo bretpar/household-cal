@@ -238,7 +238,17 @@ function EntryCard({
 }) {
   const [editing, setEditing] = useState(false);
   const remove = useServerFn(deleteManualEntry);
+  const navigate = useNavigate();
   const tz = sheet.time_zone;
+  // Tap a date to review that day in Calendar's Day view. The tapped date is
+  // written as the scoped session anchor before navigating, so it takes
+  // precedence over any previously saved Calendar date.
+  const openInCalendar = () => {
+    const [y, m, d] = entry.work_date.split("-").map(Number);
+    writeCalendarAnchor(new Date(y, m - 1, d, 12));
+    requestCalendarDayView();
+    void navigate({ to: "/calendar" });
+  };
   if (editing) {
     return (
       <li>
