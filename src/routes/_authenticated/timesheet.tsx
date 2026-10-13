@@ -266,9 +266,14 @@ function EntryCard({
   return (
     <li className="rounded-2xl border border-border-soft bg-card px-4 py-3.5">
       <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 text-lg font-bold leading-tight">
+        <button
+          type="button"
+          onClick={openInCalendar}
+          aria-label={`View ${fmtDate(entry.work_date, { weekday: "long", month: "long", day: "numeric" })} in Calendar`}
+          className="min-w-0 rounded-lg text-left text-lg font-bold leading-tight text-primary underline decoration-primary/30 underline-offset-4 transition-colors hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           {fmtDate(entry.work_date, { weekday: "short", month: "short", day: "numeric" })}
-        </p>
+        </button>
         <p className="shrink-0 text-base font-bold">{formatHoursLabel(hours)}</p>
       </div>
       <div className="mt-1 flex items-center justify-between gap-3">
