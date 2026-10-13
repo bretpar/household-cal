@@ -173,8 +173,15 @@ function CalendarPage() {
         .matches,
   );
   const [anchor, setAnchor] = useState(() => readCalendarAnchor() ?? new Date());
-  const [view, setView] = useState<ViewMode>("month");
-  const portraitViewRef = useRef<Extract<ViewMode, "month" | "day">>("month");
+  // An explicit cross-screen request (e.g. tapping a Timesheet date) opens Day
+  // view on the very first render, without waiting for the saved default view
+  // preference to load. Consumed once here so the preference effect below
+  // never re-applies over it.
+  const dayViewOnMount = useRef(consumeCalendarDayView());
+  const [view, setView] = useState<ViewMode>(dayViewOnMount.current ? "day" : "month");
+  const portraitViewRef = useRef<Extract<ViewMode, "month" | "day">>(
+    dayViewOnMount.current ? "day" : "month",
+  );
   const { defaultView } = useDefaultCalendarView(family?.id ?? null);
   const { weekStart } = useWeekStart(family?.id ?? null);
   const [appliedDefault, setAppliedDefault] = useState(false);
@@ -183,15 +190,14 @@ function CalendarPage() {
   // changes. A layout effect applies it before the first paint, so a saved Day
   // view never flashes Month first.
   useLayoutEffect(() => {
-    if (appliedDefault || !defaultView) return;
-    // An explicit cross-screen request (e.g. tapping a Timesheet date) opens
-    // Day view on the anchored date, ahead of the saved default view.
-    if (consumeCalendarDayView()) {
-      portraitViewRef.current = "day";
-      setView("day");
+    if (appliedDefault) return;
+    // A Day-view request was already applied synchronously on mount; mark the
+    // default as applied so a late-loading preference cannot override it.
+    if (dayViewOnMount.current) {
       setAppliedDefault(true);
       return;
     }
+    if (!defaultView) return;
     if (defaultView === "month" || defaultView === "day") {
       portraitViewRef.current = defaultView;
     }
