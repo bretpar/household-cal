@@ -361,16 +361,19 @@ function CalendarPage() {
   // drop the previous scope's date and restore the new scope's saved
   // selection (or today). The persist effect above only runs after this
   // reset, so the old date is never written under the new scope.
-  const scopeRef = useRef<string | null>(null);
+  // scopeRef holds the verified scope the current date belongs to; a
+  // temporarily unverified (null) membership leaves it untouched, and any
+  // newly verified scope that differs (including null -> verified) restores.
+  const scopeRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     const check = () => {
       const m = getVerifiedMembership();
       const key = m ? `${m.userId}:${m.family_id}` : null;
-      if (scopeRef.current === null) {
+      if (scopeRef.current === undefined) {
         scopeRef.current = key;
         return;
       }
-      if (key === scopeRef.current) return;
+      if (key === null || key === scopeRef.current) return;
       scopeRef.current = key;
       setVisibleDate(null);
       setAnchor(readCalendarAnchor() ?? new Date());
