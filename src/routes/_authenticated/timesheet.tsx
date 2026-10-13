@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { CaregiverOnly } from "@/components/CaregiverGate";
+import { requestCalendarDayView, writeCalendarAnchor } from "@/lib/calendar-anchor-session";
 import { TimeField } from "@/components/TimeField";
 import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
