@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { CaregiverOnly } from "@/components/CaregiverGate";
+import { requestCalendarDayView, writeCalendarAnchor } from "@/lib/calendar-anchor-session";
 import { TimeField } from "@/components/TimeField";
 import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
@@ -237,7 +238,17 @@ function EntryCard({
 }) {
   const [editing, setEditing] = useState(false);
   const remove = useServerFn(deleteManualEntry);
+  const navigate = useNavigate();
   const tz = sheet.time_zone;
+  // Tap a date to review that day in Calendar's Day view. The tapped date is
+  // written as the scoped session anchor before navigating, so it takes
+  // precedence over any previously saved Calendar date.
+  const openInCalendar = () => {
+    const [y = 0, m = 1, d = 1] = entry.work_date.split("-").map(Number);
+    writeCalendarAnchor(new Date(y, m - 1, d, 12));
+    requestCalendarDayView();
+    void navigate({ to: "/calendar" });
+  };
   if (editing) {
     return (
       <li>
@@ -255,9 +266,14 @@ function EntryCard({
   return (
     <li className="rounded-2xl border border-border-soft bg-card px-4 py-3.5">
       <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 text-lg font-bold leading-tight">
+        <button
+          type="button"
+          onClick={openInCalendar}
+          aria-label={`View ${fmtDate(entry.work_date, { weekday: "long", month: "long", day: "numeric" })} in Calendar`}
+          className="min-w-0 rounded-lg text-left text-lg font-bold leading-tight text-primary underline decoration-primary/30 underline-offset-4 transition-colors hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           {fmtDate(entry.work_date, { weekday: "short", month: "short", day: "numeric" })}
-        </p>
+        </button>
         <p className="shrink-0 text-base font-bold">{formatHoursLabel(hours)}</p>
       </div>
       <div className="mt-1 flex items-center justify-between gap-3">

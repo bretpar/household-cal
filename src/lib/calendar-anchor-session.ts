@@ -26,3 +26,20 @@ export function writeCalendarAnchor(date: Date): void {
 export function clearCalendarAnchors(): void {
   anchors.clear();
 }
+
+/**
+ * One-shot request for Calendar to open in Day view on its next mount (e.g.
+ * tapping a Timesheet date). Consumed by Calendar so normal view preferences
+ * and Today behavior are unaffected afterwards.
+ */
+let dayViewRequested = false;
+
+export function requestCalendarDayView(): void {
+  dayViewRequested = true;
+}
+
+export function consumeCalendarDayView(): boolean {
+  const requested = dayViewRequested;
+  dayViewRequested = false;
+  return requested;
+}
