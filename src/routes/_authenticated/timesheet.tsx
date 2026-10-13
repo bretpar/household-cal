@@ -8,6 +8,14 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { CaregiverOnly } from "@/components/CaregiverGate";
 import { requestCalendarDayView, writeCalendarAnchor } from "@/lib/calendar-anchor-session";
+import {
+  clearTimesheetDraft,
+  draftKey,
+  readTimesheetDraft,
+  readTimesheetPeriod,
+  writeTimesheetDraft,
+  writeTimesheetPeriod,
+} from "@/lib/timesheet-draft-session";
 import { TimeField } from "@/components/TimeField";
 import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
@@ -71,7 +79,7 @@ export const fmtTime = (iso: string | null, tz: string) =>
 
 function TimesheetPage() {
   const { period } = Route.useSearch();
-  const [linkPeriod, setLinkPeriod] = useState(period);
+  const [linkPeriod, setLinkPeriod] = useState(() => period ?? readTimesheetPeriod());
   const [offset, setOffset] = useState(0);
   const fetchSheet = useServerFn(getMyTimesheet);
   const query = useQuery({
@@ -79,6 +87,10 @@ function TimesheetPage() {
     queryFn: () => fetchSheet({ data: { offset, period_start: linkPeriod } }),
   });
   const sheet = query.data;
+  // Remember the shown pay period for this session so returning restores it.
+  useEffect(() => {
+    if (sheet) writeTimesheetPeriod(sheet.period_start);
+  }, [sheet?.period_start]);
   // Leaving an emailed deep link: continue navigating from the resolved period.
   const move = (delta: number) => {
     const base = linkPeriod && sheet ? sheet.offset : offset;
@@ -124,7 +136,7 @@ function TimesheetPage() {
 function SheetBody({ sheet }: { sheet: TimesheetView }) {
   const qc = useQueryClient();
   const submit = useServerFn(submitTimesheet);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(() => !!readTimesheetDraft(draftKey(sheet.id, null)));
   // Display-only hours while an editor is open or a save is refreshing; server stays authoritative.
   const [preview, setPreview] = useState<Record<string, number>>({});
   const setPreviewFor = (key: string, hours: number | null) =>
@@ -236,7 +248,7 @@ function EntryCard({
   onPreview: (hours: number | null) => void;
   onSaved: () => void | Promise<void>;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(() => !!readTimesheetDraft(draftKey(sheet.id, entry.id)));
   const remove = useServerFn(deleteManualEntry);
   const navigate = useNavigate();
   const tz = sheet.time_zone;
@@ -325,10 +337,17 @@ function EntryEditor({
   onCancel: () => void;
 }) {
   const save = useServerFn(saveTimesheetEntry);
-  const [date, setDate] = useState(entry?.work_date ?? sheet.period_start);
-  const [start, setStart] = useState(entry?.actual_start_local ?? "09:00");
-  const [end, setEnd] = useState(entry?.actual_end_local ?? "17:00");
-  const [note, setNote] = useState(entry?.note ?? "");
+  const key = draftKey(sheet.id, entry?.id);
+  const [draft] = useState(() => readTimesheetDraft(key));
+  const [date, setDate] = useState(draft?.date ?? entry?.work_date ?? sheet.period_start);
+  const [start, setStart] = useState(draft?.start ?? entry?.actual_start_local ?? "09:00");
+  const [end, setEnd] = useState(draft?.end ?? entry?.actual_end_local ?? "17:00");
+  const [note, setNote] = useState(draft?.note ?? entry?.note ?? "");
+  // Session-only draft so a trip to Calendar keeps unsaved values; never saved.
+  useEffect(() => {
+    writeTimesheetDraft(key, { date, start, end, note });
+  }, [key, date, start, end, note]);
+  const cancel = () => { clearTimesheetDraft(key); onCancel(); };
   const [busy, setBusy] = useState(false);
   const live = localHours(start, end);
   const dirty = !entry || start !== entry.actual_start_local || end !== entry.actual_end_local || note !== (entry.note ?? "");
@@ -369,13 +388,14 @@ function EntryEditor({
       </div>
       <p className="text-xs text-muted-foreground">An end time before the start counts as overnight.</p>
       <div className={entry && !dirty ? "" : "grid grid-cols-2 gap-2"}>
-        <Button variant="outline" className={entry && !dirty ? "w-full" : undefined} onClick={onCancel} disabled={busy}>Cancel</Button>
+        <Button variant="outline" className={entry && !dirty ? "w-full" : undefined} onClick={cancel} disabled={busy}>Cancel</Button>
         {!entry || dirty ? <Button
           disabled={busy || !dirty || !start || !end || !date}
           onClick={async () => {
             setBusy(true);
             try {
               await save({ data: { timesheet_id: sheet.id, entry_id: entry?.id ?? null, work_date: date, start, end, note: note || null } });
+              clearTimesheetDraft(key);
               await onDone();
             } catch (e) {
               toast.error(e instanceof Error ? e.message : "Could not save");

@@ -21,6 +21,7 @@ import { sanitizeReturnPath } from "@/lib/return-path";
 import { hideNativeSplash } from "@/lib/native-splash";
 import { clearEventCache } from "@/lib/event-cache";
 import { clearCalendarAnchors } from "@/lib/calendar-anchor-session";
+import { clearTimesheetSessions } from "@/lib/timesheet-draft-session";
 
 
 function NotFoundComponent() {
@@ -177,6 +178,7 @@ function RootComponent() {
       // Saved events go first so a re-created query can never re-seed from them.
       clearEventCache();
       clearCalendarAnchors();
+      clearTimesheetSessions();
       await queryClient.cancelQueries();
       queryClient.clear();
     };
