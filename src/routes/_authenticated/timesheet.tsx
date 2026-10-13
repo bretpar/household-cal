@@ -244,7 +244,7 @@ function EntryCard({
   // written as the scoped session anchor before navigating, so it takes
   // precedence over any previously saved Calendar date.
   const openInCalendar = () => {
-    const [y, m, d] = entry.work_date.split("-").map(Number);
+    const [y = 0, m = 1, d = 1] = entry.work_date.split("-").map(Number);
     writeCalendarAnchor(new Date(y, m - 1, d, 12));
     requestCalendarDayView();
     void navigate({ to: "/calendar" });
