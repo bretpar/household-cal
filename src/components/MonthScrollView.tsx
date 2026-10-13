@@ -83,6 +83,8 @@ export const MonthScrollView = forwardRef<
   /** Anchor = the week row containing the 1st of each month (the grid start). */
   const anchorRefs = useRef(new Map<string, HTMLDivElement>());
   const reportedRef = useRef<string | null>(null);
+  /** True once the initial anchor positioning succeeded or the user navigated. */
+  const initializedRef = useRef(false);
 
   // The rendered window starts around the mount-month and grows outward as the
   // user scrolls or navigates, so Month view is never capped at a fixed range.
@@ -137,6 +139,7 @@ export const MonthScrollView = forwardRef<
     (month: Date, behavior: ScrollBehavior = "smooth") => {
       const container = scrollRef.current;
       if (!container) return;
+      initializedRef.current = true;
       const top = anchorTop(container, format(startOfMonth(month), "yyyy-MM"));
       if (top == null) {
         // Not rendered yet: extend the window and finish the scroll once it is.
@@ -152,10 +155,29 @@ export const MonthScrollView = forwardRef<
     [ensureRange],
   );
 
-  // Open on the anchor month without animation.
+  // Open on the anchor month without animation — but only once the scroller has
+  // real, visible layout. While hidden (display:none) every offset is 0, so
+  // positioning then would leave scrollTop at 0 (the first rendered month).
   useLayoutEffect(() => {
-    scrollToMonth(baseMonth, "auto");
+    initializedRef.current = false;
     reportedRef.current = key(baseMonth);
+    const container = scrollRef.current;
+    if (!container) return;
+    const tryInit = () => {
+      if (initializedRef.current) return true;
+      if (container.clientHeight === 0 || container.getClientRects().length === 0) return false;
+      if (anchorTop(container, key(baseMonth)) == null) return false;
+      initializedRef.current = true;
+      scrollToMonth(baseMonth, "auto");
+      reportedRef.current = key(baseMonth);
+      return true;
+    };
+    if (tryInit() || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (tryInit()) ro.disconnect();
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
   }, [baseMonth, scrollToMonth]);
 
   // After the window grows: keep the reading position stable when months were
@@ -189,6 +211,7 @@ export const MonthScrollView = forwardRef<
     let frame = 0;
     const check = () => {
       frame = 0;
+      if (!initializedRef.current) return;
       if (container.scrollTop < GROW_THRESHOLD) {
         growTopRef.current = { height: container.scrollHeight, top: container.scrollTop };
         setRange((prev) => ({ ...prev, before: prev.before + GROW_STEP }));
@@ -222,6 +245,7 @@ export const MonthScrollView = forwardRef<
 
     const evaluate = () => {
       frame = 0;
+      if (!initializedRef.current) return;
       // Measure every mounted week-of-the-1st row against the top edge of the
       // visible calendar surface. On phones the page itself may be the scroller,
       // so the boundary is the container top clamped into the viewport.

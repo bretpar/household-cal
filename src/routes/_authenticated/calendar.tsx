@@ -9,6 +9,7 @@ import {
   startOfDay,
   startOfMonth,
   startOfWeek,
+  isSameMonth,
 } from "date-fns";
 
 import { ChevronDown, ChevronLeft, ChevronRight, Menu } from "lucide-react";
@@ -44,6 +45,7 @@ import {
 import { usePeriodCarousel } from "@/hooks/use-period-carousel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCalendar } from "@/lib/calendar-store";
+import { readCalendarAnchor, writeCalendarAnchor } from "@/lib/calendar-anchor-session";
 import {
   CALENDAR_VIEW_LABEL,
   useDefaultCalendarView,
@@ -169,7 +171,7 @@ function CalendarPage() {
       window.matchMedia("(max-width: 767px), (orientation: landscape) and (max-height: 600px)")
         .matches,
   );
-  const [anchor, setAnchor] = useState(() => new Date());
+  const [anchor, setAnchor] = useState(() => readCalendarAnchor() ?? new Date());
   const [view, setView] = useState<ViewMode>("month");
   const portraitViewRef = useRef<Extract<ViewMode, "month" | "day">>("month");
   const { defaultView } = useDefaultCalendarView(family?.id ?? null);
@@ -326,6 +328,14 @@ function CalendarPage() {
   useEffect(() => {
     setVisibleDate(null);
   }, [mode, anchor]);
+
+  // Remember the selected date for this session (user+household scoped). In
+  // Month view the scrolled-to month counts, keeping the day when it matches.
+  useEffect(() => {
+    const shown =
+      mode === "month" && visibleDate && !isSameMonth(visibleDate, anchor) ? visibleDate : anchor;
+    writeCalendarAnchor(shown);
+  }, [mode, anchor, visibleDate]);
 
   // Report only the dates actually on screen (end exclusive); the store adds
   // fetch padding, so padding never decides whether a covered day can render.

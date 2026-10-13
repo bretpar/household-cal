@@ -20,6 +20,7 @@ import { installNativeAuthListener } from "@/lib/native-auth";
 import { sanitizeReturnPath } from "@/lib/return-path";
 import { hideNativeSplash } from "@/lib/native-splash";
 import { clearEventCache } from "@/lib/event-cache";
+import { clearCalendarAnchors } from "@/lib/calendar-anchor-session";
 
 
 function NotFoundComponent() {
@@ -175,6 +176,7 @@ function RootComponent() {
     const dropSessionData = async () => {
       // Saved events go first so a re-created query can never re-seed from them.
       clearEventCache();
+      clearCalendarAnchors();
       await queryClient.cancelQueries();
       queryClient.clear();
     };
