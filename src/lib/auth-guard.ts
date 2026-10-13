@@ -178,7 +178,11 @@ async function resolveGuardUncached(pathname: string, gen: number) {
 export function retryGuard(pathname: string) {
   guardCache = null;
   guardInFlight = null;
-  setVerifiedMembership(null);
+  // Keep the last verified membership on screen while the check runs: clearing
+  // it here blanked the calendar and hid the tabs on every warm resume. The
+  // resolved check overwrites it (including with null when access is truly
+  // gone), and the layout's access-error screen still blocks content on
+  // failure.
   return resolveGuard(pathname);
 }
 
