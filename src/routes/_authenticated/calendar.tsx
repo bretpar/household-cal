@@ -46,6 +46,7 @@ import { usePeriodCarousel } from "@/hooks/use-period-carousel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCalendar } from "@/lib/calendar-store";
 import { readCalendarAnchor, writeCalendarAnchor } from "@/lib/calendar-anchor-session";
+import { getVerifiedMembership, subscribeVerifiedMembership } from "@/lib/auth-guard";
 import {
   CALENDAR_VIEW_LABEL,
   useDefaultCalendarView,
@@ -341,6 +342,28 @@ function CalendarPage() {
       mode === "month" && visibleDate && !isSameMonth(visibleDate, anchor) ? visibleDate : anchor;
     writeCalendarAnchor(shown);
   }, [mode, anchor, visibleDate]);
+
+  // If the verified user/household changes while Calendar stays mounted,
+  // drop the previous scope's date and restore the new scope's saved
+  // selection (or today). The persist effect above only runs after this
+  // reset, so the old date is never written under the new scope.
+  const scopeRef = useRef<string | null>(null);
+  useEffect(() => {
+    const check = () => {
+      const m = getVerifiedMembership();
+      const key = m ? `${m.userId}:${m.family_id}` : null;
+      if (scopeRef.current === null) {
+        scopeRef.current = key;
+        return;
+      }
+      if (key === scopeRef.current) return;
+      scopeRef.current = key;
+      setVisibleDate(null);
+      setAnchor(readCalendarAnchor() ?? new Date());
+    };
+    check();
+    return subscribeVerifiedMembership(check);
+  }, []);
 
   // Report only the dates actually on screen (end exclusive); the store adds
   // fetch padding, so padding never decides whether a covered day can render.
