@@ -206,17 +206,28 @@ export function WeekView({
   const didAutoPosition = useRef(false);
   const positionNearNow = useCallback(() => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || el.clientHeight === 0) return false;
     didAutoPosition.current = true;
     const targetTop = topFor(new Date()) - HOUR_PX;
     const maxScroll = el.scrollHeight - el.clientHeight;
     el.scrollTo({ top: Math.max(0, Math.min(maxScroll, targetTop)), behavior: "auto" });
+    return true;
   }, []);
 
-  // Initial open / entering this timed view (any screen size).
-  useEffect(() => {
+  // Initial open / entering this timed view: position before paint; when the
+  // timeline is hidden or unmeasured, retry once it gains dimensions.
+  useLayoutEffect(() => {
     if (!active || didAutoPosition.current) return;
-    positionNearNow();
+    if (positionNearNow()) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      if (didAutoPosition.current || positionNearNow()) observer.disconnect();
+    });
+    observer.observe(el);
+    const markManual = () => { didAutoPosition.current = true; };
+    el.addEventListener("scroll", markManual, { once: true });
+    return () => { observer.disconnect(); el.removeEventListener("scroll", markManual); };
   }, [active, positionNearNow]);
 
   // Explicit recenter when the user presses Today.
