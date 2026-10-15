@@ -434,7 +434,25 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
           isCoverage(event) || eventMatchesCategory(event, effectiveCategory, categories),
       ),
       categories: data?.categories ?? [],
-      categoryAppearanceFor: (ref) => appearanceForEvent(data?.categories ?? [], ref),
+      categoryAppearanceFor: (ref) => {
+        // Babysitter-calendar events always wear the calendar's configured
+        // colour; a category carried over from another calendar must not tint
+        // them. Strip it before the normal resolution runs.
+        const babysitterId = data?.family?.babysitter_calendar_source_id ?? null;
+        if (
+          babysitterId &&
+          typeof ref === "object" &&
+          ref !== null &&
+          (ref as { calendar_source_id?: string | null }).calendar_source_id === babysitterId
+        ) {
+          return appearanceForEvent(data?.categories ?? [], {
+            ...ref,
+            category_id: null,
+            event_type: null,
+          });
+        }
+        return appearanceForEvent(data?.categories ?? [], ref);
+      },
       resolvedCategoryIdFor: (ref) => resolvedCategoryId(data?.categories ?? [], ref),
 
       addEvent: async (draft) => {
