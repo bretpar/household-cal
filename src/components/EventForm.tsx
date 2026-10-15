@@ -734,10 +734,20 @@ export function EventFormFields({
   // Heal the draft once categories are loaded so saving writes the resolved
   // category id (or clears a dangling one) instead of the stale value.
   useEffect(() => {
+    // Babysitter-calendar events never carry a category: they wear the
+    // calendar's own colour, so a category picked on another calendar must
+    // not follow them when the destination switches.
+    if (onBabysitterCalendar) {
+      if (state.categoryId !== null || state.eventType !== "childcare") {
+        onChange({ ...state, categoryId: null, eventType: "childcare" });
+      }
+      return;
+    }
     if (categories.length === 0) return;
     if (resolvedCategoryValue === state.categoryId) return;
     setCategory(resolvedCategoryValue);
-  }, [resolvedCategoryValue, state.categoryId, categories.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onBabysitterCalendar, resolvedCategoryValue, state.categoryId, state.eventType, categories.length]);
 
 
 
