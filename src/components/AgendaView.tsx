@@ -82,14 +82,14 @@ export function AgendaView({
 
             {loading ? (
               <div className="space-y-2" aria-hidden>
-                <div className="h-14 animate-pulse rounded-2xl bg-secondary/70" />
+                <div className="h-16 animate-pulse rounded-2xl bg-secondary/70" />
               </div>
             ) : loadError ? (
-              <p className="rounded-2xl border border-dashed border-destructive/40 bg-surface px-3 py-5 text-center text-sm text-destructive">
+              <p className="flex min-h-16 items-center justify-center rounded-2xl border border-dashed border-destructive/40 bg-surface px-3 py-3 text-center text-sm text-destructive">
                 Couldn’t load events. Pull to refresh or reopen the app.
               </p>
             ) : visible.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-border bg-surface px-3 py-5 text-center text-sm text-muted-foreground">
+              <p className="flex min-h-16 items-center justify-center rounded-2xl border border-dashed border-border bg-surface px-3 py-3 text-center text-sm text-muted-foreground">
                 Nothing scheduled
               </p>
             ) : (

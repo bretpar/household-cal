@@ -62,15 +62,14 @@ function TodayPage() {
             <AddEventDialog defaultDate={today} />
           </div>
         </header>
-        {(cachedAt || refreshFailed || refreshing) && (
-          <p role="status" className="text-xs text-muted-foreground">
-            {refreshFailed
+        {/* Fixed-height slot: the status never inserts/removes a row. */}
+        <p role="status" className="h-4 truncate text-xs leading-4 text-muted-foreground">
+          {!(cachedAt || refreshFailed || refreshing) ? null : refreshFailed
               ? "Couldn't refresh — showing the last loaded events."
               : cachedAt
                 ? `Updating… last updated ${format(cachedAt, "h:mm a")}`
                 : "Updating…"}
-          </p>
-        )}
+        </p>
         <div data-tour-target="today-agenda">
         <AgendaView
           anchor={today}
