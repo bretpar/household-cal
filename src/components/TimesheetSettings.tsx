@@ -92,11 +92,12 @@ export function useMyTimesheetActionCount(enabled: boolean) {
   return enabled ? data?.count ?? 0 : 0;
 }
 
-const GROUPS: { label: string; match: (s: TimesheetView["status"]) => boolean; empty: string | null }[] = [
-  { label: "Needs review", match: (s) => s === "submitted", empty: "Nothing waiting for review." },
-  { label: "Needs correction", match: (s) => s === "needs_correction", empty: "No timesheets waiting on caregiver changes." },
-  { label: "Open past periods", match: (s) => s === "draft", empty: null },
-  { label: "Approved / recent history", match: (s) => s === "approved" || s === "closed", empty: "No approved timesheets yet." },
+const GROUPS: { label: string; match: (t: TimesheetView) => boolean; empty: string | null }[] = [
+  { label: "Current / upcoming", match: (t) => t.status === "draft" && !!t.is_current, empty: null },
+  { label: "Needs review", match: (t) => t.status === "submitted", empty: "Nothing waiting for review." },
+  { label: "Needs correction", match: (t) => t.status === "needs_correction", empty: "No timesheets waiting on caregiver changes." },
+  { label: "Open past periods", match: (t) => t.status === "draft" && !t.is_current, empty: null },
+  { label: "Approved / recent history", match: (t) => t.status === "approved" || t.status === "closed", empty: "No approved timesheets yet." },
 ];
 
 /** Owner action: close an unfinished timesheet (kept as read-only history). */
@@ -133,7 +134,7 @@ export function OwnerTimesheets() {
     <div className="space-y-5 pb-8 md:pb-0">
       <OwnerManagedSection />
       {GROUPS.map((g) => {
-        const items = (data ?? []).filter((t) => g.match(t.status));
+        const items = (data ?? []).filter((t) => g.match(t));
         if (g.empty === null && items.length === 0) return null;
         return (
           <section key={g.label} className="space-y-3">
@@ -284,7 +285,7 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
           </span>
         </span>
         <span className="shrink-0 rounded-full bg-secondary px-3 py-1 text-xs font-semibold">
-          {open ? "Close" : sheet.status === "submitted" ? "Review" : "Open"}
+          {open ? "Close" : sheet.status === "submitted" ? "Review" : "View"}
         </span>
       </button>
       {open ? (
@@ -324,10 +325,14 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
               </div>
             ),
           )}
-          {sheet.status === "draft" ? (
+          {sheet.status === "draft" && sheet.is_current ? (
+            <p className="text-xs text-muted-foreground">
+              {sheet.entries.length === 0 ? "No shifts saved yet. " : ""}This pay period is still in progress.
+            </p>
+          ) : sheet.status === "draft" ? (
             <p className="text-xs text-muted-foreground">This pay period ended without a submission.</p>
           ) : null}
-          {sheet.status === "draft" || sheet.status === "needs_correction" ? <CloseTimesheetButton id={sheet.id} onClosed={refresh} /> : null}
+          {(sheet.status === "draft" && !sheet.is_current) || sheet.status === "needs_correction" ? <CloseTimesheetButton id={sheet.id} onClosed={refresh} /> : null}
           {editable ? (
             <div className="space-y-2 pt-1">
               <Button size="sm" variant="outline" className="w-full" onClick={() => setEditing((v) => !v)}>

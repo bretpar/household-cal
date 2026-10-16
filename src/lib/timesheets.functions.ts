@@ -40,6 +40,8 @@ export interface TimesheetView {
   owner_managed?: boolean;
   /** whole period falls before the caregiver's Timesheet start date: read-only, never actionable */
   before_start?: boolean;
+  /** Owner list only: draft whose period hasn't ended yet — view-only, no review actions */
+  is_current?: boolean;
 }
 
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/);
@@ -268,23 +270,31 @@ export const listHouseholdTimesheets = createServerFn({ method: "GET" })
     const today = s.todayKey(timeZone);
     const { data, error } = await admin
       .from("timesheets")
-      .select("*, family_members!inner(timesheet_start_date)")
+      .select("*, family_members!inner(timesheet_start_date, name)")
       .eq("family_id", familyId)
       .order("period_start", { ascending: false })
       .limit(80);
     if (error) throw new Error(error.message);
-    // Ended drafts are listed so Owners can close obsolete periods; pre-start periods are hidden.
+    // Ended drafts are listed so Owners can close obsolete periods; current/upcoming drafts are
+    // shown read-only. Pre-start periods stay hidden.
     const rows = (data ?? []).filter((t: any) => {
       const start = t.family_members?.timesheet_start_date as string | null;
       if (t.status !== "draft") return true;
-      return t.period_end < today && (!start || t.period_end >= start);
+      return !start || t.period_end >= start;
     });
-    // Review reads the submission snapshot, so history never depends on live events.
-    return rows.map(({ family_members: _fm, ...t }: any) => ({
-      ...t,
-      caregiver_name: t.snapshot?.caregiver_name ?? t.caregiver_name,
-      time_zone: t.snapshot?.time_zone ?? "UTC",
-      entries: (t.snapshot?.entries ?? []) as TimesheetEntry[],
+    // Review reads the submission snapshot; unfinished current drafts read saved entries (read-only, no sync).
+    return Promise.all(rows.map(async ({ family_members: fm, ...t }: any) => {
+      const current = t.status === "draft" && t.period_end >= today;
+      const entries = current
+        ? ((await s.loadEntries(admin, t.id, timeZone)) as TimesheetEntry[])
+        : ((t.snapshot?.entries ?? []) as TimesheetEntry[]);
+      return {
+        ...t,
+        caregiver_name: t.snapshot?.caregiver_name ?? t.caregiver_name ?? fm?.name ?? "Caregiver",
+        time_zone: current ? timeZone : t.snapshot?.time_zone ?? "UTC",
+        entries,
+        is_current: current,
+      };
     }));
   });
 
