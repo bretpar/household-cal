@@ -42,6 +42,8 @@ export interface TimesheetView {
   before_start?: boolean;
   /** Owner list only: draft whose period hasn't ended yet — view-only, no review actions */
   is_current?: boolean;
+  /** Caregiver only: future pay period preview built from scheduled shifts; nothing is persisted */
+  upcoming?: boolean;
 }
 
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/);
@@ -83,31 +85,57 @@ export const savePaySettings = createServerFn({ method: "POST" })
 
 /* ---------------------------------------------------------------- caregiver */
 
+/** Caregivers may preview upcoming pay periods starting within this many days. */
+const UPCOMING_WINDOW_DAYS = 56;
+
 export const getMyTimesheet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({ offset: z.number().int().min(-60).max(0), period_start: dateKey.optional() }).parse(d),
+    z.object({ offset: z.number().int().min(-60).max(12), period_start: dateKey.optional() }).parse(d),
   )
-  .handler(async ({ data, context }): Promise<TimesheetView & { offset: number }> => {
+  .handler(async ({ data, context }): Promise<TimesheetView & { offset: number; can_next: boolean }> => {
     const s = await import("@/lib/timesheets.server");
-    const { payPeriodFor } = await import("@/lib/timesheet-periods");
+    const { payPeriodFor, addDaysKey } = await import("@/lib/timesheet-periods");
     const me = await s.myCaregiver(context.supabase as unknown as AnyDb, context.userId);
     const admin = await s.adminDb();
+    const { settings, timeZone: tz } = await s.loadPaySettings(admin, me.familyId);
+    const today = s.todayKey(tz);
+    const limit = addDaysKey(today, UPCOMING_WINDOW_DAYS);
+    const inWindow = (o: number) => payPeriodFor(settings, today, o).start <= limit;
     let offset = data.offset;
     if (data.period_start) {
-      // Deep link from an email: resolve the period to an offset (unknown -> current).
-      const { settings, timeZone } = await s.loadPaySettings(admin, me.familyId);
-      const today = s.todayKey(timeZone);
+      // Deep link / session restore: resolve the period to an offset (unknown -> current).
       offset = 0;
-      for (let o = 0; o >= -60; o--) {
+      for (let o = 12; o >= -60; o--) {
         if (payPeriodFor(settings, today, o).start === data.period_start) { offset = o; break; }
       }
     }
+    if (offset > 0 && !inWindow(offset)) offset = 0;
+    const can_next = inWindow(offset + 1);
+
+    if (offset > 0) {
+      // Read-only upcoming preview: never creates or updates timesheets/entries.
+      const period = payPeriodFor(settings, today, offset);
+      const startDate = await s.timesheetStartDate(admin, me.memberId);
+      const shifts = (await s.scheduledShifts(admin, me.familyId, me.memberId, period, tz))
+        .filter((sh) => !startDate || sh.work_date >= startDate);
+      return {
+        id: `upcoming:${period.start}`, caregiver_name: "", period_start: period.start, period_end: period.end,
+        status: "draft", parent_note: null, submitted_at: null, time_zone: tz, offset, can_next, upcoming: true,
+        entries: shifts.map((sh) => ({
+          id: sh.occurrence_key, event_id: sh.event_id, work_date: sh.work_date, scheduled_title: sh.title,
+          scheduled_start: sh.start, scheduled_end: sh.end, actual_start: sh.start, actual_end: sh.end,
+          actual_start_local: s.localHHmm(sh.start, tz), actual_end_local: s.localHHmm(sh.end, tz),
+          is_manual: false, note: null,
+        })),
+      };
+    }
+
     const { sheet, timeZone, startDate } = await s.ensureTimesheet(admin, me.familyId, me.memberId, offset);
     const fresh = (await admin.from("timesheets").select("*").eq("id", sheet.id).single()).data;
     const closed = fresh.status === "closed" && fresh.snapshot?.entries;
     return {
-      ...fresh, offset, time_zone: closed ? fresh.snapshot.time_zone ?? timeZone : timeZone,
+      ...fresh, offset, can_next, time_zone: closed ? fresh.snapshot.time_zone ?? timeZone : timeZone,
       before_start: !!startDate && fresh.period_end < startDate,
       entries: closed ? fresh.snapshot.entries : await s.loadEntries(admin, sheet.id, timeZone),
     };

@@ -95,7 +95,7 @@ function TimesheetPage() {
   const move = (delta: number) => {
     const base = linkPeriod && sheet ? sheet.offset : offset;
     setLinkPeriod(undefined);
-    setOffset(Math.min(0, base + delta));
+    setOffset(Math.min(12, base + delta));
   };
 
   return (
@@ -116,7 +116,7 @@ function TimesheetPage() {
           variant="outline"
           size="icon"
           aria-label="Next pay period"
-          disabled={(linkPeriod && sheet ? sheet.offset : offset) >= 0}
+          disabled={!sheet?.can_next}
           onClick={() => move(1)}
         >
           <ChevronRight className="h-4 w-4" />
@@ -128,8 +128,47 @@ function TimesheetPage() {
           {query.error instanceof Error ? query.error.message : "Could not load timesheet"}
         </p>
       ) : null}
-      {sheet ? <SheetBody sheet={sheet} /> : null}
+      {sheet ? (sheet.upcoming ? <UpcomingBody sheet={sheet} /> : <SheetBody sheet={sheet} />) : null}
     </div>
+  );
+}
+
+/** Read-only preview of a future pay period: scheduled shifts only, no actions. */
+function UpcomingBody({ sheet }: { sheet: TimesheetView }) {
+  const tz = sheet.time_zone;
+  const hrs = (e: TimesheetEntry) => hoursBetween(e.scheduled_start, e.scheduled_end);
+  const total = sheet.entries.reduce((n, e) => n + hrs(e), 0);
+  return (
+    <>
+      <div className="flex items-center justify-between rounded-2xl border border-border-soft bg-card px-4 py-3.5">
+        <div>
+          <p className="text-xs text-muted-foreground">Status</p>
+          <p className="text-base font-bold">Upcoming</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-muted-foreground">Scheduled</p>
+          <p className="text-base font-bold">{formatHoursLabel(total)}</p>
+        </div>
+      </div>
+      <ul className="space-y-3">
+        {sheet.entries.length === 0 ? (
+          <li className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+            No shifts scheduled for this pay period.
+          </li>
+        ) : null}
+        {sheet.entries.map((e) => (
+          <li key={e.id} className="flex items-center justify-between gap-3 rounded-2xl bg-card px-4 py-3">
+            <div className="min-w-0">
+              <p className="font-bold">{fmtDate(e.work_date, { weekday: "short", month: "short", day: "numeric" })}</p>
+              <p className="truncate text-sm text-muted-foreground">
+                {fmtTime(e.scheduled_start, tz)} – {fmtTime(e.scheduled_end, tz)}
+              </p>
+            </div>
+            <p className="shrink-0 text-sm font-semibold">{formatHoursLabel(hrs(e))}</p>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
