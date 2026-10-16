@@ -123,7 +123,7 @@ export const getMyTimesheet = createServerFn({ method: "POST" })
         id: `upcoming:${period.start}`, caregiver_name: "", period_start: period.start, period_end: period.end,
         status: "draft", parent_note: null, submitted_at: null, time_zone: tz, offset, can_next, upcoming: true,
         entries: shifts.map((sh) => ({
-          id: sh.occurrence_key, event_id: sh.event_id, work_date: sh.work_date, scheduled_title: sh.title,
+          id: `upcoming:${sh.work_date}:${sh.start}`, event_id: null, work_date: sh.work_date, scheduled_title: null,
           scheduled_start: sh.start, scheduled_end: sh.end, actual_start: sh.start, actual_end: sh.end,
           actual_start_local: s.localHHmm(sh.start, tz), actual_end_local: s.localHHmm(sh.end, tz),
           is_manual: false, note: null,
