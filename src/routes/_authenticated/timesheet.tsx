@@ -95,7 +95,7 @@ function TimesheetPage() {
   const move = (delta: number) => {
     const base = linkPeriod && sheet ? sheet.offset : offset;
     setLinkPeriod(undefined);
-    setOffset(Math.min(0, base + delta));
+    setOffset(Math.min(12, base + delta));
   };
 
   return (
@@ -116,7 +116,7 @@ function TimesheetPage() {
           variant="outline"
           size="icon"
           aria-label="Next pay period"
-          disabled={(linkPeriod && sheet ? sheet.offset : offset) >= 0}
+          disabled={!sheet?.can_next}
           onClick={() => move(1)}
         >
           <ChevronRight className="h-4 w-4" />
@@ -128,7 +128,7 @@ function TimesheetPage() {
           {query.error instanceof Error ? query.error.message : "Could not load timesheet"}
         </p>
       ) : null}
-      {sheet ? <SheetBody sheet={sheet} /> : null}
+      {sheet ? (sheet.upcoming ? <UpcomingBody sheet={sheet} /> : <SheetBody sheet={sheet} />) : null}
     </div>
   );
 }
