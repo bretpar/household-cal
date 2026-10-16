@@ -312,6 +312,10 @@ export const closeTimesheet = createServerFn({ method: "POST" })
     if (se || !sheet) throw new Error("Timesheet not found");
     if (!["draft", "needs_correction", "submitted"].includes(sheet.status)) throw new Error("This timesheet is already finalized");
     const { timeZone } = await s.loadPaySettings(admin, familyId);
+    // A draft can only be closed once its pay period has fully ended in household time.
+    if (sheet.status === "draft" && sheet.period_end >= s.todayKey(timeZone)) {
+      throw new Error("This pay period hasn't ended yet, so its timesheet can't be closed");
+    }
     // Keep any existing submission snapshot; otherwise freeze current entries for history.
     const snapshot = sheet.snapshot ?? { time_zone: timeZone, caregiver_name: sheet.caregiver_name, entries: await s.loadEntries(admin, sheet.id, timeZone) };
     const now = new Date().toISOString();
