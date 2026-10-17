@@ -23,7 +23,7 @@ interface ReviewEmailShellProps {
   preview: string;
   heading: string;
   children: React.ReactNode;
-  url?: string;
+  url?: string | undefined;
   actionLabel: string;
   browserLabel: string;
 }
