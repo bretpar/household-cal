@@ -1,5 +1,9 @@
 # Roadmap
 
+## Caregiver submission email
+- [x] Add an opt-in shared review layout and submission copy; preserve payloads, authenticated links, and other emails.
+- [ ] Check focused preview diagnostics; no QA, browser tests, regression suites, or publishing.
+
 ## Mobile Day / 3-Day native alignment
 - [x] Replace custom mobile horizontal movement with gutter-aware native scroll snapping.
 - [x] Commit dates only after actual settling; preserve event gestures and vertical position during navigation/rebasing.

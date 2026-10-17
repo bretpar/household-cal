@@ -2,6 +2,7 @@ import * as React from "react";
 
 import type { TemplateEntry } from "./registry";
 import { EmailButton, EmailHeading, EmailLinkFallback, EmailShell, EmailSmallText, EmailText } from "./shell";
+import { ReviewEmailShell } from "./review-email-shell";
 
 interface Base {
   householdName?: string;
@@ -43,14 +44,15 @@ function Reminder({ householdName, periodLabel, url }: Base) {
 function Submitted({ caregiverName, periodLabel, url }: Base) {
   const name = caregiverName ?? "Your caregiver";
   return (
-    <EmailShell preview={`${name} submitted a timesheet`}>
-      <EmailHeading>{name} submitted a timesheet</EmailHeading>
-      <EmailText>
-        Their time card for {periodLabel ?? "the last pay period"} is ready for review.
-      </EmailText>
-      {url ? <EmailButton href={url}>Review &amp; Confirm Timesheet</EmailButton> : null}
-      {url ? <EmailLinkFallback url={url} /> : null}
-    </EmailShell>
+    <ReviewEmailShell
+      preview={`${name}’s timesheet for ${periodLabel ?? "the last pay period"} is ready to review.`}
+      heading="Ready for your review"
+      url={url}
+      actionLabel="Review timesheet →"
+      browserLabel="Open timesheet in browser"
+    >
+      {name}’s timesheet for {periodLabel ?? "the last pay period"} is ready to review.
+    </ReviewEmailShell>
   );
 }
 
@@ -98,7 +100,7 @@ export const timesheetReminder = {
 } satisfies TemplateEntry;
 export const timesheetSubmitted = {
   component: Submitted,
-  subject: (d: Record<string, any>) => `${d["caregiverName"] ?? "Caregiver"} submitted a timesheet`,
+  subject: (d: Record<string, any>) => `${d["caregiverName"] ?? "Caregiver"} Submitted Her Timesheet`,
   displayName: "Timesheet submitted",
   previewData: { ...period, caregiverName: "Michelle" },
 } satisfies TemplateEntry;
