@@ -392,6 +392,13 @@ export const template: TemplateEntry = {
             categoryName: "School",
             badges: [{ initial: "J", color: "sage" }],
           },
+          {
+            title: "Michelle",
+            time: "8:00 AM – 4:00 PM",
+            categoryColor: "sky",
+            categoryName: "Babysitter",
+            badges: [{ initial: "M", color: "lilac" }],
+          },
         ],
       },
     ],
