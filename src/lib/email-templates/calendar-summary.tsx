@@ -322,11 +322,12 @@ export function CalendarSummaryEmail({
               {days.length === 0 ? (
                 <Text style={styles.empty}>{emptyMessage}</Text>
               ) : (
-                days.map((day) => (
+                days.map((day, dayIndex) => (
                   <Section key={day.label}>
-                    <DayHeader label={day.label} />
+                    {dayIndex > 0 ? <div style={styles.dayDivider}>&nbsp;</div> : null}
+                    <DayHeader label={day.label} count={day.items.length} />
                     {day.items.map((item, index) => (
-                      <ActivityCard key={`${item.title}-${index}`} item={item} />
+                      <ActivityRow key={`${item.title}-${index}`} item={item} />
                     ))}
                   </Section>
                 ))
