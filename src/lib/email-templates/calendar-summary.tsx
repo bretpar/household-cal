@@ -210,11 +210,17 @@ function Badges({ badges }: { badges: SummaryEmailBadge[] }) {
   );
 }
 
-function ActivityCard({ item }: { item: SummaryEmailItem }) {
+/** Caregiver shift rows get a subtle pastel blue background. */
+function isBabysitterShift(item: SummaryEmailItem): boolean {
+  return /babysit|childcare|caregiver/i.test(item.categoryName ?? "");
+}
+
+function ActivityRow({ item }: { item: SummaryEmailItem }) {
   const key = item.categoryColor ?? "";
   const accent = EMAIL_MEMBER_COLORS[key] ?? brand.neutralAccent;
   const tint = EMAIL_CATEGORY_TINTS[key] ?? EMAIL_FALLBACK_TINT;
   const icon = categoryIcon(item.categoryName);
+  const babysitter = isBabysitterShift(item);
   return (
     <table
       role="presentation"
@@ -224,55 +230,55 @@ function ActivityCard({ item }: { item: SummaryEmailItem }) {
       width="100%"
       style={{
         width: "100%",
-        marginBottom: "8px",
-        backgroundColor: brand.white,
-        border: `1px solid ${brand.border}`,
-        borderRadius: "12px",
+        marginBottom: "6px",
+        backgroundColor: babysitter ? brand.heroTint : brand.white,
+        borderRadius: "10px",
       }}
     >
       <tbody>
         <tr>
-          <td width="4" style={{ width: "4px", backgroundColor: accent, fontSize: 0 }}>
+          <td width="3" style={{ width: "3px", backgroundColor: accent, borderRadius: "3px 0 0 3px", fontSize: 0 }}>
             &nbsp;
           </td>
           {icon ? (
-            <td valign="top" style={{ padding: "11px 0 11px 10px", width: "32px" }}>
+            <td valign="middle" style={{ padding: "8px 0 8px 8px", width: "32px" }}>
               <span style={{ ...styles.categoryIcon, backgroundColor: tint }}>{icon}</span>
             </td>
           ) : null}
-          <td valign="top" style={{ padding: "10px 12px 11px", wordBreak: "break-word" as const }}>
-            <Text style={styles.itemTitle}>
-              {item.title} <Badges badges={item.badges} />
-            </Text>
+          <td valign="middle" style={{ padding: "8px 10px", wordBreak: "break-word" as const }}>
+            <Text style={styles.itemTitle}>{item.title}</Text>
+            {babysitter ? <Text style={styles.babysitterLabel}>Babysitter</Text> : null}
             <Text style={styles.itemTime}>{item.time}</Text>
           </td>
+          {item.badges && item.badges.length > 0 ? (
+            <td valign="middle" align="right" style={{ padding: "8px 10px 8px 0", whiteSpace: "nowrap" as const }}>
+              <Badges badges={item.badges} />
+            </td>
+          ) : null}
         </tr>
       </tbody>
     </table>
   );
 }
 
-function DayHeader({ label }: { label: string }) {
+function DayHeader({ label, count }: { label: string; count: number }) {
   return (
-    <Section style={{ padding: "18px 0 8px" }}>
-      <Text style={styles.dayLabel}>
-        <span style={styles.dayIcon}>📅</span>
-        {label}
-      </Text>
-      <table
-        role="presentation"
-        cellPadding={0}
-        cellSpacing={0}
-        border={0}
-        width="72"
-        style={{ marginTop: "6px" }}
-      >
+    <Section style={{ padding: "14px 0 6px" }}>
+      <table role="presentation" cellPadding={0} cellSpacing={0} border={0} width="100%">
         <tbody>
           <tr>
-            <td style={styles.dayRule}>&nbsp;</td>
+            <td valign="middle">
+              <Text style={styles.dayLabel}>{label}</Text>
+            </td>
+            <td valign="middle" align="right">
+              <Text style={styles.dayCount}>
+                {count} {count === 1 ? "activity" : "activities"}
+              </Text>
+            </td>
           </tr>
         </tbody>
       </table>
+      <div style={{ ...styles.dayDivider, marginTop: "6px" }}>&nbsp;</div>
     </Section>
   );
 }
