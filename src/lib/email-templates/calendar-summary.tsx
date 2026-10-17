@@ -110,43 +110,52 @@ const styles = {
     color: brand.navy,
   },
   heroText: { margin: "5px 0 0", fontSize: "14px", lineHeight: "21px", color: brand.navySoft },
-  content: { padding: "6px 16px 4px" },
+  content: { padding: "4px 16px 4px" },
   dayLabel: {
     margin: 0,
-    fontSize: "15px",
-    lineHeight: "22px",
+    fontSize: "13px",
+    lineHeight: "18px",
     fontWeight: "bold" as const,
     color: brand.navy,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase" as const,
   },
-  dayRule: { height: "3px", backgroundColor: brand.coral, borderRadius: "2px", fontSize: 0 },
-  dayIcon: { fontSize: "14px", paddingRight: "6px" },
+  dayCount: {
+    margin: 0,
+    fontSize: "12px",
+    lineHeight: "18px",
+    color: brand.muted,
+    textAlign: "right" as const,
+  },
+  dayDivider: { borderTop: `1px solid ${brand.border}`, fontSize: 0, lineHeight: 0 },
   itemTitle: {
     margin: 0,
-    fontSize: "15px",
-    lineHeight: "23px",
+    fontSize: "14px",
+    lineHeight: "20px",
     fontWeight: "bold" as const,
     color: brand.ink,
   },
-  itemTime: { margin: "3px 0 0", fontSize: "13px", lineHeight: "19px", color: brand.muted },
+  itemTime: { margin: "1px 0 0", fontSize: "12px", lineHeight: "17px", color: brand.muted },
+  babysitterLabel: { margin: "1px 0 0", fontSize: "11px", lineHeight: "15px", color: brand.navySoft },
   badge: {
-    display: "inline-block",
-    width: "20px",
-    height: "20px",
-    lineHeight: "20px",
-    borderRadius: "10px",
-    textAlign: "center" as const,
-    fontSize: "11px",
-    fontWeight: "bold" as const,
-    color: brandColors.ink,
-    marginLeft: "5px",
-  },
-  categoryIcon: {
     display: "inline-block",
     width: "22px",
     height: "22px",
     lineHeight: "22px",
+    borderRadius: "11px",
     textAlign: "center" as const,
-    borderRadius: "7px",
+    fontSize: "11px",
+    fontWeight: "bold" as const,
+    color: brandColors.ink,
+    marginLeft: "4px",
+  },
+  categoryIcon: {
+    display: "inline-block",
+    width: "24px",
+    height: "24px",
+    lineHeight: "24px",
+    textAlign: "center" as const,
+    borderRadius: "8px",
     fontSize: "13px",
   },
   cta: {
@@ -201,11 +210,17 @@ function Badges({ badges }: { badges: SummaryEmailBadge[] }) {
   );
 }
 
-function ActivityCard({ item }: { item: SummaryEmailItem }) {
+/** Caregiver shift rows get a subtle pastel blue background. */
+function isBabysitterShift(item: SummaryEmailItem): boolean {
+  return /babysit|childcare|caregiver/i.test(item.categoryName ?? "");
+}
+
+function ActivityRow({ item }: { item: SummaryEmailItem }) {
   const key = item.categoryColor ?? "";
   const accent = EMAIL_MEMBER_COLORS[key] ?? brand.neutralAccent;
   const tint = EMAIL_CATEGORY_TINTS[key] ?? EMAIL_FALLBACK_TINT;
   const icon = categoryIcon(item.categoryName);
+  const babysitter = isBabysitterShift(item);
   return (
     <table
       role="presentation"
@@ -215,55 +230,55 @@ function ActivityCard({ item }: { item: SummaryEmailItem }) {
       width="100%"
       style={{
         width: "100%",
-        marginBottom: "8px",
-        backgroundColor: brand.white,
-        border: `1px solid ${brand.border}`,
-        borderRadius: "12px",
+        marginBottom: "6px",
+        backgroundColor: babysitter ? brand.heroTint : brand.white,
+        borderRadius: "10px",
       }}
     >
       <tbody>
         <tr>
-          <td width="4" style={{ width: "4px", backgroundColor: accent, fontSize: 0 }}>
+          <td width="3" style={{ width: "3px", backgroundColor: accent, borderRadius: "3px 0 0 3px", fontSize: 0 }}>
             &nbsp;
           </td>
           {icon ? (
-            <td valign="top" style={{ padding: "11px 0 11px 10px", width: "32px" }}>
+            <td valign="middle" style={{ padding: "8px 0 8px 8px", width: "32px" }}>
               <span style={{ ...styles.categoryIcon, backgroundColor: tint }}>{icon}</span>
             </td>
           ) : null}
-          <td valign="top" style={{ padding: "10px 12px 11px", wordBreak: "break-word" as const }}>
-            <Text style={styles.itemTitle}>
-              {item.title} <Badges badges={item.badges} />
-            </Text>
+          <td valign="middle" style={{ padding: "8px 10px", wordBreak: "break-word" as const }}>
+            <Text style={styles.itemTitle}>{item.title}</Text>
+            {babysitter ? <Text style={styles.babysitterLabel}>Babysitter</Text> : null}
             <Text style={styles.itemTime}>{item.time}</Text>
           </td>
+          {item.badges && item.badges.length > 0 ? (
+            <td valign="middle" align="right" style={{ padding: "8px 10px 8px 0", whiteSpace: "nowrap" as const }}>
+              <Badges badges={item.badges} />
+            </td>
+          ) : null}
         </tr>
       </tbody>
     </table>
   );
 }
 
-function DayHeader({ label }: { label: string }) {
+function DayHeader({ label, count }: { label: string; count: number }) {
   return (
-    <Section style={{ padding: "18px 0 8px" }}>
-      <Text style={styles.dayLabel}>
-        <span style={styles.dayIcon}>📅</span>
-        {label}
-      </Text>
-      <table
-        role="presentation"
-        cellPadding={0}
-        cellSpacing={0}
-        border={0}
-        width="72"
-        style={{ marginTop: "6px" }}
-      >
+    <Section style={{ padding: "14px 0 6px" }}>
+      <table role="presentation" cellPadding={0} cellSpacing={0} border={0} width="100%">
         <tbody>
           <tr>
-            <td style={styles.dayRule}>&nbsp;</td>
+            <td valign="middle">
+              <Text style={styles.dayLabel}>{label}</Text>
+            </td>
+            <td valign="middle" align="right">
+              <Text style={styles.dayCount}>
+                {count} {count === 1 ? "activity" : "activities"}
+              </Text>
+            </td>
           </tr>
         </tbody>
       </table>
+      <div style={{ ...styles.dayDivider, marginTop: "6px" }}>&nbsp;</div>
     </Section>
   );
 }
@@ -307,11 +322,12 @@ export function CalendarSummaryEmail({
               {days.length === 0 ? (
                 <Text style={styles.empty}>{emptyMessage}</Text>
               ) : (
-                days.map((day) => (
+                days.map((day, dayIndex) => (
                   <Section key={day.label}>
-                    <DayHeader label={day.label} />
+                    {dayIndex > 0 ? <div style={styles.dayDivider}>&nbsp;</div> : null}
+                    <DayHeader label={day.label} count={day.items.length} />
                     {day.items.map((item, index) => (
-                      <ActivityCard key={`${item.title}-${index}`} item={item} />
+                      <ActivityRow key={`${item.title}-${index}`} item={item} />
                     ))}
                   </Section>
                 ))
@@ -375,6 +391,13 @@ export const template: TemplateEntry = {
             categoryColor: "sky",
             categoryName: "School",
             badges: [{ initial: "J", color: "sage" }],
+          },
+          {
+            title: "Michelle",
+            time: "8:00 AM – 4:00 PM",
+            categoryColor: "sky",
+            categoryName: "Babysitter",
+            badges: [{ initial: "M", color: "lilac" }],
           },
         ],
       },
