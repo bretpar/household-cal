@@ -1,5 +1,9 @@
 # Roadmap
 
+## Caregiver submission email
+- [x] Add an opt-in shared review layout and submission copy; preserve payloads, authenticated links, and other emails.
+- [x] Automatic compilation check passes; existing logo URL returns HTTP 200. No QA, browser tests, regression suites, or publishing; real email-client dark mode remains unverified.
+
 ## Mobile Day / 3-Day native alignment
 - [x] Replace custom mobile horizontal movement with gutter-aware native scroll snapping.
 - [x] Commit dates only after actual settling; preserve event gestures and vertical position during navigation/rebasing.
