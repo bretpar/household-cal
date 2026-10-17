@@ -31,7 +31,7 @@ const brand = {
   body: brandColors.body,
   muted: brandColors.muted,
   white: brandColors.white,
-  page: brandColors.cream,
+  page: "#FAF8F3",
   heroTint: brandColors.blueSoft,
   border: brandColors.border,
   neutralAccent: brandColors.borderSoft,
@@ -74,17 +74,17 @@ const styles = {
   container: { margin: "0 auto", padding: "16px 8px 28px", maxWidth: "600px", width: "100%" },
   shell: {
     backgroundColor: brand.white,
-    borderRadius: "18px",
+    borderRadius: "20px",
     border: `1px solid ${brand.border}`,
     overflow: "hidden" as const,
   },
-  header: { backgroundColor: brand.navy, padding: "18px 20px" },
+  header: { backgroundColor: brand.white, padding: "18px 20px", borderBottom: `1px solid ${brand.border}` },
   headerBrand: {
     margin: 0,
     fontSize: "17px",
     lineHeight: "24px",
     fontWeight: "bold" as const,
-    color: brand.white,
+    color: brand.navy,
     letterSpacing: "0.01em",
   },
   headerMark: {
@@ -94,7 +94,7 @@ const styles = {
     lineHeight: "28px",
     textAlign: "center" as const,
     borderRadius: "9px",
-    backgroundColor: brand.coral,
+    backgroundColor: brand.heroTint,
     fontSize: "15px",
   },
   hero: {
@@ -151,13 +151,14 @@ const styles = {
   },
   cta: {
     display: "block",
-    backgroundColor: brand.navy,
-    color: brand.white,
+    backgroundColor: "#8FC4E7",
+    color: brand.navy,
+    border: `1px solid ${brand.navySoft}`,
     fontWeight: "bold" as const,
     fontSize: "16px",
     lineHeight: "22px",
     padding: "15px 20px",
-    borderRadius: "12px",
+    borderRadius: "10px",
     textDecoration: "none",
     textAlign: "center" as const,
   },
@@ -318,14 +319,14 @@ export function CalendarSummaryEmail({
 
               <Section style={{ padding: "22px 0 18px" }}>
                 <a href={calendarUrl} style={styles.cta}>
-                  View Family Calendar
+                  View calendar
                 </a>
               </Section>
             </Section>
 
             <Section style={styles.footer}>
               <Text style={styles.footerText}>
-                You&apos;re receiving this email because you&apos;re subscribed to updates from{" "}
+                <span style={{ color: brand.coral }}>♥</span> One shared calendar for the whole family, from{" "}
                 <Link href={BRAND_URL} style={styles.link}>
                   {BRAND_NAME}
                 </Link>
