@@ -1,8 +1,7 @@
 import * as React from "react";
 
 import type { TemplateEntry } from "./registry";
-import { EmailButton, EmailHeading, EmailLinkFallback, EmailShell, EmailSmallText, EmailText } from "./shell";
-import { ReviewEmailShell } from "./review-email-shell";
+import { ReviewEmailShell, ShellText } from "./review-email-shell";
 
 interface Base {
   householdName?: string;
@@ -14,89 +13,71 @@ interface Base {
 const footer = "You're receiving this because timesheets are turned on for your household.";
 
 function Ready({ householdName, periodLabel, url, scheduledHours }: Base & { scheduledHours?: string }) {
+  const period = periodLabel ?? "this pay period";
   return (
-    <EmailShell preview={`Your timesheet for ${periodLabel ?? "this pay period"} is ready`} footerNote={footer}>
-      <EmailHeading>Your timesheet is ready to review</EmailHeading>
-      <EmailText>
-        The pay period {periodLabel ?? ""} for {householdName ?? "your family"} has ended. Please check your hours and submit your timesheet.
-      </EmailText>
-      {scheduledHours ? <EmailText>Scheduled: {scheduledHours}</EmailText> : null}
-      {url ? <EmailButton href={url}>Review Timesheet</EmailButton> : null}
-      {url ? <EmailLinkFallback url={url} /> : null}
-      <EmailSmallText>You'll need to sign in to see your timesheet.</EmailSmallText>
-    </EmailShell>
+    <ReviewEmailShell preview={`Your timesheet for ${period} is ready`} heading="Time to check your hours" url={url}
+      actionLabel="Review timesheet" browserLabel="Open timesheet in browser" footerNote={footer} showMotif>
+      <ShellText>The pay period {period} with {householdName ?? "your family"} has ended. Take a quick look at your hours and submit when they look right.</ShellText>
+      {scheduledHours ? <ShellText>Scheduled: {scheduledHours}</ShellText> : null}
+    </ReviewEmailShell>
   );
 }
 
 function Reminder({ householdName, periodLabel, url }: Base) {
   return (
-    <EmailShell preview="Reminder: your timesheet hasn't been submitted" footerNote={footer}>
-      <EmailHeading>Reminder: submit your timesheet</EmailHeading>
-      <EmailText>
-        Your timesheet for {periodLabel ?? "the last pay period"} with {householdName ?? "your family"} hasn't been submitted yet.
-      </EmailText>
-      {url ? <EmailButton href={url}>Review Timesheet</EmailButton> : null}
-      {url ? <EmailLinkFallback url={url} /> : null}
-    </EmailShell>
+    <ReviewEmailShell preview="Your timesheet hasn't been submitted yet" heading="Just a friendly nudge" url={url}
+      actionLabel="Review timesheet" browserLabel="Open timesheet in browser" footerNote={footer} showMotif>
+      {`Your timesheet for ${periodLabel ?? "the last pay period"} with ${householdName ?? "your family"} is still waiting to be submitted.`}
+    </ReviewEmailShell>
   );
 }
 
 function Submitted({ caregiverName, periodLabel, url }: Base) {
   const name = caregiverName ?? "Your caregiver";
   return (
-    <ReviewEmailShell
-      preview={`${name}’s timesheet for ${periodLabel ?? "the last pay period"} is ready to review.`}
-      heading="Ready for your review"
-      url={url}
-      actionLabel="Review timesheet →"
-      browserLabel="Open timesheet in browser"
-    >
-      {name}’s timesheet for {periodLabel ?? "the last pay period"} is ready to review.
+    <ReviewEmailShell preview={`${name}’s timesheet for ${periodLabel ?? "the last pay period"} is ready to review.`}
+      heading="Ready for your review" url={url} actionLabel="Review timesheet →" browserLabel="Open timesheet in browser" showMotif>
+      {`${name}’s timesheet for ${periodLabel ?? "the last pay period"} is ready to review.`}
     </ReviewEmailShell>
   );
 }
 
 function Correction({ periodLabel, url, note }: Base & { note?: string | null }) {
   return (
-    <EmailShell preview="A correction was requested on your timesheet" footerNote={footer}>
-      <EmailHeading>Please update your timesheet</EmailHeading>
-      <EmailText>A correction was requested for {periodLabel ?? "your timesheet"}.</EmailText>
-      {note ? <EmailText>Note: {note}</EmailText> : null}
-      {url ? <EmailButton href={url}>Update Timesheet</EmailButton> : null}
-      {url ? <EmailLinkFallback url={url} /> : null}
-    </EmailShell>
+    <ReviewEmailShell preview="A change was requested on your timesheet" heading="A quick update is needed" url={url}
+      actionLabel="Update timesheet" browserLabel="Open timesheet in browser" footerNote={footer} showMotif>
+      <ShellText>Please take another look at your timesheet for {periodLabel ?? "this pay period"}.</ShellText>
+      {note ? <ShellText>Note: {note}</ShellText> : null}
+    </ReviewEmailShell>
   );
 }
 
 function Approved({ periodLabel, totalHours }: Base & { totalHours?: string }) {
   return (
-    <EmailShell preview="Your timesheet was approved" footerNote={footer}>
-      <EmailHeading>Your timesheet was approved</EmailHeading>
-      <EmailText>Your timesheet for {periodLabel ?? "this pay period"} was approved.</EmailText>
-      <EmailText>Approved hours: {totalHours ?? "0h"}</EmailText>
-    </EmailShell>
+    <ReviewEmailShell preview="Your timesheet was approved" heading="All set — thank you!" footerNote={footer} showMotif>
+      <ShellText>Your timesheet for {periodLabel ?? "this pay period"} has been approved.</ShellText>
+      <ShellText>Approved hours: {totalHours ?? "0h"}</ShellText>
+    </ReviewEmailShell>
   );
 }
 
 function EmailsOff({ caregiverName, householdName }: Base) {
+  const name = caregiverName ?? "Your caregiver";
   return (
-    <EmailShell preview={`${caregiverName ?? "A caregiver"} turned off timesheet emails`}>
-      <EmailHeading>{caregiverName ?? "A caregiver"} turned off timesheet emails</EmailHeading>
-      <EmailText>
-        {caregiverName ?? "Your caregiver"} won't receive timesheet emails from {householdName ?? "your household"} anymore. They can still open their timesheet in the app.
-      </EmailText>
-    </EmailShell>
+    <ReviewEmailShell preview={`${name} turned off timesheet emails`} heading="Timesheet emails paused">
+      {`${name} won't receive timesheet emails from ${householdName ?? "your household"} anymore. They can still open their timesheet in the app.`}
+    </ReviewEmailShell>
   );
 }
 
 const period = { periodLabel: "Sep 14 – Sep 27, 2026", householdName: "Parker Family", url: "https://ourfamilycalendar.com/timesheet" };
 
 export const timesheetReady = {
-  component: Ready, subject: "Your timesheet is ready to review", displayName: "Timesheet ready",
+  component: Ready, subject: "Your Timesheet Is Ready to Review", displayName: "Timesheet ready",
   previewData: { ...period, scheduledHours: "24h" },
 } satisfies TemplateEntry;
 export const timesheetReminder = {
-  component: Reminder, subject: "Reminder: submit your timesheet", displayName: "Timesheet reminder", previewData: period,
+  component: Reminder, subject: "Reminder: Submit Your Timesheet", displayName: "Timesheet reminder", previewData: period,
 } satisfies TemplateEntry;
 export const timesheetSubmitted = {
   component: Submitted,
@@ -105,16 +86,16 @@ export const timesheetSubmitted = {
   previewData: { ...period, caregiverName: "Michelle" },
 } satisfies TemplateEntry;
 export const timesheetCorrection = {
-  component: Correction, subject: "Please update your timesheet", displayName: "Timesheet correction",
+  component: Correction, subject: "Please Update Your Timesheet", displayName: "Timesheet correction",
   previewData: { ...period, note: "Tuesday ended at 4pm." },
 } satisfies TemplateEntry;
 export const timesheetApproved = {
-  component: Approved, subject: "Your timesheet was approved", displayName: "Timesheet approved",
+  component: Approved, subject: "Your Timesheet Was Approved", displayName: "Timesheet approved",
   previewData: { ...period, totalHours: "24h" },
 } satisfies TemplateEntry;
 export const timesheetEmailsOff = {
   component: EmailsOff,
-  subject: (d: Record<string, any>) => `${d["caregiverName"] ?? "A caregiver"} turned off timesheet emails`,
+  subject: (d: Record<string, any>) => `${d["caregiverName"] ?? "A Caregiver"} Turned Off Timesheet Emails`,
   displayName: "Caregiver turned off timesheet emails",
   previewData: { caregiverName: "Michelle", householdName: "Parker Family" },
 } satisfies TemplateEntry;

@@ -1,14 +1,7 @@
 import * as React from "react";
 
 import type { TemplateEntry } from "./registry";
-import {
-  EmailButton,
-  EmailHeading,
-  EmailLinkFallback,
-  EmailShell,
-  EmailSmallText,
-  EmailText,
-} from "./shell";
+import { ReviewEmailShell, ShellText } from "./review-email-shell";
 
 export interface HouseholdInvitationProps {
   householdName?: string;
@@ -18,9 +11,9 @@ export interface HouseholdInvitationProps {
 }
 
 const ROLE_COPY: Record<string, string> = {
-  owner: "Owner — can manage the calendar, people and access",
-  editor: "Editor — can add and edit events",
-  viewer: "Viewer — can see the calendar, view only",
+  owner: "Owner — manage the calendar, people and access",
+  editor: "Editor — add and edit events",
+  viewer: "Viewer — see the calendar",
 };
 
 export function HouseholdInvitationEmail({
@@ -30,24 +23,21 @@ export function HouseholdInvitationEmail({
   inviteUrl = "https://ourfamilycalendar.com",
 }: HouseholdInvitationProps) {
   return (
-    <EmailShell
-      preview={`You're invited to ${householdName} on Our Family Calendar`}
-      footerNote="You received this email because someone invited you to their family calendar."
+    <ReviewEmailShell
+      preview={`Join ${householdName} on Our Family Calendar`}
+      heading="Come join the family calendar"
+      url={inviteUrl}
+      actionLabel="Join calendar"
+      browserLabel="Open invitation in browser"
+      footerNote="You received this because someone invited you to their family calendar."
     >
-      <EmailHeading>You&apos;re invited to {householdName}</EmailHeading>
-      <EmailText>
-        {inviterName ? `${inviterName} invited you` : "You have been invited"} to share the{" "}
-        {householdName} calendar — school days, activities, work trips and who is covering what, all
-        in one place.
-      </EmailText>
-      <EmailText>Your access: {ROLE_COPY[role] ?? role}</EmailText>
-      <EmailButton href={inviteUrl}>Join Family Calendar</EmailButton>
-      <EmailSmallText>
-        You&apos;ll create or sign into your own account — nobody sets a password for you. This link
-        expires in a few days; ask for a new one if it stops working.
-      </EmailSmallText>
-      <EmailLinkFallback url={inviteUrl} />
-    </EmailShell>
+      <ShellText>
+        {inviterName ? `${inviterName} invited you` : "You've been invited"} to share the {householdName} calendar — school,
+        activities, work trips and who's covering what, all in one place.
+      </ShellText>
+      <ShellText>Your access: {ROLE_COPY[role] ?? role}</ShellText>
+      <ShellText muted>You'll sign in with your own account. This link expires in a few days.</ShellText>
+    </ReviewEmailShell>
   );
 }
 
@@ -55,7 +45,7 @@ export const template = {
   component: HouseholdInvitationEmail,
   displayName: "Household invitation",
   subject: (data: Record<string, any>) =>
-    `You're invited to ${data?.['householdName'] ?? "a family calendar"} on Our Family Calendar`,
+    `You're Invited to ${data?.["householdName"] ?? "a Family Calendar"} on Our Family Calendar`,
   previewData: {
     householdName: "Parker Family",
     inviterName: "Dad",
