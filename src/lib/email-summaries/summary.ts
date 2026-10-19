@@ -371,26 +371,29 @@ export function summaryCopy(
   brand = "Our Family Calendar",
 ): SummaryCopy {
   if (frequency === "daily") {
+    const { year } = parseDayKey(window.startDayKey);
     return {
       subject: `${brand} · Tomorrow`,
-      heading: `Tomorrow, ${formatLongDate(window.startDayKey)}`,
-      intro: "Here are the activities for tomorrow.",
+      heading: "Your day at a glance",
+      intro: `${formatLongDate(window.startDayKey)}, ${year}`,
       emptyMessage: "No activities are scheduled for tomorrow.",
     };
   }
   if (frequency === "weekly") {
+    const { year } = parseDayKey(window.endDayKey);
     return {
       subject: `${brand} · Week of ${formatShortDate(window.startDayKey)}`,
-      heading: `Welcome to the week of ${formatLongDate(window.startDayKey)}.`,
-      intro: "Here are the activities for the week.",
+      heading: "Your week at a glance",
+      intro: `${formatLongDate(window.startDayKey)} – ${formatLongDate(window.endDayKey)}, ${year}`,
       emptyMessage: "No activities are scheduled for this week.",
     };
   }
   const month = formatMonthName(window.startDayKey);
+  const { year } = parseDayKey(window.startDayKey);
   return {
     subject: `${brand} · ${month}`,
-    heading: `Welcome to ${month}.`,
-    intro: "Here are the activities for the month.",
+    heading: "Your month at a glance",
+    intro: `${month} ${year}`,
     emptyMessage: `No activities are scheduled for ${month}.`,
   };
 }
