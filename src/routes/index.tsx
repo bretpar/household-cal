@@ -44,7 +44,7 @@ const FAQ_ITEMS = [
   {
     question: "Can I share the calendar with a babysitter or nanny?",
     answer:
-      "Yes. You can invite babysitters, nannies, grandparents and other caregivers, and control who can make changes. Caregiver coverage appears right inside the family schedule.",
+      "Yes. Plan recurring nanny shifts or occasional babysitter coverage alongside family activities. Invite your caregiver with view-only access, choose which calendars they can see, and optionally limit their view to assigned shift days.",
   },
   {
     question: "Can different family members have different colors?",
@@ -80,13 +80,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Organize your family’s schedules, kids’ activities, and babysitter shifts in one shared calendar. Sync with Google Calendar and simplify family planning.",
+          "Organize family activities and nanny schedules in one shared calendar. Plan recurring shifts, share caregiver access, track hours and connect Google Calendar.",
       },
       { property: "og:title", content: "Our Family Calendar | Shared Family Calendar & Scheduling App" },
       {
         property: "og:description",
         content:
-          "Organize your family’s schedules, kids’ activities, and babysitter shifts in one shared calendar. Sync with Google Calendar and simplify family planning.",
+          "Organize family activities and nanny schedules in one shared calendar. Plan recurring shifts, share caregiver access, track hours and connect Google Calendar.",
       },
       { property: "og:url", content: `${SITE_URL}/` },
       { property: "og:image", content: OG_IMAGE_URL },
@@ -441,15 +441,15 @@ function LandingPage() {
               <Baby className="h-5 w-5 text-accent-foreground" aria-hidden />
             </div>
             <h2 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
-              Childcare built into your family calendar
+              A nanny schedule that fits your family calendar
             </h2>
             <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-              Schedule babysitters and nannies alongside your family activities, share only the
-              schedule they need, and keep track of hours with built-in caregiver timesheets
-              and parent confirmation.
+              Plan recurring nanny shifts and occasional babysitter coverage alongside school,
+              work and family activities. Share a view-only caregiver calendar. Timesheets start
+              with scheduled shifts, caregivers record actual hours, and parents review and confirm them.
             </p>
             <ul className="mt-6 flex flex-wrap gap-2">
-              {["Babysitter scheduling", "Caregiver access", "Nanny timesheets", "Weekly schedules"].map(
+              {["Nanny scheduling", "Caregiver access", "Nanny timesheets", "Babysitter shifts"].map(
                 (item) => (
                   <li
                     key={item}
@@ -465,7 +465,7 @@ function LandingPage() {
                 to="/features/childcare-scheduling"
                 className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-input bg-card px-4 text-[13px] font-bold text-primary hover:bg-accent sm:h-11 sm:w-auto sm:px-5 sm:text-sm"
               >
-                Explore babysitter &amp; nanny scheduling
+                Explore the nanny schedule app
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
             </div>

@@ -5,7 +5,7 @@ import { MarketingFeaturePage, featureHead, linkClass, SITE_URL } from "@/compon
 
 const TITLE = "Shared Family Calendar App for Busy Families | Our Family Calendar";
 const DESCRIPTION =
-  "Keep your family’s appointments, activities, and schedules organized with color-coded calendars, Google Calendar sync, and shared household access.";
+  "Share family appointments, kids’ activities and nanny schedules in one color-coded calendar, with Google Calendar sync and view-only caregiver access.";
 
 const SECTIONS = [
   { title: "One household schedule", body: "Everyone in the household opens the same calendar on a phone, tablet or computer, so school, work and activities are all in one place." },
@@ -15,7 +15,7 @@ const SECTIONS = [
   { title: "Recurring activities", body: "Set up weekly lessons, practices and routines once with repeat rules, and keep them organized alongside one-off events." },
   { title: "Schedule summaries by email", body: "Optional daily, weekly or monthly email summaries help everyone see what's ahead without checking the app constantly." },
   { title: "Household and caregiver access", body: "Partners can get full access while babysitters and grandparents get view-only access to only the calendars you choose." },
-  { title: "Childcare in the same view", body: "Babysitter and nanny shifts sit right next to the activities they cover, so gaps in coverage are easy to spot." },
+  { title: "A nanny schedule in the same view", body: "Plan recurring nanny shifts and occasional babysitter coverage next to school, work and activities. Caregiver timesheets start from scheduled shifts, caregivers record actual hours, and parents review and confirm them." },
 ];
 
 const FAQ = [
@@ -63,8 +63,8 @@ function FamilyCalendarPage() {
       faq={FAQ}
       related={
         <>
-          Need help with babysitters? Read about{" "}
-          <Link to="/features/childcare-scheduling" className={linkClass}>babysitter and nanny scheduling</Link>, or see how we{" "}
+           Planning childcare? Explore our{" "}
+           <Link to="/features/childcare-scheduling" className={linkClass}>nanny schedule app and caregiver timesheets</Link>, or see how we{" "}
           <Link to="/best-shared-calendar-app" className={linkClass}>compare to other shared calendar apps</Link>.
         </>
       }
