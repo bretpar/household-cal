@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Nanny scheduling search copy
-- [ ] Focus the existing childcare page on nanny schedule app searches, with clear scheduling, access and timesheet answers.
-- [ ] Update supporting public-page copy, metadata and links; preserve layout and app behavior, check preview diagnostics, leave unpublished.
+- [x] Focus the existing childcare page on nanny schedule app searches, with clear scheduling, access and timesheet answers.
+- [x] Update supporting public-page copy, metadata and links; preserve layout and app behavior, check preview diagnostics, leave unpublished.
 
 ## Caregiver submission email
 - [x] Add an opt-in shared review layout and submission copy; preserve payloads, authenticated links, and other emails.
