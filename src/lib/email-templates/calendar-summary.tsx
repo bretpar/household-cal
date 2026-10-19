@@ -14,9 +14,7 @@ import { BRAND_NAME, BRAND_URL } from "./shell";
 
 import {
   brandColors,
-  EMAIL_CATEGORY_TINTS,
   EMAIL_FALLBACK_BADGE,
-  EMAIL_FALLBACK_TINT,
   EMAIL_MEMBER_COLORS,
   EMAIL_MEMBER_INK,
 } from "./brand-colors";
@@ -34,7 +32,7 @@ const brand = {
   page: "#FAF8F3",
   heroTint: brandColors.blueSoft,
   border: brandColors.border,
-  neutralAccent: brandColors.borderSoft,
+  borderSoft: brandColors.borderSoft,
 };
 
 const FALLBACK_BADGE = EMAIL_FALLBACK_BADGE;
@@ -87,15 +85,16 @@ const styles = {
     color: brand.navy,
     letterSpacing: "0.01em",
   },
+  headerTagline: { margin: 0, fontSize: "12px", lineHeight: "16px", color: brand.muted },
   headerMark: {
     display: "inline-block",
-    width: "28px",
-    height: "28px",
-    lineHeight: "28px",
+    width: "34px",
+    height: "34px",
+    lineHeight: "34px",
     textAlign: "center" as const,
-    borderRadius: "9px",
+    borderRadius: "10px",
     backgroundColor: brand.heroTint,
-    fontSize: "15px",
+    fontSize: "17px",
   },
   hero: {
     backgroundColor: brand.heroTint,
@@ -109,55 +108,74 @@ const styles = {
     fontWeight: "bold" as const,
     color: brand.navy,
   },
-  heroText: { margin: "5px 0 0", fontSize: "14px", lineHeight: "21px", color: brand.navySoft },
-  content: { padding: "4px 16px 4px" },
-  dayLabel: {
+  heroText: { margin: "3px 0 0", fontSize: "14px", lineHeight: "21px", color: brand.navySoft },
+  content: { padding: "14px 16px 4px" },
+  dayGroup: {
+    border: `1px solid ${brand.borderSoft}`,
+    borderRadius: "14px",
+    padding: "12px 12px 6px",
+    marginBottom: "12px",
+  },
+  dayBadge: {
+    display: "inline-block",
+    width: "46px",
+    borderRadius: "10px",
+    backgroundColor: brand.heroTint,
+    textAlign: "center" as const,
+    padding: "7px 0 8px",
+  },
+  dayBadgeWeekday: {
     margin: 0,
-    fontSize: "13px",
-    lineHeight: "18px",
+    fontSize: "10px",
+    lineHeight: "13px",
+    fontWeight: "bold" as const,
+    color: brand.navySoft,
+    letterSpacing: "0.06em",
+  },
+  dayBadgeDay: {
+    margin: 0,
+    fontSize: "19px",
+    lineHeight: "22px",
     fontWeight: "bold" as const,
     color: brand.navy,
-    letterSpacing: "0.04em",
-    textTransform: "uppercase" as const,
+  },
+  dayLabel: {
+    margin: 0,
+    fontSize: "14px",
+    lineHeight: "19px",
+    fontWeight: "bold" as const,
+    color: brand.navy,
   },
   dayCount: {
     margin: 0,
     fontSize: "12px",
-    lineHeight: "18px",
+    lineHeight: "19px",
     color: brand.muted,
     textAlign: "right" as const,
   },
-  dayDivider: { borderTop: `1px solid ${brand.border}`, fontSize: 0, lineHeight: 0 },
+  timeStart: { margin: 0, fontSize: "12px", lineHeight: "17px", fontWeight: "bold" as const, color: brand.ink },
+  timeEnd: { margin: 0, fontSize: "12px", lineHeight: "17px", color: brand.muted },
   itemTitle: {
     margin: 0,
     fontSize: "14px",
-    lineHeight: "20px",
+    lineHeight: "19px",
     fontWeight: "bold" as const,
     color: brand.ink,
   },
-  itemTime: { margin: "1px 0 0", fontSize: "12px", lineHeight: "17px", color: brand.muted },
-  babysitterLabel: { margin: "1px 0 0", fontSize: "11px", lineHeight: "15px", color: brand.navySoft },
+  itemMeta: { margin: "1px 0 0", fontSize: "12px", lineHeight: "16px", color: brand.muted },
   badge: {
     display: "inline-block",
-    width: "22px",
-    height: "22px",
-    lineHeight: "22px",
-    borderRadius: "11px",
+    width: "24px",
+    height: "24px",
+    lineHeight: "24px",
+    borderRadius: "12px",
     textAlign: "center" as const,
     fontSize: "11px",
     fontWeight: "bold" as const,
     color: brandColors.ink,
     marginLeft: "4px",
   },
-  categoryIcon: {
-    display: "inline-block",
-    width: "24px",
-    height: "24px",
-    lineHeight: "24px",
-    textAlign: "center" as const,
-    borderRadius: "8px",
-    fontSize: "13px",
-  },
+  divider: { borderTop: `1px solid ${brand.borderSoft}`, fontSize: 0, lineHeight: 0 },
   cta: {
     display: "block",
     backgroundColor: "#8FC4E7",
@@ -171,23 +189,47 @@ const styles = {
     textDecoration: "none",
     textAlign: "center" as const,
   },
-  footer: { padding: "4px 20px 20px" },
+  footer: { padding: "4px 20px 20px", textAlign: "center" as const },
   footerText: { margin: "0 0 4px", fontSize: "12px", lineHeight: "19px", color: brand.muted },
   link: { color: brand.coral },
-  empty: { margin: "14px 0 4px", fontSize: "14px", lineHeight: "21px", color: brand.body },
+  empty: { margin: "6px 0 10px", fontSize: "14px", lineHeight: "21px", color: brand.body },
 };
 
-/** Small friendly glyph for the household's own category names. */
-function categoryIcon(name?: string | null): string | null {
-  if (!name) return null;
-  const n = name.toLowerCase();
-  if (/school|class|homework/.test(n)) return "🏫";
-  if (/sport|soccer|practice|game|swim|dance|gym/.test(n)) return "⚽";
-  if (/work|office/.test(n)) return "💼";
-  if (/appoint|doctor|dentist|health/.test(n)) return "🩺";
-  if (/family|home|birthday/.test(n)) return "🏡";
-  if (/activity|club|music|art/.test(n)) return "🎨";
-  return null;
+/** "Monday, October 19" -> { weekday: "MON", day: "19" } */
+function badgeParts(label: string): { weekday: string; day: string } {
+  const weekday = (label.split(",")[0] ?? "").trim().slice(0, 3).toUpperCase();
+  const dayMatch = /(\d{1,2})\s*$/.exec(label);
+  return { weekday, day: dayMatch?.[1] ?? "" };
+}
+
+/** Caregiver shift rows are identified by their category name. */
+function isBabysitterShift(item: SummaryEmailItem): boolean {
+  return /babysit|childcare|caregiver/i.test(item.categoryName ?? "");
+}
+
+/** "8:30 AM – 5:30 PM" -> "9 hours"; null when not a parseable range. */
+function durationLabel(time: string): string | null {
+  const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)\s*[–-]\s*(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(time);
+  if (!match) return null;
+  const toMinutes = (h: string, m: string, ap: string) => {
+    let hour = Number(h) % 12;
+    if (ap.toUpperCase() === "PM") hour += 12;
+    return hour * 60 + Number(m);
+  };
+  const start = toMinutes(match[1]!, match[2]!, match[3]!);
+  const end = toMinutes(match[4]!, match[5]!, match[6]!);
+  const diff = end - start;
+  if (diff <= 0) return null;
+  const hours = diff / 60;
+  const rounded = Math.round(hours * 10) / 10;
+  return `${rounded} ${rounded === 1 ? "hour" : "hours"}`;
+}
+
+/** "8:30 AM – 5:30 PM" -> ["8:30 AM", "5:30 PM"]; "All day" -> ["All day"] */
+function timeParts(time: string): [string, string | null] {
+  const parts = time.split(/\s*[–-]\s*/);
+  if (parts.length === 2) return [parts[0]!, parts[1]!];
+  return [time, null];
 }
 
 function Badges({ badges }: { badges: SummaryEmailBadge[] }) {
@@ -210,81 +252,101 @@ function Badges({ badges }: { badges: SummaryEmailBadge[] }) {
   );
 }
 
-/** Caregiver shift rows get a subtle pastel blue background. */
-function isBabysitterShift(item: SummaryEmailItem): boolean {
-  return /babysit|childcare|caregiver/i.test(item.categoryName ?? "");
-}
-
-function ActivityRow({ item }: { item: SummaryEmailItem }) {
-  const key = item.categoryColor ?? "";
-  const accent = EMAIL_MEMBER_COLORS[key] ?? brand.neutralAccent;
-  const tint = EMAIL_CATEGORY_TINTS[key] ?? EMAIL_FALLBACK_TINT;
-  const icon = categoryIcon(item.categoryName);
+function EventRow({ item, last }: { item: SummaryEmailItem; last: boolean }) {
+  const accent = EMAIL_MEMBER_COLORS[item.categoryColor ?? ""] ?? brand.borderSoft;
   const babysitter = isBabysitterShift(item);
+  const [start, end] = timeParts(item.time);
+  const duration = babysitter ? durationLabel(item.time) : null;
+  const meta = babysitter
+    ? `Babysitter${duration ? ` · ${duration}` : ""}`
+    : (item.categoryName ?? "");
   return (
-    <table
-      role="presentation"
-      cellPadding={0}
-      cellSpacing={0}
-      border={0}
-      width="100%"
-      style={{
-        width: "100%",
-        marginBottom: "6px",
-        backgroundColor: babysitter ? brand.heroTint : brand.white,
-        borderRadius: "10px",
-      }}
-    >
+    <table role="presentation" cellPadding={0} cellSpacing={0} border={0} width="100%" style={{ width: "100%" }}>
       <tbody>
         <tr>
-          <td width="3" style={{ width: "3px", backgroundColor: accent, borderRadius: "3px 0 0 3px", fontSize: 0 }}>
-            &nbsp;
+          <td valign="middle" width="52" style={{ width: "52px", padding: "9px 0", whiteSpace: "nowrap" as const }}>
+            <Text style={styles.timeStart}>{start}</Text>
+            {end ? <Text style={styles.timeEnd}>{end}</Text> : null}
           </td>
-          {icon ? (
-            <td valign="middle" style={{ padding: "8px 0 8px 8px", width: "32px" }}>
-              <span style={{ ...styles.categoryIcon, backgroundColor: tint }}>{icon}</span>
-            </td>
-          ) : null}
-          <td valign="middle" style={{ padding: "8px 10px", wordBreak: "break-word" as const }}>
+          <td valign="middle" width="14" style={{ width: "14px", padding: "9px 0" }}>
+            <div
+              style={{
+                width: "3px",
+                height: "32px",
+                borderRadius: "2px",
+                backgroundColor: accent,
+                fontSize: 0,
+                lineHeight: 0,
+              }}
+            >
+              &nbsp;
+            </div>
+          </td>
+          <td valign="middle" style={{ padding: "9px 8px 9px 0", wordBreak: "break-word" as const }}>
             <Text style={styles.itemTitle}>{item.title}</Text>
-            {babysitter ? <Text style={styles.babysitterLabel}>Babysitter</Text> : null}
-            <Text style={styles.itemTime}>{item.time}</Text>
+            {meta ? <Text style={styles.itemMeta}>{meta}</Text> : null}
           </td>
           {item.badges && item.badges.length > 0 ? (
-            <td valign="middle" align="right" style={{ padding: "8px 10px 8px 0", whiteSpace: "nowrap" as const }}>
+            <td valign="middle" align="right" style={{ padding: "9px 0", whiteSpace: "nowrap" as const }}>
               <Badges badges={item.badges} />
             </td>
           ) : null}
         </tr>
+        {!last ? (
+          <tr>
+            <td colSpan={4}>
+              <div style={styles.divider}>&nbsp;</div>
+            </td>
+          </tr>
+        ) : null}
       </tbody>
     </table>
   );
 }
 
-function DayHeader({ label, count }: { label: string; count: number }) {
+function DayGroup({ day }: { day: SummaryEmailDay }) {
+  const badge = badgeParts(day.label);
+  const count = day.items.length;
   return (
-    <Section style={{ padding: "14px 0 6px" }}>
+    <Section style={styles.dayGroup}>
       <table role="presentation" cellPadding={0} cellSpacing={0} border={0} width="100%">
         <tbody>
           <tr>
-            <td valign="middle">
-              <Text style={styles.dayLabel}>{label}</Text>
+            <td valign="top" width="58" style={{ width: "58px" }}>
+              <span style={styles.dayBadge}>
+                <Text style={styles.dayBadgeWeekday}>{badge.weekday}</Text>
+                <Text style={styles.dayBadgeDay}>{badge.day}</Text>
+              </span>
             </td>
-            <td valign="middle" align="right">
-              <Text style={styles.dayCount}>
-                {count} {count === 1 ? "activity" : "activities"}
-              </Text>
+            <td valign="top">
+              <table role="presentation" cellPadding={0} cellSpacing={0} border={0} width="100%">
+                <tbody>
+                  <tr>
+                    <td valign="middle">
+                      <Text style={styles.dayLabel}>{day.label}</Text>
+                    </td>
+                    <td valign="middle" align="right">
+                      <Text style={styles.dayCount}>
+                        {count} {count === 1 ? "event" : "events"}
+                      </Text>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style={{ ...styles.divider, margin: "8px 0 0" }}>&nbsp;</div>
+              {day.items.map((item, index) => (
+                <EventRow key={`${item.title}-${index}`} item={item} last={index === day.items.length - 1} />
+              ))}
             </td>
           </tr>
         </tbody>
       </table>
-      <div style={{ ...styles.dayDivider, marginTop: "6px" }}>&nbsp;</div>
     </Section>
   );
 }
 
 export function CalendarSummaryEmail({
-  heading = "Welcome to the week.",
+  heading = "Your week at a glance",
   intro = "Here are the activities for the week.",
   days = [],
   emptyMessage = "No activities are scheduled for this week.",
@@ -302,11 +364,12 @@ export function CalendarSummaryEmail({
               <table role="presentation" cellPadding={0} cellSpacing={0} border={0} width="100%">
                 <tbody>
                   <tr>
-                    <td width="36" valign="middle" style={{ width: "36px" }}>
+                    <td width="44" valign="middle" style={{ width: "44px" }}>
                       <span style={styles.headerMark}>📆</span>
                     </td>
                     <td valign="middle">
                       <Text style={styles.headerBrand}>{BRAND_NAME}</Text>
+                      <Text style={styles.headerTagline}>Family life, better organized.</Text>
                     </td>
                   </tr>
                 </tbody>
@@ -322,39 +385,35 @@ export function CalendarSummaryEmail({
               {days.length === 0 ? (
                 <Text style={styles.empty}>{emptyMessage}</Text>
               ) : (
-                days.map((day, dayIndex) => (
-                  <Section key={day.label}>
-                    {dayIndex > 0 ? <div style={styles.dayDivider}>&nbsp;</div> : null}
-                    <DayHeader label={day.label} count={day.items.length} />
-                    {day.items.map((item, index) => (
-                      <ActivityRow key={`${item.title}-${index}`} item={item} />
-                    ))}
-                  </Section>
-                ))
+                days.map((day) => <DayGroup key={day.label} day={day} />)
               )}
 
-              <Section style={{ padding: "22px 0 18px" }}>
+              <Section style={{ padding: "10px 0 18px" }}>
                 <a href={calendarUrl} style={styles.cta}>
-                  View calendar
+                  View full calendar →
                 </a>
               </Section>
             </Section>
 
             <Section style={styles.footer}>
-              <Text style={styles.footerText}>
-                <span style={{ color: brand.coral }}>♥</span> One shared calendar for the whole family, from{" "}
-                <Link href={BRAND_URL} style={styles.link}>
-                  {BRAND_NAME}
-                </Link>
-                .
+              <Text style={{ ...styles.footerText, fontSize: "16px", lineHeight: "20px" }}>
+                <span style={{ color: brand.coral }}>♥</span>
               </Text>
-              {unsubscribeUrl ? (
-                <Text style={styles.footerText}>
-                  <a href={unsubscribeUrl} style={styles.link}>
-                    Unsubscribe
-                  </a>
-                </Text>
-              ) : null}
+              <Text style={{ ...styles.footerText, color: brand.navy, fontWeight: "bold" }}>{BRAND_NAME}</Text>
+              <Text style={styles.footerText}>One shared calendar for the whole family.</Text>
+              <Text style={styles.footerText}>
+                <Link href={calendarUrl} style={styles.link}>
+                  Open in browser
+                </Link>
+                {unsubscribeUrl ? (
+                  <>
+                    {" · "}
+                    <a href={unsubscribeUrl} style={styles.link}>
+                      Unsubscribe
+                    </a>
+                  </>
+                ) : null}
+              </Text>
             </Section>
           </Section>
         </Container>
@@ -368,12 +427,31 @@ export const template: TemplateEntry = {
   displayName: "Calendar summary",
   subject: (data) => String(data["subject"] ?? "Our Family Calendar"),
   previewData: {
-    subject: "Our Family Calendar · Week of Aug 31",
-    heading: "Welcome to the week of August 31.",
-    intro: "Here are the activities for the week.",
+    subject: "Our Family Calendar · Week of Oct 19",
+    heading: "Your week at a glance",
+    intro: "October 19 – October 25, 2026",
     days: [
       {
-        label: "Monday, August 31",
+        label: "Monday, October 19",
+        items: [
+          {
+            title: "Michelle",
+            time: "8:30 AM – 5:30 PM",
+            categoryColor: "sky",
+            categoryName: "Babysitter",
+            badges: [{ initial: "M", color: "lilac" }],
+          },
+          {
+            title: "Kids Place",
+            time: "9:00 AM – 1:00 PM",
+            categoryColor: "rose",
+            categoryName: "Activity",
+            badges: [{ initial: "B", color: "rose" }],
+          },
+        ],
+      },
+      {
+        label: "Tuesday, October 20",
         items: [
           {
             title: "Soccer Practice",
@@ -391,13 +469,6 @@ export const template: TemplateEntry = {
             categoryColor: "sky",
             categoryName: "School",
             badges: [{ initial: "J", color: "sage" }],
-          },
-          {
-            title: "Michelle",
-            time: "8:00 AM – 4:00 PM",
-            categoryColor: "sky",
-            categoryName: "Babysitter",
-            badges: [{ initial: "M", color: "lilac" }],
           },
         ],
       },
