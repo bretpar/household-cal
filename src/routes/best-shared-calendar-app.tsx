@@ -12,7 +12,7 @@ const PAGE_URL = `${SITE_URL}/best-shared-calendar-app`;
 const OG_IMAGE_URL = `${SITE_URL}${heroMonthAsset.url}`;
 const TITLE = "Best Shared Calendar App for Families | Our Family Calendar";
 const DESCRIPTION =
-  "Looking for the best shared calendar app? Compare what matters for families: color-coded members, Google Calendar sync, caregiver access and childcare in one schedule.";
+  "Compare shared calendar features for families: member colors, Google Calendar sync, nanny scheduling, caregiver access and timesheets in one household schedule.";
 
 const CRITERIA = [
   {
@@ -228,17 +228,18 @@ function BestSharedCalendarPage() {
 
         <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
           <h2 className="font-display text-3xl font-bold sm:text-4xl">
-            More than a calendar: childcare scheduling and timesheets together.
+            Need a nanny schedule app as well as a family calendar?
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Schedule caregivers alongside your family activities. Our Family Calendar automatically
+            Look for recurring shifts, view-only caregiver access and hours connected to the schedule.
+            Our Family Calendar lets you plan nanny and babysitter shifts alongside family activities and automatically
             prefills time cards from scheduled shifts, lets caregivers record actual hours, and
             gives parents a place to review and confirm their timesheets. Your babysitter timesheet
             stays connected to the schedule it came from, rather than in a separate hour-tracking system.
           </p>
           <p className="mt-4">
             <Link to="/features/childcare-scheduling" className="font-semibold text-primary underline underline-offset-4">
-              Explore caregiver scheduling and timesheets
+              Explore nanny scheduling and caregiver timesheets
             </Link>
           </p>
         </section>

@@ -3,22 +3,22 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import mobileDayAsset from "@/assets/landing-mobile-day.png.asset.json";
 import { MarketingFeaturePage, featureHead, linkClass, SITE_URL } from "@/components/MarketingFeaturePage";
 
-const TITLE = "Babysitter & Nanny Scheduling and Timesheets | Our Family Calendar";
+const TITLE = "Nanny Schedule App for Families | Our Family Calendar";
 const DESCRIPTION =
-  "Schedule babysitters and nannies, share caregiver calendars, track work hours, and review timesheets—all alongside your family’s activities.";
+  "Plan recurring nanny shifts, share a view-only caregiver calendar, and track scheduled vs. actual hours with timesheets—all beside your family’s activities.";
 
 const SECTIONS = [
-  { title: "Schedule shifts", body: "Add childcare shifts right on your family calendar and assign each one to the right babysitter or nanny." },
+  { title: "Build a recurring nanny schedule", body: "Add your nanny's regular days and start and end times with repeat rules. Assign each shift to a caregiver and keep occasional babysitter shifts in the same calendar." },
   { title: "Keep caregivers informed", body: "Caregivers get view-only access to the schedules you allow. They can see their shifts but can't edit family events." },
   { title: "Share upcoming schedules", body: "Caregivers can receive email summaries of their scheduled days, so there's less back-and-forth by text." },
   { title: "Track scheduled and actual hours", body: "Caregiver timesheets start from the scheduled shifts. Actual hours can be reviewed and corrected when a shift runs long or ends early." },
   { title: "Review and confirm timesheets", body: "Caregivers submit their time cards and parents review and confirm them in one place." },
-  { title: "Manage childcare in one place", body: "Shifts live alongside appointments, school activities and sports, so you can see exactly what each shift covers." },
+  { title: "See childcare beside family plans", body: "Nanny shifts live alongside work, school pickups, appointments and sports. Compare the schedule in Day, Week or Month view to spot times when you may need additional childcare." },
 ];
 
 const FAQ = [
   { question: "Is this a babysitter scheduling app?", answer: "Yes. You can schedule babysitter shifts on your family calendar and assign them to a caregiver, who can view their shifts with view-only access." },
-  { question: "Does it work for nanny scheduling?", answer: "Yes. Recurring nanny shifts can be set up with repeat rules and shown alongside the rest of your family's schedule." },
+  { question: "How can I use this as a nanny schedule app?", answer: "Create nanny shifts with dates and start and end times, assign them to your caregiver, and use repeat rules for a regular weekly schedule. Shifts appear alongside your family's activities on a phone, tablet or computer." },
   { question: "How do babysitter timesheets work?", answer: "Timesheets are prefilled from scheduled shifts. Caregivers can adjust actual hours and submit, and parents review and confirm them. Timesheets track hours only — they don't handle payroll, payments or taxes." },
   { question: "What can a caregiver see on the calendar?", answer: "Only the calendars you choose. You can also limit their view to the days they're scheduled to work. Caregivers can't edit family events." },
 ];
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/features/childcare-scheduling")({
       path: "/features/childcare-scheduling",
       title: TITLE,
       description: DESCRIPTION,
-      crumb: "Babysitter & nanny scheduling",
+       crumb: "Nanny scheduling",
       imageUrl: `${SITE_URL}${mobileDayAsset.url}`,
       faq: FAQ,
     }),
@@ -46,21 +46,22 @@ export const Route = createFileRoute("/features/childcare-scheduling")({
 function ChildcarePage() {
   return (
     <MarketingFeaturePage
-      eyebrow="Childcare scheduling calendar"
-      heading="Babysitter & Nanny Scheduling Made Simple"
-      intro="Schedule shifts, share the right calendars with your caregivers, and keep track of hours with built-in timesheets — all inside your family calendar."
+      eyebrow="Our Family Calendar · Childcare scheduling"
+      heading="Nanny Schedule App for Families"
+      intro="Plan your nanny's weekly shifts alongside school pickups, work and family activities. Share a view-only schedule with your nanny or babysitter, then track scheduled and actual hours with caregiver timesheets."
       image={{ src: mobileDayAsset.url, alt: "Our Family Calendar mobile Day view showing activities and babysitter coverage" }}
-      sectionsTitle="How childcare scheduling works"
+      sectionsTitle="Plan and share your nanny's weekly schedule"
       sections={SECTIONS}
       extra={
         <section className="border-y border-border-soft bg-surface">
           <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
             <p className="text-sm font-bold uppercase tracking-wide text-primary">Scheduled shifts → actual hours → parent confirmation</p>
-            <h2 className="mt-3 font-display text-3xl font-bold sm:text-4xl">From the family schedule to a confirmed timesheet</h2>
+            <h2 className="mt-3 font-display text-3xl font-bold sm:text-4xl">Nanny timesheets connected to the schedule</h2>
             <p className="mt-4 max-w-3xl text-muted-foreground">
-              A babysitter timesheet or nanny hours tracker works best when it starts with the
-              schedule you already use. Built-in timesheets keep caregiver scheduling and
-              hour tracking together, so you don't have to maintain two separate systems.
+               When a nanny stays late or finishes early, scheduled hours and actual hours can
+               differ. Time cards start with your scheduled shifts, caregivers record their actual
+               hours, and parents review and confirm them. The same workflow works for babysitters,
+               without maintaining a separate hour-tracking system.
             </p>
             <ol className="mt-8 grid gap-6 sm:grid-cols-2">
               {TIMESHEET_STEPS.map((step, index) => (
@@ -85,7 +86,7 @@ function ChildcarePage() {
           <Link to="/best-shared-calendar-app" className={linkClass}>compare to other shared calendar apps</Link>.
         </>
       }
-      ctaTitle="Make childcare part of the plan."
+      ctaTitle="Bring your nanny's schedule into the family plan."
     />
   );
 }
