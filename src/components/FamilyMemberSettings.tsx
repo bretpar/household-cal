@@ -30,6 +30,7 @@ import { saveFamilyMemberFn } from "@/lib/settings.functions";
 import { getShiftSettings } from "@/lib/babysitter-shifts.functions";
 import { deleteCaregiver, keepCaregiverLoginAsViewer, removeCaregiverAppAccess, setCaregiverArchived, setCaregiverTimesheets, setCaregiverTimesheetStart } from "@/lib/caregiver-management.functions";
 import { hasFeature } from "@/lib/features";
+import { useTimesheetsStatus } from "@/lib/use-timesheets-status";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -153,7 +154,7 @@ export function FamilyMemberSettings() {
   const timesheetsFn = useServerFn(setCaregiverTimesheets);
   const timesheetsOn = (m: FamilyMember) =>
     !!shift?.caregivers.some((c) => c.family_member_id === m.id && c.timesheets_enabled);
-  const showTimesheets = hasFeature("timesheets");
+  const showTimesheets = hasFeature("timesheets") && useTimesheetsStatus().active;
   const toggleTimesheets = async (m: FamilyMember) => {
     const next = !timesheetsOn(m);
     try {

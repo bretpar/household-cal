@@ -22,7 +22,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const autoChecked = useRef<string | null>(null);
   const steps = useMemo(() => {
-    return tourSteps(isCaregiver, isOwner, hasFeature("timesheets", { familyId: family?.id }));
+    return tourSteps(isCaregiver, isOwner, hasFeature("timesheets", { familyId: family?.id }) && ts.active);
   }, [isCaregiver, isOwner, family?.id]);
   const step = index === null ? undefined : steps[index];
   const accessReady = resolved && !failed && !!family && !onboarding;
