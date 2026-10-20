@@ -1,5 +1,10 @@
 # Roadmap
 
+## Simplify childcare setup and Settings
+- [ ] Replace onboarding checkbox/name with optional create, supported existing-calendar, and later choices.
+- [ ] Consolidate childcare Settings labels and reuse existing create/select helpers, without changing shifts or permissions.
+- [ ] Check automatic compilation only; no browser QA, broad tests or publishing.
+
 ## Optional onboarding calendar setup
 - [x] Add optional calendar step with existing OFC, Google and Apple add flows and unchanged welcome/tutorial.
 - [x] Add idempotent optional Babysitter calendar; preserve ownership and childcare behavior.
