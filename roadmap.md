@@ -1,5 +1,10 @@
 # Roadmap
 
+## Optional onboarding calendar setup
+- [ ] Add optional calendar step with existing OFC, Google and Apple add flows and unchanged welcome/tutorial.
+- [ ] Add idempotent optional Babysitter calendar; preserve ownership and childcare behavior.
+- [ ] Check focused rule tests and preview diagnostics; no browser QA, broad tests or publishing.
+
 ## Nanny scheduling search copy
 - [x] Focus the existing childcare page on nanny schedule app searches, with clear scheduling, access and timesheet answers.
 - [x] Update supporting public-page copy, metadata and links; preserve layout and app behavior, check preview diagnostics, leave unpublished.
