@@ -504,14 +504,14 @@ export function CalendarAppearanceSettings({ onboarding = false }: { onboarding?
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <GoogleCalendarDialog open={googleAddMode !== null} onOpenChange={(open) => !open && setGoogleAddMode(null)} initialMode={googleAddMode ?? "existing"} />
+      <GoogleCalendarDialog open={googleAddMode !== null} onOpenChange={(open) => !open && setGoogleAddMode(null)} initialMode={googleAddMode ?? "existing"} backgroundSetup={onboarding} />
       <GoogleCalendarDialog
         open={linkTarget !== null}
         onOpenChange={(open) => !open && setLinkTarget(null)}
         initialMode={linkTarget?.mode ?? "existing"}
         linkSource={linkTarget ? { id: linkTarget.id, name: linkTarget.name } : null}
       />
-      <AddAppleCalendarDialog open={appleAddOpen} onOpenChange={setAppleAddOpen} />
+      <AddAppleCalendarDialog open={appleAddOpen} onOpenChange={setAppleAddOpen} backgroundSetup={onboarding} />
       <ImportCalendarFileDialog open={importOpen} onOpenChange={setImportOpen} />
     </section>
   );
