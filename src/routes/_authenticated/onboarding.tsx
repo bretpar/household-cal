@@ -60,7 +60,7 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
 type MemberRoleInput = "parent" | "child" | "other";
 
 interface MemberRow {
-  id?: string;
+  id?: string | undefined;
   key: string;
   name: string;
   initial: string;
