@@ -110,6 +110,5 @@ export function ChildcareSetupFields({ setup, disabled = false }: { setup: Retur
     </div>}
     {setup.destination === "google" && !setup.connected ? <GoogleAccountSettings initiallyExpanded /> : null}
     {setup.destination === "google" && setup.full ? <p className="text-xs text-muted-foreground">Both Google calendar slots are in use. Choose an existing calendar or create an OFC calendar.</p> : null}
-    <p className="text-xs text-muted-foreground">Only new shifts use this calendar. Existing events and assignments stay unchanged. Apple / iCloud subscriptions are read-only. No caregiver account or invitation is required.</p>
   </div>;
 }

@@ -4,7 +4,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
-import { Check, Plus, Trash2 } from "lucide-react";
+import { Check, Info, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/SignOutButton";
 import { CalendarAppearanceSettings } from "@/components/CalendarAppearanceSettings";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { ChildcareSetupFields, useChildcareSetup } from "@/components/ChildcareSetup";
 import { useCalendar } from "@/lib/calendar-store";
 import { beginCalendarSetup, finishCalendarSetup } from "@/lib/onboarding-calendar-session";
@@ -107,6 +109,7 @@ function OnboardingPage() {
   const [creatingNew, setCreatingNew] = useState(false);
   const [enableChildcare, setEnableChildcare] = useState(false);
   const [enableTimesheets, setEnableTimesheets] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const saveTimesheetsEnabled = useServerFn(setTimesheetsEnabled);
 
   // resume from real database state rather than client-side step memory
@@ -500,10 +503,19 @@ function OnboardingPage() {
                 </>}
                 {enableChildcare || family?.babysitter_calendar_source_id ? <div className="flex items-start gap-3 rounded-xl bg-surface-muted/60 p-3">
                   <Checkbox id="onboarding-timesheets" className="mt-0.5" checked={enableTimesheets} disabled={busy} onCheckedChange={(checked) => setEnableTimesheets(checked === true)} />
-                  <Label htmlFor="onboarding-timesheets" className="space-y-1 leading-snug">
-                    <span className="block font-semibold">Would you like to enable Timesheets?</span>
-                    <span className="block text-xs font-normal text-muted-foreground">Track babysitter hours, let caregivers submit time cards, and review their hours for approval. You can turn this on later in Settings.</span>
-                  </Label>
+                  <div className="flex min-w-0 items-center gap-1">
+                    <Label htmlFor="onboarding-timesheets" className="font-semibold leading-snug">Enable Timesheets for Caregiver?</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-muted-foreground" aria-label="About caregiver Timesheets">
+                          <Info className="h-4 w-4" aria-hidden />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent collisionPadding={16} className="max-w-[calc(100vw-2rem)] text-sm">
+                        Track caregiver hours, let caregivers submit time cards, and review their hours for approval. You can enable this later in Settings.
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div> : null}
               </div> : null}
               <div className="flex flex-wrap gap-2">
@@ -535,12 +547,13 @@ function OnboardingPage() {
                 <Button
                   variant="outline"
                   className="h-12 w-full rounded-full font-bold"
-                  onClick={() => leaveOnboarding("/family")}
+                  onClick={() => setInviteOpen(true)}
                   type="button"
                 >
                   Invite someone
                 </Button>
               </div>
+              {inviteOpen ? <HouseholdAccess inviteOnly inviteOpen={inviteOpen} onInviteOpenChange={setInviteOpen} /> : null}
             </div>
           ) : null}
         </div>

@@ -56,7 +56,11 @@ const ROLE_HINT: Record<string, string> = {
 
 const HOUSEHOLD_ACCESS_KEY = ["household-access"] as const;
 
-export function HouseholdAccess() {
+export function HouseholdAccess({ inviteOnly = false, inviteOpen, onInviteOpenChange }: {
+  inviteOnly?: boolean;
+  inviteOpen?: boolean;
+  onInviteOpenChange?: (open: boolean) => void;
+} = {}) {
   const queryClient = useQueryClient();
   const fetchAccess = useServerFn(getHouseholdAccess);
   const invite = useServerFn(inviteHouseholdUser);
@@ -66,7 +70,9 @@ export function HouseholdAccess() {
   const removeUser = useServerFn(removeHouseholdUser);
   const saveBabysitter = useServerFn(setBabysitterAccess);
 
-  const [open, setOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = inviteOpen ?? localOpen;
+  const setOpen = onInviteOpenChange ?? setLocalOpen;
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("viewer");
   const [bsMember, setBsMember] = useState("");
@@ -182,19 +188,24 @@ export function HouseholdAccess() {
 
   return (
     <section className="space-y-3">
+      {inviteOnly && access.isPending ? <p role="status" className="text-sm text-muted-foreground">Loading invitations…</p> : null}
+      {inviteOnly && (access.isError || (access.data && !isOwner)) ? <div role="alert" className="space-y-2 text-sm text-muted-foreground">
+        <p>{access.isError ? "Invitations couldn't load. Please try again." : "Only a household owner can send invitations."}</p>
+        {access.isError ? <Button variant="outline" onClick={() => void access.refetch()}>Retry</Button> : null}
+      </div> : null}
       <div className="flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-sm font-bold tracking-wide text-muted-foreground uppercase">
+        {!inviteOnly ? <h2 className="flex items-center gap-2 text-sm font-bold tracking-wide text-muted-foreground uppercase">
           <ShieldCheck className="h-4 w-4" aria-hidden />
           Household access
-        </h2>
+        </h2> : null}
         {isOwner ? (
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
+            {!inviteOnly ? <DialogTrigger asChild>
               <Button className="h-10 rounded-full font-bold" type="button">
                 <MailPlus className="mr-1 h-4 w-4" aria-hidden />
                 Invite user
               </Button>
-            </DialogTrigger>
+            </DialogTrigger> : null}
             <DialogContent className="rounded-3xl sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Invite someone to this household</DialogTitle>
@@ -266,6 +277,7 @@ export function HouseholdAccess() {
         ) : null}
       </div>
 
+      {!inviteOnly ? <>
       <div className="divide-y divide-border-soft overflow-hidden rounded-3xl border border-border-soft bg-card">
         {access.isLoading || (isOwner && babysitterSetup.isLoading) ? (
           <p className="p-4 text-sm text-muted-foreground">Loading…</p>
@@ -459,6 +471,7 @@ export function HouseholdAccess() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </> : null}
     </section>
   );
 }

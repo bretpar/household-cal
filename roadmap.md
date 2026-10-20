@@ -1,5 +1,10 @@
 # Roadmap
 
+## Step 4 invitations and onboarding copy
+- [x] Open the existing invitation dialog directly from Step 4 with load errors and Retry; keep invitations optional.
+- [x] Remove childcare explanation and add touch-friendly Timesheets information popover; keep default unchecked.
+- [x] Automatic compilation passed; no browser QA, broad tests or publishing. Live invitation delivery and phone popover placement remain unverified.
+
 ## Mobile keyboard dialogs and optional childcare setup
 - [x] Constrain shared phone dialogs to the visual viewport and keep focused fields scrollable without dismissing the keyboard.
 - [x] Add unchecked expandable childcare setup with named OFC/Google creation and eligible existing destinations; preserve Settings and historical data.
