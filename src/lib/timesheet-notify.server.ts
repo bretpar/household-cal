@@ -6,7 +6,7 @@
  */
 import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 import { formatHours, hoursBetween } from "@/lib/timesheet-periods";
-import { adminDb, ensureTimesheet, loadEntries } from "@/lib/timesheets.server";
+import { adminDb, ensureTimesheet, householdTimesheetsOn, loadEntries } from "@/lib/timesheets.server";
 import { hasFeature } from "@/lib/features";
 
 type AnyDb = { from: (t: string) => any; rpc: (f: string, a: unknown) => any; auth?: any };
@@ -199,7 +199,7 @@ export async function runTimesheetNotifications(now = new Date()) {
     const m = l.family_members;
     if (!m || m.role !== "caregiver" || !m.active || m.removed_at || !m.timesheets_enabled) continue;
     // Entitlement off: skip before any draft creation or email; data untouched.
-    if (!hasFeature("timesheets", { familyId: l.family_id })) continue;
+    if (!hasFeature("timesheets", { familyId: l.family_id }) || !(await householdTimesheetsOn(l.family_id))) continue;
     try {
       const settings = await loadNotifySettings(admin, l.family_id);
       if (!settings.notify_ready) continue;
@@ -239,7 +239,7 @@ export async function runTimesheetNotifications(now = new Date()) {
     .gt("created_at", new Date(now.getTime() - 14 * 86_400_000).toISOString());
   if (dueErr) throw new Error(dueErr.message);
   for (const n of due ?? []) {
-    if (!hasFeature("timesheets", { familyId: n.family_id })) continue;
+    if (!hasFeature("timesheets", { familyId: n.family_id }) || !(await householdTimesheetsOn(n.family_id))) continue;
     try {
       const { data: t } = await admin.from("timesheets").select("*").eq("id", n.timesheet_id).maybeSingle();
       if (!t || (t.status !== "draft" && t.status !== "needs_correction")) continue;
