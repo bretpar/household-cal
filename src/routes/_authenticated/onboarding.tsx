@@ -115,7 +115,7 @@ function OnboardingPage() {
       return;
     }
     if (data.members.length === 0) {
-      setStep((prev) => (prev === 3 ? 3 : 2));
+      setStep((prev) => (prev >= 3 ? prev : 2));
       return;
     }
     setRows(
@@ -130,7 +130,7 @@ function OnboardingPage() {
         }),
       ),
     );
-    setStep(3);
+    setStep((prev) => prev === 4 ? 4 : 3);
   }, [status.data]);
 
   const duplicateInitials = useMemo(() => {
