@@ -22,7 +22,8 @@ export const createHouseholdFn = createServerFn({ method: "POST" })
   .inputValidator((data: { name: string }) => ({ name: String(data?.name ?? "") }))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    return createHousehold(supabaseAdmin as unknown as Db, context.userId, data.name);
+    const result = await createHousehold(supabaseAdmin as unknown as Db, context.userId, data.name);
+    return { ...result, user_id: context.userId };
   });
 
 export const saveHouseholdMembersFn = createServerFn({ method: "POST" })

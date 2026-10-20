@@ -92,7 +92,7 @@ function useGoogleRefresh() {
   };
 }
 
-export function GoogleAccountSettings() {
+export function GoogleAccountSettings({ initiallyExpanded = false }: { initiallyExpanded?: boolean }) {
   const queryClient = useQueryClient();
   const settings = useGoogleSettings();
   const refresh = useGoogleRefresh();
@@ -101,7 +101,7 @@ export function GoogleAccountSettings() {
   const setTitleInitials = useServerFn(setGoogleEventTitleInitials);
   const disconnect = useServerFn(disconnectGoogleAccount);
   const runSync = useServerFn(syncNow);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(initiallyExpanded);
   const [connecting, setConnecting] = useState(false);
   const wasSyncing = useRef(false);
 
@@ -325,6 +325,7 @@ export function GoogleCalendarDialog({
           <DialogTitle>{linkSource ? `Connect "${linkSource.name}" to Google` : replaceSourceId ? "Replace Google calendar" : mode === "create" ? "Create Google calendar" : "Connect Google calendar"}</DialogTitle>
           {!settings.data?.connection ? <DialogDescription>Connect a Google account first.</DialogDescription> : atLimit ? <DialogDescription>{linkSource ? "Both Google calendar slots are in use. Disconnect a Google calendar before linking another." : "You can connect up to two Google calendars."}</DialogDescription> : linkSource ? <DialogDescription>{mode === "existing" ? "Pick an empty Google calendar. This calendar keeps its name, colour and icon." : "A new Google calendar is created and linked. This calendar keeps its name, colour and icon."}</DialogDescription> : null}
         </DialogHeader>
+        {!settings.data?.connection ? <GoogleAccountSettings initiallyExpanded /> : null}
         {settings.data?.connection && !atLimit ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2">

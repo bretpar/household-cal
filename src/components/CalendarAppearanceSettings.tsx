@@ -53,7 +53,7 @@ import { cn } from "@/lib/utils";
  * Persistent presentation choices only; calendar visibility stays in Calendar
  * filters and nothing here is written back to Google or Apple.
  */
-export function CalendarAppearanceSettings() {
+export function CalendarAppearanceSettings({ onboarding = false }: { onboarding?: boolean }) {
   const queryClient = useQueryClient();
   const { sources, canEdit, isOwner } = useCalendar();
   const updateCalendarMode = useServerFn(setCalendarDisplayMode);
@@ -234,7 +234,7 @@ export function CalendarAppearanceSettings() {
                     {providerLabel} · {status}
                   </p>
                 </div>
-                <Button
+                {!onboarding ? <Button
                   type="button"
                   size="sm"
                   variant="outline"
@@ -254,7 +254,7 @@ export function CalendarAppearanceSettings() {
                     )}
                     aria-hidden
                   />
-                </Button>
+                </Button> : null}
               </div>
 
               {managedSourceId === source.id ? (
@@ -446,8 +446,16 @@ export function CalendarAppearanceSettings() {
         })}
       </div>
       <div className="space-y-3 pt-1">
-        <GoogleAccountSettings />
-        {canEdit ? (
+        {!onboarding ? <GoogleAccountSettings /> : null}
+        {onboarding && isOwner ? (
+          <div className="grid gap-2">
+            <Button variant="outline" className="h-auto min-h-11 justify-start whitespace-normal py-3 text-left" onClick={() => setCreateOfcOpen(true)}><CalendarPlus className="h-4 w-4 shrink-0" aria-hidden />Create an OFC Calendar</Button>
+            <Button variant="outline" className="h-auto min-h-11 justify-start whitespace-normal py-3 text-left" onClick={() => setGoogleAddMode("create")}><CalendarPlus className="h-4 w-4 shrink-0" aria-hidden />Create a Google Calendar</Button>
+            <Button variant="outline" className="h-auto min-h-11 justify-start whitespace-normal py-3 text-left" onClick={() => setGoogleAddMode("existing")}><Link2 className="h-4 w-4 shrink-0" aria-hidden />Connect an Existing Google Calendar</Button>
+            <Button variant="outline" className="h-auto min-h-11 justify-start whitespace-normal py-3 text-left" onClick={() => setAppleAddOpen(true)}><Apple className="h-4 w-4 shrink-0" aria-hidden />Subscribe to an Apple / iCloud Calendar</Button>
+          </div>
+        ) : null}
+        {!onboarding && canEdit ? (
           <Popover open={addMenuOpen} onOpenChange={setAddMenuOpen}>
             <PopoverTrigger asChild>
               <Button type="button" className="w-full sm:w-auto">

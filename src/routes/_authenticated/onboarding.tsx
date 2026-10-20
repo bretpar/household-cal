@@ -24,6 +24,12 @@ import {
 } from "@/lib/onboarding.functions";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/SignOutButton";
+import { CalendarAppearanceSettings } from "@/components/CalendarAppearanceSettings";
+import { Checkbox } from "@/components/ui/checkbox";
+import { createOfcCalendar } from "@/lib/ofc-calendars.functions";
+import { useCalendar } from "@/lib/calendar-store";
+import { beginCalendarSetup, finishCalendarSetup } from "@/lib/onboarding-calendar-session";
+import { retryGuard } from "@/lib/auth-guard";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => ({
@@ -38,6 +44,8 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
         property: "og:description",
         content: "A few quick steps and your household calendar is ready.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: OnboardingPage,
@@ -71,7 +79,7 @@ function newRow(overrides: Partial<MemberRow> = {}): MemberRow {
   };
 }
 
-const STEPS = ["Household", "Family", "Done"];
+const STEPS = ["Household", "Family", "Calendars", "Done"];
 
 function OnboardingPage() {
   const navigate = useNavigate();
@@ -79,6 +87,8 @@ function OnboardingPage() {
   const loadStatus = useServerFn(getOnboardingStatus);
   const createHousehold = useServerFn(createHouseholdFn);
   const saveMembers = useServerFn(saveHouseholdMembersFn);
+  const createCalendar = useServerFn(createOfcCalendar);
+  const { isOwner, family, loadError } = useCalendar();
 
   const status = useQuery({
     queryKey: ["onboarding-status"],
@@ -86,17 +96,20 @@ function OnboardingPage() {
     staleTime: 0,
   });
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [householdName, setHouseholdName] = useState("");
   const [rows, setRows] = useState<MemberRow[]>(() => [newRow({ is_me: true })]);
   const [busy, setBusy] = useState(false);
   const [creatingNew, setCreatingNew] = useState(false);
+  const [addBabysitter, setAddBabysitter] = useState(false);
+  const [babysitterName, setBabysitterName] = useState("Babysitter");
 
   // resume from real database state rather than client-side step memory
   useEffect(() => {
     const data = status.data;
     if (!data) return;
-    if (data.family_name) setHouseholdName((prev) => prev || data.family_name!);
+    const name = data.family_name;
+    if (name) setHouseholdName((prev) => prev || name);
     if (!data.family_id) {
       setStep(1);
       return;
@@ -140,7 +153,13 @@ function OnboardingPage() {
     }
     setBusy(true);
     try {
-      await createHousehold({ data: { name: householdName.trim() } });
+      const result = await createHousehold({ data: { name: householdName.trim() } });
+      beginCalendarSetup(result.user_id, result.family_id);
+      const verification = await retryGuard("/onboarding");
+      if (!("family_id" in verification) || verification.family_id !== result.family_id) {
+        throw new Error("Could not confirm your new household. Please try again.");
+      }
+      void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
       await status.refetch();
       setStep(2);
     } catch (error) {
@@ -148,6 +167,29 @@ function OnboardingPage() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const finishCalendars = async (skip: boolean) => {
+    setBusy(true);
+    try {
+      if (!skip && addBabysitter && !family?.babysitter_calendar_source_id) {
+        await createCalendar({ data: {
+          name: babysitterName, color: "sky", icon: "sitter", display_mode: "events",
+          onboarding_babysitter: true,
+        } });
+        void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+        void queryClient.invalidateQueries({ queryKey: ["shift-settings"] });
+        toast.success("Babysitter calendar created");
+      }
+      setStep(4);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not set up your calendar");
+    } finally { setBusy(false); }
+  };
+
+  const leaveOnboarding = (to: "/calendar" | "/family") => {
+    finishCalendarSetup();
+    void navigate({ to });
   };
 
   const submitMembers = async () => {
@@ -201,7 +243,7 @@ function OnboardingPage() {
   return (
     <div className="min-h-screen bg-background px-4 py-8 sm:py-14">
       <div className="mx-auto w-full max-w-xl">
-        <ol className="mb-6 flex items-center justify-center gap-2 text-xs font-bold">
+        <ol className="mb-6 flex flex-wrap items-center justify-center gap-1 text-xs font-bold sm:gap-2">
           {STEPS.map((label, index) => {
             const number = index + 1;
             const state = number < step ? "done" : number === step ? "current" : "todo";
@@ -209,7 +251,7 @@ function OnboardingPage() {
               <li key={label} className="flex items-center gap-2">
                 <span
                   className={cn(
-                    "flex h-7 items-center gap-1.5 rounded-full px-3",
+                    "flex h-7 items-center gap-1 rounded-full px-2 sm:gap-1.5 sm:px-3",
                     state === "current"
                       ? "bg-primary text-primary-foreground"
                       : state === "done"
@@ -422,6 +464,33 @@ function OnboardingPage() {
           ) : null}
 
           {step === 3 ? (
+            <div className="space-y-5">
+              <header>
+                <h1 className="font-display text-2xl font-bold sm:text-3xl">Let&rsquo;s set up your calendars</h1>
+                <p className="mt-1 text-sm text-muted-foreground">Create a new calendar or bring in one you already use. You can always add more later.</p>
+              </header>
+              {isOwner ? <CalendarAppearanceSettings onboarding /> : (
+                <p role="status" className="text-sm text-muted-foreground">{loadError ? "Calendar setup couldn't load. You can skip for now and add calendars later." : "Loading your calendars…"}</p>
+              )}
+              {isOwner ? <div className="space-y-3 border-t border-border-soft pt-4">
+                <div className="flex items-center gap-3">
+                  <Checkbox id="onboarding-babysitter" checked={addBabysitter} disabled={busy || !!family?.babysitter_calendar_source_id} onCheckedChange={(checked) => setAddBabysitter(checked === true)} />
+                  <Label htmlFor="onboarding-babysitter">{family?.babysitter_calendar_source_id ? "Babysitter calendar added" : "Add a Babysitter calendar"}</Label>
+                </div>
+                {addBabysitter && !family?.babysitter_calendar_source_id ? <div className="space-y-1.5">
+                  <Label htmlFor="babysitter-calendar-name">Calendar name</Label>
+                  <Input id="babysitter-calendar-name" value={babysitterName} maxLength={60} disabled={busy} onChange={(event) => setBabysitterName(event.target.value)} className="h-11" />
+                </div> : null}
+              </div> : null}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" disabled={busy} onClick={() => setStep(2)}>Back</Button>
+                <Button className="min-w-28 flex-1" disabled={busy || (addBabysitter && !babysitterName.trim())} onClick={() => void finishCalendars(false)}>{busy ? "Saving…" : "Continue"}</Button>
+                <Button variant="ghost" disabled={busy} onClick={() => void finishCalendars(true)}>Skip for now</Button>
+              </div>
+            </div>
+          ) : null}
+
+          {step === 4 ? (
             <div className="space-y-5 text-center">
               <h1 className="font-display text-2xl font-bold sm:text-3xl">
                 Your family calendar is ready
@@ -434,7 +503,7 @@ function OnboardingPage() {
               <div className="space-y-2">
                 <Button
                   className="h-12 w-full rounded-full font-bold"
-                  onClick={() => navigate({ to: "/calendar" })}
+                  onClick={() => leaveOnboarding("/calendar")}
                   type="button"
                 >
                   Go to Calendar
@@ -442,7 +511,7 @@ function OnboardingPage() {
                 <Button
                   variant="outline"
                   className="h-12 w-full rounded-full font-bold"
-                  onClick={() => navigate({ to: "/family" })}
+                  onClick={() => leaveOnboarding("/family")}
                   type="button"
                 >
                   Invite someone
