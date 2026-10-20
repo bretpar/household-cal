@@ -171,7 +171,7 @@ describe("syncShiftAssignment", () => {
         }
         // babysitter_shifts
         return {
-          delete: () => ({ eq: async () => ({ error: null }) }),
+          delete: () => ({ eq: () => ({ eq: async () => ({ error: null }) }) }),
           insert: async (row: unknown) => {
             inserted.push(row);
             return { error: null };
