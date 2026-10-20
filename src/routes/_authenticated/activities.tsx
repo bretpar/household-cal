@@ -9,6 +9,7 @@ import { AppShell } from "@/components/AppShell";
 import { ParentOnly } from "@/components/CaregiverGate";
 import { AddEventDialog } from "@/components/AddEventDialog";
 import { MemberBadgeRow } from "@/components/MemberBadge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
 import { eventAccentClass } from "@/lib/event-colors";
@@ -89,47 +90,53 @@ function ActivitiesPage() {
                 ? "Review caregiver timesheets."
                 : tab === "recurring"
                   ? "Repeating events on the family calendar."
-                  : "Manage timesheets and repeating activities."}
+                  : "Family schedules & more."}
             </p>
           </div>
         </header>
         {tab === "hub" ? (
-          <div className="grid gap-3">
-            <button
+          <div className="space-y-5">
+            <Button
               type="button"
+              variant="secondary"
               data-tour-target="activities-timesheets"
               onClick={() => goto("timesheets")}
-              className="flex items-center gap-4 rounded-3xl border border-border-soft bg-secondary p-5 text-left shadow-soft"
+              className="flex h-auto w-full justify-start gap-3 whitespace-normal rounded-xl border border-border-soft p-3.5 text-left shadow-soft"
             >
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-card">
-                <ClipboardCheck className="h-6 w-6" aria-hidden />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-card">
+                <ClipboardCheck className="h-4 w-4" aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2 text-lg font-bold">
+                <span className="flex flex-wrap items-center gap-2 text-base font-bold">
                   Timesheets
                   {pending > 0 ? (
                     <span className="rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">{pending}</span>
                   ) : null}
                 </span>
-                <span className="block text-sm text-muted-foreground">Review, approve and track caregiver hours.</span>
+                <span className="block text-sm text-muted-foreground">Caregiver hours & approvals</span>
               </span>
               <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
-            </button>
-            <button
-              type="button"
-              data-tour-target="activities-recurring"
-              onClick={() => goto("recurring")}
-              className="flex items-center gap-4 rounded-3xl border border-border-soft bg-card p-4 text-left"
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-surface-muted">
-                <Repeat className="h-5 w-5" aria-hidden />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-base font-bold">Recurring Activities</span>
-                <span className="block text-sm text-muted-foreground">Lessons, sports and other repeating events.</span>
-              </span>
-              <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
-            </button>
+            </Button>
+            <section aria-labelledby="family-tools-heading" className="space-y-2">
+              <h2 id="family-tools-heading" className="text-sm font-bold text-muted-foreground">Family Tools</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  data-tour-target="activities-recurring"
+                  onClick={() => goto("recurring")}
+                  className="flex h-auto min-h-28 min-w-0 flex-col items-start justify-start gap-2 whitespace-normal rounded-xl border border-border-soft bg-card p-3.5 text-left"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted">
+                    <Repeat className="h-4 w-4" aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold">Recurring Activities</span>
+                    <span className="block text-xs text-muted-foreground">Manage schedules</span>
+                  </span>
+                </Button>
+              </div>
+            </section>
           </div>
         ) : tab === "timesheets" ? (
           <OwnerTimesheets />
