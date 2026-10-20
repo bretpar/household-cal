@@ -2,29 +2,18 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { OwnerTimesheets, usePendingTimesheetCount } from "@/components/TimesheetSettings";
 import { hasFeature } from "@/lib/features";
 import { useMemo, useState } from "react";
-import { format } from "date-fns";
-import { CalendarClock, Clock, MapPin, Repeat } from "lucide-react";
+import { addDays, format } from "date-fns";
+import { ChevronLeft, ChevronRight, ClipboardCheck, Info, Pencil, Repeat, Search } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { ParentOnly } from "@/components/CaregiverGate";
 import { AddEventDialog } from "@/components/AddEventDialog";
-import { MemberBadge, MemberBadgeRow } from "@/components/MemberBadge";
-import { eventTypeIcons } from "@/components/EventCard";
+import { MemberBadgeRow } from "@/components/MemberBadge";
 import { cn } from "@/lib/utils";
 import { useCalendar } from "@/lib/calendar-store";
 import { eventAccentClass } from "@/lib/event-colors";
-import {
-  GROUP_MODES,
-  SORT_MODES,
-  buildSeriesList,
-  durationLabel,
-  frequencyLabel,
-  groupSeries,
-  type EventSeries,
-  type GroupMode,
-  type SortMode,
-} from "@/lib/activity-library";
-import { activityLabel, WEEKDAY_CODES, describeWeekdays, formatTimeRange } from "@/lib/family-data";
+import { buildSeriesList, frequencyLabel, type EventSeries } from "@/lib/activity-library";
+import { WEEKDAY_CODES, expandOccurrences, type Occurrence } from "@/lib/family-data";
 
 export const Route = createFileRoute("/_authenticated/activities")({
   head: () => ({
@@ -43,8 +32,12 @@ export const Route = createFileRoute("/_authenticated/activities")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>): { tab?: "timesheets"; timesheet?: string } => ({
-    ...(search["tab"] === "timesheets" ? { tab: "timesheets" as const } : {}),
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab?: "timesheets" | "recurring"; timesheet?: string } => ({
+    ...(search["tab"] === "timesheets" || search["tab"] === "recurring"
+      ? { tab: search["tab"] as "timesheets" | "recurring" }
+      : {}),
     ...(typeof search["timesheet"] === "string" ? { timesheet: search["timesheet"] } : {}),
   }),
   component: ActivitiesPageRoute,
@@ -64,255 +57,253 @@ function ActivitiesPage() {
   const navigate = useNavigate({ from: "/activities" });
   const showTimesheets = isOwner && hasFeature("timesheets", { familyId: family?.id });
   const pending = usePendingTimesheetCount(showTimesheets);
-  const tab = showTimesheets && (search.tab === "timesheets" || search.timesheet) ? "timesheets" : "recurring";
+  const tab: "hub" | "timesheets" | "recurring" = !showTimesheets
+    ? "recurring"
+    : search.tab === "timesheets" || search.timesheet
+      ? "timesheets"
+      : search.tab === "recurring"
+        ? "recurring"
+        : "hub";
+  const goto = (t: "hub" | "timesheets" | "recurring") =>
+    void navigate({ search: t === "hub" ? {} : { tab: t } });
   return (
     <AppShell>
       <div className="space-y-5">
-        <header>
-          <h1 className="text-2xl font-bold sm:text-3xl">Activities</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {tab === "timesheets" ? "Review caregiver timesheets." : "Every repeating event on the family calendar."}
-          </p>
-        </header>
-        {showTimesheets ? (
-          <div className="grid grid-cols-2 gap-1 rounded-2xl border border-border-soft bg-card p-1" role="tablist">
-            {(["recurring", "timesheets"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                role="tab"
-                data-tour-target={t === "recurring" ? "activities-recurring" : "activities-timesheets"}
-                aria-selected={tab === t}
-                onClick={() => void navigate({ search: t === "timesheets" ? { tab: "timesheets" } : {} })}
-                className={cn(
-                  "flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-semibold text-muted-foreground",
-                  tab === t && "bg-secondary text-foreground",
-                )}
-              >
-                {t === "recurring" ? "Recurring Activities" : "Timesheets"}
-                {t === "timesheets" && pending > 0 ? (
-                  <span className="rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">{pending}</span>
-                ) : null}
-              </button>
-            ))}
+        <header className="flex items-center gap-2">
+          {tab !== "hub" && showTimesheets ? (
+            <button
+              type="button"
+              aria-label="Back to Activities"
+              onClick={() => goto("hub")}
+              className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          ) : null}
+          <div>
+            <h1 className="text-2xl font-bold sm:text-3xl">
+              {tab === "timesheets" ? "Timesheets" : tab === "recurring" ? "Recurring Activities" : "Activities"}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {tab === "timesheets"
+                ? "Review caregiver timesheets."
+                : tab === "recurring"
+                  ? "Repeating events on the family calendar."
+                  : "Manage timesheets and repeating activities."}
+            </p>
           </div>
-        ) : null}
-        {tab === "timesheets" ? <OwnerTimesheets /> : <RecurringActivities />}
+        </header>
+        {tab === "hub" ? (
+          <div className="grid gap-3">
+            <button
+              type="button"
+              data-tour-target="activities-timesheets"
+              onClick={() => goto("timesheets")}
+              className="flex items-center gap-4 rounded-3xl border border-border-soft bg-secondary p-5 text-left shadow-soft"
+            >
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-card">
+                <ClipboardCheck className="h-6 w-6" aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2 text-lg font-bold">
+                  Timesheets
+                  {pending > 0 ? (
+                    <span className="rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">{pending}</span>
+                  ) : null}
+                </span>
+                <span className="block text-sm text-muted-foreground">Review, approve and track caregiver hours.</span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+            </button>
+            <button
+              type="button"
+              data-tour-target="activities-recurring"
+              onClick={() => goto("recurring")}
+              className="flex items-center gap-4 rounded-3xl border border-border-soft bg-card p-4 text-left"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-surface-muted">
+                <Repeat className="h-5 w-5" aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-base font-bold">Recurring Activities</span>
+                <span className="block text-sm text-muted-foreground">Lessons, sports and other repeating events.</span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+            </button>
+          </div>
+        ) : tab === "timesheets" ? (
+          <OwnerTimesheets />
+        ) : (
+          <RecurringActivities />
+        )}
       </div>
     </AppShell>
   );
 }
 
-function RecurringActivities() {
-  const { events, members, loading, canEdit, categories } = useCalendar();
-  const [group, setGroup] = useState<GroupMode>("category");
-  const [sort, setSort] = useState<SortMode>("next");
+type StatusFilter = "active" | "ended" | "all";
 
-  const series = useMemo(() => buildSeriesList(events), [events]);
-  const groups = useMemo(
-    () => groupSeries(series, group, sort, members, categories),
-    [series, group, sort, members, categories],
-  );
-
-  return (
-      <div className="space-y-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <Picker
-            label="Group by"
-            value={group}
-            options={GROUP_MODES}
-            onChange={(v) => setGroup(v as GroupMode)}
-          />
-          <Picker
-            label="Sort by"
-            value={sort}
-            options={SORT_MODES}
-            onChange={(v) => setSort(v as SortMode)}
-          />
-        </div>
-
-        {!loading && series.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-border bg-surface p-6 text-center">
-            <p className="text-base font-bold">No repeating events yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {canEdit
-                ? "Add an event with a repeat and it will show up here."
-                : "Recurring commitments will appear here once they are added."}
-            </p>
-            {canEdit ? (
-              <div className="mt-4 flex justify-center">
-                <AddEventDialog />
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {groups.map((section) => (
-          <section key={section.key} className="space-y-3">
-            <div className="flex items-baseline gap-2">
-              <h2 className="text-base font-bold">{section.label}</h2>
-              <span className="text-xs font-semibold text-muted-foreground">
-                {section.items.length}
-              </span>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {section.items.map((item) => (
-                <SeriesCard key={`${section.key}-${item.event.id}`} series={item} />
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
-  );
+/** Imported recurring work events stay out of the default list; they remain under "All". */
+function isImportedWork(series: EventSeries) {
+  return series.event.event_type === "work" && Boolean(series.event.external_event_id);
 }
 
-function Picker({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: { id: string; label: string }[];
-  onChange: (value: string) => void;
-}) {
-  const id = `activities-${label.replace(/\s+/g, "-").toLowerCase()}`;
+function RecurringActivities() {
+  const { events, loading, canEdit, sources } = useCalendar();
+  const [status, setStatus] = useState<StatusFilter>("active");
+  const [query, setQuery] = useState("");
+
+  const series = useMemo(() => buildSeriesList(events), [events]);
+  const sourceName = useMemo(
+    () => Object.fromEntries(sources.map((s) => [s.id, s.name])) as Record<string, string>,
+    [sources],
+  );
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return series
+      .filter((s) =>
+        status === "all" ? true : status === "active" ? !s.ended && !isImportedWork(s) : s.ended && !isImportedWork(s),
+      )
+      .filter((s) => !q || s.event.title.toLowerCase().includes(q))
+      .sort((a, b) => {
+        if (a.nextOccurrence && b.nextOccurrence) return a.nextOccurrence.getTime() - b.nextOccurrence.getTime();
+        if (a.nextOccurrence) return -1;
+        if (b.nextOccurrence) return 1;
+        return a.event.title.localeCompare(b.event.title);
+      });
+  }, [series, status, query]);
+
   return (
-    <div className="min-w-0 flex-1 space-y-1">
-      <label htmlFor={id} className="block text-xs font-bold text-muted-foreground">
-        {label}
-      </label>
-      <select
-        id={id}
-        aria-label={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-11 w-full rounded-xl border border-border-soft bg-card px-3 text-sm font-semibold"
-      >
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-border-soft bg-card p-1" role="tablist">
+        {(["active", "ended", "all"] as const).map((f) => (
+          <button
+            key={f}
+            type="button"
+            role="tab"
+            aria-selected={status === f}
+            onClick={() => setStatus(f)}
+            className={cn(
+              "h-9 rounded-xl text-sm font-semibold capitalize text-muted-foreground",
+              status === f && "bg-secondary text-foreground",
+            )}
+          >
+            {f}
+          </button>
         ))}
-      </select>
+      </div>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <input
+          type="search"
+          aria-label="Search activities"
+          placeholder="Search activities"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="h-11 w-full rounded-xl border border-border-soft bg-card pl-9 pr-3 text-base sm:text-sm"
+        />
+      </div>
+
+      {!loading && visible.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-border bg-surface p-6 text-center">
+          <p className="text-base font-bold">
+            {query ? "No matching activities" : status === "ended" ? "No ended activities" : "No repeating events yet"}
+          </p>
+          {!query && status !== "ended" ? (
+            <>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {canEdit
+                  ? "Add an event with a repeat and it will show up here."
+                  : "Recurring commitments will appear here once they are added."}
+              </p>
+              {canEdit ? (
+                <div className="mt-4 flex justify-center">
+                  <AddEventDialog />
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {visible.map((item) => (
+          <SeriesCard
+            key={item.event.id}
+            series={item}
+            calendarName={item.event.calendar_source_id ? sourceName[item.event.calendar_source_id] ?? null : null}
+          />
+        ))}
+      </div>
     </div>
   );
 }
 
-function SeriesCard({ series }: { series: EventSeries }) {
-  const { categoryAppearanceFor, memberById } = useCalendar();
+/** Occurrence handed to the shared event editor: the next one, or the series' first for ended series. */
+function occurrenceForSeries(series: EventSeries): Occurrence {
   const { event } = series;
-  const Icon = eventTypeIcons[event.event_type];
-  const typeLabel = activityLabel(event.event_type);
+  if (series.nextOccurrence) {
+    const from = series.nextOccurrence;
+    const found = expandOccurrences([event], from, addDays(from, 1))[0];
+    if (found) return found;
+  }
+  const first = expandOccurrences([event], new Date(event.start_at), addDays(new Date(event.start_at), 1))[0];
+  return (
+    first ?? {
+      key: `${event.id}:${event.start_at}`,
+      event,
+      start: new Date(event.start_at),
+      end: new Date(event.end_at),
+      member_ids: [...event.member_ids],
+    }
+  );
+}
+
+function SeriesCard({ series, calendarName }: { series: EventSeries; calendarName: string | null }) {
+  const { categoryAppearanceFor, canEdit, openOccurrence } = useCalendar();
+  const { event } = series;
   const appearance = categoryAppearanceFor(event);
-  const start = new Date(event.start_at);
-  const end = new Date(event.end_at);
+  const editable = canEdit && event.read_only !== true;
+  const summary = [
+    frequencyLabel(event),
+    series.weekdays.length > 0
+      ? series.weekdays.map((code) => WEEKDAY_CODES.find((d) => d.code === code)?.short ?? code).join(", ")
+      : null,
+    event.all_day ? "All day" : format(new Date(event.start_at), "h:mm a"),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <article
       className={cn(
-        "relative overflow-hidden rounded-3xl border border-border-soft bg-card p-4 shadow-soft",
+        "relative flex items-center gap-3 overflow-hidden rounded-2xl border border-border-soft bg-card py-3 pl-4 pr-3",
         series.ended && "opacity-75",
       )}
     >
-      <span
-        className={cn(
-          "absolute inset-y-0 left-0 w-1.5",
-          eventAccentClass(appearance),
-        )}
-      />
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 pl-2">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            <h3 className="truncate text-base font-bold">{event.title}</h3>
-          </div>
-          <p className="mt-0.5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-            <span
-              className={cn("h-2 w-2 shrink-0 rounded-full", appearance.swatch)}
-              aria-hidden
-            />
-            {appearance.label} · {typeLabel}
-          </p>
-        </div>
-        <MemberBadgeRow ids={event.member_ids} size="sm" />
-      </div>
-
-      <div className="mt-2 flex flex-wrap gap-1.5 pl-2">
-        {series.ended ? (
-          <Chip tone="muted">Ended</Chip>
-        ) : (
-          <Chip tone="active">Active</Chip>
-        )}
-        {event.needs_family_assignment ? <Chip tone="muted">Needs family assignment</Chip> : null}
-        {event.external_event_id ? <Chip tone="muted">From Google</Chip> : null}
-      </div>
-
-      <dl className="mt-3 space-y-1.5 pl-2 text-sm text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <Repeat className="h-4 w-4 shrink-0" aria-hidden />
-          <dd>
-            {frequencyLabel(event)}
-            {series.weekdays.length > 0
-              ? ` · ${series.weekdays
-                  .map((code) => WEEKDAY_CODES.find((d) => d.code === code)?.short ?? code)
-                  .join(", ")}`
+      <span className={cn("absolute inset-y-0 left-0 w-1.5", eventAccentClass(appearance))} />
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-sm font-bold">{event.title}</h3>
+        <p className="truncate text-xs text-muted-foreground">{summary}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {calendarName ?? appearance.label}
+          {series.ended
+            ? " · Ended"
+            : series.nextOccurrence
+              ? ` · Next ${format(series.nextOccurrence, "EEE MMM d")}`
               : ""}
-          </dd>
-        </div>
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 shrink-0" aria-hidden />
-          <dd>
-            {formatTimeRange(start, end, event.all_day)}
-            {event.all_day ? "" : ` · ${durationLabel(series.durationMinutes)}`}
-          </dd>
-        </div>
-        <div className="flex items-center gap-2">
-          <CalendarClock className="h-4 w-4 shrink-0" aria-hidden />
-          <dd>
-            {series.nextOccurrence
-              ? `Next: ${format(series.nextOccurrence, "EEE MMM d")}`
-              : `Ran from ${format(start, "MMM d, yyyy")}`}
-          </dd>
-        </div>
-        {event.location ? (
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 shrink-0" aria-hidden />
-            <dd className="truncate">{event.location}</dd>
-          </div>
-        ) : null}
-      </dl>
-
-      {series.perPersonDays.length > 0 ? (
-        <div className="mt-3 ml-2 space-y-1 rounded-xl bg-surface-muted px-3 py-2 text-xs">
-          <span className="font-bold">Days by person</span>
-          {series.perPersonDays.map((row) => (
-            <div key={row.member_id} className="flex justify-between gap-3 text-muted-foreground">
-              <span className="flex min-w-0 items-center gap-1.5 font-semibold text-foreground">
-                <MemberBadge id={row.member_id} size="xs" />
-                <span className="truncate">{memberById[row.member_id]?.name ?? "Member"}</span>
-              </span>
-              <span>{describeWeekdays(row.weekdays)}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
+          {event.read_only ? " · Read-only" : ""}
+        </p>
+      </div>
+      <MemberBadgeRow ids={event.member_ids} size="sm" />
+      <button
+        type="button"
+        onClick={() => openOccurrence(occurrenceForSeries(series))}
+        className="flex h-9 shrink-0 items-center gap-1 rounded-full bg-secondary px-3 text-xs font-bold"
+      >
+        {editable ? <Pencil className="h-3.5 w-3.5" aria-hidden /> : <Info className="h-3.5 w-3.5" aria-hidden />}
+        {editable ? "Edit" : "Details"}
+      </button>
     </article>
-  );
-}
-
-function Chip({ children, tone }: { children: React.ReactNode; tone: "active" | "muted" }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold",
-        tone === "active"
-          ? "bg-shared-strong text-member-foreground"
-          : "bg-surface-muted text-muted-foreground",
-      )}
-    >
-      {children}
-    </span>
   );
 }
