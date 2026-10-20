@@ -1,5 +1,10 @@
 # Roadmap
 
+## Mobile keyboard dialogs and optional childcare setup
+- [ ] Constrain shared phone dialogs to the visual viewport and keep focused fields scrollable without dismissing the keyboard.
+- [ ] Add unchecked expandable childcare setup with named OFC/Google creation and eligible existing destinations; preserve Settings and historical data.
+- [ ] Check focused tests and compilation signals only; no browser QA or publishing.
+
 ## Confirmed data-preservation blockers
 - [x] Preserve existing shift assignments independently of the current childcare-calendar setting.
 - [x] Save onboarding members by stable IDs, deleting only explicitly removed members.
