@@ -377,11 +377,13 @@ function AuthPage() {
         </form>
         ) : null}
 
-        <div className="my-4 flex items-center gap-3 text-xs font-semibold text-muted-foreground">
-          <span className="h-px flex-1 bg-border-soft" />
-          or
-          <span className="h-px flex-1 bg-border-soft" />
-        </div>
+        {stage !== "google" ? (
+          <div className="my-4 flex items-center gap-3 text-xs font-semibold text-muted-foreground">
+            <span className="h-px flex-1 bg-border-soft" />
+            or
+            <span className="h-px flex-1 bg-border-soft" />
+          </div>
+        ) : null}
 
         <Button
           className="h-11 w-full rounded-full font-bold"
