@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { TOUR_VERSION, shouldAutoStartTour, tourSteps, tourStorageKey, type Tour
 const TourContext = createContext<(() => void) | null>(null);
 export function AppTourProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
+  const onboarding = useRouterState({ select: (s) => s.location.pathname.startsWith("/onboarding") });
   const { family, isOwner } = useCalendar();
   const { resolved, failed, isCaregiver } = useCaregiver();
   const [userId, setUserId] = useState<string | null>(null);
@@ -24,7 +25,7 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
     return tourSteps(isCaregiver, isOwner, hasFeature("timesheets", { familyId: family?.id }));
   }, [isCaregiver, isOwner, family?.id]);
   const step = index === null ? undefined : steps[index];
-  const accessReady = resolved && !failed && !!family;
+  const accessReady = resolved && !failed && !!family && !onboarding;
 
   const start = useCallback(() => {
     if (!accessReady || !userId || getVerifiedMembership()?.userId !== userId) return;

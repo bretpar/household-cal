@@ -44,6 +44,7 @@ export const createOfcCalendar = createServerFn({ method: "POST" })
       color: string;
       icon: string | null;
       display_mode: "events" | "coverage_background";
+      onboarding_babysitter?: boolean;
     }) => input,
   )
   .handler(async ({ data, context }) => {
@@ -62,6 +63,7 @@ export const createOfcCalendar = createServerFn({ method: "POST" })
       .eq("family_id", familyId)
       .order("sort_order", { ascending: false })
       .limit(1);
+    const insert = async () => {
     const { data: row, error } = await supabaseAdmin
       .from("calendar_sources")
       .insert({
@@ -81,6 +83,12 @@ export const createOfcCalendar = createServerFn({ method: "POST" })
       .single();
     if (error) throw error;
     return { id: row.id as string };
+    };
+    if (data.onboarding_babysitter === true) {
+      const { ensureOnboardingBabysitter } = await import("@/lib/onboarding-babysitter.server");
+      return ensureOnboardingBabysitter(supabaseAdmin, familyId, insert);
+    }
+    return insert();
   });
 
 export const renameOfcCalendar = createServerFn({ method: "POST" })
