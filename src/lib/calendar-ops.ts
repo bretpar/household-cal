@@ -47,7 +47,7 @@ export interface EventInput {
   member_weekdays?: Record<string, string[] | null> | undefined;
   /**
    * Babysitter-calendar shift assignment. Omitted = leave any existing
-   * assignment untouched (sync paths); ignored off the Babysitter calendar.
+   * assignment untouched, including shifts on a previously selected calendar.
    */
   babysitter_assignment?: ShiftAssignment | undefined;
 }
@@ -59,9 +59,8 @@ export type ShiftAssignment =
   | { kind: "none" };
 
 /**
- * Keeps the babysitter_shifts row in step with an event. Events off the
- * household Babysitter calendar never carry a shift; all-day Babysitter
- * events do, since the form requires an assigned caregiver there too.
+ * New assignments use the current household Babysitter calendar. Omitted or
+ * hidden assignments never erase historical shifts on a previous calendar.
  */
 export async function syncShiftAssignment(
   db: Db,
@@ -69,6 +68,7 @@ export async function syncShiftAssignment(
   eventId: string,
   input: Pick<EventInput, "calendar_source_id" | "all_day" | "babysitter_assignment">,
 ): Promise<void> {
+  if (input.babysitter_assignment === undefined) return;
   const { data: fam, error } = await db
     .from("families")
     .select("babysitter_calendar_source_id")
@@ -78,11 +78,8 @@ export async function syncShiftAssignment(
   const onBabysitter =
     !!input.calendar_source_id &&
     input.calendar_source_id === fam?.babysitter_calendar_source_id;
-  if (onBabysitter && input.babysitter_assignment === undefined) return;
-  const del = await db.from("babysitter_shifts").delete().eq("event_id", eventId);
-  if (del.error) throw del.error;
   if (!onBabysitter) return;
-  const a = input.babysitter_assignment! as ShiftAssignment | { kind: "caregiver"; family_user_id: string };
+  const a = input.babysitter_assignment as ShiftAssignment | { kind: "caregiver"; family_user_id: string };
   let row: { assignment: string; family_user_id: string | null; assignee_name: string | null; assignee_member_id: string | null };
   if (a.kind === "caregiver") {
     // Legacy clients may still send a login id; resolve it to the caregiver record.
@@ -117,6 +114,8 @@ export async function syncShiftAssignment(
     row = { assignment: "none", family_user_id: null, assignee_name: null, assignee_member_id: null };
   }
   if (row.assignment === "other" && !row.assignee_name) throw new Error("Enter the babysitter's name");
+  const del = await db.from("babysitter_shifts").delete().eq("event_id", eventId).eq("family_id", familyId);
+  if (del.error) throw del.error;
   const ins = await db
     .from("babysitter_shifts")
     .insert({ family_id: familyId, event_id: eventId, ...row });
