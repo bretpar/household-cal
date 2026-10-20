@@ -398,7 +398,7 @@ function AuthPage() {
           className="mt-5 w-full text-sm font-semibold text-muted-foreground hover:text-foreground"
           onClick={changeEmail}
         >
-          {stage === "email" ? "New or returning — just enter your email" : "Use a different email"}
+          Use a different email
         </button>
         ) : null}
       </div>
