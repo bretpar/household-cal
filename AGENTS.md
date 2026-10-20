@@ -9,7 +9,7 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 - calendar_sources.calendar_kind (household_default | custom | legacy_internal) distinguishes the Family calendar, user-created OFC calendars and hidden legacy rows; destinations are validated server-side via assertWritableDestination. Why: never rely on calendar names.
-- CalendarAppearanceSettings owns My Calendars and onboarding add-only controls; diagnostics stay in GoogleCalendarMaintenance. Why: reuse integrations.
+- CalendarAppearanceSettings owns My Calendars/onboarding adds; GoogleCalendarMaintenance owns diagnostics; HouseholdAccess invite-only mode opens Step 4 invitations. Why: reuse existing flows.
 - Startup stays cream across web/native surfaces; the heart reveals the calendar without document recoloring. Why: prevent first-paint flashes.
 - Babysitter access is a profile on top of Viewer (babysitter_access_profiles); RLS helpers can_read_event/can_read_calendar_source enforce it. Why: role enum and non-babysitter behavior stay unchanged.
 - Shift sync preserves omitted/off-destination assignments; new shifts use the household calendar ID. Why: settings changes must not erase historical relationships.
