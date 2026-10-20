@@ -12,6 +12,7 @@ export type Db = { from: (table: string) => any };
 export type MemberRoleInput = "parent" | "child" | "other";
 
 export interface OnboardingMemberInput {
+  id?: string;
   name: string;
   initial: string;
   color: string;
@@ -50,6 +51,7 @@ export function normalizeMembers(raw: unknown): OnboardingMemberInput[] {
         .slice(0, 1)
         .toUpperCase();
       return {
+        ...(typeof row["id"] === "string" && row["id"].trim() ? { id: row["id"].trim() } : {}),
         name,
         initial,
         color: cleanColor(String(row["color"] ?? "")),
@@ -183,7 +185,7 @@ export async function createHousehold(
 }
 
 /**
- * Replaces the household's calendar members with the onboarding list and links the
+ * Updates stable members, inserts additions and deletes explicit removals; links the
  * caller's login to the member they marked as themselves. Owner-only, and only for
  * the household the caller owns.
  */
@@ -191,7 +193,8 @@ export async function saveOnboardingMembers(
   admin: Db,
   userId: string,
   members: OnboardingMemberInput[],
-): Promise<{ family_id: string; my_member_id: string | null }> {
+  removedMemberIds: string[] = [],
+): Promise<{ family_id: string; my_member_id: string | null; member_ids: string[] }> {
   const membership = await firstMembership(admin, userId);
   if (!membership) throw new Error("Create your household first");
 
@@ -204,34 +207,53 @@ export async function saveOnboardingMembers(
   if (roleRow?.[0]?.role !== "owner") throw new Error("Only household owners can do that");
 
   const familyId = membership.family_id;
-
-  // idempotent: onboarding owns the initial member list, so replace it wholesale
-  await admin.from("family_members").delete().eq("family_id", familyId);
-
-  const { data: inserted, error } = await admin
+  const { data: existing, error: existingError } = await admin
     .from("family_members")
-    .insert(
-      members.map((m, index) => ({
-        family_id: familyId,
-        name: m.name,
-        initial: m.initial,
-        color: m.color,
-        role: m.role,
-        access: m.role === "parent" ? "full" : "view_only",
-        sort_order: index,
-      })),
-    )
-    .select("id");
-  if (error) throw error;
+    .select("id, role")
+    .eq("family_id", familyId);
+  if (existingError) throw existingError;
+  const byId = new Map<string, { id: string; role: string }>((existing ?? []).map((m: { id: string; role: string }) => [m.id, m]));
+  const submittedIds = members.flatMap((m) => m.id ? [m.id] : []);
+  if (new Set(submittedIds).size !== submittedIds.length ||
+      [...submittedIds, ...removedMemberIds].some((id) => !byId.has(id)) ||
+      removedMemberIds.some((id) => submittedIds.includes(id))) {
+    throw new Error("Family members changed. Reload setup and try again.");
+  }
+
+  const memberIds: string[] = [];
+  for (const [index, m] of members.entries()) {
+    const fields = { name: m.name, initial: m.initial, color: m.color, sort_order: index };
+    if (m.id) {
+      // Existing access and caregiver-specific fields are not onboarding's to reset.
+      const previous = byId.get(m.id);
+      const role = previous && ["parent", "child", "other"].includes(previous.role) ? { role: m.role } : {};
+      const { error } = await admin.from("family_members").update({ ...fields, ...role })
+        .eq("family_id", familyId).eq("id", m.id);
+      if (error) throw error;
+      memberIds.push(m.id);
+    } else {
+      const { data: added, error } = await admin.from("family_members")
+        .insert({ ...fields, family_id: familyId, role: m.role, access: m.role === "parent" ? "full" : "view_only" })
+        .select("id").single();
+      if (error) throw error;
+      memberIds.push(added.id as string);
+    }
+  }
+  if (removedMemberIds.length > 0) {
+    const { error } = await admin.from("family_members").delete().eq("family_id", familyId).in("id", removedMemberIds);
+    if (error) throw error;
+  }
 
   const meIndex = members.findIndex((m) => m.is_me);
-  const myMemberId = meIndex >= 0 ? ((inserted?.[meIndex]?.id as string) ?? null) : null;
+  const myMemberId = meIndex >= 0 ? (memberIds[meIndex] ?? null) :
+    (membership.family_member_id && !removedMemberIds.includes(membership.family_member_id) ? membership.family_member_id : null);
 
-  await admin
+  const { error: linkError } = await admin
     .from("family_users")
     .update({ family_member_id: myMemberId })
     .eq("family_id", familyId)
     .eq("user_id", userId);
+  if (linkError) throw linkError;
 
-  return { family_id: familyId, my_member_id: myMemberId };
+  return { family_id: familyId, my_member_id: myMemberId, member_ids: memberIds };
 }

@@ -60,6 +60,7 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
 type MemberRoleInput = "parent" | "child" | "other";
 
 interface MemberRow {
+  id?: string;
   key: string;
   name: string;
   initial: string;
@@ -108,6 +109,7 @@ function OnboardingPage() {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [householdName, setHouseholdName] = useState("");
   const [rows, setRows] = useState<MemberRow[]>(() => [newRow({ is_me: true })]);
+  const [removedMemberIds, setRemovedMemberIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [creatingNew, setCreatingNew] = useState(false);
   const [childcareChoice, setChildcareChoice] = useState("later");
@@ -132,6 +134,7 @@ function OnboardingPage() {
     setRows(
       data.members.map((m) =>
         newRow({
+          id: m.id,
           name: m.name,
           initial: m.initial,
           initialTouched: true,
@@ -222,8 +225,10 @@ function OnboardingPage() {
   };
 
   const submitMembers = async () => {
-    const payload = rows
+    const submittedRows = rows.filter((row) => row.name.trim().length > 0);
+    const payload = submittedRows
       .map((row) => ({
+        id: row.id,
         name: row.name.trim(),
         initial: (row.initialTouched ? row.initial : row.name.charAt(0)).toUpperCase().slice(0, 1),
         color: row.color,
@@ -238,7 +243,9 @@ function OnboardingPage() {
     }
     setBusy(true);
     try {
-      await saveMembers({ data: { members: payload } });
+      const result = await saveMembers({ data: { members: payload, removed_member_ids: removedMemberIds } });
+      setRows(submittedRows.map((row, index) => ({ ...row, id: result.member_ids[index] })));
+      setRemovedMemberIds([]);
       await queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
       await status.refetch();
       setStep(3);
@@ -452,9 +459,11 @@ function OnboardingPage() {
                           <Button
                             variant="ghost"
                             className="h-10 rounded-full text-muted-foreground"
-                            onClick={() =>
-                              setRows((prev) => prev.filter((r) => r.key !== row.key))
-                            }
+                            onClick={() => {
+                              const memberId = row.id;
+                              if (memberId) setRemovedMemberIds((prev) => [...prev, memberId]);
+                              setRows((prev) => prev.filter((r) => r.key !== row.key));
+                            }}
                             type="button"
                           >
                             <Trash2 className="h-4 w-4" aria-hidden />
