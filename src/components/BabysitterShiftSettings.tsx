@@ -3,7 +3,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { CalendarPlus } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -14,30 +13,10 @@ import {
 } from "@/components/ui/select";
 import { getShiftSettings, updateShiftSettings } from "@/lib/babysitter-shifts.functions";
 import { FAMILY_BUNDLE_KEY, useCalendar } from "@/lib/calendar-store";
-import { isWritableDestination, type CalendarSource } from "@/lib/family-data";
-import { createOfcCalendar } from "@/lib/ofc-calendars.functions";
+import { useState } from "react";
+import { ChildcareCalendarSelect, ChildcareSetupFields, useChildcareSetup } from "@/components/ChildcareSetup";
 
 const NONE = "__none__";
-
-/** Same eligible destinations for childcare setup and ongoing Settings. */
-export function ChildcareCalendarSelect({ value, onValueChange, sources, disabled = false }: {
-  value: string | null;
-  onValueChange: (value: string | null) => void;
-  sources: CalendarSource[];
-  disabled?: boolean;
-}) {
-  return (
-    <Select value={value ?? NONE} disabled={disabled} onValueChange={(v) => onValueChange(v === NONE ? null : v)}>
-      <SelectTrigger aria-label="Calendar for babysitting shifts" className="h-10 rounded-xl min-w-0 [&>span]:truncate">
-        <SelectValue placeholder="Choose a calendar" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={NONE}>Not set</SelectItem>
-        {sources.filter(isWritableDestination).map((s) => <SelectItem key={s.id} value={s.id}>{s.name} · {s.provider === "google" ? "Google" : "OFC"}</SelectItem>)}
-      </SelectContent>
-    </Select>
-  );
-}
 
 /** Owner-only: which calendar holds babysitting shifts and who the default babysitter is. */
 export function BabysitterShiftSettings() {
@@ -45,7 +24,8 @@ export function BabysitterShiftSettings() {
   const qc = useQueryClient();
   const fetchSettings = useServerFn(getShiftSettings);
   const save = useServerFn(updateShiftSettings);
-  const createCalendar = useServerFn(createOfcCalendar);
+  const setup = useChildcareSetup();
+  const [setupOpen, setSetupOpen] = useState(false);
   const settings = useQuery({
     queryKey: ["shift-settings"],
     queryFn: () => fetchSettings(),
@@ -62,11 +42,10 @@ export function BabysitterShiftSettings() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save"),
   });
   const creation = useMutation({
-    mutationFn: () => createCalendar({ data: {
-      name: "Babysitter", color: "sky", icon: "sitter", display_mode: "events", onboarding_babysitter: true,
-    } }),
+    mutationFn: () => setup.confirm(),
     onSuccess: () => {
       toast.success("Babysitter calendar ready");
+      setSetupOpen(false);
       void qc.invalidateQueries({ queryKey: ["shift-settings"] });
       void qc.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
     },
@@ -88,10 +67,14 @@ export function BabysitterShiftSettings() {
         <p className="text-xs text-muted-foreground">
           New shifts use this calendar. Existing events and assignments stay unchanged. Apple subscriptions are read-only and cannot be used.
         </p>
-        {!settings.calendar_source_id ? <Button type="button" variant="outline" className="mt-2 h-auto min-h-10 whitespace-normal text-left" disabled={busy} onClick={() => creation.mutate()}>
-          <CalendarPlus className="h-4 w-4 shrink-0" aria-hidden />
-          {creation.isPending ? "Creating…" : "Create a Babysitter calendar in OFC"}
-        </Button> : null}
+        {!settings.calendar_source_id || setupOpen ? <div className="mt-3 space-y-3">
+          <Button type="button" variant="outline" disabled={busy} onClick={() => setSetupOpen(!setupOpen)} aria-expanded={setupOpen}>Set up childcare scheduling</Button>
+          {setupOpen ? <>
+            <p className="text-sm text-muted-foreground">Organize babysitting shifts and caregiver schedules.</p>
+            <ChildcareSetupFields setup={setup} disabled={busy} />
+            <Button type="button" disabled={busy || !setup.ready} onClick={() => creation.mutate()}>{creation.isPending ? "Saving…" : "Save childcare setup"}</Button>
+          </> : null}
+        </div> : null}
       </div>
       <div className="space-y-1">
         <h3 className="text-sm font-semibold">Caregivers</h3>

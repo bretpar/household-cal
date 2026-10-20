@@ -4,6 +4,23 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Radix retains its page lock and focus trap; only the phone surface moves. */
+@media (max-width: 639px) {
+  .mobile-viewport-dialog {
+    --modal-gap: 1.5rem;
+    bottom: calc(var(--modal-visible-bottom, 0px) + env(safe-area-inset-bottom) + var(--modal-gap));
+    max-height: calc(var(--modal-visible-height, 100dvh) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--modal-gap) - 1rem);
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-padding-block: 1rem;
+  }
+  .mobile-viewport-dialog[data-viewport-safe="true"] { --modal-gap: 0.75rem; }
+  .mobile-viewport-dialog > * { flex-shrink: 0; }
+  .mobile-viewport-dialog input,
+  .mobile-viewport-dialog textarea { font-size: 16px; }
+}
+
 /*
  * Our Family Calendar design system, derived from the logo artwork.
  * Warm cream surfaces + white cards, navy/blue structure, teal for success,

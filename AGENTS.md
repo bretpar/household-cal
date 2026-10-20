@@ -30,4 +30,5 @@
 - Calendar events load in bounded date windows: views report their range via setVisibleRange, the bundle query is keyed by it, and the server returns overlapping one-offs plus all recurring masters. Why: the app no longer downloads the entire event history on launch.
 - Persisted Today-window event cache (src/lib/event-cache.ts): scoped to verified user+household+role, written only when scope unchanged after fetch, cleared on sign-out/account switch. Why: instant reopen without leaking events across accounts or permissions.
 - Mobile Day/3-Day: touch-action none + single-axis gesture controller in use-day-strip.ts (axis lock, glide, gutter-aware snap, settle-then-commit). Why: native pan moved both axes.
-- Onboarding checks owners and reconciles stable member IDs with explicit removals; continuation is scoped, not authorization. Childcare uses shared selectors/settings and idempotent calendar creation. Why: prevent duplicate calendars and unlinked member associations.
+- Onboarding preserves owner checks and stable IDs; continuation is not authorization. ChildcareSetup shares confirmation-only drafts/idempotent claims with Settings and existing Google linking. Why: preserve calendars and historical shifts.
+- Phone DialogContent uses visualViewport and modal-only scrolling; Radix owns page lock/focus. Why: avoid keyboard overlap and autofill interruption.
