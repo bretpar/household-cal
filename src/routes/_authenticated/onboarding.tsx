@@ -28,6 +28,10 @@ import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/SignOutButton";
 import { CalendarAppearanceSettings } from "@/components/CalendarAppearanceSettings";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ChildcareCalendarSelect } from "@/components/BabysitterShiftSettings";
+import { getShiftSettings, updateShiftSettings } from "@/lib/babysitter-shifts.functions";
+import { isWritableDestination } from "@/lib/family-data";
 import { createOfcCalendar } from "@/lib/ofc-calendars.functions";
 import { useCalendar } from "@/lib/calendar-store";
 import { beginCalendarSetup, finishCalendarSetup } from "@/lib/onboarding-calendar-session";
@@ -90,7 +94,10 @@ function OnboardingPage() {
   const createHousehold = useServerFn(createHouseholdFn);
   const saveMembers = useServerFn(saveHouseholdMembersFn);
   const createCalendar = useServerFn(createOfcCalendar);
-  const { isOwner, family, loadError } = useCalendar();
+  const { isOwner, family, sources, loadError } = useCalendar();
+  const fetchShiftSettings = useServerFn(getShiftSettings);
+  const saveShiftSettings = useServerFn(updateShiftSettings);
+  const shiftSettings = useQuery({ queryKey: ["shift-settings"], queryFn: () => fetchShiftSettings(), enabled: isOwner });
 
   const status = useQuery({
     queryKey: ["onboarding-status"],
@@ -103,8 +110,8 @@ function OnboardingPage() {
   const [rows, setRows] = useState<MemberRow[]>(() => [newRow({ is_me: true })]);
   const [busy, setBusy] = useState(false);
   const [creatingNew, setCreatingNew] = useState(false);
-  const [addBabysitter, setAddBabysitter] = useState(false);
-  const [babysitterName, setBabysitterName] = useState("Babysitter");
+  const [childcareChoice, setChildcareChoice] = useState("later");
+  const [childcareCalendarId, setChildcareCalendarId] = useState<string | null>(null);
   const [enableTimesheets, setEnableTimesheets] = useState(false);
   const saveTimesheetsEnabled = useServerFn(setTimesheetsEnabled);
 
@@ -176,17 +183,28 @@ function OnboardingPage() {
   const finishCalendars = async (skip: boolean) => {
     setBusy(true);
     try {
-      if (!skip && addBabysitter && !family?.babysitter_calendar_source_id) {
+      if (!skip && childcareChoice === "create" && !family?.babysitter_calendar_source_id) {
         await createCalendar({ data: {
-          name: babysitterName, color: "sky", icon: "sitter", display_mode: "events",
+          name: "Babysitter", color: "sky", icon: "sitter", display_mode: "events",
           onboarding_babysitter: true,
         } });
         void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
         void queryClient.invalidateQueries({ queryKey: ["shift-settings"] });
         toast.success("Babysitter calendar created");
       }
+      if (!skip && childcareChoice === "existing" && !family?.babysitter_calendar_source_id) {
+        if (!childcareCalendarId || !sources.some((s) => s.id === childcareCalendarId && isWritableDestination(s)) || !shiftSettings.data) {
+          throw new Error("Choose an available OFC or Google calendar for babysitting shifts.");
+        }
+        await saveShiftSettings({ data: {
+          calendar_source_id: childcareCalendarId,
+          default_member_id: shiftSettings.data.default_member_id,
+        } });
+        void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+        void queryClient.invalidateQueries({ queryKey: ["shift-settings"] });
+      }
       // Optional and independent: the Babysitter calendar works either way.
-      if (!skip && enableTimesheets && (addBabysitter || family?.babysitter_calendar_source_id)) {
+      if (!skip && enableTimesheets && (childcareChoice !== "later" || family?.babysitter_calendar_source_id)) {
         await saveTimesheetsEnabled({ data: { enabled: true } }).catch(() =>
           toast.error("Couldn't turn on Timesheets — you can enable them later in Settings"),
         );
@@ -484,15 +502,29 @@ function OnboardingPage() {
                 <p role="status" className="text-sm text-muted-foreground">{loadError ? "Calendar setup couldn't load. You can skip for now and add calendars later." : "Loading your calendars…"}</p>
               )}
               {isOwner ? <div className="space-y-3 border-t border-border-soft pt-4">
-                <div className="flex items-center gap-3">
-                  <Checkbox id="onboarding-babysitter" checked={addBabysitter} disabled={busy || !!family?.babysitter_calendar_source_id} onCheckedChange={(checked) => setAddBabysitter(checked === true)} />
-                  <Label htmlFor="onboarding-babysitter">{family?.babysitter_calendar_source_id ? "Babysitter calendar added" : "Add a Babysitter calendar"}</Label>
+                <div>
+                  <h2 className="text-base font-bold">Set up childcare scheduling <span className="text-xs font-normal text-muted-foreground">Optional</span></h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Keep babysitting shifts organized alongside your family&rsquo;s events. You can add caregivers later.</p>
                 </div>
-                {addBabysitter && !family?.babysitter_calendar_source_id ? <div className="space-y-1.5">
-                  <Label htmlFor="babysitter-calendar-name">Calendar name</Label>
-                  <Input id="babysitter-calendar-name" value={babysitterName} maxLength={60} disabled={busy} onChange={(event) => setBabysitterName(event.target.value)} className="h-11" />
-                </div> : null}
-                {addBabysitter || family?.babysitter_calendar_source_id ? <div className="flex items-start gap-3 rounded-xl bg-surface-muted/60 p-3">
+                {family?.babysitter_calendar_source_id ? <p className="text-sm text-muted-foreground">
+                  Calendar for babysitting shifts: <span className="font-semibold text-foreground">{sources.find((s) => s.id === family.babysitter_calendar_source_id)?.name ?? "Already set up"}</span>. Your existing setup will be kept.
+                </p> : <RadioGroup aria-label="Childcare scheduling setup" value={childcareChoice} onValueChange={setChildcareChoice} disabled={busy} className="gap-3">
+                  <label className="flex items-start gap-3">
+                    <RadioGroupItem value="create" className="mt-1 shrink-0" />
+                    <span className="min-w-0 text-sm"><span className="block font-semibold">Create a Babysitter calendar in OFC <span className="text-xs font-normal text-muted-foreground">Recommended</span></span>
+                      <span className="mt-1 block text-xs text-muted-foreground">A dedicated Babysitter calendar will be created when you Continue. No calendar name or caregiver account needed.</span></span>
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-start gap-3">
+                      <RadioGroupItem value="existing" className="mt-1 shrink-0" disabled={!sources.some(isWritableDestination)} />
+                      <span className="min-w-0 text-sm"><span className="block font-semibold">Use an existing calendar</span>
+                        <span className="mt-1 block text-xs text-muted-foreground">Choose an OFC or connected Google calendar for new shifts. Existing events and assignments stay unchanged. Apple subscriptions cannot be used.</span></span>
+                    </label>
+                    {childcareChoice === "existing" ? <div className="pl-7"><ChildcareCalendarSelect sources={sources} value={childcareCalendarId} onValueChange={setChildcareCalendarId} disabled={busy} /></div> : null}
+                  </div>
+                  <label className="flex items-center gap-3 text-sm font-semibold"><RadioGroupItem value="later" className="shrink-0" />I&rsquo;ll do this later</label>
+                </RadioGroup>}
+                {childcareChoice !== "later" || family?.babysitter_calendar_source_id ? <div className="flex items-start gap-3 rounded-xl bg-surface-muted/60 p-3">
                   <Checkbox id="onboarding-timesheets" className="mt-0.5" checked={enableTimesheets} disabled={busy} onCheckedChange={(checked) => setEnableTimesheets(checked === true)} />
                   <Label htmlFor="onboarding-timesheets" className="space-y-1 leading-snug">
                     <span className="block font-semibold">Would you like to enable Timesheets?</span>
@@ -502,7 +534,7 @@ function OnboardingPage() {
               </div> : null}
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" disabled={busy} onClick={() => setStep(2)}>Back</Button>
-                <Button className="min-w-28 flex-1" disabled={busy || (addBabysitter && !babysitterName.trim())} onClick={() => void finishCalendars(false)}>{busy ? "Saving…" : "Continue"}</Button>
+                <Button className="min-w-28 flex-1" disabled={busy || (!family?.babysitter_calendar_source_id && childcareChoice === "existing" && (!childcareCalendarId || !shiftSettings.data))} onClick={() => void finishCalendars(false)}>{busy ? "Saving…" : "Continue"}</Button>
                 <Button variant="ghost" disabled={busy} onClick={() => void finishCalendars(true)}>Skip for now</Button>
               </div>
             </div>

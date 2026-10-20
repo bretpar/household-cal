@@ -4,6 +4,7 @@ import {
   CalendarDays,
   ClipboardList,
   House,
+  Heart,
   UserRound,
 } from "lucide-react";
 
@@ -119,8 +120,15 @@ function FamilyPage() {
         >
           <FamilyMemberSettings />
           <HouseholdAccess />
-          <BabysitterShiftSettings />
         </SettingsSection>
+
+        {isOwner ? <SettingsSection
+          title="Childcare scheduling"
+          description="Calendar for babysitting shifts and default caregiver"
+          icon={<Heart className="h-5 w-5" aria-hidden />}
+        >
+          <BabysitterShiftSettings />
+        </SettingsSection> : null}
 
         {isOwner ? (
           <SettingsSection
