@@ -384,7 +384,6 @@ function AuthPage() {
         </div>
 
         <Button
-          variant="outline"
           className="h-11 w-full rounded-full font-bold"
           onClick={googleSignIn}
           type="button"
@@ -393,6 +392,7 @@ function AuthPage() {
           Continue with Google
         </Button>
 
+        {stage !== "email" ? (
         <button
           type="button"
           className="mt-5 w-full text-sm font-semibold text-muted-foreground hover:text-foreground"
@@ -400,6 +400,7 @@ function AuthPage() {
         >
           {stage === "email" ? "New or returning — just enter your email" : "Use a different email"}
         </button>
+        ) : null}
       </div>
     </div>
   );
