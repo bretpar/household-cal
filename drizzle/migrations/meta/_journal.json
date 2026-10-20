@@ -71,6 +71,13 @@
       "when": 1791509365075,
       "tag": "0009_app_tour_states",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792465831157,
+      "tag": "0010_families_timesheets_enabled",
+      "breakpoints": true
     }
   ]
 }

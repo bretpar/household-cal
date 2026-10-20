@@ -10,6 +10,7 @@ import { useCaregiver } from "@/lib/use-caregiver";
 import { useMyTimesheetActionCount, usePendingTimesheetCount } from "@/components/TimesheetSettings";
 import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
+import { useTimesheetsStatus } from "@/lib/use-timesheets-status";
 
 /** Content-only placeholder: the header and bottom nav stay visible around it. */
 export function PageContentSkeleton() {
@@ -140,7 +141,10 @@ function ShellFrame({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { isCaregiver, resolved: caregiverResolved, failed: accessFailed, retry: retryAccess } = useCaregiver();
   const { isOwner, family } = useCalendar();
-  const timesheetsOn = hasFeature("timesheets", { familyId: family?.id });
+  const ts = useTimesheetsStatus();
+  // Caregivers keep a read-only tab while past time cards exist.
+  const timesheetsOn = hasFeature("timesheets", { familyId: family?.id }) && (ts.active || ts.history);
+  const timesheetsActive = timesheetsOn && ts.active;
   // Last verified, identity-scoped role answer. On access-error pages
   // (lockChrome) it keeps the correct tabs visible while a retry re-verifies;
   // with no verified answer yet, the shell stays neutral (no tabs).
@@ -157,8 +161,8 @@ function ShellFrame({
     : chromeCaregiver
       ? CAREGIVER_NAV.filter((n) => n.to !== "/timesheet" || chromeTimesheetsOn)
       : NAV;
-  const ownerPending = usePendingTimesheetCount(!isCaregiver && isOwner && timesheetsOn);
-  const myActions = useMyTimesheetActionCount(isCaregiver && timesheetsOn);
+  const ownerPending = usePendingTimesheetCount(!isCaregiver && isOwner && timesheetsActive);
+  const myActions = useMyTimesheetActionCount(isCaregiver && timesheetsActive);
   const badgeTo = isCaregiver ? "/timesheet" : "/activities";
   const pendingReview = isCaregiver ? myActions : ownerPending;
   const badgeFor = (to: string) =>

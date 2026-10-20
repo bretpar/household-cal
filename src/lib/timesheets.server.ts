@@ -33,15 +33,30 @@ export async function currentFamilyId(db: AnyDb, userId: string): Promise<string
   return id;
 }
 
-export async function assertOwner(userDb: AnyDb, familyId: string) {
+/** Household master switch (families.timesheets_enabled). Off = history is read-only. */
+export async function householdTimesheetsOn(familyId: string): Promise<boolean> {
+  const { data } = await (await adminDb()).from("families").select("timesheets_enabled").eq("id", familyId).maybeSingle();
+  return data?.timesheets_enabled === true;
+}
+
+export type TimesheetAccess = "write" | "read";
+
+async function assertHouseholdMode(familyId: string, mode: TimesheetAccess) {
+  if (mode === "write" && !(await householdTimesheetsOn(familyId))) {
+    throw new Error("Timesheets are turned off for this household");
+  }
+}
+
+export async function assertOwner(userDb: AnyDb, familyId: string, mode: TimesheetAccess = "write") {
   assertFeature("timesheets", { familyId });
   const { data, error } = await userDb.rpc("is_family_owner", { _family_id: familyId });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Only the household owner can do this");
+  await assertHouseholdMode(familyId, mode);
 }
 
 /** The signed-in caregiver's own member id (via verified session), or an error. */
-export async function myCaregiver(userDb: AnyDb, userId: string) {
+export async function myCaregiver(userDb: AnyDb, userId: string, mode: TimesheetAccess = "write") {
   const familyId = await currentFamilyId(userDb, userId);
   assertFeature("timesheets", { familyId });
   const { data, error } = await userDb.rpc("my_caregiver_member_id", { _family_id: familyId });
@@ -49,6 +64,7 @@ export async function myCaregiver(userDb: AnyDb, userId: string) {
   if (!data) throw new Error("Timesheets are only available to caregivers");
   const m = await (await adminDb()).from("family_members").select("timesheets_enabled").eq("id", data).maybeSingle();
   if (m.data?.timesheets_enabled !== true) throw new Error("Timesheets are turned off for you in this household");
+  await assertHouseholdMode(familyId, mode);
   return { familyId, memberId: data as string };
 }
 

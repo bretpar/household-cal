@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { OwnerTimesheets, usePendingTimesheetCount } from "@/components/TimesheetSettings";
 import { hasFeature } from "@/lib/features";
+import { useTimesheetsStatus } from "@/lib/use-timesheets-status";
 import { useMemo, useState } from "react";
 import { addDays, format } from "date-fns";
 import { ChevronLeft, ChevronRight, ClipboardCheck, Info, Pencil, Repeat, Search } from "lucide-react";
@@ -56,8 +57,10 @@ function ActivitiesPage() {
   const { isOwner, family } = useCalendar();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/activities" });
-  const showTimesheets = isOwner && hasFeature("timesheets", { familyId: family?.id });
-  const pending = usePendingTimesheetCount(showTimesheets);
+  const ts = useTimesheetsStatus();
+  const showTimesheets = isOwner && hasFeature("timesheets", { familyId: family?.id }) && (ts.active || ts.history);
+  const historyOnly = showTimesheets && !ts.active;
+  const pending = usePendingTimesheetCount(showTimesheets && ts.active);
   const tab: "hub" | "timesheets" | "recurring" = !showTimesheets
     ? "recurring"
     : search.tab === "timesheets" || search.timesheet
@@ -83,7 +86,7 @@ function ActivitiesPage() {
           ) : null}
           <div>
             <h1 className="text-2xl font-bold sm:text-3xl">
-              {tab === "timesheets" ? "Timesheets" : tab === "recurring" ? "Recurring Activities" : "Activities"}
+              {tab === "timesheets" ? (historyOnly ? "Previous Time Cards" : "Timesheets") : tab === "recurring" ? "Recurring Activities" : "Activities"}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {tab === "timesheets"
@@ -108,12 +111,12 @@ function ActivitiesPage() {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2 text-base font-bold">
-                  Timesheets
+                  {historyOnly ? "Previous Time Cards" : "Timesheets"}
                   {pending > 0 ? (
                     <span className="rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">{pending}</span>
                   ) : null}
                 </span>
-                <span className="block text-sm text-muted-foreground">Caregiver hours & approvals</span>
+                <span className="block text-sm text-muted-foreground">{historyOnly ? "View past caregiver hours" : "Caregiver hours & approvals"}</span>
               </span>
               <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
             </Button>
@@ -139,7 +142,7 @@ function ActivitiesPage() {
             </section>
           </div>
         ) : tab === "timesheets" ? (
-          <OwnerTimesheets />
+          <OwnerTimesheets readOnly={historyOnly} />
         ) : (
           <RecurringActivities />
         )}

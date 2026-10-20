@@ -44,6 +44,8 @@ export interface TimesheetView {
   is_current?: boolean;
   /** Caregiver only: future pay period preview built from scheduled shifts; nothing is persisted */
   upcoming?: boolean;
+  /** Household Timesheets switched off: history only, no edits or submissions */
+  read_only?: boolean;
 }
 
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/);
@@ -57,7 +59,7 @@ export const getPaySettings = createServerFn({ method: "GET" })
     const s = await import("@/lib/timesheets.server");
     const db = context.supabase as unknown as AnyDb;
     const familyId = await s.currentFamilyId(db, context.userId);
-    await s.assertOwner(db, familyId); // owner + centralized Timesheet entitlement
+    await s.assertOwner(db, familyId, "read"); // owner + centralized Timesheet entitlement
     const { settings, timeZone } = await s.loadPaySettings(await s.adminDb(), familyId);
     return { ...settings, time_zone: timeZone };
   });
@@ -96,12 +98,13 @@ export const getMyTimesheet = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<TimesheetView & { offset: number; can_next: boolean }> => {
     const s = await import("@/lib/timesheets.server");
     const { payPeriodFor, addDaysKey } = await import("@/lib/timesheet-periods");
-    const me = await s.myCaregiver(context.supabase as unknown as AnyDb, context.userId);
+    const me = await s.myCaregiver(context.supabase as unknown as AnyDb, context.userId, "read");
     const admin = await s.adminDb();
+    const active = await s.householdTimesheetsOn(me.familyId);
     const { settings, timeZone: tz } = await s.loadPaySettings(admin, me.familyId);
     const today = s.todayKey(tz);
     const limit = addDaysKey(today, UPCOMING_WINDOW_DAYS);
-    const inWindow = (o: number) => payPeriodFor(settings, today, o).start <= limit;
+    const inWindow = (o: number) => (active || o <= 0) && payPeriodFor(settings, today, o).start <= limit;
     let offset = data.offset;
     if (data.period_start) {
       // Deep link / session restore: resolve the period to an offset (unknown -> current).
@@ -128,6 +131,23 @@ export const getMyTimesheet = createServerFn({ method: "POST" })
           actual_start_local: s.localHHmm(sh.start, tz), actual_end_local: s.localHHmm(sh.end, tz),
           is_manual: false, note: null,
         })),
+      };
+    }
+
+    if (!active) {
+      // Switched off: read existing history only — never create or refresh time cards.
+      const period = payPeriodFor(settings, today, offset);
+      const { data: old } = await admin.from("timesheets").select("*").eq("family_member_id", me.memberId).eq("period_start", period.start).maybeSingle();
+      if (!old) {
+        return {
+          id: `none:${period.start}`, caregiver_name: "", period_start: period.start, period_end: period.end,
+          status: "draft", parent_note: null, submitted_at: null, time_zone: tz, offset, can_next, entries: [], read_only: true,
+        };
+      }
+      const snap = old.snapshot?.entries && old.status !== "draft" && old.status !== "needs_correction";
+      return {
+        ...old, offset, can_next, read_only: true, time_zone: snap ? old.snapshot.time_zone ?? tz : tz,
+        entries: snap ? old.snapshot.entries : await s.loadEntries(admin, old.id, tz),
       };
     }
 
@@ -273,7 +293,7 @@ export const countPendingTimesheets = createServerFn({ method: "GET" })
     } catch {
       return { count: 0 };
     }
-    if (!hasFeature("timesheets", { familyId })) return { count: 0 };
+    if (!hasFeature("timesheets", { familyId }) || !(await s.householdTimesheetsOn(familyId))) return { count: 0 };
     const { data: owner } = await db.rpc("is_family_owner", { _family_id: familyId });
     if (!owner) return { count: 0 };
     const { count, error } = await (await s.adminDb())
@@ -292,7 +312,7 @@ export const listHouseholdTimesheets = createServerFn({ method: "GET" })
     const s = await import("@/lib/timesheets.server");
     const db = context.supabase as unknown as AnyDb;
     const familyId = await s.currentFamilyId(db, context.userId);
-    await s.assertOwner(db, familyId);
+    await s.assertOwner(db, familyId, "read");
     const admin = await s.adminDb();
     const { timeZone } = await s.loadPaySettings(admin, familyId);
     const today = s.todayKey(timeZone);
@@ -480,7 +500,7 @@ export const getNotifySettings = createServerFn({ method: "GET" })
     const n = await import("@/lib/timesheet-notify.server");
     const db = context.supabase as unknown as AnyDb;
     const familyId = await s.currentFamilyId(db, context.userId);
-    await s.assertOwner(db, familyId);
+    await s.assertOwner(db, familyId, "read");
     return n.loadNotifySettings(await s.adminDb(), familyId);
   });
 
@@ -507,7 +527,7 @@ export const getMyTimesheetEmailPref = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const s = await import("@/lib/timesheets.server");
-    const me = await s.myCaregiver(context.supabase as unknown as AnyDb, context.userId);
+    const me = await s.myCaregiver(context.supabase as unknown as AnyDb, context.userId, "read");
     const { data } = await (await s.adminDb()).from("family_members").select("timesheet_emails_enabled").eq("id", me.memberId).single();
     return { enabled: data?.timesheet_emails_enabled !== false };
   });
@@ -536,11 +556,11 @@ export const setMyTimesheetEmailPref = createServerFn({ method: "POST" })
 
 /* ------------------------------------------------- owner-managed time cards */
 
-async function ownerCtx(context: { supabase: unknown; userId: string }) {
+async function ownerCtx(context: { supabase: unknown; userId: string }, mode: "write" | "read" = "write") {
   const s = await import("@/lib/timesheets.server");
   const db = context.supabase as unknown as AnyDb;
   const familyId = await s.currentFamilyId(db, context.userId);
-  await s.assertOwner(db, familyId);
+  await s.assertOwner(db, familyId, mode);
   return { s, familyId, admin: await s.adminDb() };
 }
 
@@ -565,7 +585,8 @@ async function managedEditableSheet(
 export const listOwnerManagedCaregivers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<{ member_id: string; name: string; attention_offsets: number[] }[]> => {
-    const { s, familyId, admin } = await ownerCtx(context);
+    const { s, familyId, admin } = await ownerCtx(context, "read");
+    if (!(await s.householdTimesheetsOn(familyId))) return [];
     const { payPeriodFor } = await import("@/lib/timesheet-periods");
     const [m, fu, pay] = await Promise.all([
       admin
@@ -711,6 +732,47 @@ export const ownerFinalizeManaged = createServerFn({ method: "POST" })
       })
       .eq("id", sheet.id)
       .in("status", ["draft", "needs_correction"]);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/* ------------------------------------------------------- household switch */
+
+/** Household Timesheets switch + whether the caller has any time cards to look back on. */
+export const getTimesheetsStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ enabled: boolean; has_history: boolean }> => {
+    const s = await import("@/lib/timesheets.server");
+    const db = context.supabase as unknown as AnyDb;
+    let familyId: string;
+    try {
+      familyId = await s.currentFamilyId(db, context.userId);
+    } catch {
+      return { enabled: false, has_history: false };
+    }
+    const enabled = await s.householdTimesheetsOn(familyId);
+    const admin = await s.adminDb();
+    const { data: owner } = await db.rpc("is_family_owner", { _family_id: familyId });
+    let q = admin.from("timesheets").select("id", { count: "exact", head: true }).eq("family_id", familyId);
+    if (!owner) {
+      const { data: mine } = await db.rpc("my_caregiver_member_id", { _family_id: familyId });
+      if (!mine) return { enabled, has_history: false };
+      q = q.eq("family_member_id", mine);
+    }
+    const { count } = await q;
+    return { enabled, has_history: (count ?? 0) > 0 };
+  });
+
+/** Owner-only. Never touches existing time cards, hours, statuses or caregiver preferences. */
+export const setTimesheetsEnabled = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ enabled: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const s = await import("@/lib/timesheets.server");
+    const db = context.supabase as unknown as AnyDb;
+    const familyId = await s.currentFamilyId(db, context.userId);
+    await s.assertOwner(db, familyId, "read");
+    const { error } = await (await s.adminDb()).from("families").update({ timesheets_enabled: data.enabled }).eq("id", familyId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

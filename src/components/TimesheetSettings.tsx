@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
+import { TIMESHEETS_STATUS_KEY, useTimesheetsStatus } from "@/lib/use-timesheets-status";
 import {
   FREQUENCY_LABEL,
   STATUS_LABEL,
@@ -41,6 +42,7 @@ import {
   listHouseholdTimesheets,
   reviewTimesheet,
   savePaySettings,
+  setTimesheetsEnabled,
   type TimesheetView,
 } from "@/lib/timesheets.functions";
 
@@ -52,12 +54,47 @@ const fmtTime = (iso: string | null, tz: string) =>
 /** Owner-only: pay period + notification configuration (review lives in Activities). */
 export function TimesheetSettings() {
   const { isOwner, family } = useCalendar();
+  const status = useTimesheetsStatus();
   if (!isOwner || !hasFeature("timesheets", { familyId: family?.id })) return null;
   return (
     <div className="space-y-4">
-      <PayPeriodSettings />
-      <NotificationSettings />
+      <TimesheetsMasterToggle active={status.active} disabled={!status.loaded} />
+      {status.active ? (
+        <>
+          <PayPeriodSettings />
+          <NotificationSettings />
+        </>
+      ) : null}
     </div>
+  );
+}
+
+/** Owner-only household switch. Turning it off never deletes or changes time cards. */
+export function TimesheetsMasterToggle({ active, disabled }: { active: boolean; disabled?: boolean }) {
+  const qc = useQueryClient();
+  const save = useServerFn(setTimesheetsEnabled);
+  const m = useMutation({
+    mutationFn: (enabled: boolean) => save({ data: { enabled } }),
+    onSuccess: (_d, enabled) => {
+      toast.success(enabled ? "Timesheets turned on" : "Timesheets turned off");
+      void qc.invalidateQueries({ queryKey: TIMESHEETS_STATUS_KEY });
+      void qc.invalidateQueries({ queryKey: PENDING_TIMESHEETS_KEY });
+      void qc.invalidateQueries({ queryKey: ["household-timesheets"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save"),
+  });
+  return (
+    <label className="flex items-center justify-between gap-3 rounded-2xl border border-border-soft bg-card px-4 py-3 text-sm">
+      <span>
+        <span className="block font-semibold">Enable Timesheets</span>
+        <span className="block text-xs text-muted-foreground">
+          {active
+            ? "Track babysitter hours, caregiver time cards and approvals."
+            : "Off. Previous time cards stay available to view."}
+        </span>
+      </span>
+      <Switch checked={active} disabled={disabled || m.isPending} onCheckedChange={(v) => m.mutate(v)} />
+    </label>
   );
 }
 
@@ -127,12 +164,18 @@ function CloseTimesheetButton({ id, onClosed }: { id: string; onClosed: () => vo
 }
 
 /** Owner Timesheet hub shown inside Activities. */
-export function OwnerTimesheets() {
+export function OwnerTimesheets({ readOnly = false }: { readOnly?: boolean }) {
   const fetch = useServerFn(listHouseholdTimesheets);
   const { data } = useQuery({ queryKey: ["household-timesheets"], queryFn: () => fetch() });
   return (
     <div className="space-y-5 pb-8 md:pb-0">
-      <OwnerManagedSection />
+      {readOnly ? (
+        <p className="rounded-2xl border border-dashed border-border bg-surface-muted/50 p-3 text-xs text-muted-foreground">
+          Timesheets are off. Turn them on in Settings to review or approve time cards.
+        </p>
+      ) : (
+        <OwnerManagedSection />
+      )}
       {GROUPS.map((g) => {
         const items = (data ?? []).filter((t) => g.match(t));
         if (g.empty === null && items.length === 0) return null;
@@ -147,7 +190,7 @@ export function OwnerTimesheets() {
                 {g.empty}
               </p>
             ) : null}
-            {items.map((t) => <ReviewCard key={t.id} sheet={t} />)}
+            {items.map((t) => <ReviewCard key={t.id} sheet={t} readOnly={readOnly} />)}
           </section>
         );
       })}
@@ -247,7 +290,7 @@ function NotificationSettings() {
   );
 }
 
-function ReviewCard({ sheet }: { sheet: TimesheetView }) {
+function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnly?: boolean }) {
   const qc = useQueryClient();
   const review = useServerFn(reviewTimesheet);
   const search = useSearch({ strict: false }) as { timesheet?: string };
@@ -273,7 +316,7 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update"),
   });
-  const editable = sheet.status === "submitted";
+  const editable = !readOnly && sheet.status === "submitted";
   return (
     <div className="space-y-2 rounded-2xl border border-border-soft bg-card p-4 text-sm">
       <button type="button" className="flex w-full items-start justify-between gap-2 text-left" onClick={() => setOpen((o) => !o)}>
@@ -332,7 +375,7 @@ function ReviewCard({ sheet }: { sheet: TimesheetView }) {
           ) : sheet.status === "draft" ? (
             <p className="text-xs text-muted-foreground">This pay period ended without a submission.</p>
           ) : null}
-          {(sheet.status === "draft" && !sheet.is_current) || sheet.status === "needs_correction" ? <CloseTimesheetButton id={sheet.id} onClosed={refresh} /> : null}
+          {!readOnly && ((sheet.status === "draft" && !sheet.is_current) || sheet.status === "needs_correction") ? <CloseTimesheetButton id={sheet.id} onClosed={refresh} /> : null}
           {editable ? (
             <div className="space-y-2 pt-1">
               <Button size="sm" variant="outline" className="w-full" onClick={() => setEditing((v) => !v)}>

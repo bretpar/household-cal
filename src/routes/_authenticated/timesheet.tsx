@@ -19,6 +19,7 @@ import {
 import { TimeField } from "@/components/TimeField";
 import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
+import { useTimesheetsStatus } from "@/lib/use-timesheets-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,7 +57,8 @@ export const Route = createFileRoute("/_authenticated/timesheet")({
 
 function TimesheetGate() {
   const { family } = useCalendar();
-  if (!hasFeature("timesheets", { familyId: family?.id })) {
+  const ts = useTimesheetsStatus();
+  if (!hasFeature("timesheets", { familyId: family?.id }) || (ts.loaded && !ts.active && !ts.history)) {
     return <p className="text-sm text-muted-foreground">Timesheets aren't available for this household.</p>;
   }
   return <TimesheetPage />;
@@ -185,7 +187,7 @@ function SheetBody({ sheet }: { sheet: TimesheetView }) {
       else next[key] = hours;
       return next;
     });
-  const editable = (sheet.status === "draft" || sheet.status === "needs_correction") && !sheet.before_start;
+  const editable = (sheet.status === "draft" || sheet.status === "needs_correction") && !sheet.before_start && !sheet.read_only;
   const hoursFor = (e: TimesheetEntry) => preview[e.id] ?? hoursBetween(e.actual_start, e.actual_end);
   const total = sheet.entries.reduce((n, e) => n + hoursFor(e), 0) + (preview["new"] ?? 0);
   const refresh = async () => {
@@ -213,6 +215,11 @@ function SheetBody({ sheet }: { sheet: TimesheetView }) {
           <p className="text-base font-bold">{formatHoursLabel(total)}</p>
         </div>
       </div>
+      {sheet.read_only ? (
+        <p className="rounded-2xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+          Timesheets are turned off by your family. Past time cards are kept for your records.
+        </p>
+      ) : null}
       {sheet.before_start ? (
         <p className="rounded-2xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
           This pay period is before your Timesheet start date.

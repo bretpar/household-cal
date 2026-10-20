@@ -915,6 +915,7 @@ export type Database = {
           id: string
           include_google_event_initials: boolean
           name: string
+          timesheets_enabled: boolean
           timezone: string
           updated_at: string
         }
@@ -927,6 +928,7 @@ export type Database = {
           id?: string
           include_google_event_initials?: boolean
           name: string
+          timesheets_enabled?: boolean
           timezone?: string
           updated_at?: string
         }
@@ -939,6 +941,7 @@ export type Database = {
           id?: string
           include_google_event_initials?: boolean
           name?: string
+          timesheets_enabled?: boolean
           timezone?: string
           updated_at?: string
         }
