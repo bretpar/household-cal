@@ -124,7 +124,7 @@ function FamilyPage() {
 
         {isOwner ? <SettingsSection
           title="Childcare scheduling"
-          description="Calendar for babysitting shifts and default caregiver"
+          description="Organize babysitting shifts and caregiver schedules."
           icon={<Heart className="h-5 w-5" aria-hidden />}
         >
           <BabysitterShiftSettings />
