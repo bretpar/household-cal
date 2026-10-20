@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ensureFamilyMembership } from "@/lib/calendar.functions";
 import { withTimeout } from "@/lib/with-timeout";
+import { hasCalendarSetup } from "@/lib/onboarding-calendar-session";
 
 const AUTH_TIMEOUT_MS = 10_000;
 
@@ -139,7 +140,9 @@ async function resolveGuardUncached(pathname: string, gen: number) {
 
   if (resolved) {
     if (!resolved.family_id && !onOnboarding) return { redirectTo: "/onboarding" as const };
-    if (resolved.family_id && onOnboarding) return { redirectTo: "/calendar" as const };
+    if (resolved.family_id && onOnboarding && !(resolved.role === "owner" && hasCalendarSetup(user.id, resolved.family_id))) {
+      return { redirectTo: "/calendar" as const };
+    }
     if (gen !== authGeneration) return { user: data.user };
     setVerifiedMembership(
       resolved.family_id

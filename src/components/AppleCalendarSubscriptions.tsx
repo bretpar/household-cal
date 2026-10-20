@@ -105,7 +105,7 @@ export function AppleCalendarControls({ sourceId }: { sourceId: string }) {
   );
 }
 
-export function AddAppleCalendarDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function AddAppleCalendarDialog({ open, onOpenChange, backgroundSetup = false }: { open: boolean; onOpenChange: (open: boolean) => void; backgroundSetup?: boolean }) {
   const { canEdit, members } = useCalendar();
   const add = useServerFn(addIcsSubscription);
   const invalidate = useAppleInvalidate();
@@ -149,7 +149,7 @@ export function AddAppleCalendarDialog({ open, onOpenChange }: { open: boolean; 
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={addMutation.isPending || !url.trim() || !name.trim()} onClick={() => addMutation.mutate()}>{addMutation.isPending ? "Connecting…" : "Connect"}</Button>
+          <Button disabled={addMutation.isPending || !url.trim() || !name.trim()} onClick={() => { addMutation.mutate(); if (backgroundSetup) onOpenChange(false); }}>{addMutation.isPending ? "Connecting…" : "Connect"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

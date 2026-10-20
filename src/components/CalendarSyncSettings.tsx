@@ -92,7 +92,7 @@ function useGoogleRefresh() {
   };
 }
 
-export function GoogleAccountSettings() {
+export function GoogleAccountSettings({ initiallyExpanded = false }: { initiallyExpanded?: boolean }) {
   const queryClient = useQueryClient();
   const settings = useGoogleSettings();
   const refresh = useGoogleRefresh();
@@ -101,7 +101,7 @@ export function GoogleAccountSettings() {
   const setTitleInitials = useServerFn(setGoogleEventTitleInitials);
   const disconnect = useServerFn(disconnectGoogleAccount);
   const runSync = useServerFn(syncNow);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(initiallyExpanded);
   const [connecting, setConnecting] = useState(false);
   const wasSyncing = useRef(false);
 
@@ -277,6 +277,7 @@ export function GoogleCalendarDialog({
   initialMode = "existing",
   replaceSourceId = null,
   linkSource = null,
+  backgroundSetup = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -284,6 +285,7 @@ export function GoogleCalendarDialog({
   replaceSourceId?: string | null;
   /** Phase 2B: link this empty OFC calendar instead of adding a new slot. */
   linkSource?: { id: string; name: string } | null;
+  backgroundSetup?: boolean;
 }) {
   const settings = useGoogleSettings();
   const refresh = useGoogleRefresh();
@@ -303,7 +305,7 @@ export function GoogleCalendarDialog({
   const available = useQuery({
     queryKey: ["google-calendar-list"],
     queryFn: () => listCalendars(),
-    enabled: open && Boolean(settings.data?.connection),
+    enabled: open && settings.data?.connection?.status === "connected",
   });
   const attachMutation = useMutation({
     mutationFn: (input: Parameters<typeof attach>[0]) => attach(input),
@@ -317,15 +319,17 @@ export function GoogleCalendarDialog({
   });
   const pending = attachMutation.isPending || linkMutation.isPending;
   const atLimit = !replaceSourceId && (settings.data?.calendars.length ?? 0) >= (settings.data?.max_calendars ?? 2);
+  const connected = settings.data?.connection?.status === "connected";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{linkSource ? `Connect "${linkSource.name}" to Google` : replaceSourceId ? "Replace Google calendar" : mode === "create" ? "Create Google calendar" : "Connect Google calendar"}</DialogTitle>
-          {!settings.data?.connection ? <DialogDescription>Connect a Google account first.</DialogDescription> : atLimit ? <DialogDescription>{linkSource ? "Both Google calendar slots are in use. Disconnect a Google calendar before linking another." : "You can connect up to two Google calendars."}</DialogDescription> : linkSource ? <DialogDescription>{mode === "existing" ? "Pick an empty Google calendar. This calendar keeps its name, colour and icon." : "A new Google calendar is created and linked. This calendar keeps its name, colour and icon."}</DialogDescription> : null}
+          {!connected ? <DialogDescription>Connect a Google account first.</DialogDescription> : atLimit ? <DialogDescription>{linkSource ? "Both Google calendar slots are in use. Disconnect a Google calendar before linking another." : "You can connect up to two Google calendars."}</DialogDescription> : linkSource ? <DialogDescription>{mode === "existing" ? "Pick an empty Google calendar. This calendar keeps its name, colour and icon." : "A new Google calendar is created and linked. This calendar keeps its name, colour and icon."}</DialogDescription> : null}
         </DialogHeader>
-        {settings.data?.connection && !atLimit ? (
+        {!connected ? <GoogleAccountSettings initiallyExpanded /> : null}
+        {connected && !atLimit ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
               <Button type="button" size="sm" variant={mode === "existing" ? "default" : "outline"} onClick={() => setMode("existing")}>Use existing</Button>
@@ -349,7 +353,7 @@ export function GoogleCalendarDialog({
         ) : null}
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          {settings.data?.connection && !atLimit ? (
+          {connected && !atLimit ? (
             <Button
               disabled={pending || (mode === "existing" ? !chosen : !newName.trim())}
               onClick={() => {
@@ -365,6 +369,7 @@ export function GoogleCalendarDialog({
                   ? { mode: "create", name: newName, replace_source_id: replaceSourceId }
                   : { mode: "existing", external_calendar_id: chosen, name: selected?.summary ?? chosen, replace_source_id: replaceSourceId }
                 });
+                if (backgroundSetup) onOpenChange(false);
               }}
             >{pending ? "Connecting…" : mode === "create" ? (linkSource ? "Create and link" : "Create and connect") : linkSource ? "Link" : "Connect"}</Button>
           ) : null}
