@@ -16,6 +16,22 @@ export const checkEmailAuthStatus = createServerFn({ method: "POST" })
     const url = process.env["SUPABASE_URL"];
     const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
     if (!url || !key) throw new Error("Sign-in is unavailable right now");
+
+    // Ad-hoc limit: 10 lookups per 10 minutes per visitor IP.
+    const { getRequestHeader } = await import("@tanstack/react-start/server");
+    const ip =
+      getRequestHeader("cf-connecting-ip") ||
+      (getRequestHeader("x-forwarded-for") ?? "").split(",")[0]?.trim() ||
+      "unknown";
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: allowed, error: rlError } = await supabaseAdmin.rpc("consume_auth_lookup", {
+      _bucket: `ip:${ip}`,
+      _max: 10,
+      _window_seconds: 600,
+    });
+    if (rlError) throw new Error("Sign-in is unavailable right now");
+    if (!allowed) throw new Error("Too many attempts. Please wait a few minutes and try again.");
+
     const res = await fetch(
       `${url}/auth/v1/admin/users?per_page=50&filter=${encodeURIComponent(data.email)}`,
       { headers: { apikey: key, Authorization: `Bearer ${key}` } },

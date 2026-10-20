@@ -154,6 +154,24 @@ export type Database = {
         }
         Relationships: []
       }
+      auth_lookup_attempts: {
+        Row: {
+          bucket: string
+          created_at: string
+          id: number
+        }
+        Insert: {
+          bucket: string
+          created_at?: string
+          id?: never
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          id?: never
+        }
+        Relationships: []
+      }
       babysitter_access_calendars: {
         Row: {
           calendar_source_id: string
@@ -1717,6 +1735,10 @@ export type Database = {
           _source_id: string
           _start: string
         }
+        Returns: boolean
+      }
+      consume_auth_lookup: {
+        Args: { _bucket: string; _max: number; _window_seconds: number }
         Returns: boolean
       }
       delete_account_data: {
