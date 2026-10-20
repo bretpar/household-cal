@@ -1,3 +1,5 @@
+import { setTimesheetsEnabled } from "@/lib/timesheets.functions";
+import { TIMESHEETS_STATUS_KEY } from "@/lib/use-timesheets-status";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -103,6 +105,8 @@ function OnboardingPage() {
   const [creatingNew, setCreatingNew] = useState(false);
   const [addBabysitter, setAddBabysitter] = useState(false);
   const [babysitterName, setBabysitterName] = useState("Babysitter");
+  const [enableTimesheets, setEnableTimesheets] = useState(false);
+  const saveTimesheetsEnabled = useServerFn(setTimesheetsEnabled);
 
   // resume from real database state rather than client-side step memory
   useEffect(() => {
@@ -180,6 +184,13 @@ function OnboardingPage() {
         void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
         void queryClient.invalidateQueries({ queryKey: ["shift-settings"] });
         toast.success("Babysitter calendar created");
+      }
+      // Optional and independent: the Babysitter calendar works either way.
+      if (!skip && enableTimesheets && (addBabysitter || family?.babysitter_calendar_source_id)) {
+        await saveTimesheetsEnabled({ data: { enabled: true } }).catch(() =>
+          toast.error("Couldn't turn on Timesheets — you can enable them later in Settings"),
+        );
+        void queryClient.invalidateQueries({ queryKey: TIMESHEETS_STATUS_KEY });
       }
       setStep(4);
     } catch (error) {
@@ -480,6 +491,13 @@ function OnboardingPage() {
                 {addBabysitter && !family?.babysitter_calendar_source_id ? <div className="space-y-1.5">
                   <Label htmlFor="babysitter-calendar-name">Calendar name</Label>
                   <Input id="babysitter-calendar-name" value={babysitterName} maxLength={60} disabled={busy} onChange={(event) => setBabysitterName(event.target.value)} className="h-11" />
+                </div> : null}
+                {addBabysitter || family?.babysitter_calendar_source_id ? <div className="flex items-start gap-3 rounded-xl bg-surface-muted/60 p-3">
+                  <Checkbox id="onboarding-timesheets" className="mt-0.5" checked={enableTimesheets} disabled={busy} onCheckedChange={(checked) => setEnableTimesheets(checked === true)} />
+                  <Label htmlFor="onboarding-timesheets" className="space-y-1 leading-snug">
+                    <span className="block font-semibold">Would you like to enable Timesheets?</span>
+                    <span className="block text-xs font-normal text-muted-foreground">Track babysitter hours, let caregivers submit time cards, and review their hours for approval. You can turn this on later in Settings.</span>
+                  </Label>
                 </div> : null}
               </div> : null}
               <div className="flex flex-wrap gap-2">

@@ -215,6 +215,11 @@ function SheetBody({ sheet }: { sheet: TimesheetView }) {
           <p className="text-base font-bold">{formatHoursLabel(total)}</p>
         </div>
       </div>
+      {sheet.read_only ? (
+        <p className="rounded-2xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+          Timesheets are turned off by your family. Past time cards are kept for your records.
+        </p>
+      ) : null}
       {sheet.before_start ? (
         <p className="rounded-2xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
           This pay period is before your Timesheet start date.
