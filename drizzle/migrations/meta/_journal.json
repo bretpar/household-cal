@@ -78,6 +78,13 @@
       "when": 1792465831157,
       "tag": "0010_families_timesheets_enabled",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792466269690,
+      "tag": "0011_email_lookup_rate_limit",
+      "breakpoints": true
     }
   ]
 }
