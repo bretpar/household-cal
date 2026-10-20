@@ -33,7 +33,7 @@ export function ChildcareCalendarSelect({ value, onValueChange, sources, disable
 
 /** Shared draft and confirmation; no calendar is created on expanding or typing. */
 export function useChildcareSetup() {
-  const { sources } = useCalendar();
+  const { sources, isOwner } = useCalendar();
   const qc = useQueryClient();
   const create = useServerFn(createOfcCalendar);
   const link = useServerFn(linkOfcCalendarToGoogle);
@@ -44,31 +44,41 @@ export function useChildcareSetup() {
   const [name, setName] = useState("Babysitter");
   const [calendarId, setCalendarId] = useState<string | null>(null);
   const inFlight = useRef<Promise<string> | null>(null);
-  const google = useQuery({ queryKey: SYNC_KEY, queryFn: () => loadGoogle() });
+  const claimedSource = useRef<string | null>(null);
+  const google = useQuery({ queryKey: SYNC_KEY, queryFn: () => loadGoogle(), enabled: isOwner });
   const connected = google.data?.connection?.status === "connected";
   const full = (google.data?.calendars.length ?? 0) >= (google.data?.max_calendars ?? 2);
   const ready = destination === "existing" ? sources.some((s) => s.id === calendarId && isWritableDestination(s)) :
     name.trim().length <= 60 && (destination !== "google" || (connected && !full));
   const confirm = () => {
     if (inFlight.current) return inFlight.current;
-    const attempt = confirmChildcareSetup({ destination, name, calendarId }, {
+    const attempt = (async () => {
+      const existing = await loadShifts();
+      if (!existing) throw new Error("Childcare settings are unavailable. Try again.");
+      if (existing.calendar_source_id && existing.calendar_source_id !== claimedSource.current) return existing.calendar_source_id;
+      return confirmChildcareSetup({ destination, name, calendarId }, {
       create: async (calendarName) => {
+        if (claimedSource.current) return { id: claimedSource.current };
         // Check prerequisites before claiming an OFC source for Google creation.
         if (destination === "google") {
           const current = await loadGoogle();
           if (current.connection?.status !== "connected") throw new Error("Connect a Google account first.");
           if (current.calendars.length >= current.max_calendars) throw new Error("Both Google calendar slots are in use.");
         }
-        return create({ data: { name: calendarName, color: "sky", icon: "sitter", display_mode: "events", onboarding_babysitter: true } });
+        const result = await create({ data: { name: calendarName, color: "sky", icon: "sitter", display_mode: "events", onboarding_babysitter: true } });
+        claimedSource.current = result.id;
+        return result;
       },
       isGoogle: async (id) => (await loadGoogle()).calendars.some((s) => s.id === id),
       linkGoogle: (id, calendarName) => link({ data: { source_id: id, mode: "create", name: calendarName } }),
       select: async (id) => {
         if (!sources.some((s) => s.id === id && isWritableDestination(s))) throw new Error("Choose an available OFC or Google calendar.");
         const current = await loadShifts();
+        if (!current) throw new Error("Childcare settings are unavailable. Try again.");
         return select({ data: { calendar_source_id: id, default_member_id: current.default_member_id } });
       },
-    }).finally(() => {
+      });
+    })().finally(() => {
       inFlight.current = null;
       void qc.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
       void qc.invalidateQueries({ queryKey: ["shift-settings"] });
