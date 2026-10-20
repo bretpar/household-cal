@@ -11,6 +11,8 @@ import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, validatePassword } from "@/lib/pass
 import { isNativeApp, startNativeGoogleSignIn } from "@/lib/native-auth";
 import { sanitizeReturnPath } from "@/lib/return-path";
 import { PasswordRevealToggle } from "@/components/PasswordRevealToggle";
+import { useServerFn } from "@tanstack/react-start";
+import { checkEmailAuthStatus } from "@/lib/auth-lookup.functions";
 
 const authPageClassName =
   "flex h-[100dvh] flex-col items-center overflow-y-auto bg-background px-4 pt-[max(calc(env(safe-area-inset-top)+1rem),1.5rem)] pb-[max(calc(env(safe-area-inset-bottom)+clamp(7rem,18dvh,10rem)),8rem)] sm:h-auto sm:min-h-screen sm:justify-center sm:overflow-visible sm:py-10";
@@ -63,6 +65,41 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [reveal, setReveal] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<"email" | "password" | "google">(
+    initialMode === "signup" ? "password" : "email",
+  );
+  const checkEmail = useServerFn(checkEmailAuthStatus);
+  const continueWithEmail = async () => {
+    const value = currentEmail().trim();
+    if (!value) {
+      toast.error("Enter your email");
+      return;
+    }
+    setEmail(value);
+    setBusy(true);
+    try {
+      const { status } = await checkEmail({ data: { email: value } });
+      if (status === "not_found") {
+        setMode("signup");
+        setStage("password");
+      } else if (status === "google") {
+        setMode("signin");
+        setStage("google");
+      } else {
+        setMode("signin");
+        setStage("password");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const changeEmail = () => {
+    setPassword("");
+    setMode("signin");
+    setStage("email");
+  };
   const [resetSent, setResetSent] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -121,7 +158,12 @@ function AuthPage() {
           email: emailValue.trim(),
           password: passwordValue,
         });
-        if (error) throw error;
+        if (error) {
+          if (/invalid login credentials/i.test(error.message)) {
+            throw new Error("Incorrect password. Try again or reset your password.");
+          }
+          throw error;
+        }
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Something went wrong");
@@ -226,29 +268,72 @@ function AuthPage() {
     <div className={authPageClassName}>
       <div className={authCardClassName}>
         <h1 className="font-display text-2xl font-bold">
-          {mode === "signin" ? "Welcome back" : "Create your account"}
+          {stage === "email"
+            ? "Welcome"
+            : stage === "google"
+              ? "Sign in with Google"
+              : mode === "signin"
+                ? "Welcome back"
+                : "Create your account"}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {mode === "signin"
-            ? "Sign in to see your household calendar."
-            : "Sign up and your household will be set up for you."}
+          {stage === "email"
+            ? "Enter your email to sign in or create an account."
+            : stage === "google"
+              ? "This account signs in with Google."
+              : mode === "signin"
+                ? "Enter your password to see your household calendar."
+                : "No account found for this email. Choose a password to create one."}
         </p>
 
-        <div className="mt-5 space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="auth-email">Email</Label>
-            <Input
-              ref={emailRef}
-              id="auth-email"
-              name="email"
-              data-testid="auth-email"
-              type="email"
-              autoComplete="email"
-              defaultValue={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-11 rounded-xl"
-            />
+        {stage === "email" ? (
+          <form
+            className="mt-5 space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void continueWithEmail();
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="auth-email">Email</Label>
+              <Input
+                ref={emailRef}
+                id="auth-email"
+                name="email"
+                data-testid="auth-email"
+                type="email"
+                autoComplete="email"
+                defaultValue={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-11 rounded-xl"
+              />
+            </div>
+            <Button className="h-11 w-full rounded-full font-bold" disabled={busy} type="submit">
+              Continue
+            </Button>
+          </form>
+        ) : (
+          <div className="mt-5 flex items-center justify-between gap-2 rounded-xl border border-border-soft px-3 py-2 text-sm">
+            <span className="truncate font-semibold">{email}</span>
+            <button
+              type="button"
+              className="shrink-0 text-xs font-semibold text-muted-foreground hover:text-foreground"
+              onClick={changeEmail}
+            >
+              Change
+            </button>
           </div>
+        )}
+
+        {stage === "password" ? (
+        <form
+          className="mt-3 space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
+          <input ref={emailRef} type="email" name="email" autoComplete="username" value={email} readOnly hidden />
           <div className="space-y-1.5">
             <Label htmlFor="auth-password">Password</Label>
             <div className="relative">
@@ -284,13 +369,13 @@ function AuthPage() {
           ) : null}
           <Button
             className="h-11 w-full rounded-full font-bold"
-            onClick={submit}
             disabled={busy}
-            type="button"
+            type="submit"
           >
             {mode === "signin" ? "Sign in" : "Create account"}
           </Button>
-        </div>
+        </form>
+        ) : null}
 
         <div className="my-4 flex items-center gap-3 text-xs font-semibold text-muted-foreground">
           <span className="h-px flex-1 bg-border-soft" />
@@ -299,21 +384,23 @@ function AuthPage() {
         </div>
 
         <Button
-          variant="outline"
           className="h-11 w-full rounded-full font-bold"
           onClick={googleSignIn}
           type="button"
+          variant={stage === "google" ? "default" : "outline"}
         >
           Continue with Google
         </Button>
 
+        {stage !== "email" ? (
         <button
           type="button"
           className="mt-5 w-full text-sm font-semibold text-muted-foreground hover:text-foreground"
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+          onClick={changeEmail}
         >
-          {mode === "signin" ? "New here? Create an account" : "Already have an account? Sign in"}
+          Use a different email
         </button>
+        ) : null}
       </div>
     </div>
   );
