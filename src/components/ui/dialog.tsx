@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useModalViewport } from "@/hooks/use-modal-viewport";
 
 const Dialog = DialogPrimitive.Root;
 
@@ -44,6 +45,7 @@ const DialogContent = React.forwardRef<
 >(({ className, children, hideClose, onSwipeClose, mobileViewportSafe, ...props }, ref) => {
   const [dragY, setDragY] = React.useState(0);
   const startY = React.useRef<number | null>(null);
+  const viewportRef = useModalViewport(ref);
 
   // Drag-to-dismiss only applies to the mobile bottom sheet (max-sm). On
   // tablet/desktop the centered dialog relies on translate -50% classes and
@@ -52,6 +54,9 @@ const DialogContent = React.forwardRef<
     typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches;
 
   const canDrag = (target: EventTarget | null) => {
+    if (document.activeElement instanceof HTMLElement &&
+        document.activeElement.matches("input, textarea, [contenteditable='true']")) return false;
+    if (target instanceof HTMLElement && target.closest("input, textarea, button, [role='combobox'], [contenteditable='true']")) return false;
     // Only start a sheet drag when no inner scroller is scrolled down.
     let node = target as HTMLElement | null;
     while (node) {
@@ -84,7 +89,7 @@ const DialogContent = React.forwardRef<
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
-        ref={ref}
+        ref={viewportRef}
         style={dragY > 0 ? { transform: `translateY(${dragY}px)` } : undefined}
         className={cn(
           "fixed left-[50%] top-[50%] z-50 flex w-full max-w-lg max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] translate-x-[-50%] translate-y-[-50%] flex-col gap-4 overflow-hidden overscroll-contain border bg-background p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
@@ -93,7 +98,9 @@ const DialogContent = React.forwardRef<
           mobileViewportSafe &&
             "max-sm:bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] max-sm:max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem)] max-sm:pt-5",
           className,
+          "mobile-viewport-dialog",
         )}
+        data-viewport-safe={mobileViewportSafe ? "true" : undefined}
         {...touchHandlers}
         {...props}
       >
