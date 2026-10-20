@@ -1,5 +1,10 @@
 # Roadmap
 
+## Confirmed data-preservation blockers
+- [ ] Preserve existing shift assignments independently of the current childcare-calendar setting.
+- [ ] Save onboarding members by stable IDs, deleting only explicitly removed members.
+- [ ] Run only focused preservation tests and inspect automatic compilation; no browser QA or publishing.
+
 ## Simplify childcare setup and Settings
 - [x] Replace onboarding checkbox/name with optional create, supported existing-calendar, and later choices; default to later.
 - [x] Consolidate childcare Settings labels and reuse existing create/select helpers, without changing shifts or permissions.
