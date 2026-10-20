@@ -154,7 +154,8 @@ export function FamilyMemberSettings() {
   const timesheetsFn = useServerFn(setCaregiverTimesheets);
   const timesheetsOn = (m: FamilyMember) =>
     !!shift?.caregivers.some((c) => c.family_member_id === m.id && c.timesheets_enabled);
-  const showTimesheets = hasFeature("timesheets") && useTimesheetsStatus().active;
+  const tsStatus = useTimesheetsStatus();
+  const showTimesheets = hasFeature("timesheets") && tsStatus.active;
   const toggleTimesheets = async (m: FamilyMember) => {
     const next = !timesheetsOn(m);
     try {

@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getVerifiedMembership } from "@/lib/auth-guard";
 import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
+import { useTimesheetsStatus } from "@/lib/use-timesheets-status";
 import { useCaregiver } from "@/lib/use-caregiver";
 import { TOUR_VERSION, shouldAutoStartTour, tourSteps, tourStorageKey, type TourStatus } from "@/lib/app-tour";
 
@@ -21,9 +22,10 @@ export function AppTourProvider({ children }: { children: ReactNode }) {
   const [index, setIndex] = useState<number | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const autoChecked = useRef<string | null>(null);
+  const ts = useTimesheetsStatus();
   const steps = useMemo(() => {
     return tourSteps(isCaregiver, isOwner, hasFeature("timesheets", { familyId: family?.id }) && ts.active);
-  }, [isCaregiver, isOwner, family?.id]);
+  }, [isCaregiver, isOwner, family?.id, ts.active]);
   const step = index === null ? undefined : steps[index];
   const accessReady = resolved && !failed && !!family && !onboarding;
 
