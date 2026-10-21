@@ -168,7 +168,15 @@ function AuthPage() {
         }
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Something went wrong");
+      const message = error instanceof Error ? error.message : "Something went wrong";
+      // Invited (or returning) users who already have an account but landed on
+      // the sign-up stage: switch to sign-in instead of showing a raw error.
+      if (mode === "signup" && /already (been )?registered|already exists|already in use/i.test(message)) {
+        setMode("signin");
+        toast.error("You already have an account with this email — sign in instead.");
+      } else {
+        toast.error(message);
+      }
     } finally {
       setBusy(false);
     }

@@ -3,7 +3,7 @@ import { TIMESHEETS_STATUS_KEY } from "@/lib/use-timesheets-status";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Info, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,6 +34,8 @@ import { ChildcareSetupFields, useChildcareSetup } from "@/components/ChildcareS
 import { useCalendar } from "@/lib/calendar-store";
 import { beginCalendarSetup, finishCalendarSetup } from "@/lib/onboarding-calendar-session";
 import { retryGuard } from "@/lib/auth-guard";
+import { requestHeartReveal } from "@/components/StartupSplash";
+import { getHouseholdAccess } from "@/lib/household.functions";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => ({
@@ -98,8 +100,10 @@ function OnboardingPage() {
   const status = useQuery({
     queryKey: ["onboarding-status"],
     queryFn: () => loadStatus(),
-    staleTime: 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
+  const fetchAccess = useServerFn(getHouseholdAccess);
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [householdName, setHouseholdName] = useState("");
@@ -112,10 +116,14 @@ function OnboardingPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const saveTimesheetsEnabled = useServerFn(setTimesheetsEnabled);
 
-  // resume from real database state rather than client-side step memory
+  // Resume from real database state rather than client-side step memory —
+  // but only on the FIRST load. A later background refetch must not move the
+  // step or overwrite in-progress member edits.
+  const stepInitialized = useRef(false);
   useEffect(() => {
     const data = status.data;
-    if (!data) return;
+    if (!data || stepInitialized.current) return;
+    stepInitialized.current = true;
     const name = data.family_name;
     if (name) setHouseholdName((prev) => prev || name);
     if (!data.family_id) {
@@ -196,8 +204,17 @@ function OnboardingPage() {
     } finally { setBusy(false); }
   };
 
+  // Warm the invitation data while the owner reads the final step, so the
+  // "Invite someone" dialog opens instantly instead of after a loading flash.
+  useEffect(() => {
+    if (step === 4) {
+      void queryClient.prefetchQuery({ queryKey: ["household-access"], queryFn: () => fetchAccess() });
+    }
+  }, [step, queryClient, fetchAccess]);
+
   const leaveOnboarding = (to: "/calendar" | "/family") => {
     finishCalendarSetup();
+    if (to === "/calendar") requestHeartReveal();
     void navigate({ to });
   };
 
@@ -536,6 +553,25 @@ function OnboardingPage() {
                 {rows.filter((r) => r.name).length === 1 ? "person" : "people"}. Add your first event
                 whenever you like.
               </p>
+              <ul className="flex flex-wrap items-center justify-center gap-2" aria-label="Your family members">
+                {rows.filter((r) => r.name.trim()).map((row) => (
+                  <li
+                    key={row.key}
+                    className="flex items-center gap-2 rounded-full border border-border-soft bg-surface px-3 py-1.5 text-sm font-semibold"
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
+                        styleForColor(row.color).badge,
+                      )}
+                    >
+                      {(row.initialTouched ? row.initial : row.name.charAt(0)).toUpperCase().slice(0, 1)}
+                    </span>
+                    {row.name.trim()}
+                  </li>
+                ))}
+              </ul>
               <div className="space-y-2">
                 <Button
                   className="h-12 w-full rounded-full font-bold"

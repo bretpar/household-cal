@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { isNativeApp } from "@/lib/native-auth";
 import { hideNativeSplash } from "@/lib/native-splash";
@@ -75,6 +75,23 @@ export function StartupSplash({
 let revealUsed = false;
 
 /**
+ * One-shot request for the heart reveal outside the initial launch — currently
+ * onboarding's "Go to Calendar" finish. Resets the once-per-launch guard and
+ * notifies the mounted reveal so it can hold again until the calendar is ready.
+ */
+let revealRequestVersion = 0;
+const revealRequestListeners = new Set<() => void>();
+export function requestHeartReveal(): void {
+  revealUsed = false;
+  revealRequestVersion += 1;
+  revealRequestListeners.forEach((l) => l());
+}
+function subscribeRevealRequests(listener: () => void) {
+  revealRequestListeners.add(listener);
+  return () => void revealRequestListeners.delete(listener);
+}
+
+/**
  * Rendered over the live calendar once the shell mounts. Stays solid blue while
  * the first bundle loads, then opens with the heart. Load errors and reduced
  * motion skip the animation immediately.
@@ -83,17 +100,48 @@ export function StartupHeartReveal({ loading, failed }: { loading: boolean; fail
   const [phase, setPhase] = useState<"hold" | "reveal" | "done">(() =>
     revealUsed ? "done" : "hold",
   );
+  const requestVersion = useSyncExternalStore(
+    subscribeRevealRequests,
+    () => revealRequestVersion,
+    () => revealRequestVersion,
+  );
+  const seenRequestVersion = useRef(requestVersion);
+  /** A finish request is waiting for its destination to become ready. */
+  const requestedReveal = useRef(false);
+
+  useEffect(() => {
+    if (requestVersion === seenRequestVersion.current) return;
+    seenRequestVersion.current = requestVersion;
+    // A finish request arrives while the splash is done (e.g. onboarding):
+    // hold again so the reveal waits for the calendar to be ready.
+    requestedReveal.current = true;
+    setPhase("hold");
+  }, [requestVersion]);
 
   useEffect(() => {
     if (phase !== "hold" || loading) return;
+    if (failed) {
+      // A finish request (e.g. leaving onboarding) holds through the source
+      // page's failed state until the destination is ready. Genuine load
+      // errors end the splash immediately, and a bounded timeout guarantees
+      // the overlay can never stick over an in-page error.
+      if (!requestedReveal.current) {
+        setPhase("done");
+        return;
+      }
+      const t = window.setTimeout(() => setPhase("done"), 10_000);
+      return () => window.clearTimeout(t);
+    }
+    requestedReveal.current = false;
     revealUsed = true;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Desktop/tablet browsers and signed-out visitors: no animation.
-    if (failed || reduce || !usesBrandedSplash() || !hasCachedSession()) {
+    if (reduce || !usesBrandedSplash() || !hasCachedSession()) {
       setPhase("done");
       return;
     }
     setPhase("reveal");
+    return undefined;
   }, [phase, loading, failed]);
 
   useEffect(() => {

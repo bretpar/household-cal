@@ -1,5 +1,12 @@
 # Roadmap
 
+## Onboarding polish and heart-reveal finish
+- [x] Lock onboarding step/member state to the first status load so background refetches can't yank users off Step 2 or wipe edits.
+- [x] Prefetch household access on Step 4 so the invitation dialog opens instantly.
+- [x] Add a Step 4 completion card with colored member chips; "Go to Calendar" now plays the heart reveal via requestHeartReveal().
+- [x] Sign-up with an already-registered email switches to sign-in with a clear message (invited users who already have accounts).
+- [x] Type-check and 25 focused tests pass; no browser QA or publishing. The live heart reveal on a real fresh signup remains unverified.
+
 ## Step 4 invitations and onboarding copy
 - [x] Open the existing invitation dialog directly from Step 4 with load errors and Retry; keep invitations optional.
 - [x] Remove childcare explanation and add touch-friendly Timesheets information popover; keep default unchecked.
