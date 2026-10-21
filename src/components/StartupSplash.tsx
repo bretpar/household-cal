@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { isNativeApp } from "@/lib/native-auth";
 import { hideNativeSplash } from "@/lib/native-splash";
