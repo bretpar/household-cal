@@ -562,8 +562,8 @@ function OnboardingPage() {
                     <span
                       aria-hidden
                       className={cn(
-                        "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white",
-                        styleForColor(row.color).dot,
+                        "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
+                        styleForColor(row.color).badge,
                       )}
                     >
                       {(row.initialTouched ? row.initial : row.name.charAt(0)).toUpperCase().slice(0, 1)}
