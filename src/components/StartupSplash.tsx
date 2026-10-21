@@ -106,21 +106,37 @@ export function StartupHeartReveal({ loading, failed }: { loading: boolean; fail
     () => revealRequestVersion,
   );
   const seenRequestVersion = useRef(requestVersion);
+  /** A finish request is waiting for its destination to become ready. */
+  const requestedReveal = useRef(false);
 
   useEffect(() => {
     if (requestVersion === seenRequestVersion.current) return;
     seenRequestVersion.current = requestVersion;
     // A finish request arrives while the splash is done (e.g. onboarding):
     // hold again so the reveal waits for the calendar to be ready.
+    requestedReveal.current = true;
     setPhase("hold");
   }, [requestVersion]);
 
   useEffect(() => {
     if (phase !== "hold" || loading) return;
+    if (failed) {
+      // A finish request (e.g. leaving onboarding) holds through the source
+      // page's failed state until the destination is ready. Genuine load
+      // errors end the splash immediately, and a bounded timeout guarantees
+      // the overlay can never stick over an in-page error.
+      if (!requestedReveal.current) {
+        setPhase("done");
+        return;
+      }
+      const t = window.setTimeout(() => setPhase("done"), 10_000);
+      return () => window.clearTimeout(t);
+    }
+    requestedReveal.current = false;
     revealUsed = true;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Desktop/tablet browsers and signed-out visitors: no animation.
-    if (failed || reduce || !usesBrandedSplash() || !hasCachedSession()) {
+    if (reduce || !usesBrandedSplash() || !hasCachedSession()) {
       setPhase("done");
       return;
     }
