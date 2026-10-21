@@ -75,6 +75,23 @@ export function StartupSplash({
 let revealUsed = false;
 
 /**
+ * One-shot request for the heart reveal outside the initial launch — currently
+ * onboarding's "Go to Calendar" finish. Resets the once-per-launch guard and
+ * notifies the mounted reveal so it can hold again until the calendar is ready.
+ */
+let revealRequestVersion = 0;
+const revealRequestListeners = new Set<() => void>();
+export function requestHeartReveal(): void {
+  revealUsed = false;
+  revealRequestVersion += 1;
+  revealRequestListeners.forEach((l) => l());
+}
+function subscribeRevealRequests(listener: () => void) {
+  revealRequestListeners.add(listener);
+  return () => void revealRequestListeners.delete(listener);
+}
+
+/**
  * Rendered over the live calendar once the shell mounts. Stays solid blue while
  * the first bundle loads, then opens with the heart. Load errors and reduced
  * motion skip the animation immediately.
@@ -83,6 +100,20 @@ export function StartupHeartReveal({ loading, failed }: { loading: boolean; fail
   const [phase, setPhase] = useState<"hold" | "reveal" | "done">(() =>
     revealUsed ? "done" : "hold",
   );
+  const requestVersion = useSyncExternalStore(
+    subscribeRevealRequests,
+    () => revealRequestVersion,
+    () => revealRequestVersion,
+  );
+  const seenRequestVersion = useRef(requestVersion);
+
+  useEffect(() => {
+    if (requestVersion === seenRequestVersion.current) return;
+    seenRequestVersion.current = requestVersion;
+    // A finish request arrives while the splash is done (e.g. onboarding):
+    // hold again so the reveal waits for the calendar to be ready.
+    setPhase("hold");
+  }, [requestVersion]);
 
   useEffect(() => {
     if (phase !== "hold" || loading) return;
