@@ -47,6 +47,8 @@ export const Route = createFileRoute("/auth")({
       },
       { property: "og:title", content: "Sign in — Family Calendar" },
       { property: "og:description", content: "Access your household's shared calendar." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
@@ -66,7 +68,7 @@ function AuthPage() {
   const [reveal, setReveal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<"email" | "password" | "google">(
-    initialMode === "signup" ? "password" : "email",
+    initialMode === "signup" && initialEmail ? "password" : "email",
   );
   const checkEmail = useServerFn(checkEmailAuthStatus);
   const continueWithEmail = async () => {
