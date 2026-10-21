@@ -133,7 +133,6 @@ export function StartupHeartReveal({ loading, failed }: { loading: boolean; fail
       return () => window.clearTimeout(t);
     }
     requestedReveal.current = false;
-    // eslint-disable-next-line consistent-return
     revealUsed = true;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Desktop/tablet browsers and signed-out visitors: no animation.
@@ -142,6 +141,7 @@ export function StartupHeartReveal({ loading, failed }: { loading: boolean; fail
       return;
     }
     setPhase("reveal");
+    return undefined;
   }, [phase, loading, failed]);
 
   useEffect(() => {
