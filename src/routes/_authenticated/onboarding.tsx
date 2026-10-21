@@ -100,8 +100,10 @@ function OnboardingPage() {
   const status = useQuery({
     queryKey: ["onboarding-status"],
     queryFn: () => loadStatus(),
-    staleTime: 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
+  const fetchAccess = useServerFn(getHouseholdAccess);
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [householdName, setHouseholdName] = useState("");
@@ -114,10 +116,14 @@ function OnboardingPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const saveTimesheetsEnabled = useServerFn(setTimesheetsEnabled);
 
-  // resume from real database state rather than client-side step memory
+  // Resume from real database state rather than client-side step memory —
+  // but only on the FIRST load. A later background refetch must not move the
+  // step or overwrite in-progress member edits.
+  const stepInitialized = useRef(false);
   useEffect(() => {
     const data = status.data;
-    if (!data) return;
+    if (!data || stepInitialized.current) return;
+    stepInitialized.current = true;
     const name = data.family_name;
     if (name) setHouseholdName((prev) => prev || name);
     if (!data.family_id) {
