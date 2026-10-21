@@ -3,7 +3,7 @@ import { TIMESHEETS_STATUS_KEY } from "@/lib/use-timesheets-status";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Info, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,6 +34,8 @@ import { ChildcareSetupFields, useChildcareSetup } from "@/components/ChildcareS
 import { useCalendar } from "@/lib/calendar-store";
 import { beginCalendarSetup, finishCalendarSetup } from "@/lib/onboarding-calendar-session";
 import { retryGuard } from "@/lib/auth-guard";
+import { requestHeartReveal } from "@/components/StartupSplash";
+import { getHouseholdAccess } from "@/lib/household.functions";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => ({
