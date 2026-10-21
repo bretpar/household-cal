@@ -553,6 +553,25 @@ function OnboardingPage() {
                 {rows.filter((r) => r.name).length === 1 ? "person" : "people"}. Add your first event
                 whenever you like.
               </p>
+              <ul className="flex flex-wrap items-center justify-center gap-2" aria-label="Your family members">
+                {rows.filter((r) => r.name.trim()).map((row) => (
+                  <li
+                    key={row.key}
+                    className="flex items-center gap-2 rounded-full border border-border-soft bg-surface px-3 py-1.5 text-sm font-semibold"
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white",
+                        styleForColor(row.color).dot,
+                      )}
+                    >
+                      {(row.initialTouched ? row.initial : row.name.charAt(0)).toUpperCase().slice(0, 1)}
+                    </span>
+                    {row.name.trim()}
+                  </li>
+                ))}
+              </ul>
               <div className="space-y-2">
                 <Button
                   className="h-12 w-full rounded-full font-bold"
