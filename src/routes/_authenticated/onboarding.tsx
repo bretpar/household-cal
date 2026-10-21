@@ -204,8 +204,17 @@ function OnboardingPage() {
     } finally { setBusy(false); }
   };
 
+  // Warm the invitation data while the owner reads the final step, so the
+  // "Invite someone" dialog opens instantly instead of after a loading flash.
+  useEffect(() => {
+    if (step === 4) {
+      void queryClient.prefetchQuery({ queryKey: ["household-access"], queryFn: () => fetchAccess() });
+    }
+  }, [step, queryClient, fetchAccess]);
+
   const leaveOnboarding = (to: "/calendar" | "/family") => {
     finishCalendarSetup();
+    if (to === "/calendar") requestHeartReveal();
     void navigate({ to });
   };
 
