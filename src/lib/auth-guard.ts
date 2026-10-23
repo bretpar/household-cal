@@ -138,6 +138,11 @@ async function resolveGuardUncached(pathname: string, gen: number) {
     // leave `resolved` undefined so the error path below keeps the user in-app
   }
 
+  // A household without a verified role is not confirmed access: use the
+  // existing access-error/retry path rather than trusting family_id alone.
+  if (resolved && resolved.family_id && !resolved.role) {
+    return { accessError: true as const };
+  }
   if (resolved) {
     if (!resolved.family_id && !onOnboarding) return { redirectTo: "/onboarding" as const };
     if (resolved.family_id && onOnboarding && !(resolved.role === "owner" && hasCalendarSetup(user.id, resolved.family_id))) {

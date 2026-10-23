@@ -69,11 +69,13 @@ function AuthenticatedLayout() {
     // After the first pass, beforeLoad gates every client navigation; running
     // the guard here again would only duplicate its auth + household requests.
     if (everReady || bootstrapDone.current) return;
-    bootstrapDone.current = true;
     let cancelled = false;
     void (async () => {
       const result = await resolveGuard(pathname);
+      // A cancelled attempt must not mark bootstrap complete, so the
+      // replacement effect (new pathname) can still finish startup.
       if (cancelled) return;
+      bootstrapDone.current = true;
       if ("redirectTo" in result) {
         // Only redirect when the guard disagrees with the current path; on
         // the destination path the guard passes, so no redirect loop forms.
