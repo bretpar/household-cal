@@ -85,6 +85,9 @@ async function claimAndSend(
   template: string,
   templateData: Record<string, unknown>,
 ): Promise<boolean> {
+  // Household Timesheets off: nothing is claimed or sent. Scheduled paths already
+  // gate on this; inline hooks (submitted/reviewed/opt-out) route through here too.
+  if (!(await householdTimesheetsOn(row.family_id))) return false;
   const ins = await admin.from("timesheet_notifications").insert({ ...row, status: "claimed" }).select("id").single();
   if (ins.error) {
     if (ins.error.code === "23505") return false;
