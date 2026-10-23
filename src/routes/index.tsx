@@ -264,7 +264,15 @@ function CompareMark({ value }: { value: CompareValue }) {
 }
 
 function AuthLoadingShell() {
-  return <StartupSplash />;
+  // Public site: the startup overlay belongs to the native iOS shell only. In a
+  // browser the landing page shows straight away (the session check still runs
+  // underneath and sends signed-in visitors to /today). `native-shell` is the
+  // class StartupSplash puts on <html> when running inside the app.
+  return (
+    <div className="hidden [.native-shell_&]:block">
+      <StartupSplash />
+    </div>
+  );
 }
 
 function LandingPage() {
