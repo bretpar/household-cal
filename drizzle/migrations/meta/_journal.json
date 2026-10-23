@@ -85,6 +85,13 @@
       "when": 1792466269690,
       "tag": "0011_email_lookup_rate_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792787354906,
+      "tag": "0012_preserve_caregiver_timesheets_setting_on_accept",
+      "breakpoints": true
     }
   ]
 }
