@@ -307,7 +307,8 @@ function EntryCard({
     requestCalendarDayView();
     void navigate({ to: "/calendar" });
   };
-  if (editing) {
+  // A restored draft must not reopen the editor once the sheet is read-only.
+  if (editing && editable) {
     return (
       <li>
         <EntryEditor
