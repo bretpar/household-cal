@@ -76,17 +76,17 @@ const FAQ_ITEMS = [
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Our Family Calendar | Shared Family Calendar & Scheduling App" },
+      { title: "Shared Family Calendar App With Nanny Scheduling | Our Family Calendar" },
       {
         name: "description",
         content:
-          "Organize family activities and nanny schedules in one shared calendar. Plan recurring shifts, share caregiver access, track hours and connect Google Calendar.",
+          "A shared family calendar app for kids' activities, work and childcare. Color-code each person, sync Google Calendar, schedule your nanny and give caregivers view-only access.",
       },
-      { property: "og:title", content: "Our Family Calendar | Shared Family Calendar & Scheduling App" },
+      { property: "og:title", content: "Shared Family Calendar App With Nanny Scheduling | Our Family Calendar" },
       {
         property: "og:description",
         content:
-          "Organize family activities and nanny schedules in one shared calendar. Plan recurring shifts, share caregiver access, track hours and connect Google Calendar.",
+          "A shared family calendar app for kids' activities, work and childcare. Color-code each person, sync Google Calendar, schedule your nanny and give caregivers view-only access.",
       },
       { property: "og:url", content: `${SITE_URL}/` },
       { property: "og:image", content: OG_IMAGE_URL },
@@ -339,8 +339,8 @@ function LandingPage() {
               The shared family calendar that keeps everyone on the same page.
             </h1>
             <p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
-              School. Sports. Work. Childcare. Appointments. One simple calendar everyone can
-              understand.
+              School, sports, work and appointments in one color-coded calendar — with your nanny
+              or babysitter's shifts right alongside, and view-only access for caregivers.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link to="/auth" search={{ mode: "signup" }}>
