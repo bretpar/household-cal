@@ -5,6 +5,40 @@ import { normalizeWeekdays } from '@/lib/email-summaries/settings.server'
 
 const tz = 'America/Los_Angeles'
 describe('summaries', () => {
+  const allDay = {
+    id: 'all-day', title: 'All-day event',
+    start_at: '2026-10-27T00:00:00Z', end_at: '2026-10-27T23:59:59Z',
+    all_day: true, calendar_source_id: null, recurrence_rule: null, recurrence_until: null,
+  }
+  it('keeps a UTC-midnight all-day October 27 event on Tuesday in every household zone', () => {
+    for (const zone of [tz, 'UTC', 'Pacific/Auckland']) {
+      expect(occursOnDayKey(allDay, '2026-10-26', zone)).toBe(false)
+      expect(occursOnDayKey(allDay, '2026-10-27', zone)).toBe(true)
+      expect(occursOnDayKey(allDay, '2026-10-28', zone)).toBe(false)
+    }
+  })
+  it('includes every date through the stored inclusive all-day end', () => {
+    const event = { ...allDay, end_at: '2026-10-29T23:59:59Z' }
+    expect(['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30']
+      .filter((key) => occursOnDayKey(event, key, tz)))
+      .toEqual(['2026-10-27', '2026-10-28', '2026-10-29'])
+  })
+  it('reads older native all-day instants in the household timezone', () => {
+    const event = { ...allDay, start_at: '2026-10-27T07:00:00Z', end_at: '2026-10-28T06:59:59Z' }
+    expect(occursOnDayKey(event, '2026-10-27', tz)).toBe(true)
+    expect(occursOnDayKey(event, '2026-10-28', tz)).toBe(false)
+  })
+  it('anchors recurring all-day events to their intended date without extending each occurrence', () => {
+    const event = { ...allDay, end_at: '2026-10-28T23:59:59Z', recurrence_rule: 'FREQ=WEEKLY;BYDAY=TU' }
+    expect(occursOnDayKey(event, '2026-10-27', tz)).toBe(true)
+    expect(occursOnDayKey(event, '2026-10-28', tz)).toBe(false)
+    expect(occursOnDayKey(event, '2026-11-03', tz)).toBe(true)
+  })
+  it('continues timezone conversion for timed UTC-midnight events', () => {
+    const event = { ...allDay, all_day: false }
+    expect(occursOnDayKey(event, '2026-10-26', tz)).toBe(true)
+    expect(occursOnDayKey(event, '2026-10-27', tz)).toBe(false)
+  })
   it('weekly window is due after Sunday 6pm local', () => {
     const s = { frequency: 'weekly' as const, send_time: '18:00:00' }
     // Sunday Aug 30 2026 18:05 PDT = 01:05Z Aug 31

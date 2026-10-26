@@ -144,13 +144,28 @@ function monthlyByDayIndex(startKey: string, dayKey: string, rule: { interval: n
   return index;
 }
 
+/** Mirrors family-data's allDayDate compatibility, using the household zone for legacy instants. */
+function allDayKey(value: string, timeZone: string): string {
+  const utcTime = value.slice(11, 19);
+  return utcTime === "00:00:00" || utcTime === "23:59:59"
+    ? value.slice(0, 10)
+    : dayKeyInZone(new Date(value), timeZone);
+}
+
 export function occursOnDayKey(event: SummaryEvent, dayKey: string, timeZone: string): boolean {
-  const startKey = dayKeyInZone(new Date(event.start_at), timeZone);
+  const startKey = event.all_day
+    ? allDayKey(event.start_at, timeZone)
+    : dayKeyInZone(new Date(event.start_at), timeZone);
   if (event.excluded_dates?.includes(dayKey)) return false;
   if (event.recurrence_until && dayKey > event.recurrence_until) return false;
 
   const rule = parseRecurrenceRule(event.recurrence_rule);
-  if (!rule) return dayKey === startKey;
+  if (!rule) {
+    if (!event.all_day) return dayKey === startKey;
+    const endKey = allDayKey(event.end_at, timeZone);
+    // Stored all-day ends are inclusive; malformed earlier ends clamp to the start.
+    return dayKey >= startKey && dayKey <= (endKey < startKey ? startKey : endKey);
+  }
 
   const dayDiff = daysBetween(startKey, dayKey);
   if (dayDiff < 0) return false;
