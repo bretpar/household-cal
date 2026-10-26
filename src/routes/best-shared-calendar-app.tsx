@@ -241,6 +241,10 @@ function BestSharedCalendarPage() {
             <Link to="/features/childcare-scheduling" className="font-semibold text-primary underline underline-offset-4">
               Explore nanny scheduling and caregiver timesheets
             </Link>
+            {" · "}
+            <Link to="/cozi-skylight-alternative" className="font-semibold text-primary underline underline-offset-4">
+              Looking for a Cozi or Skylight alternative?
+            </Link>
           </p>
         </section>
 

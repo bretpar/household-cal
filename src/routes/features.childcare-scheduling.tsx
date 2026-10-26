@@ -3,9 +3,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import mobileDayAsset from "@/assets/landing-mobile-day.png.asset.json";
 import { MarketingFeaturePage, featureHead, linkClass, SITE_URL } from "@/components/MarketingFeaturePage";
 
-const TITLE = "Nanny Schedule App for Families | Our Family Calendar";
+const TITLE = "Childcare Calendar & Nanny Schedule App | Our Family Calendar";
 const DESCRIPTION =
-  "Plan recurring nanny shifts, share a view-only caregiver calendar, and track scheduled vs. actual hours with timesheets—all beside your family’s activities.";
+  "A childcare calendar app for families: plan nanny and babysitter shifts, share a view-only caregiver schedule, and track hours with timesheets beside family activities.";
 
 const SECTIONS = [
   { title: "Build a recurring nanny schedule", body: "Add your nanny's regular days and start and end times with repeat rules. Assign each shift to a caregiver and keep occasional babysitter shifts in the same calendar." },
