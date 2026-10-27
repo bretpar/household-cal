@@ -1,5 +1,8 @@
 # Roadmap
 
+## Public legal entity identification
+- [x] Identify Parker Med LLC in the public footer, Privacy Policy and Terms; confirmed public HTML on all three pages, without rebranding, broad QA or publishing.
+
 ## Onboarding polish and heart-reveal finish
 - [x] Lock onboarding step/member state to the first status load so background refetches can't yank users off Step 2 or wipe edits.
 - [x] Prefetch household access on Step 4 so the invitation dialog opens instantly.

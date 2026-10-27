@@ -31,7 +31,13 @@ function TermsPage() {
         <strong>Effective Date:</strong> August 25, 2026
       </p>
       <p className="text-muted-foreground">
-        <strong>Last Updated:</strong> August 25, 2026
+        <strong>Last Updated:</strong> October 27, 2026
+      </p>
+
+      <p className="text-muted-foreground">
+        Our Family Calendar is owned and operated by Parker Med LLC, a Washington limited liability company.
+        These Terms are an agreement between you and Parker Med LLC. References to "we," "us,"
+        or "our" in these Terms refer to Parker Med LLC.
       </p>
 
       <p className="text-muted-foreground">
