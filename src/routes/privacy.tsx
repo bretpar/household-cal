@@ -31,11 +31,13 @@ function PrivacyPage() {
         <strong>Effective Date:</strong> August 25, 2026
       </p>
       <p className="text-muted-foreground">
-        <strong>Last Updated:</strong> August 25, 2026
+        <strong>Last Updated:</strong> October 27, 2026
       </p>
 
       <p className="text-muted-foreground">
-        Our Family Calendar ("Our Family Calendar," "we," "us," or "our") respects your privacy.
+        Our Family Calendar is owned and operated by Parker Med LLC, a Washington limited liability company.
+        Parker Med LLC ("we," "us," or "our") is the operator of the Service and the controller
+        responsible for your personal information. We respect your privacy.
         This Privacy Policy explains how we collect, use, store, and protect information when you
         use our website, applications, and related services (collectively, the "Service").
       </p>

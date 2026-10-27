@@ -5,8 +5,8 @@ export function LegalFooter() {
 
   return (
     <footer className="border-t border-border-soft bg-surface">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 text-[11px] text-muted-foreground lg:px-8">
-        <span>© {year} Our Family Calendar</span>
+      <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-4 py-3 text-[11px] text-muted-foreground sm:flex-row sm:items-center lg:px-8">
+        <span>© {year} Parker Med LLC. Our Family Calendar is a product of Parker Med LLC.</span>
         <nav className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
           <Link to="/features/family-calendar" className="hover:text-foreground">
             Family calendar
