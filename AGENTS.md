@@ -36,3 +36,4 @@
 - Nonrecurring timed occurrences retain original timestamps and keys; phone Month buckets them with occurrenceOccursOnDay using end-exclusive overlap. Why: show overnight continuations without inventing duplicate occurrences or shifting recurrence dates.
 - Onboarding preserves owner checks and stable IDs; continuation is not authorization. ChildcareSetup shares drafts/idempotent claims with Settings and Google linking. Step state initializes from the first status load only; "Go to Calendar" calls requestHeartReveal(). Why: preserve data, stop step-yanks, fire the reveal.
 - Phone DialogContent uses visualViewport and modal-only scrolling; Radix owns page lock/focus. Why: avoid keyboard overlap and autofill interruption.
+- Timesheet "Already paid" lives in timesheet_entries.paid_hours/paid_note, saved only through the existing entry-save server functions (paidPatch caps at worked hours). Why: payment never alters worked time or permissions.
