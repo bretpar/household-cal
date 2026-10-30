@@ -1,3 +1,4 @@
+import { PaidSummary, TimesheetPaidFields, usePaidState } from "@/components/TimesheetPaidFields";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -336,6 +337,7 @@ function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnl
           <p className="text-xs">
             Scheduled {formatDisplayHours(scheduled)} · <span className="font-semibold">Total · {formatDisplayHours(actual).replace(" h", actual === 1 ? " hour" : " hours")}</span>
           </p>
+          <PaidSummary entries={sheet.entries} total={actual} />
           {sheet.status === "needs_correction" && sheet.parent_note ? (
             <p className="rounded-xl bg-surface-muted/60 p-2 text-xs"><span className="font-semibold">Your note: </span>{sheet.parent_note}</p>
           ) : null}
@@ -418,7 +420,8 @@ function OwnerEntryEditor({ sheet, entry, onSaved }: { sheet: TimesheetView; ent
   const [end, setEnd] = useState(entry.actual_end_local);
   const [note, setNote] = useState(entry.note ?? "");
   const [busy, setBusy] = useState(false);
-  const dirty = start !== entry.actual_start_local || end !== entry.actual_end_local || note !== (entry.note ?? "");
+  const paid = usePaidState(entry);
+  const dirty = start !== entry.actual_start_local || end !== entry.actual_end_local || note !== (entry.note ?? "") || paid.dirty;
   return (
     <div className="space-y-2.5 rounded-xl border border-primary/40 p-3">
       <div className="flex justify-between gap-2">
@@ -434,15 +437,16 @@ function OwnerEntryEditor({ sheet, entry, onSaved }: { sheet: TimesheetView; ent
         </div>
       </div>
       <Input aria-label="Note" placeholder="Note (optional)" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+      <TimesheetPaidFields id={`o-${entry.id}`} state={paid} maxHours={localHours(start, end)} />
       {dirty ? <Button
         size="sm"
         variant="outline"
         className="w-full"
-        disabled={busy || !dirty || !start || !end}
+        disabled={busy || !dirty || !start || !end || !paid.valid(localHours(start, end))}
         onClick={async () => {
           setBusy(true);
           try {
-            await save({ data: { timesheet_id: sheet.id, entry_id: entry.id, start, end, note: note || null } });
+            await save({ data: { timesheet_id: sheet.id, entry_id: entry.id, start, end, note: note || null, ...paid.payload() } });
             toast.success("Entry updated");
             onSaved();
           } catch (e) {
@@ -540,6 +544,7 @@ function OwnerManagedCard({ memberId, name, attention }: { memberId: string; nam
           {sheet ? (
             <>
               <p className="text-xs font-semibold">Total · {formatDisplayHours(actual).replace(" h", actual === 1 ? " hour" : " hours")}</p>
+              <PaidSummary entries={sheet.entries} total={actual} />
               {sheet.entries.length === 0 && !adding ? (
                 <p className="text-xs text-muted-foreground">No shifts in this pay period.</p>
               ) : null}
@@ -597,7 +602,9 @@ function ManagedEntryEditor({
   const [end, setEnd] = useState(entry?.actual_end_local ?? "");
   const [note, setNote] = useState(entry?.note ?? "");
   const [busy, setBusy] = useState(false);
-  const dirty = !entry || start !== entry.actual_start_local || end !== entry.actual_end_local || note !== (entry.note ?? "");
+  const paid = usePaidState(entry);
+  const liveHours = start && end ? localHours(start, end) : 0;
+  const dirty = !entry || start !== entry.actual_start_local || end !== entry.actual_end_local || note !== (entry.note ?? "") || paid.dirty;
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
     try {
@@ -638,15 +645,16 @@ function ManagedEntryEditor({
         </div>
       </div>
       <Input aria-label="Add note (optional)" placeholder="Add note (optional)" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+      <TimesheetPaidFields id={`m-${idp}`} state={paid} maxHours={liveHours} />
       <div className={entry?.is_manual && dirty ? "grid grid-cols-2 gap-2" : ""}>
         {dirty ? <Button
           size="sm"
           variant={entry ? "outline" : "default"}
           className="w-full"
-          disabled={busy || !start || !end || !date}
+          disabled={busy || !start || !end || !date || !paid.valid(liveHours)}
           onClick={() =>
             void run(
-              () => save({ data: { timesheet_id: sheet.id, entry_id: entry?.id ?? null, work_date: entry?.work_date ?? date, start, end, note: note || null } }),
+              () => save({ data: { timesheet_id: sheet.id, entry_id: entry?.id ?? null, work_date: entry?.work_date ?? date, start, end, note: note || null, ...paid.payload() } }),
               entry ? "Entry updated" : "Entry added",
             )
           }

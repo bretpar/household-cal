@@ -1,3 +1,4 @@
+import { PaidSummary, TimesheetPaidFields, usePaidState } from "@/components/TimesheetPaidFields";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -153,6 +154,7 @@ function UpcomingBody({ sheet }: { sheet: TimesheetView }) {
         <div className="text-right">
           <p className="text-xs text-muted-foreground">Scheduled</p>
           <p className="text-base font-bold">{formatHoursLabel(total)}</p>
+          <PaidSummary entries={sheet.entries} total={total} className="text-[11px] text-muted-foreground" />
         </div>
       </div>
       <ul className="space-y-3">
@@ -400,7 +402,8 @@ function EntryEditor({
   const cancel = () => { clearTimesheetDraft(key); onCancel(); };
   const [busy, setBusy] = useState(false);
   const live = localHours(start, end);
-  const dirty = !entry || start !== entry.actual_start_local || end !== entry.actual_end_local || note !== (entry.note ?? "");
+  const paid = usePaidState(entry);
+  const dirty = !entry || start !== entry.actual_start_local || end !== entry.actual_end_local || note !== (entry.note ?? "") || paid.dirty;
   useEffect(() => {
     onPreview(live);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -436,15 +439,16 @@ function EntryEditor({
         <Label htmlFor={`ts-note-${entry?.id ?? "new"}`} className="text-xs">Add note (optional)</Label>
         <Input id={`ts-note-${entry?.id ?? "new"}`} className="w-full" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
       </div>
+      <TimesheetPaidFields id={entry?.id ?? "new"} state={paid} maxHours={live} />
       <p className="text-xs text-muted-foreground">An end time before the start counts as overnight.</p>
       <div className={entry && !dirty ? "" : "grid grid-cols-2 gap-2"}>
         <Button variant="outline" className={entry && !dirty ? "w-full" : undefined} onClick={cancel} disabled={busy}>Cancel</Button>
         {!entry || dirty ? <Button
-          disabled={busy || !dirty || !start || !end || !date}
+          disabled={busy || !dirty || !start || !end || !date || !paid.valid(live)}
           onClick={async () => {
             setBusy(true);
             try {
-              await save({ data: { timesheet_id: sheet.id, entry_id: entry?.id ?? null, work_date: date, start, end, note: note || null } });
+              await save({ data: { timesheet_id: sheet.id, entry_id: entry?.id ?? null, work_date: date, start, end, note: note || null, ...paid.payload() } });
               clearTimesheetDraft(key);
               await onDone();
             } catch (e) {
