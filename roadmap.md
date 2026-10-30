@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Fixed phone Month and scrollable agenda
+- [x] Replace the fixed agenda cap with a height that fills the space between the day heading and the phone navigation (safe area included), so larger phones show more rows; verified on 393×852 with seven temporary events (six fully visible, scroll and chevron flip confirmed) and removed them afterwards.
 - [x] Strengthen agenda isolation with passive native touch/pointer/wheel listeners and both-axis scroll containment; preserve independent momentum scrolling and event clicks. No QA or publishing; physical iPhone behavior remains for Codex.
 - [x] Keep month grid/date heading stationary; bound agenda to approximately three standard rows, shrinking to available height.
 - [x] Isolate agenda gestures, reset on date changes, and track subtle overflow chevrons. No QA, tests or publishing; physical iPhone scrolling remains for Codex.
