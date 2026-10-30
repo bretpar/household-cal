@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type SyntheticEvent } from "react";
 import { endOfMonth, endOfWeek, format, isSameDay, startOfMonth, startOfWeek } from "date-fns";
-import { ClipboardPaste } from "lucide-react";
+import { ChevronDown, ChevronUp, ClipboardPaste } from "lucide-react";
 
 import { MonthView } from "@/components/MonthView";
 import { MemberBadgeRow } from "@/components/MemberBadge";
@@ -29,10 +29,20 @@ export function MobileMonthView({
 }) {
   const { openOccurrence, categoryAppearanceFor } = useCalendar();
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const monthKey = format(selectedDay, "yyyy-MM");
+  const [more, setMore] = useState({ up: false, down: false });
+  const updateMore = useCallback(() => {
+    const node = scrollRef.current;
+    if (!node) return setMore({ up: false, down: false });
+    const up = node.scrollTop > 1;
+    const down = node.scrollTop + node.clientHeight < node.scrollHeight - 1;
+    setMore((prev) => (prev.up === up && prev.down === down ? prev : { up, down }));
+  }, []);
+  // New day or month: agenda starts at the top.
+  const dayKey = format(selectedDay, "yyyy-MM-dd");
   useLayoutEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
-  }, [monthKey]);
+    updateMore();
+  }, [dayKey, updateMore]);
   const swipe = useHorizontalSwipe({
     onSwipeLeft: () => onNavigate(1),
     onSwipeRight: () => onNavigate(-1),
@@ -44,16 +54,28 @@ export function MobileMonthView({
     endOfWeek(endOfMonth(selectedDay), { weekStartsOn }),
   ).filter((o) => occurrenceOccursOnDay(o, selectedDay) &&
     (isCoverage(o.event) || occurrenceMatchesFilter(o, selectedMembers)));
+  const listSignature = occurrences.map((o) => o.key).join("|");
+  useEffect(() => {
+    updateMore();
+    const node = scrollRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateMore);
+    observer.observe(node);
+    if (node.firstElementChild) observer.observe(node.firstElementChild);
+    return () => observer.disconnect();
+  }, [listSignature, loading, loadError, updateMore]);
+  // Agenda gestures never reach month/date swipe handlers above it.
+  const contain = (e: SyntheticEvent) => e.stopPropagation();
 
   return (
-    <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
-      <div {...swipe}>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div {...swipe} className="shrink-0">
         <MonthView month={selectedDay} events={events} selectedMembers={selectedMembers}
           onSelectDay={onSelectDay} selectedDay={selectedDay} onCreateAt={onCreateAt}
           weekStartsOn={weekStartsOn} bare compact />
       </div>
-      <section aria-label={format(selectedDay, "EEEE, MMMM d")} className="border-t border-border-soft px-3 pt-3 pb-4">
-        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-2">
+      <section aria-label={format(selectedDay, "EEEE, MMMM d")} className="flex min-h-0 flex-1 flex-col border-t border-border-soft px-3 pt-3 pb-2">
+        <header className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-2">
           <h2 className="min-w-0 text-sm font-bold">{format(selectedDay, "EEEE, MMMM d")}</h2>
           {onPaste ? (
             <Button variant="ghost" size="icon" className="shrink-0" aria-label="Paste copied event" title="Paste copied event" onClick={() => onPaste(selectedDay)}>
@@ -61,6 +83,11 @@ export function MobileMonthView({
             </Button>
           ) : null}
         </header>
+        <div className="relative flex min-h-0 max-h-[13.5rem] flex-1 flex-col">
+        <div ref={scrollRef} onScroll={updateMore}
+          onTouchStart={contain} onTouchMove={contain} onTouchEnd={contain}
+          onPointerDown={contain} onPointerMove={contain} onPointerUp={contain}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
         {loading ? <p role="status" className="py-3 text-sm text-muted-foreground">Loading events…</p>
           : loadError ? <p role="status" className="py-3 text-sm text-destructive">Couldn’t load events. Pull to refresh or reopen the app.</p>
           : occurrences.length === 0 ? <p className="py-3 text-sm text-muted-foreground">Nothing scheduled</p>
@@ -82,6 +109,10 @@ export function MobileMonthView({
               );
             })}
           </div>}
+        </div>
+        {more.up ? <ChevronUp aria-hidden className="pointer-events-none absolute top-0 right-0 h-4 w-4 text-muted-foreground/50" /> : null}
+        {more.down ? <ChevronDown aria-hidden className="pointer-events-none absolute right-0 bottom-0 h-4 w-4 text-muted-foreground/50" /> : null}
+        </div>
       </section>
     </div>
   );
