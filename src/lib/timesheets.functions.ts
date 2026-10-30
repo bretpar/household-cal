@@ -19,6 +19,9 @@ export interface TimesheetEntry {
   actual_end_local: string;
   is_manual: boolean;
   note: string | null;
+  /** hours already paid for this shift; tracked apart from worked hours */
+  paid_hours?: number | null;
+  paid_note?: string | null;
   /** set when a household Owner adjusted this entry during review */
   owner_edited_at?: string | null;
   actual_time_confirmed?: boolean;
@@ -161,6 +164,20 @@ export const getMyTimesheet = createServerFn({ method: "POST" })
     };
   });
 
+const paidInput = {
+  paid_hours: z.number().min(0).max(48).nullable().optional(),
+  paid_note: z.string().max(300).nullable().optional(),
+};
+
+/** Paid hours are stored apart from worked time and may never exceed it. */
+function paidPatch(d: { paid_hours?: number | null; paid_note?: string | null }, start: Date, end: Date) {
+  if (d.paid_hours == null) return { paid_hours: null, paid_note: null };
+  const worked = (end.getTime() - start.getTime()) / 3_600_000;
+  const paid = Math.round(d.paid_hours * 100) / 100;
+  if (paid < 0 || paid > Math.round(worked * 100) / 100 + 0.005) throw new Error("Paid hours can't exceed hours worked");
+  return { paid_hours: paid, paid_note: d.paid_note?.trim() || null };
+}
+
 export const saveTimesheetEntry = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
@@ -171,6 +188,7 @@ export const saveTimesheetEntry = createServerFn({ method: "POST" })
       start: hhmm,
       end: hhmm,
       note: z.string().max(500).nullable(),
+      ...paidInput,
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -186,17 +204,18 @@ export const saveTimesheetEntry = createServerFn({ method: "POST" })
     let end = s.zonedInstant(data.work_date, data.end, timeZone);
     if (end <= start) end = new Date(end.getTime() + 86_400_000); // overnight
     const note = data.note?.trim() || null;
+    const paid = paidPatch(data, start, end);
     if (data.entry_id) {
       const { error } = await admin
         .from("timesheet_entries")
-        .update({ actual_start: start.toISOString(), actual_end: end.toISOString(), note, actual_time_confirmed: true })
+        .update({ actual_start: start.toISOString(), actual_end: end.toISOString(), note, ...paid, actual_time_confirmed: true })
         .eq("id", data.entry_id)
         .eq("timesheet_id", sheet.id);
       if (error) throw new Error(error.message);
     } else {
       const { error } = await admin.from("timesheet_entries").insert({
         timesheet_id: sheet.id, family_id: me.familyId, work_date: data.work_date,
-        actual_start: start.toISOString(), actual_end: end.toISOString(), is_manual: true, note,
+        actual_start: start.toISOString(), actual_end: end.toISOString(), is_manual: true, note, ...paid,
       });
       if (error) throw new Error(error.message);
     }
@@ -422,6 +441,7 @@ export const ownerEditEntry = createServerFn({ method: "POST" })
       start: hhmm,
       end: hhmm,
       note: z.string().max(500).nullable(),
+      ...paidInput,
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -448,6 +468,7 @@ export const ownerEditEntry = createServerFn({ method: "POST" })
       actual_start: start.toISOString(),
       actual_end: end.toISOString(),
       note: data.note?.trim() || null,
+      ...paidPatch(data, start, end),
       owner_edited_at: new Date().toISOString(),
       owner_edited_by: context.userId,
       actual_time_confirmed: true,
@@ -669,6 +690,7 @@ export const ownerSaveManagedEntry = createServerFn({ method: "POST" })
       start: hhmm,
       end: hhmm,
       note: z.string().max(500).nullable(),
+      ...paidInput,
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -680,18 +702,19 @@ export const ownerSaveManagedEntry = createServerFn({ method: "POST" })
     let end = s.zonedInstant(data.work_date, data.end, timeZone);
     if (end <= start) end = new Date(end.getTime() + 86_400_000); // overnight
     const note = data.note?.trim() || null;
+    const paid = paidPatch(data, start, end);
     const now = new Date().toISOString();
     if (data.entry_id) {
       const { error } = await admin
         .from("timesheet_entries")
-        .update({ actual_start: start.toISOString(), actual_end: end.toISOString(), note, actual_time_confirmed: true, owner_edited_at: now, owner_edited_by: context.userId })
+        .update({ actual_start: start.toISOString(), actual_end: end.toISOString(), note, ...paid, actual_time_confirmed: true, owner_edited_at: now, owner_edited_by: context.userId })
         .eq("id", data.entry_id)
         .eq("timesheet_id", sheet.id);
       if (error) throw new Error(error.message);
     } else {
       const { error } = await admin.from("timesheet_entries").insert({
         timesheet_id: sheet.id, family_id: familyId, work_date: data.work_date,
-        actual_start: start.toISOString(), actual_end: end.toISOString(), is_manual: true, note,
+        actual_start: start.toISOString(), actual_end: end.toISOString(), is_manual: true, note, ...paid,
         owner_edited_at: now, owner_edited_by: context.userId,
       });
       if (error) throw new Error(error.message);
