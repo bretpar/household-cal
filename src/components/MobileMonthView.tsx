@@ -74,11 +74,11 @@ export function MobileMonthView({
           onSelectDay={onSelectDay} selectedDay={selectedDay} onCreateAt={onCreateAt}
           weekStartsOn={weekStartsOn} bare compact />
       </div>
-      <section aria-label={format(selectedDay, "EEEE, MMMM d")} className="flex min-h-0 flex-1 flex-col border-t border-border-soft px-3 pt-3 pb-2">
-        <header className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-2">
+      <section aria-label={format(selectedDay, "EEEE, MMMM d")} className="flex min-h-0 flex-1 flex-col border-t border-border-soft px-3 pt-1 pb-1">
+        <header className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-1">
           <h2 className="min-w-0 text-sm font-bold">{format(selectedDay, "EEEE, MMMM d")}</h2>
           {onPaste ? (
-            <Button variant="ghost" size="icon" className="shrink-0" aria-label="Paste copied event" title="Paste copied event" onClick={() => onPaste(selectedDay)}>
+            <Button variant="ghost" size="icon" className="size-8 shrink-0" aria-label="Paste copied event" title="Paste copied event" onClick={() => onPaste(selectedDay)}>
               <ClipboardPaste />
             </Button>
           ) : null}
@@ -96,11 +96,11 @@ export function MobileMonthView({
               const appearance = categoryAppearanceFor(o.event);
               return (
                 <Button key={o.key} variant="ghost" data-occurrence="" onClick={() => openOccurrence(o)}
-                  className="relative grid h-auto min-h-16 w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-2 rounded-none py-3 pr-0 pl-3 text-left whitespace-normal">
-                  <span aria-hidden className={cn("absolute top-3 bottom-3 left-0 w-1 rounded-full", eventAccentClass(appearance))} />
+                  className="relative grid h-auto min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-2 rounded-none py-2 pr-0 pl-3 text-left whitespace-normal">
+                  <span aria-hidden className={cn("absolute top-2 bottom-2 left-0 w-1 rounded-full", eventAccentClass(appearance))} />
                   <span className="min-w-0">
                     <span className="block text-sm leading-5 font-semibold break-words [overflow-wrap:anywhere]">{o.event.title}</span>
-                    <span className="mt-1 block text-xs leading-4 font-normal text-muted-foreground">{!o.event.all_day && !isSameDay(o.start, o.end)
+                    <span className="mt-0.5 block text-xs leading-4 font-normal text-muted-foreground">{!o.event.all_day && !isSameDay(o.start, o.end)
                       ? `${format(o.start, "MMM d, h:mm a")} – ${format(o.end, "MMM d, h:mm a")}`
                       : formatTimeRange(o.start, o.end, o.event.all_day)} · {appearance.label}</span>
                   </span>
