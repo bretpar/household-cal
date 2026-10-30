@@ -74,8 +74,8 @@ export function MobileMonthView({
           onSelectDay={onSelectDay} selectedDay={selectedDay} onCreateAt={onCreateAt}
           weekStartsOn={weekStartsOn} bare compact />
       </div>
-      <section aria-label={format(selectedDay, "EEEE, MMMM d")} className="flex min-h-0 flex-1 flex-col border-t border-border-soft px-3 pt-1 pb-1">
-        <header className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-1">
+      <section aria-label={format(selectedDay, "EEEE, MMMM d")} className="flex min-h-0 flex-1 flex-col border-t border-border-soft px-3 pt-1 pb-0.5">
+        <header className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-0.5">
           <h2 className="min-w-0 text-sm font-bold">{format(selectedDay, "EEEE, MMMM d")}</h2>
           {onPaste ? (
             <Button variant="ghost" size="icon" className="size-8 shrink-0" aria-label="Paste copied event" title="Paste copied event" onClick={() => onPaste(selectedDay)}>
