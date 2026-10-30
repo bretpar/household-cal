@@ -452,7 +452,8 @@ export const ownerEditEntry = createServerFn({ method: "POST" })
     const admin = await s.adminDb();
     const { data: sheet, error: se } = await admin.from("timesheets").select("*").eq("id", data.timesheet_id).eq("family_id", familyId).single();
     if (se || !sheet) throw new Error("Timesheet not found");
-    if (sheet.status !== "submitted") throw new Error("Only submitted timesheets can be edited");
+    // Owners may review-edit submitted sheets and correct approved ones; status and approval details stay as-is.
+    if (sheet.status !== "submitted" && sheet.status !== "approved") throw new Error("Only submitted or approved timesheets can be edited");
     const { data: entry, error: ee } = await admin
       .from("timesheet_entries")
       .select("id, work_date, actual_start, actual_end, note, owner_edited_at")
@@ -498,7 +499,8 @@ export const ownerEditEntry = createServerFn({ method: "POST" })
         owner_edited_by: context.userId,
       })
       .eq("id", sheet.id)
-      .eq("status", "submitted");
+      .eq("family_id", familyId)
+      .eq("status", sheet.status);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
