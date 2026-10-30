@@ -666,7 +666,7 @@ export function expandOccurrences(
 
 
 export function occurrencesForDay(events: CalendarEvent[], day: Date): Occurrence[] {
-  return expandOccurrences(events, startOfDay(day), startOfDay(day));
+  return expandOccurrences(events, startOfDay(day), addDays(startOfDay(day), 1));
 }
 
 /** Date bucketing without changing the original timed occurrence's identity. */
