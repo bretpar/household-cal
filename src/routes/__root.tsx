@@ -16,7 +16,7 @@ import appCss from "../styles.css?url";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { installNativeAuthListener } from "@/lib/native-auth";
+import { installNativeAuthListener, isNativeApp } from "@/lib/native-auth";
 import { sanitizeReturnPath } from "@/lib/return-path";
 import { hideNativeSplash } from "@/lib/native-splash";
 import { clearEventCache } from "@/lib/event-cache";
@@ -156,6 +156,9 @@ function RootComponent() {
 
   useEffect(() => {
     // iOS shell only: the first web paint matches the launch screen, so hand off.
+    // Mark the document as native here (not in StartupSplash) so direct loads of
+    // /auth or other routes that bypass the splash still get safe-area styling.
+    if (isNativeApp()) document.documentElement.classList.add("native-shell");
     hideNativeSplash();
   }, []);
 
