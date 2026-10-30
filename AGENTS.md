@@ -22,6 +22,7 @@
 - Shift assignment and Timesheet eligibility key on family_members.id (assignee_member_id, default_babysitter_member_id, timesheets_enabled); family_user_id on a shift only mirrors limited-view date unlocks. Why: caregivers can be scheduled and paid without a sign-in.
 - Owner-managed time cards (timesheets.owner_managed) exist only for Timesheet-enabled caregivers with no household login; Owners edit and approve them directly, no emails. Why: sign-in caregivers keep the certified submit/review flow.
 - Timesheet status "closed" (Owner-only closeTimesheet) is read-only history excluded from actionable queries; family_members.timesheet_start_date (NULL = no limit) filters shifts and periods. Why: retire obsolete periods without deleting data.
+- Caregiver Timesheet editing requires a successful post-mount sheet refresh and stays gated during refetches; session drafts remain intact. Why: cached Draft status must not briefly expose editing controls after submission or household disablement.
 - Day, 3-Day, and Week timed cards use the shared header-collision layout in calendar-layout.ts; stack priority follows deterministic occurrence order within each body-overlap cluster. Why: protect later headers without changing true event times.
 - Agent integrations (MCP) live in src/lib/mcp/ (read-only, Supabase OAuth, RLS as caller). Why: assistants act as the signed-in user.
 - Tours wait until onboarding exits, enter Today once, spotlight real tabs, and store versioned app_tour_states per verified user. Why: avoid setup/navigation races.

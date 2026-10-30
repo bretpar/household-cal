@@ -20,6 +20,7 @@ import { TimeField } from "@/components/TimeField";
 import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
 import { useTimesheetsStatus } from "@/lib/use-timesheets-status";
+import { timesheetStatusRevalidated } from "@/lib/timesheet-editability";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,6 +88,8 @@ function TimesheetPage() {
   const query = useQuery({
     queryKey: ["my-timesheet", linkPeriod ? `p:${linkPeriod}` : offset],
     queryFn: () => fetchSheet({ data: { offset, period_start: linkPeriod } }),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
   const sheet = query.data;
   // Remember the shown pay period for this session so returning restores it.
@@ -130,7 +133,7 @@ function TimesheetPage() {
           {query.error instanceof Error ? query.error.message : "Could not load timesheet"}
         </p>
       ) : null}
-      {sheet ? (sheet.upcoming ? <UpcomingBody sheet={sheet} /> : <SheetBody sheet={sheet} />) : null}
+      {sheet ? (sheet.upcoming ? <UpcomingBody sheet={sheet} /> : <SheetBody sheet={sheet} statusRevalidated={timesheetStatusRevalidated(query)} />) : null}
     </div>
   );
 }
@@ -174,7 +177,7 @@ function UpcomingBody({ sheet }: { sheet: TimesheetView }) {
   );
 }
 
-function SheetBody({ sheet }: { sheet: TimesheetView }) {
+function SheetBody({ sheet, statusRevalidated }: { sheet: TimesheetView; statusRevalidated: boolean }) {
   const qc = useQueryClient();
   const submit = useServerFn(submitTimesheet);
   const [adding, setAdding] = useState(() => !!readTimesheetDraft(draftKey(sheet.id, null)));
@@ -187,7 +190,7 @@ function SheetBody({ sheet }: { sheet: TimesheetView }) {
       else next[key] = hours;
       return next;
     });
-  const editable = (sheet.status === "draft" || sheet.status === "needs_correction") && !sheet.before_start && !sheet.read_only;
+  const editable = statusRevalidated && (sheet.status === "draft" || sheet.status === "needs_correction") && !sheet.before_start && !sheet.read_only;
   const hoursFor = (e: TimesheetEntry) => preview[e.id] ?? hoursBetween(e.actual_start, e.actual_end);
   const total = sheet.entries.reduce((n, e) => n + hoursFor(e), 0) + (preview["new"] ?? 0);
   const refresh = async () => {
