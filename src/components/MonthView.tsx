@@ -136,7 +136,7 @@ export function MonthView({
             key={day}
             className={cn(
               "text-center text-[11px] font-bold tracking-wide text-muted-foreground uppercase",
-              fill ? "py-1 sm:py-2" : "py-2",
+              compact ? "py-0.5" : fill ? "py-1 sm:py-2" : "py-2",
             )}
           >
             <span className="hidden sm:inline">{day}</span>
@@ -219,7 +219,7 @@ export function MonthView({
               className={cn(
                 "relative cursor-pointer border-t border-l border-border-soft text-left align-top transition-colors first:border-l-0 hover:bg-secondary/60",
                 compact
-                  ? "h-11 min-w-0 overflow-hidden px-0.5 py-1"
+                  ? "h-9 min-w-0 overflow-hidden px-0.5 py-0"
                   : fill
                   ? "min-h-0 overflow-hidden p-1 sm:p-2"
                   : "min-h-[92px] p-1.5 sm:min-h-[124px] sm:p-2",
@@ -235,7 +235,7 @@ export function MonthView({
               <div
                 className={cn(
                   "flex items-center justify-between gap-1",
-                  fill ? "mb-0.5" : "mb-1",
+                  compact ? "mb-0" : fill ? "mb-0.5" : "mb-1",
                 )}
               >
                 <span
