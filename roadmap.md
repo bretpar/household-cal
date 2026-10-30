@@ -1,5 +1,11 @@
 # Roadmap
 
+## Native iPhone TestFlight UI fixes
+- [ ] Native-only signed-out welcome, preserving web marketing and existing authentication destinations.
+- [ ] Safe-area notification placement and inline password errors.
+- [ ] Bound native Day scrolling and preserve useful initial current-time positioning.
+- [ ] Check automatic compilation only; no QA, tests, publishing or native build.
+
 ## Public legal entity identification
 - [x] Identify Parker Med LLC in the public footer, Privacy Policy and Terms; confirmed public HTML on all three pages, without rebranding, broad QA or publishing.
 

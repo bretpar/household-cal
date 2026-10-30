@@ -355,6 +355,22 @@ body:has(.app-tour-layer[data-tour-tab="/settings"]) .app-shell-bottom-link[data
   padding-top: env(safe-area-inset-top);
 }
 
+/* Native welcome replaces marketing only in the existing iOS shell. */
+.native-welcome {
+  height: 100dvh;
+  box-sizing: border-box;
+  padding: calc(env(safe-area-inset-top) + 1.5rem)
+    max(1.5rem, env(safe-area-inset-right))
+    calc(env(safe-area-inset-bottom) + 1.5rem)
+    max(1.5rem, env(safe-area-inset-left));
+}
+
+/* Set the position once, rather than adding safe-area padding to each toast.
+   Higher specificity also covers Sonner's narrow-screen offset override. */
+.native-shell [data-sonner-toaster][data-y-position="top"] {
+  top: calc(env(safe-area-inset-top) + 1rem);
+}
+
 
 /* Phone landscape calendar workspace: only the compact calendar toolbar stays
    above the full-height, vertically scrolling 45px/hour timeline. */
