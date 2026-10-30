@@ -97,7 +97,10 @@ export function MobileMonthView({
             </Button>
           ) : null}
         </header>
-        <div className="relative flex min-h-0 max-h-[13.5rem] flex-1 flex-col">
+        {/* Height follows the space left between the day heading and the phone
+            navigation (main already reserves it plus the iOS safe area), so
+            taller screens show more rows instead of a fixed cap. */}
+        <div className="relative flex min-h-0 flex-1 flex-col">
         <div ref={scrollRef} onScroll={updateMore}
           className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pr-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
         {loading ? <p role="status" className="py-3 text-sm text-muted-foreground">Loading events…</p>
