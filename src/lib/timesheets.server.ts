@@ -267,12 +267,13 @@ export function isCaregiverAdjusted(e: { is_manual: boolean; actual_time_confirm
 export async function loadEntries(admin: AnyDb, timesheetId: string, tz: string) {
   const { data, error } = await admin
     .from("timesheet_entries")
-    .select("id, event_id, work_date, scheduled_title, scheduled_start, scheduled_end, actual_start, actual_end, is_manual, note, owner_edited_at, actual_time_confirmed")
+    .select("id, event_id, work_date, scheduled_title, scheduled_start, scheduled_end, actual_start, actual_end, is_manual, note, paid_hours, paid_note, owner_edited_at, actual_time_confirmed")
     .eq("timesheet_id", timesheetId)
     .order("actual_start", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []).map((e: any) => ({
     ...e,
+    paid_hours: e.paid_hours == null ? null : Number(e.paid_hours),
     actual_start_local: localHHmm(e.actual_start, tz),
     actual_end_local: localHHmm(e.actual_end, tz),
   }));
