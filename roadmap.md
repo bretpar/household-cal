@@ -1,5 +1,11 @@
 # Roadmap
 
+## Native iPhone TestFlight UI fixes
+- [x] Native-only signed-out welcome, preserving web marketing and existing authentication destinations.
+- [x] Safe-area notification placement and inline password errors.
+- [x] Clip native Day overflow at the 24-hour grid; account for strip headers during initial current-time positioning and ignore premature alignment scrolls.
+- [x] Automatic compilation passed; no QA, tests, publishing or native build. Actual iPhone rendering and reported scrolling remain for Codex verification; these hosted UI changes require publication, not a fresh native build.
+
 ## Public legal entity identification
 - [x] Identify Parker Med LLC in the public footer, Privacy Policy and Terms; confirmed public HTML on all three pages, without rebranding, broad QA or publishing.
 

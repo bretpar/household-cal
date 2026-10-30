@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { addDays, format, isSameDay } from "date-fns";
 
 import { cn } from "@/lib/utils";
+import { isNativeApp } from "@/lib/native-auth";
 import { useCalendar } from "@/lib/calendar-store";
 import { MemberBadgeRow } from "@/components/MemberBadge";
 import { eventAccentClass, eventTintClass } from "@/lib/event-colors";
@@ -208,11 +209,17 @@ export function WeekView({
     const el = scrollRef.current;
     if (!el || el.clientHeight === 0) return false;
     didAutoPosition.current = true;
-    const targetTop = topFor(new Date()) - HOUR_PX;
+    // The native Day strip scrolls its date/all-day header with the timeline.
+    // Include that header in the target, unlike the standalone timeline host.
+    const content = el.querySelector<HTMLElement>(".calendar-day-timeline-content");
+    const timelineStart = isNativeApp() && (scaleDays ?? days) === 1 && dayWidth && content
+      ? content.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
+      : 0;
+    const targetTop = timelineStart + topFor(new Date()) - HOUR_PX;
     const maxScroll = el.scrollHeight - el.clientHeight;
     el.scrollTo({ top: Math.max(0, Math.min(maxScroll, targetTop)), behavior: "auto" });
     return true;
-  }, []);
+  }, [dayWidth, days, scaleDays]);
 
   // Initial open / entering this timed view: position before paint; when the
   // timeline is hidden or unmeasured, retry once it gains dimensions.
@@ -225,8 +232,13 @@ export function WeekView({
       if (didAutoPosition.current || positionNearNow()) observer.disconnect();
     });
     observer.observe(el);
-    const markManual = () => { didAutoPosition.current = true; };
-    el.addEventListener("scroll", markManual, { once: true });
+    const markManual = () => {
+      // Horizontal strip alignment is not a user-chosen vertical position.
+      if (isNativeApp() && (el.clientHeight === 0 || el.scrollTop === 0)) return;
+      didAutoPosition.current = true;
+      el.removeEventListener("scroll", markManual);
+    };
+    el.addEventListener("scroll", markManual);
     return () => { observer.disconnect(); el.removeEventListener("scroll", markManual); };
   }, [active, positionNearNow]);
 
@@ -268,7 +280,9 @@ export function WeekView({
       (scrollHostRef as { current: HTMLDivElement | null }).current = node;
   };
   const trackScroll = (event: { currentTarget: HTMLDivElement }) => {
-    didAutoPosition.current = true;
+    if (!isNativeApp() || (event.currentTarget.clientHeight > 0 && event.currentTarget.scrollTop > 0)) {
+      didAutoPosition.current = true;
+    }
     onTimelineScroll?.(event.currentTarget.scrollTop, event.currentTarget);
   };
 
@@ -277,6 +291,7 @@ export function WeekView({
       {dialog}
       <div
         ref={setStripHost}
+        data-calendar-visible-days={visibleColumns}
 
         onScroll={strip ? trackScroll : undefined}
         style={strip ? {
@@ -402,7 +417,7 @@ export function WeekView({
 
         >
           <div
-            className="relative grid"
+            className="calendar-day-timeline-content relative grid"
             style={{ gridTemplateColumns: gridTemplate }}
           >
             <div className={cn("relative", gutterClass)}>

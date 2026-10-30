@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { LegalFooter } from "@/components/LegalFooter";
 import { initAnalytics, trackEvent } from "@/lib/analytics";
 import { getSessionStatus, hasCachedSession, peekSessionStatus } from "@/lib/session-hint";
+import { isNativeApp } from "@/lib/native-auth";
 
 const SITE_URL = "https://ourfamilycalendar.com";
 const OG_IMAGE_URL = `${SITE_URL}${ogImageAsset.url}`;
@@ -286,7 +287,7 @@ function LandingPage() {
     initAnalytics();
     // No stored session: skip the loader and show the page straight away
     // (the server can't read storage, so it always renders the loader first).
-    if (!hasCachedSession() && peekSessionStatus() !== true) setChecking(false);
+    if (!isNativeApp() && !hasCachedSession() && peekSessionStatus() !== true) setChecking(false);
     let active = true;
     getSessionStatus().then((signedIn) => {
       if (!active) return;
@@ -299,8 +300,26 @@ function LandingPage() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      {!checking ? (
+        <main className="native-welcome hidden flex-col items-center justify-center gap-8 bg-background text-center [.native-shell_&]:flex">
+          <div className="w-full max-w-sm">
+            <img src={logoAsset.url} alt="" className="mx-auto h-28 w-28 object-contain" />
+            <h1 className="mt-6 font-display text-3xl font-bold">Our Family Calendar</h1>
+            <p className="mt-3 text-base text-muted-foreground">Your family, all in one place.</p>
+          </div>
+          <div className="flex w-full max-w-sm flex-col gap-3">
+            <Button asChild size="lg" className="h-12 w-full rounded-full font-bold">
+              <Link to="/auth" search={{ mode: "signin" }}>Sign in</Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="h-12 w-full rounded-full font-bold text-primary">
+              <Link to="/auth" search={{ mode: "signup" }}>Create a family account</Link>
+            </Button>
+          </div>
+        </main>
+      ) : null}
       {checking ? <AuthLoadingShell /> : null}
+    <div className="min-h-screen bg-background [.native-shell_&]:hidden">
       <header className="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-4 sm:flex sm:justify-between sm:px-6 sm:py-5 lg:px-8">
         <div className="flex min-w-0 items-center gap-2.5">
           <img
@@ -731,5 +750,6 @@ function LandingPage() {
 
       <LegalFooter />
     </div>
+    </>
   );
 }

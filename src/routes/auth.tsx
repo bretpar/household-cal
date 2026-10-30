@@ -67,6 +67,7 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [reveal, setReveal] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [stage, setStage] = useState<"email" | "password" | "google">(
     initialMode === "signup" && initialEmail ? "password" : "email",
   );
@@ -98,6 +99,7 @@ function AuthPage() {
     }
   };
   const changeEmail = () => {
+    setPasswordError(null);
     setPassword("");
     setMode("signin");
     setStage("email");
@@ -126,6 +128,7 @@ function AuthPage() {
   }, [navigate, redirect]);
 
   const submit = async () => {
+    setPasswordError(null);
     const emailValue = currentEmail();
     const passwordValue = currentPassword();
     if (!emailValue.trim() || !passwordValue) {
@@ -175,7 +178,8 @@ function AuthPage() {
         setMode("signin");
         toast.error("You already have an account with this email — sign in instead.");
       } else {
-        toast.error(message);
+        if (mode === "signin") setPasswordError(message);
+        else toast.error(message);
       }
     } finally {
       setBusy(false);
@@ -344,6 +348,7 @@ function AuthPage() {
           }}
         >
           <input ref={emailRef} type="email" name="email" autoComplete="username" value={email} readOnly hidden />
+          {passwordError ? <p id="auth-password-error" role="alert" className="text-sm text-destructive">{passwordError}</p> : null}
           <div className="space-y-1.5">
             <Label htmlFor="auth-password">Password</Label>
             <div className="relative">
@@ -355,8 +360,10 @@ function AuthPage() {
                 type={reveal ? "text" : "password"}
                 minLength={PASSWORD_MIN_LENGTH}
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                aria-invalid={!!passwordError}
+                aria-describedby={passwordError ? "auth-password-error" : undefined}
                 defaultValue={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); setPasswordError(null); }}
                 className="h-11 rounded-xl pr-11"
               />
               <PasswordRevealToggle revealed={reveal} onToggle={() => setReveal((v) => !v)} />
@@ -370,6 +377,7 @@ function AuthPage() {
               type="button"
               className="w-full text-right text-xs font-semibold text-muted-foreground hover:text-foreground"
               onClick={() => {
+                setPasswordError(null);
                 setResetSent(false);
                 setMode("forgot");
               }}
