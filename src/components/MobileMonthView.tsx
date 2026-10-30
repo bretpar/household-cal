@@ -21,8 +21,8 @@ export function MobileMonthView({
   selectedMembers: MemberId[];
   onSelectDay: (day: Date) => void;
   onNavigate: (direction: 1 | -1) => void;
-  onPaste?: (day: Date) => void;
-  onCreateAt?: (day: Date, withTime: boolean) => void;
+  onPaste?: ((day: Date) => void) | undefined;
+  onCreateAt?: ((day: Date, withTime: boolean) => void) | undefined;
   weekStartsOn: 0 | 1;
   loading: boolean;
   loadError: boolean;

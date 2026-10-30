@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Mobile Month readability
-- [ ] Replace crowded phone Month cells with dates, three color indicators and overflow counts.
-- [ ] Show selected-day chronological agenda through existing event details; preserve larger layouts and date expansion.
+- [x] Replace crowded phone Month cells with dates, three color indicators and overflow counts.
+- [x] Show selected-day chronological agenda through existing event details; preserve larger layouts and date expansion.
 - [ ] Check automatic compilation only; no QA, tests or publishing requested.
 
 ## Native iPhone TestFlight UI fixes
