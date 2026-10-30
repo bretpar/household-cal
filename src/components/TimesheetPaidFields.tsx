@@ -17,7 +17,8 @@ export function usePaidState(entry?: { paid_hours?: number | null; paid_note?: s
   const num = Number(hours);
   const valid = (max: number) => !on || (hours.trim() !== "" && Number.isFinite(num) && num >= 0 && num <= max + 0.005);
   const payload = () => (on ? { paid_hours: Math.round(num * 100) / 100, paid_note: note.trim() || null } : { paid_hours: null, paid_note: null });
-  return { on, setOn, hours, setHours, note, setNote, dirty, valid, payload };
+  const reset = () => { setOn(initOn); setHours(initHours); setNote(initNote); };
+  return { on, setOn, hours, setHours, note, setNote, dirty, valid, payload, reset };
 }
 
 export type PaidState = ReturnType<typeof usePaidState>;
@@ -27,7 +28,7 @@ export function TimesheetPaidFields({ id, state, maxHours }: { id: string; state
   const invalid = !state.valid(maxHours);
   return (
     <div className="space-y-2">
-      <label htmlFor={`paid-${id}`} className="flex items-center gap-2 text-xs">
+      <label htmlFor={`paid-${id}`} className="-my-2 flex min-h-11 cursor-pointer items-center gap-2 py-2 text-xs">
         <Checkbox
           id={`paid-${id}`}
           checked={state.on}
@@ -40,9 +41,9 @@ export function TimesheetPaidFields({ id, state, maxHours }: { id: string; state
         Already paid for some or all hours
       </label>
       {state.on ? (
-        <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2">
+        <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] items-end gap-2">
           <div className="space-y-1">
-            <Label htmlFor={`paid-h-${id}`} className="text-xs">Hours already paid</Label>
+            <Label htmlFor={`paid-h-${id}`} className="block whitespace-nowrap text-xs leading-4">Hours already paid</Label>
             <Input
               id={`paid-h-${id}`}
               type="number"
@@ -56,7 +57,7 @@ export function TimesheetPaidFields({ id, state, maxHours }: { id: string; state
             />
           </div>
           <div className="min-w-0 space-y-1">
-            <Label htmlFor={`paid-n-${id}`} className="text-xs">Notes (optional)</Label>
+            <Label htmlFor={`paid-n-${id}`} className="block whitespace-nowrap text-xs leading-4">Notes (optional)</Label>
             <Input id={`paid-n-${id}`} placeholder="Paid via Venmo" value={state.note} maxLength={300} onChange={(e) => state.setNote(e.target.value)} />
           </div>
           {invalid ? <p className="col-span-2 text-xs text-destructive">Enter 0 to {max} hours.</p> : null}

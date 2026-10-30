@@ -317,7 +317,7 @@ function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnl
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update"),
   });
-  const editable = !readOnly && sheet.status === "submitted";
+  const editable = !readOnly && (sheet.status === "submitted" || sheet.status === "approved");
   return (
     <div className="space-y-2 rounded-2xl border border-border-soft bg-card p-4 text-sm">
       <button type="button" className="flex w-full items-start justify-between gap-2 text-left" onClick={() => setOpen((o) => !o)}>
@@ -378,7 +378,14 @@ function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnl
             <p className="text-xs text-muted-foreground">This pay period ended without a submission.</p>
           ) : null}
           {!readOnly && ((sheet.status === "draft" && !sheet.is_current) || sheet.status === "needs_correction") ? <CloseTimesheetButton id={sheet.id} onClosed={refresh} /> : null}
-          {editable ? (
+          {editable && sheet.status === "approved" ? (
+            <div className="flex justify-end pt-1">
+              <Button size="sm" variant="ghost" className="h-8 text-xs text-muted-foreground" onClick={() => setEditing((v) => !v)}>
+                {editing ? "Done editing" : "Edit Timesheet"}
+              </Button>
+            </div>
+          ) : null}
+          {editable && sheet.status === "submitted" ? (
             <div className="space-y-2 pt-1">
               <Button size="sm" variant="outline" className="w-full" onClick={() => setEditing((v) => !v)}>
                 {editing ? "Done editing" : "Edit timesheet"}
@@ -438,10 +445,16 @@ function OwnerEntryEditor({ sheet, entry, onSaved }: { sheet: TimesheetView; ent
       </div>
       <Input aria-label="Note" placeholder="Note (optional)" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
       <TimesheetPaidFields id={`o-${entry.id}`} state={paid} maxHours={localHours(start, end)} />
-      {dirty ? <Button
+      {dirty ? <div className="grid grid-cols-2 gap-2"><Button
+        size="sm"
+        variant="ghost"
+        disabled={busy}
+        onClick={() => { setStart(entry.actual_start_local); setEnd(entry.actual_end_local); setNote(entry.note ?? ""); paid.reset(); }}
+      >
+        Cancel
+      </Button><Button
         size="sm"
         variant="outline"
-        className="w-full"
         disabled={busy || !dirty || !start || !end || !paid.valid(localHours(start, end))}
         onClick={async () => {
           setBusy(true);
@@ -457,7 +470,7 @@ function OwnerEntryEditor({ sheet, entry, onSaved }: { sheet: TimesheetView; ent
         }}
       >
         Save changes
-      </Button> : null}
+      </Button></div> : null}
     </div>
   );
 }

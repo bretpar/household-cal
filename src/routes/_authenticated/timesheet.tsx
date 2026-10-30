@@ -218,6 +218,7 @@ function SheetBody({ sheet, statusRevalidated }: { sheet: TimesheetView; statusR
         <div className="text-right">
           <p className="text-xs text-muted-foreground">Total</p>
           <p className="text-base font-bold">{formatHoursLabel(total)}</p>
+          <PaidSummary entries={sheet.entries} total={total} className="text-[11px] text-muted-foreground" />
         </div>
       </div>
       {sheet.read_only ? (
