@@ -1,4 +1,5 @@
 import { getVerifiedMembership } from "@/lib/auth-guard";
+import type { PaidDraft } from "@/components/TimesheetPaidFields";
 
 /**
  * In-memory, session-only memory of the caregiver Timesheet's selected pay
@@ -6,7 +7,7 @@ import { getVerifiedMembership } from "@/lib/auth-guard";
  * Keyed by verified user+household; never persisted or saved to the server;
  * cleared on sign-out.
  */
-export type TimesheetDraft = { date: string; start: string; end: string; note: string };
+export type TimesheetDraft = { date: string; start: string; end: string; note: string; paid?: PaidDraft };
 
 type ScopeState = { period?: string; drafts: Map<string, TimesheetDraft> };
 const scopes = new Map<string, ScopeState>();

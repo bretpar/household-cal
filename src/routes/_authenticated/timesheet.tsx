@@ -395,14 +395,14 @@ function EntryEditor({
   const [start, setStart] = useState(draft?.start ?? entry?.actual_start_local ?? "09:00");
   const [end, setEnd] = useState(draft?.end ?? entry?.actual_end_local ?? "17:00");
   const [note, setNote] = useState(draft?.note ?? entry?.note ?? "");
+  const paid = usePaidState(entry, draft?.paid);
   // Session-only draft so a trip to Calendar keeps unsaved values; never saved.
   useEffect(() => {
-    writeTimesheetDraft(key, { date, start, end, note });
-  }, [key, date, start, end, note]);
+    writeTimesheetDraft(key, { date, start, end, note, paid: { on: paid.on, hours: paid.hours, note: paid.note } });
+  }, [key, date, start, end, note, paid.on, paid.hours, paid.note]);
   const cancel = () => { clearTimesheetDraft(key); onCancel(); };
   const [busy, setBusy] = useState(false);
   const live = localHours(start, end);
-  const paid = usePaidState(entry);
   const dirty = !entry || start !== entry.actual_start_local || end !== entry.actual_end_local || note !== (entry.note ?? "") || paid.dirty;
   useEffect(() => {
     onPreview(live);

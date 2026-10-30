@@ -4,13 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 /** Editor state for "Already paid" — tracked apart from worked hours. */
-export function usePaidState(entry?: { paid_hours?: number | null; paid_note?: string | null } | null) {
+export type PaidDraft = { on: boolean; hours: string; note: string };
+
+export function usePaidState(entry?: { paid_hours?: number | null; paid_note?: string | null } | null, draft?: PaidDraft) {
   const initOn = entry?.paid_hours != null;
-  const initHours = initOn ? String(Number(entry!.paid_hours)) : "";
+  const initHours = initOn ? String(Number(entry?.paid_hours)) : "";
   const initNote = entry?.paid_note ?? "";
-  const [on, setOn] = useState(initOn);
-  const [hours, setHours] = useState(initHours);
-  const [note, setNote] = useState(initNote);
+  const [on, setOn] = useState(draft?.on ?? initOn);
+  const [hours, setHours] = useState(draft?.hours ?? initHours);
+  const [note, setNote] = useState(draft?.note ?? initNote);
   const dirty = on !== initOn || (on && (hours !== initHours || note !== initNote));
   const num = Number(hours);
   const valid = (max: number) => !on || (hours.trim() !== "" && Number.isFinite(num) && num >= 0 && num <= max + 0.005);
