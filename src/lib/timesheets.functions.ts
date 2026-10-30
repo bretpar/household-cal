@@ -170,7 +170,7 @@ const paidInput = {
 };
 
 /** Paid hours are stored apart from worked time and may never exceed it. */
-function paidPatch(d: { paid_hours?: number | null; paid_note?: string | null }, start: Date, end: Date) {
+function paidPatch(d: { paid_hours?: number | null | undefined; paid_note?: string | null | undefined }, start: Date, end: Date) {
   if (d.paid_hours == null) return { paid_hours: null, paid_note: null };
   const worked = (end.getTime() - start.getTime()) / 3_600_000;
   const paid = Math.round(d.paid_hours * 100) / 100;
