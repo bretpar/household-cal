@@ -1,5 +1,9 @@
 # Roadmap
 
+## Timed overnight visibility
+- [x] Include nonrecurring timed continuations with original timestamps and end-exclusive midnight boundaries.
+- [x] Show continuation dates/times in phone Month; two focused boundary tests pass in Pacific time and UTC. Automatic compilation passed; no broad QA or publishing.
+
 ## Mobile Month readability
 - [x] Replace crowded phone Month cells with dates, three color indicators and overflow counts.
 - [x] Show selected-day chronological agenda through existing event details; preserve larger layouts and date expansion.

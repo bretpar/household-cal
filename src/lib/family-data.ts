@@ -529,7 +529,12 @@ function occursOn(event: CalendarEvent, day: Date): boolean {
       const key = dayKey(day);
       return key >= dayKey(start) && key <= dayKey(eventEndDay(event));
     }
-    return isSameDay(start, day);
+    const dayStart = startOfDay(day);
+    const eventStart = new Date(event.start_at);
+    const eventEnd = new Date(event.end_at);
+    // Timed intervals are end-exclusive; midnight belongs to the prior day.
+    return eventStart < addDays(dayStart, 1) &&
+      (eventEnd > dayStart || isSameDay(eventStart, dayStart));
   }
   return seriesHitsDay(start, day, rule, event.excluded_dates, event.recurrence_until);
 }
@@ -602,6 +607,7 @@ export function expandOccurrences(
   rangeEnd: Date,
 ): Occurrence[] {
   const result: Occurrence[] = [];
+  const emittedKeys = new Set<string>();
   const durationOf = (e: CalendarEvent) =>
     new Date(e.end_at).getTime() - new Date(e.start_at).getTime();
   const myShifts = events.filter((e) => e.is_my_shift);
@@ -632,6 +638,10 @@ export function expandOccurrences(
         start.setHours(0, 0, 0, 0);
         end = new Date(start);
         end.setHours(23, 59, 59, 0);
+      } else if (!parseRule(event.recurrence_rule)) {
+        // A continuation is the same occurrence, not a new event on this day.
+        start = new Date(event.start_at);
+        end = new Date(event.end_at);
       } else {
         const baseStart = new Date(event.start_at);
         start = new Date(day);
@@ -639,8 +649,11 @@ export function expandOccurrences(
         end = new Date(start.getTime() + durationOf(event));
       }
 
+      const key = `${event.id}-${start.toISOString()}`;
+      if (emittedKeys.has(key)) continue;
+      emittedKeys.add(key);
       result.push({
-        key: `${event.id}-${start.toISOString()}`,
+        key,
         event,
         start,
         end,
@@ -654,6 +667,14 @@ export function expandOccurrences(
 
 export function occurrencesForDay(events: CalendarEvent[], day: Date): Occurrence[] {
   return expandOccurrences(events, startOfDay(day), addDays(startOfDay(day), 1));
+}
+
+/** Date bucketing without changing the original timed occurrence's identity. */
+export function occurrenceOccursOnDay(occurrence: Occurrence, day: Date): boolean {
+  if (!occurrence.event.all_day && !parseRule(occurrence.event.recurrence_rule)) {
+    return occursOn(occurrence.event, day);
+  }
+  return isSameDay(occurrence.start, day);
 }
 
 /** Coverage rendering is decided by the calendar source's display mode, never by its name. */

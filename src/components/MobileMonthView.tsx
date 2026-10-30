@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
 import { useCalendar } from "@/lib/calendar-store";
 import { eventAccentClass } from "@/lib/event-colors";
-import { expandOccurrences, formatTimeRange, isCoverage, occurrenceMatchesFilter, type CalendarEvent, type MemberId } from "@/lib/family-data";
+import { expandOccurrences, formatTimeRange, isCoverage, occurrenceMatchesFilter, occurrenceOccursOnDay, type CalendarEvent, type MemberId } from "@/lib/family-data";
 import { cn } from "@/lib/utils";
 
 /** Compact phone overview and agenda share the existing occurrence/date rules. */
@@ -42,7 +42,7 @@ export function MobileMonthView({
     events,
     startOfWeek(startOfMonth(selectedDay), { weekStartsOn }),
     endOfWeek(endOfMonth(selectedDay), { weekStartsOn }),
-  ).filter((o) => isSameDay(o.start, selectedDay) &&
+  ).filter((o) => occurrenceOccursOnDay(o, selectedDay) &&
     (isCoverage(o.event) || occurrenceMatchesFilter(o, selectedMembers)));
 
   return (
@@ -73,7 +73,9 @@ export function MobileMonthView({
                   <span aria-hidden className={cn("absolute top-3 bottom-3 left-0 w-1 rounded-full", eventAccentClass(appearance))} />
                   <span className="min-w-0">
                     <span className="block text-sm leading-5 font-semibold break-words [overflow-wrap:anywhere]">{o.event.title}</span>
-                    <span className="mt-1 block text-xs leading-4 font-normal text-muted-foreground">{formatTimeRange(o.start, o.end, o.event.all_day)} · {appearance.label}</span>
+                    <span className="mt-1 block text-xs leading-4 font-normal text-muted-foreground">{!o.event.all_day && !isSameDay(o.start, o.end)
+                      ? `${format(o.start, "MMM d, h:mm a")} – ${format(o.end, "MMM d, h:mm a")}`
+                      : formatTimeRange(o.start, o.end, o.event.all_day)} · {appearance.label}</span>
                   </span>
                   <MemberBadgeRow ids={o.member_ids} size="base" className="max-w-24 flex-wrap justify-end pt-0.5" />
                 </Button>
