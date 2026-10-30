@@ -134,6 +134,18 @@ function TimesheetPage() {
           <ChevronRight className="h-4 w-4" />
         </Button>
       </header>
+      {sheet && sheet.offset !== 0 ? (
+        <div className="flex justify-center">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 rounded-full px-3 text-xs"
+            onClick={goCurrent}
+          >
+            Current Pay Period
+          </Button>
+        </div>
+      ) : null}
       {query.isLoading ? <p className="text-center text-sm text-muted-foreground">Loading…</p> : null}
       {query.error ? (
         <p className="text-center text-sm text-destructive">
