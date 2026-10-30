@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Fixed phone Month and scrollable agenda
+- [x] Strengthen agenda isolation with passive native touch/pointer/wheel listeners and both-axis scroll containment; preserve independent momentum scrolling and event clicks. No QA or publishing; physical iPhone behavior remains for Codex.
 - [x] Keep month grid/date heading stationary; bound agenda to approximately three standard rows, shrinking to available height.
 - [x] Isolate agenda gestures, reset on date changes, and track subtle overflow chevrons. No QA, tests or publishing; physical iPhone scrolling remains for Codex.
 

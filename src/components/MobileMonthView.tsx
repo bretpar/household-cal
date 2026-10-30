@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type SyntheticEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { endOfMonth, endOfWeek, format, isSameDay, startOfMonth, startOfWeek } from "date-fns";
 import { ChevronDown, ChevronUp, ClipboardPaste } from "lucide-react";
 
@@ -64,8 +64,22 @@ export function MobileMonthView({
     if (node.firstElementChild) observer.observe(node.firstElementChild);
     return () => observer.disconnect();
   }, [listSignature, loading, loadError, updateMore]);
-  // Agenda gestures never reach month/date swipe handlers above it.
-  const contain = (e: SyntheticEvent) => e.stopPropagation();
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    // Stop at the actual scroller, before native ancestor handlers or React's
+    // delegated handlers receive the gesture. Passive listeners leave native
+    // momentum scrolling and event-button clicks intact.
+    const contain = (event: Event) => event.stopPropagation();
+    const events = [
+      "touchstart", "touchmove", "touchend", "touchcancel",
+      "pointerdown", "pointermove", "pointerup", "pointercancel", "wheel",
+    ];
+    for (const event of events) node.addEventListener(event, contain, { passive: true });
+    return () => {
+      for (const event of events) node.removeEventListener(event, contain);
+    };
+  }, []);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -85,9 +99,7 @@ export function MobileMonthView({
         </header>
         <div className="relative flex min-h-0 max-h-[13.5rem] flex-1 flex-col">
         <div ref={scrollRef} onScroll={updateMore}
-          onTouchStart={contain} onTouchMove={contain} onTouchEnd={contain}
-          onPointerDown={contain} onPointerMove={contain} onPointerUp={contain}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pr-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
         {loading ? <p role="status" className="py-3 text-sm text-muted-foreground">Loading events…</p>
           : loadError ? <p role="status" className="py-3 text-sm text-destructive">Couldn’t load events. Pull to refresh or reopen the app.</p>
           : occurrences.length === 0 ? <p className="py-3 text-sm text-muted-foreground">Nothing scheduled</p>
