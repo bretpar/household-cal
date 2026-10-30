@@ -371,6 +371,12 @@ body:has(.app-tour-layer[data-tour-tab="/settings"]) .app-shell-bottom-link[data
   top: calc(env(safe-area-inset-top) + 1rem);
 }
 
+/* Late/overnight cards and their hit areas must not extend the native Day
+   scroll range beyond the 24-hour grid. Clip overflow without another scroller. */
+.native-shell [data-calendar-visible-days="1"] .calendar-day-timeline-content {
+  overflow: clip;
+}
+
 
 /* Phone landscape calendar workspace: only the compact calendar toolbar stays
    above the full-height, vertically scrolling 45px/hour timeline. */
