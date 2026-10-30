@@ -9,7 +9,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // which previously covered bottom-right toasts (validation errors looked
       // like "nothing happened").
       position="top-center"
-      closeButton
       className="toaster group"
       toastOptions={{
         classNames: {
