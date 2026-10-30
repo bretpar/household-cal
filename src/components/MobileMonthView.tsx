@@ -100,7 +100,7 @@ export function MobileMonthView({
                   <span aria-hidden className={cn("absolute top-2 bottom-2 left-0 w-1 rounded-full", eventAccentClass(appearance))} />
                   <span className="min-w-0">
                     <span className="block text-sm leading-5 font-semibold break-words [overflow-wrap:anywhere]">{o.event.title}</span>
-                    <span className="mt-0.5 block text-xs leading-4 font-normal text-muted-foreground">{!o.event.all_day && !isSameDay(o.start, o.end)
+                    <span className="mt-0 block text-xs leading-4 font-normal text-muted-foreground">{!o.event.all_day && !isSameDay(o.start, o.end)
                       ? `${format(o.start, "MMM d, h:mm a")} – ${format(o.end, "MMM d, h:mm a")}`
                       : formatTimeRange(o.start, o.end, o.event.all_day)} · {appearance.label}</span>
                   </span>
