@@ -544,6 +544,18 @@ function OwnerManagedCard({ memberId, name, attention }: { memberId: string; nam
             </div>
             <Button size="icon" variant="ghost" className="h-11 w-11" disabled={offset >= 0} onClick={() => setOffset((o) => o + 1)} aria-label="Next pay period">›</Button>
           </div>
+          {offset !== 0 ? (
+            <div className="flex justify-center">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-full px-3 text-xs"
+                onClick={() => setOffset(0)}
+              >
+                Current Pay Period
+              </Button>
+            </div>
+          ) : null}
           {pending.length ? (
             <div className="flex flex-wrap items-center gap-1 text-xs">
               <span className="text-muted-foreground">Needs attention:</span>

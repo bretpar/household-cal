@@ -103,6 +103,12 @@ function TimesheetPage() {
     setLinkPeriod(undefined);
     setOffset(Math.min(12, base + delta));
   };
+  // Offset 0 is the period containing today, as computed by the server from the
+  // household schedule and time zone; jump straight back to it.
+  const goCurrent = () => {
+    setLinkPeriod(undefined);
+    setOffset(0);
+  };
 
   return (
     <div className="mx-auto max-w-lg space-y-4 pb-8 md:pb-0">
