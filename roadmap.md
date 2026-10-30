@@ -160,3 +160,6 @@
 ## Bounded calendar event loading (V1 iPhone performance)
 - [x] Range-scoped family bundle: views report visible dates, server fetches only overlapping events plus recurring masters.
 - [x] Bound caregiver occurrence expansion to the viewed range; diagnostics keep the full window.
+
+## Current Pay Period shortcut
+- [x] Show a compact "Current Pay Period" button on caregiver and owner-managed Timesheets only when the selected period isn't the one containing today, reusing server pay-period offsets.

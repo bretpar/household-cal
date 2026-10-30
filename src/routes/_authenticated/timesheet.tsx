@@ -103,6 +103,12 @@ function TimesheetPage() {
     setLinkPeriod(undefined);
     setOffset(Math.min(12, base + delta));
   };
+  // Offset 0 is the period containing today, as computed by the server from the
+  // household schedule and time zone; jump straight back to it.
+  const goCurrent = () => {
+    setLinkPeriod(undefined);
+    setOffset(0);
+  };
 
   return (
     <div className="mx-auto max-w-lg space-y-4 pb-8 md:pb-0">
@@ -128,6 +134,18 @@ function TimesheetPage() {
           <ChevronRight className="h-4 w-4" />
         </Button>
       </header>
+      {sheet && sheet.offset !== 0 ? (
+        <div className="flex justify-center">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 rounded-full px-3 text-xs"
+            onClick={goCurrent}
+          >
+            Current Pay Period
+          </Button>
+        </div>
+      ) : null}
       {query.isLoading ? <p className="text-center text-sm text-muted-foreground">Loading…</p> : null}
       {query.error ? (
         <p className="text-center text-sm text-destructive">
