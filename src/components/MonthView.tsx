@@ -24,6 +24,7 @@ import {
   expandOccurrences,
   isCoverage,
   occurrenceMatchesFilter,
+  occurrenceOccursOnDay,
   type CalendarEvent,
   type MemberId,
 } from "@/lib/family-data";
@@ -157,7 +158,9 @@ export function MonthView({
             days
               .slice(dayIndex, dayIndex + 7)
               .some((d) => d.getDate() === 1 && isSameMonth(d, month));
-          const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
+          const dayOccurrences = occurrences.filter((o) => compact
+            ? occurrenceOccursOnDay(o, day)
+            : isSameDay(o.start, day));
           const coverage = dayOccurrences.filter((o) => isCoverage(o.event));
           // Day markers wear each background calendar's chosen symbol (babysitter,
           // work, …) so a day with both shows both; repeated symbols show once.
