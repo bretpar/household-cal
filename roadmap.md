@@ -1,5 +1,10 @@
 # Roadmap
 
+## Mobile Month readability
+- [x] Replace crowded phone Month cells with dates, three color indicators and overflow counts.
+- [x] Show selected-day chronological agenda through existing event details; preserve larger layouts and date expansion.
+- [x] Automatic compilation passed; no QA, tests or publishing. Physical iPhone rendering remains unverified; existing shared date/time behavior is unchanged.
+
 ## Native iPhone TestFlight UI fixes
 - [x] Native-only signed-out welcome, preserving web marketing and existing authentication destinations.
 - [x] Safe-area notification placement and inline password errors.
