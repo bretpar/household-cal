@@ -92,6 +92,13 @@
       "when": 1792787354906,
       "tag": "0012_preserve_caregiver_timesheets_setting_on_accept",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793400233911,
+      "tag": "0013_timesheet_paid_hours",
+      "breakpoints": true
     }
   ]
 }

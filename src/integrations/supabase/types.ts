@@ -1411,6 +1411,8 @@ export type Database = {
           occurrence_key: string | null
           owner_edited_at: string | null
           owner_edited_by: string | null
+          paid_hours: number | null
+          paid_note: string | null
           scheduled_end: string | null
           scheduled_start: string | null
           scheduled_title: string | null
@@ -1434,6 +1436,8 @@ export type Database = {
           occurrence_key?: string | null
           owner_edited_at?: string | null
           owner_edited_by?: string | null
+          paid_hours?: number | null
+          paid_note?: string | null
           scheduled_end?: string | null
           scheduled_start?: string | null
           scheduled_title?: string | null
@@ -1457,6 +1461,8 @@ export type Database = {
           occurrence_key?: string | null
           owner_edited_at?: string | null
           owner_edited_by?: string | null
+          paid_hours?: number | null
+          paid_note?: string | null
           scheduled_end?: string | null
           scheduled_start?: string | null
           scheduled_title?: string | null
