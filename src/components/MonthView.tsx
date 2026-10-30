@@ -12,6 +12,7 @@ import {
 import { Baby, ClipboardPaste } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { eventAccentClass } from "@/lib/event-colors";
 import { EventPill } from "@/components/EventCard";
 import { calendarIconComponent } from "@/lib/calendar-icons";
 import { useCalendar } from "@/lib/calendar-store";
@@ -40,6 +41,8 @@ export function MonthView({
   weekStartsOn = 1,
   bare = false,
   fill = false,
+  compact = false,
+  selectedDay,
 }: {
   month: Date;
   events: CalendarEvent[];
@@ -55,6 +58,9 @@ export function MonthView({
   bare?: boolean;
   /** stretch the grid to the parent's height so the whole month fits without scrolling */
   fill?: boolean;
+  /** Phone Month overview; full event content is rendered in its agenda. */
+  compact?: boolean;
+  selectedDay?: Date;
 }) {
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
   const { categoryAppearanceFor, family } = useCalendar();
@@ -176,6 +182,10 @@ export function MonthView({
           );
           const inMonth = isSameMonth(day, month);
           const today = isSameDay(day, new Date());
+          const selected = compact && selectedDay && isSameDay(day, selectedDay);
+          const indicators = dayOccurrences.filter(
+            (o) => isCoverage(o.event) || occurrenceMatchesFilter(o, selectedMembers),
+          );
           const overflowing = visible.length > maxVisible;
           const shownCount = overflowing ? Math.max(1, maxVisible - 1) : maxVisible;
 
@@ -185,6 +195,7 @@ export function MonthView({
               role="button"
               tabIndex={0}
               aria-label={format(day, "EEEE, MMMM d")}
+              aria-pressed={compact ? Boolean(selected) : undefined}
               {...(rowContainsFirst
                 ? { "data-month-start": format(month, "yyyy-MM") }
                 : {})}
@@ -204,10 +215,13 @@ export function MonthView({
               }}
               className={cn(
                 "relative cursor-pointer border-t border-l border-border-soft text-left align-top transition-colors first:border-l-0 hover:bg-secondary/60",
-                fill
+                compact
+                  ? "h-11 min-w-0 overflow-hidden px-0.5 py-1"
+                  : fill
                   ? "min-h-0 overflow-hidden p-1 sm:p-2"
                   : "min-h-[92px] p-1.5 sm:min-h-[124px] sm:p-2",
                 !inMonth && "opacity-45",
+                selected && "bg-secondary ring-1 ring-inset ring-primary",
                 // Only a Babysitter-calendar event tints the day; a Work-only
                 // day keeps the normal background but still shows its marker.
                 dayOccurrences.some(
@@ -224,13 +238,13 @@ export function MonthView({
                 <span
                   className={cn(
                     "flex items-center justify-center rounded-full font-bold",
-                    fill ? "h-5 w-5 text-[11px] sm:h-6 sm:w-6 sm:text-xs" : "h-6 w-6 text-xs",
+                    compact ? "h-5 w-5 text-xs" : fill ? "h-5 w-5 text-[11px] sm:h-6 sm:w-6 sm:text-xs" : "h-6 w-6 text-xs",
                     today ? "bg-primary text-primary-foreground" : "text-foreground",
                   )}
                 >
                   {format(day, "d")}
                 </span>
-                {onPaste ? (
+                {!compact && onPaste ? (
                   <button
                     type="button"
                     aria-label={`Paste copied event on ${format(day, "MMMM d")}`}
@@ -242,7 +256,7 @@ export function MonthView({
                   >
                     <ClipboardPaste className="h-3.5 w-3.5" />
                   </button>
-                ) : coverageIcons.length > 0 ? (
+                ) : !compact && coverageIcons.length > 0 ? (
                   <span className="flex shrink-0 items-center gap-0.5">
                     {coverageIcons.map(({ Icon, label }) => (
                       <Icon
@@ -255,7 +269,16 @@ export function MonthView({
                 ) : null}
 
               </div>
-              <div className={fill ? "space-y-px" : "space-y-1"}>
+              {compact ? (
+                <div className="flex h-3 min-w-0 items-center gap-0.5" aria-hidden>
+                  {indicators.slice(0, 3).map((o) => (
+                    <span key={o.key} className={cn("h-1.5 w-1.5 shrink-0 rounded-full", eventAccentClass(categoryAppearanceFor(o.event)))} />
+                  ))}
+                  {indicators.length > 3 ? (
+                    <span className="min-w-0 truncate text-[9px] leading-none font-medium text-muted-foreground">+{indicators.length - 3}</span>
+                  ) : null}
+                </div>
+              ) : <div className={fill ? "space-y-px" : "space-y-1"}>
                 {visible.slice(0, shownCount).map((occurrence) => (
                   <div
                     key={occurrence.key}
@@ -271,7 +294,7 @@ export function MonthView({
                     +{visible.length - shownCount} more
                   </p>
                 ) : null}
-              </div>
+              </div>}
             </div>
           );
         })}

@@ -19,6 +19,7 @@ import { AddEventDialog } from "@/components/AddEventDialog";
 import { CalendarFiltersSheet } from "@/components/CalendarFiltersSheet";
 import { DayStripView } from "@/components/DayStripView";
 import { MonthView } from "@/components/MonthView";
+import { MobileMonthView } from "@/components/MobileMonthView";
 import { MonthScrollView, type MonthScrollHandle } from "@/components/MonthScrollView";
 import { QuickAddEventDialog } from "@/components/QuickAddEventDialog";
 import { WeekView } from "@/components/WeekView";
@@ -131,6 +132,8 @@ export const Route = createFileRoute("/_authenticated/calendar")({
           "Month, week and agenda views of your household schedule with per-person filters and caregiver coverage.",
       },
       { property: "og:title", content: "Calendar — Family Calendar" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       {
         property: "og:description",
         content: "One shared calendar for school, activities, work and childcare.",
@@ -233,6 +236,12 @@ function CalendarPage() {
   }, []);
 
   const mode: ViewMode = view;
+  // On entering the phone overview, today's month starts with today selected.
+  // Date taps after entry remain selected; other months keep the scoped anchor.
+  useLayoutEffect(() => {
+    if (!isMobile || mode !== "month") return;
+    setAnchor((previous) => isSameMonth(previous, new Date()) ? new Date() : previous);
+  }, [isMobile, mode]);
   const isEmpty = !loading && !loadingRange && !loadError && !refreshFailed && events.length === 0;
 
   // Week view is a 7-day calendar where there is room, and a 3-day calendar on
@@ -285,6 +294,14 @@ function CalendarPage() {
   const step = (direction: 1 | -1, { focus = false }: { focus?: boolean } = {}) => {
     if (mode === "month") {
       haptic();
+      if (isMobile) {
+        setVisibleDate(null);
+        setAnchor((previous) => {
+          const next = addMonths(previous, direction);
+          return isSameMonth(next, new Date()) ? new Date() : next;
+        });
+        return;
+      }
       const from = monthScrollRef.current?.currentMonth() ?? anchor;
       monthScrollRef.current?.scrollToMonth(addMonths(from, direction));
       return;
@@ -768,7 +785,20 @@ function CalendarPage() {
               }
             }}
           >
-            <MonthScrollView
+            {isMobile ? (
+              <MobileMonthView
+                selectedDay={anchor}
+                events={visibleEvents}
+                selectedMembers={selectedMembers}
+                onSelectDay={setAnchor}
+                onNavigate={(direction) => step(direction)}
+                onPaste={onPaste}
+                onCreateAt={onCreateAt}
+                weekStartsOn={weekStart}
+                loading={loading || loadingRange}
+                loadError={loadError}
+              />
+            ) : <MonthScrollView
               ref={monthScrollRef}
               anchor={anchor}
               events={visibleEvents}
@@ -782,7 +812,7 @@ function CalendarPage() {
                 setAnchor(day);
                 setView("day");
               }}
-            />
+            />}
           </div>
         ) : useDayStripLayout ? (
           <div
