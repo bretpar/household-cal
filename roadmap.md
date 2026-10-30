@@ -1,5 +1,9 @@
 # Roadmap
 
+## Fixed phone Month and scrollable agenda
+- [x] Keep month grid/date heading stationary; bound agenda to approximately three standard rows, shrinking to available height.
+- [x] Isolate agenda gestures, reset on date changes, and track subtle overflow chevrons. No QA, tests or publishing; physical iPhone scrolling remains for Codex.
+
 ## Timed overnight visibility
 - [x] Include nonrecurring timed continuations with original timestamps and end-exclusive midnight boundaries.
 - [x] Show continuation dates/times in phone Month; two focused boundary tests pass in Pacific time and UTC. Automatic compilation passed; no broad QA or publishing.

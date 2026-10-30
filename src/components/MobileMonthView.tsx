@@ -61,6 +61,7 @@ export function MobileMonthView({
     if (!node || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(updateMore);
     observer.observe(node);
+    if (node.firstElementChild) observer.observe(node.firstElementChild);
     return () => observer.disconnect();
   }, [listSignature, loading, loadError, updateMore]);
   // Agenda gestures never reach month/date swipe handlers above it.
@@ -82,11 +83,11 @@ export function MobileMonthView({
             </Button>
           ) : null}
         </header>
-        <div className="relative min-h-0 max-h-[13.5rem] shrink">
+        <div className="relative flex min-h-0 max-h-[13.5rem] flex-1 flex-col">
         <div ref={scrollRef} onScroll={updateMore}
           onTouchStart={contain} onTouchMove={contain} onTouchEnd={contain}
           onPointerDown={contain} onPointerMove={contain} onPointerUp={contain}
-          className="h-full max-h-[13.5rem] overflow-y-auto overscroll-y-contain pr-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
+          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
         {loading ? <p role="status" className="py-3 text-sm text-muted-foreground">Loading events…</p>
           : loadError ? <p role="status" className="py-3 text-sm text-destructive">Couldn’t load events. Pull to refresh or reopen the app.</p>
           : occurrences.length === 0 ? <p className="py-3 text-sm text-muted-foreground">Nothing scheduled</p>
