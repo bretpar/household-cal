@@ -1,5 +1,9 @@
 # Roadmap
 
+## Timesheet data-integrity races
+- [ ] Serialize schedule save with period creation and finalization using household transaction locks and protected RPCs.
+- [ ] Refresh entries atomically with a fresh status check, preserving authorized owner corrections; no browser QA or publication.
+
 ## Timesheet schedule settings
 - [x] Show saved frequency and dynamically calculated current/next periods; reveal schedule fields only when changing it.
 - [x] Preserve historical sheets and block proposed boundaries that conflict with all stored periods, including submitted, approved or closed history; browser QA and publication left to Codex. Existing nontransactional refresh/submission races remain outside this focused redesign.
