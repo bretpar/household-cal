@@ -358,8 +358,9 @@ function LandingPage() {
               The shared family calendar that keeps everyone on the same page.
             </h1>
             <p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
-              School, sports, work and appointments in one color-coded calendar — with your nanny
-              or babysitter's shifts right alongside, and view-only access for caregivers.
+              One color-coded calendar for school, sports, work and appointments — synced with
+              Google Calendar, with your nanny or babysitter's shifts right alongside, and
+              caregiver timesheets parents can review and confirm.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link to="/auth" search={{ mode: "signup" }}>
@@ -442,20 +443,6 @@ function LandingPage() {
               </article>
             ))}
           </div>
-          <article className="mt-4 rounded-3xl border border-border-soft bg-card p-6 shadow-soft sm:mt-6 sm:p-7">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-accent">
-              <Bot className="h-5 w-5 text-accent-foreground" aria-hidden />
-            </div>
-            <h3 className="mt-4 text-lg font-bold">
-              AI assistant access{" "}
-              <span className="ml-1 rounded-full bg-surface-muted px-2.5 py-0.5 align-middle text-xs font-bold text-muted-foreground">
-                Bonus
-              </span>
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Ask ChatGPT or Claude about upcoming family events, with read-only access.
-            </p>
-          </article>
         </section>
 
         {/* Childcare & caregiver timesheets (SEO differentiator) */}
