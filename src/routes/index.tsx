@@ -601,86 +601,24 @@ function LandingPage() {
             </h2>
           </div>
 
-          {/* Desktop/tablet table */}
-          <div className="mt-8 hidden overflow-hidden rounded-3xl border border-border-soft bg-card shadow-soft sm:mt-10 sm:block">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <th scope="col" className="p-4 font-semibold text-muted-foreground">
-                    <span className="sr-only">Feature</span>
-                  </th>
-                  {COMPARISON_COLUMNS.map((column) => (
-                    <th
-                      key={column.key}
-                      scope="col"
-                      className={
-                        column.key === "ours"
-                          ? "bg-accent p-4 font-display text-base font-bold text-accent-foreground"
-                          : "p-4 font-semibold text-muted-foreground"
-                      }
-                    >
-                      {column.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {COMPARISON_ROWS.map((row) => (
-                  <tr key={row.label} className="border-t border-border-soft first:border-t-0">
-                    <th scope="row" className="p-4 font-semibold">
-                      {row.label}
-                    </th>
-                    <td className="bg-accent/60 p-4">
-                      <CompareMark value={row.ours} />
-                    </td>
-                    <td className="p-4">
-                      <CompareMark value={row.organizer} />
-                    </td>
-                    <td className="p-4">
-                      <CompareMark value={row.wall} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile stacked comparison */}
-          <div className="mt-8 space-y-4 sm:hidden">
-            {COMPARISON_ROWS.map((row) => (
-              <article
-                key={row.label}
-                className="rounded-3xl border border-border-soft bg-card p-5 shadow-soft"
+          <div className="mt-6 max-w-3xl">
+            <p className="text-base text-muted-foreground sm:text-lg">
+              No meal planner. No recipe collection. No chore economy. No new screen for your
+              kitchen. Our Family Calendar focuses on the shared schedule itself — including
+              childcare shifts, caregiver access and timesheets that typical organizers and
+              wall-calendar devices don't handle the same way.
+            </p>
+            <p className="mt-4 text-sm text-muted-foreground">
+              See the full{" "}
+              <Link
+                to="/cozi-skylight-alternative"
+                className="font-semibold text-primary underline underline-offset-4"
               >
-                <h3 className="text-sm font-bold">{row.label}</h3>
-                <dl className="mt-3 space-y-2 text-sm">
-                  <div className="flex items-center justify-between gap-3 rounded-xl bg-accent px-3 py-2">
-                    <dt className="font-bold text-accent-foreground">Our Family Calendar</dt>
-                    <dd>
-                      <CompareMark value={row.ours} />
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 px-3 py-1.5">
-                    <dt className="text-muted-foreground">Typical organizer</dt>
-                    <dd>
-                      <CompareMark value={row.organizer} />
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 px-3 py-1.5">
-                    <dt className="text-muted-foreground">Wall calendar device</dt>
-                    <dd>
-                      <CompareMark value={row.wall} />
-                    </dd>
-                  </div>
-                </dl>
-              </article>
-            ))}
+                comparison with Cozi and Skylight
+              </Link>
+              .
+            </p>
           </div>
-
-          <p className="mx-auto mt-8 max-w-3xl text-center text-base text-muted-foreground sm:mt-10 sm:text-lg">
-            No meal planner. No recipe collection. No chore economy. No new screen for your kitchen.
-            Just a family calendar designed to make a complicated week easier to understand.
-          </p>
         </section>
 
         {/* Email summaries */}
