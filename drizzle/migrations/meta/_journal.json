@@ -120,6 +120,13 @@
       "when": 1793424087598,
       "tag": "0016_fix_timesheet_alias_and_lock_order",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793425318334,
+      "tag": "0017_timesheet_entry_write_locks",
+      "breakpoints": true
     }
   ]
 }
