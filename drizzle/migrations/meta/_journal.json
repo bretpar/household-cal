@@ -127,6 +127,13 @@
       "when": 1793425318334,
       "tag": "0017_timesheet_entry_write_locks",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793426457762,
+      "tag": "0018_fix_owner_managed_entry_rpcs",
+      "breakpoints": true
     }
   ]
 }
