@@ -1766,6 +1766,16 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_timesheet_entry_atomic: {
+        Args: {
+          _actor: string
+          _entry: string
+          _family: string
+          _member: string
+          _sheet: string
+        }
+        Returns: undefined
+      }
       enqueue_google_manual_sync: {
         Args: {
           _attempt_id: string
@@ -1791,6 +1801,30 @@ export type Database = {
         Returns: undefined
       }
       my_caregiver_member_id: { Args: { _family_id: string }; Returns: string }
+      owner_delete_managed_entry_atomic: {
+        Args: {
+          _actor: string
+          _entry: string
+          _family: string
+          _sheet: string
+        }
+        Returns: undefined
+      }
+      owner_save_managed_entry_atomic: {
+        Args: {
+          _actor: string
+          _end: string
+          _entry: string
+          _family: string
+          _note: string
+          _paid_hours: number
+          _paid_note: string
+          _sheet: string
+          _start: string
+          _work_date: string
+        }
+        Returns: undefined
+      }
       recover_stale_account_deletion: {
         Args: { _user_id: string }
         Returns: string
@@ -1811,6 +1845,22 @@ export type Database = {
       remove_caregiver_app_access: {
         Args: { _member_id: string }
         Returns: number
+      }
+      save_timesheet_entry_atomic: {
+        Args: {
+          _actor: string
+          _end: string
+          _entry: string
+          _family: string
+          _member: string
+          _note: string
+          _paid_hours: number
+          _paid_note: string
+          _sheet: string
+          _start: string
+          _work_date: string
+        }
+        Returns: undefined
       }
       save_timesheet_schedule_atomic: {
         Args: { _family: string; _settings: Json; _validated_periods: Json }
