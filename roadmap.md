@@ -180,3 +180,4 @@
 
 ## Timesheet PostgreSQL blockers
 - [x] Migration 0016: renamed the conflicting DELETE alias in refresh_timesheet_atomic (42702) and made the entry-write guard acquire the household advisory lock before the parent row lock, so all write paths lock in household → timesheet → entry order (40P01).
+- [x] Migration 0017: renamed the remaining sh/e alias collisions in refresh's DELETE; routed caregiver and owner-managed entry saves/deletes through new locked RPCs (household advisory → parent row → entry, with in-transaction permission/status rechecks). No QA or publishing; Codex reruns the concurrency scenarios.
