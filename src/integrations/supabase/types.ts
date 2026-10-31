@@ -1747,6 +1747,16 @@ export type Database = {
         Args: { _bucket: string; _max: number; _window_seconds: number }
         Returns: boolean
       }
+      correct_timesheet_entry_atomic: {
+        Args: {
+          _actor: string
+          _entry: string
+          _family: string
+          _patch: Json
+          _sheet: string
+        }
+        Returns: undefined
+      }
       delete_account_data: {
         Args: {
           _delete_households: string[]
