@@ -1776,14 +1776,35 @@ export type Database = {
         Args: { _member_id: string }
         Returns: number
       }
+      lock_timesheet_household: {
+        Args: { _family: string }
+        Returns: undefined
+      }
       my_caregiver_member_id: { Args: { _family_id: string }; Returns: string }
       recover_stale_account_deletion: {
         Args: { _user_id: string }
         Returns: string
       }
+      refresh_timesheet_atomic: {
+        Args: {
+          _end: string
+          _family: string
+          _member: string
+          _settings: Json
+          _shifts: Json
+          _start: string
+          _timezone: string
+          _today: string
+        }
+        Returns: Json
+      }
       remove_caregiver_app_access: {
         Args: { _member_id: string }
         Returns: number
+      }
+      save_timesheet_schedule_atomic: {
+        Args: { _family: string; _settings: Json; _validated_periods: Json }
+        Returns: undefined
       }
       set_caregiver_access: {
         Args: {
@@ -1791,6 +1812,17 @@ export type Database = {
           _date_scope: Database["public"]["Enums"]["babysitter_date_scope"]
           _family_member_id: string
           _membership_id: string
+        }
+        Returns: undefined
+      }
+      transition_timesheet_atomic: {
+        Args: {
+          _action: string
+          _actor: string
+          _family: string
+          _member?: string
+          _note?: string
+          _sheet: string
         }
         Returns: undefined
       }
