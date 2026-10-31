@@ -81,7 +81,27 @@ export const savePaySettings = createServerFn({ method: "POST" })
     const db = context.supabase as unknown as AnyDb;
     const familyId = await s.currentFamilyId(db, context.userId);
     await s.assertOwner(db, familyId);
-    const { error } = await (await s.adminDb())
+    const admin = await s.adminDb();
+    const { settings } = await s.loadPaySettings(admin, familyId);
+    const changed = settings.frequency !== data.frequency || settings.anchor_date !== data.anchor_date ||
+      settings.semimonthly_first_end !== data.semimonthly_first_end;
+    if (changed) {
+      const { schedulePreservesPeriod } = await import("@/lib/timesheet-periods");
+      // Read every stored period, including drafts: a changed start can otherwise
+      // orphan an editable card or create overlapping cards. Never rewrite history.
+      for (let from = 0; ; from += 500) {
+        const { data: sheets, error: readError } = await admin.from("timesheets")
+          .select("id, period_start, period_end")
+          .eq("family_id", familyId).order("id").range(from, from + 499);
+        if (readError) throw new Error("Could not verify timesheet history. Schedule was not changed.");
+        if ((sheets ?? []).some((sheet: { period_start: string; period_end: string }) =>
+          !schedulePreservesPeriod(data, { start: sheet.period_start, end: sheet.period_end }))) {
+          throw new Error("This schedule would change an existing timesheet's boundaries. It cannot be saved; existing timesheets, including submitted, approved and closed history, must stay unchanged.");
+        }
+        if ((sheets ?? []).length < 500) break;
+      }
+    }
+    const { error } = await admin
       .from("timesheet_settings")
       .upsert({ family_id: familyId, ...data }, { onConflict: "family_id" });
     if (error) throw new Error(error.message);
