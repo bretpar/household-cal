@@ -219,20 +219,13 @@ export const saveTimesheetEntry = createServerFn({ method: "POST" })
     if (end <= start) end = new Date(end.getTime() + 86_400_000); // overnight
     const note = data.note?.trim() || null;
     const paid = paidPatch(data, start, end);
-    if (data.entry_id) {
-      const { error } = await admin
-        .from("timesheet_entries")
-        .update({ actual_start: start.toISOString(), actual_end: end.toISOString(), note, ...paid, actual_time_confirmed: true })
-        .eq("id", data.entry_id)
-        .eq("timesheet_id", sheet.id);
-      if (error) throw new Error(error.message);
-    } else {
-      const { error } = await admin.from("timesheet_entries").insert({
-        timesheet_id: sheet.id, family_id: me.familyId, work_date: data.work_date,
-        actual_start: start.toISOString(), actual_end: end.toISOString(), is_manual: true, note, ...paid,
-      });
-      if (error) throw new Error(error.message);
-    }
+    // Locked RPC: household advisory lock + parent row lock before any entry write.
+    const { error } = await admin.rpc("save_timesheet_entry_atomic", {
+      _family: me.familyId, _sheet: sheet.id, _entry: data.entry_id, _actor: context.userId, _member: me.memberId,
+      _work_date: data.work_date, _start: start.toISOString(), _end: end.toISOString(),
+      _note: note, _paid_hours: paid.paid_hours, _paid_note: paid.paid_note,
+    });
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
@@ -244,12 +237,9 @@ export const deleteManualEntry = createServerFn({ method: "POST" })
     const me = await s.myCaregiver(context.supabase as unknown as AnyDb, context.userId);
     const admin = await s.adminDb();
     const sheet = await s.editableSheet(admin, me.memberId, data.timesheet_id);
-    const { error } = await admin
-      .from("timesheet_entries")
-      .delete()
-      .eq("id", data.entry_id)
-      .eq("timesheet_id", sheet.id)
-      .eq("is_manual", true);
+    const { error } = await admin.rpc("delete_timesheet_entry_atomic", {
+      _family: me.familyId, _sheet: sheet.id, _entry: data.entry_id, _actor: context.userId, _member: me.memberId,
+    });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -661,22 +651,13 @@ export const ownerSaveManagedEntry = createServerFn({ method: "POST" })
     if (end <= start) end = new Date(end.getTime() + 86_400_000); // overnight
     const note = data.note?.trim() || null;
     const paid = paidPatch(data, start, end);
-    const now = new Date().toISOString();
-    if (data.entry_id) {
-      const { error } = await admin
-        .from("timesheet_entries")
-        .update({ actual_start: start.toISOString(), actual_end: end.toISOString(), note, ...paid, actual_time_confirmed: true, owner_edited_at: now, owner_edited_by: context.userId })
-        .eq("id", data.entry_id)
-        .eq("timesheet_id", sheet.id);
-      if (error) throw new Error(error.message);
-    } else {
-      const { error } = await admin.from("timesheet_entries").insert({
-        timesheet_id: sheet.id, family_id: familyId, work_date: data.work_date,
-        actual_start: start.toISOString(), actual_end: end.toISOString(), is_manual: true, note, ...paid,
-        owner_edited_at: now, owner_edited_by: context.userId,
-      });
-      if (error) throw new Error(error.message);
-    }
+    // Locked RPC: household advisory lock + parent row lock before any entry write.
+    const { error } = await admin.rpc("owner_save_managed_entry_atomic", {
+      _family: familyId, _sheet: sheet.id, _entry: data.entry_id, _actor: context.userId,
+      _work_date: data.work_date, _start: start.toISOString(), _end: end.toISOString(),
+      _note: note, _paid_hours: paid.paid_hours, _paid_note: paid.paid_note,
+    });
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
@@ -686,8 +667,9 @@ export const ownerDeleteManagedEntry = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { s, familyId, admin } = await ownerCtx(context);
     const sheet = await managedEditableSheet(s, admin, familyId, data.timesheet_id);
-    const { error } = await admin
-      .from("timesheet_entries").delete().eq("id", data.entry_id).eq("timesheet_id", sheet.id).eq("is_manual", true);
+    const { error } = await admin.rpc("owner_delete_managed_entry_atomic", {
+      _family: familyId, _sheet: sheet.id, _entry: data.entry_id, _actor: context.userId,
+    });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
