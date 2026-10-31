@@ -3,14 +3,12 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
   Baby,
-  Bot,
   CalendarDays,
   CalendarSync,
   Check,
   Clock3,
   LayoutGrid,
   Mail,
-  Minus,
   Palette,
   ShieldCheck,
   UserPlus,
@@ -81,13 +79,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A shared family calendar app for kids' activities, work and childcare. Color-code each person, sync Google Calendar, schedule your nanny and give caregivers view-only access.",
+          "A shared family calendar app for kids' activities, work and childcare. Color-code each person, sync Google Calendar, schedule your nanny and review caregiver timesheets.",
       },
       { property: "og:title", content: "Shared Family Calendar App With Nanny Scheduling | Our Family Calendar" },
       {
         property: "og:description",
         content:
-          "A shared family calendar app for kids' activities, work and childcare. Color-code each person, sync Google Calendar, schedule your nanny and give caregivers view-only access.",
+          "A shared family calendar app for kids' activities, work and childcare. Color-code each person, sync Google Calendar, schedule your nanny and review caregiver timesheets.",
       },
       { property: "og:url", content: `${SITE_URL}/` },
       { property: "og:image", content: OG_IMAGE_URL },
@@ -191,78 +189,6 @@ const STEPS = [
   },
 ];
 
-type CompareValue = { kind: "yes" | "no" } | { kind: "text"; label: string };
-
-const COMPARISON_ROWS: { label: string; ours: CompareValue; organizer: CompareValue; wall: CompareValue }[] = [
-  { label: "Shared family schedule", ours: { kind: "yes" }, organizer: { kind: "yes" }, wall: { kind: "yes" } },
-  {
-    label: "Works on phones & computers",
-    ours: { kind: "yes" },
-    organizer: { kind: "text", label: "Usually" },
-    wall: { kind: "text", label: "Varies" },
-  },
-  {
-    label: "Google Calendar integration",
-    ours: { kind: "yes" },
-    organizer: { kind: "text", label: "Varies" },
-    wall: { kind: "text", label: "Often" },
-  },
-  {
-    label: "Individual family colors",
-    ours: { kind: "yes" },
-    organizer: { kind: "text", label: "Often" },
-    wall: { kind: "text", label: "Often" },
-  },
-  {
-    label: "Caregiver access",
-    ours: { kind: "yes" },
-    organizer: { kind: "text", label: "Varies" },
-    wall: { kind: "text", label: "Varies" },
-  },
-  {
-    label: "Childcare visible in the family schedule",
-    ours: { kind: "yes" },
-    organizer: { kind: "text", label: "Varies" },
-    wall: { kind: "text", label: "Varies" },
-  },
-  {
-    label: "Special hardware required",
-    ours: { kind: "no" },
-    organizer: { kind: "no" },
-    wall: { kind: "yes" },
-  },
-  {
-    label: "Calendar-first experience",
-    ours: { kind: "yes" },
-    organizer: { kind: "text", label: "Often mixed with other features" },
-    wall: { kind: "yes" },
-  },
-];
-
-const COMPARISON_COLUMNS: { key: "ours" | "organizer" | "wall"; label: string }[] = [
-  { key: "ours", label: "Our Family Calendar" },
-  { key: "organizer", label: "Typical family organizer" },
-  { key: "wall", label: "Wall calendar device" },
-];
-
-function CompareMark({ value }: { value: CompareValue }) {
-  if (value.kind === "yes") {
-    return (
-      <span className="inline-flex items-center gap-1.5 font-semibold text-success">
-        <Check className="h-4 w-4" aria-hidden /> Yes
-      </span>
-    );
-  }
-  if (value.kind === "text") return <span className="text-muted-foreground">{value.label}</span>;
-  if (value.kind === "no") {
-    return (
-      <span className="inline-flex items-center gap-1.5 font-semibold text-muted-foreground">
-        <Minus className="h-4 w-4" aria-hidden /> No
-      </span>
-    );
-  }
-  return null;
-}
 
 function AuthLoadingShell() {
   // Public site: the startup overlay belongs to the native iOS shell only. In a
