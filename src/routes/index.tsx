@@ -3,14 +3,12 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
   Baby,
-  Bot,
   CalendarDays,
   CalendarSync,
   Check,
   Clock3,
   LayoutGrid,
   Mail,
-  Minus,
   Palette,
   ShieldCheck,
   UserPlus,
@@ -81,13 +79,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A shared family calendar app for kids' activities, work and childcare. Color-code each person, sync Google Calendar, schedule your nanny and give caregivers view-only access.",
+          "A shared family calendar app for kids' activities, work and childcare. Color-code each person, sync Google Calendar, schedule your nanny and review caregiver timesheets.",
       },
       { property: "og:title", content: "Shared Family Calendar App With Nanny Scheduling | Our Family Calendar" },
       {
         property: "og:description",
         content:
-          "A shared family calendar app for kids' activities, work and childcare. Color-code each person, sync Google Calendar, schedule your nanny and give caregivers view-only access.",
+          "A shared family calendar app for kids' activities, work and childcare. Color-code each person, sync Google Calendar, schedule your nanny and review caregiver timesheets.",
       },
       { property: "og:url", content: `${SITE_URL}/` },
       { property: "og:image", content: OG_IMAGE_URL },
@@ -191,78 +189,6 @@ const STEPS = [
   },
 ];
 
-type CompareValue = { kind: "yes" | "no" } | { kind: "text"; label: string };
-
-const COMPARISON_ROWS: { label: string; ours: CompareValue; organizer: CompareValue; wall: CompareValue }[] = [
-  { label: "Shared family schedule", ours: { kind: "yes" }, organizer: { kind: "yes" }, wall: { kind: "yes" } },
-  {
-    label: "Works on phones & computers",
-    ours: { kind: "yes" },
-    organizer: { kind: "text", label: "Usually" },
-    wall: { kind: "text", label: "Varies" },
-  },
-  {
-    label: "Google Calendar integration",
-    ours: { kind: "yes" },
-    organizer: { kind: "text", label: "Varies" },
-    wall: { kind: "text", label: "Often" },
-  },
-  {
-    label: "Individual family colors",
-    ours: { kind: "yes" },
-    organizer: { kind: "text", label: "Often" },
-    wall: { kind: "text", label: "Often" },
-  },
-  {
-    label: "Caregiver access",
-    ours: { kind: "yes" },
-    organizer: { kind: "text", label: "Varies" },
-    wall: { kind: "text", label: "Varies" },
-  },
-  {
-    label: "Childcare visible in the family schedule",
-    ours: { kind: "yes" },
-    organizer: { kind: "text", label: "Varies" },
-    wall: { kind: "text", label: "Varies" },
-  },
-  {
-    label: "Special hardware required",
-    ours: { kind: "no" },
-    organizer: { kind: "no" },
-    wall: { kind: "yes" },
-  },
-  {
-    label: "Calendar-first experience",
-    ours: { kind: "yes" },
-    organizer: { kind: "text", label: "Often mixed with other features" },
-    wall: { kind: "yes" },
-  },
-];
-
-const COMPARISON_COLUMNS: { key: "ours" | "organizer" | "wall"; label: string }[] = [
-  { key: "ours", label: "Our Family Calendar" },
-  { key: "organizer", label: "Typical family organizer" },
-  { key: "wall", label: "Wall calendar device" },
-];
-
-function CompareMark({ value }: { value: CompareValue }) {
-  if (value.kind === "yes") {
-    return (
-      <span className="inline-flex items-center gap-1.5 font-semibold text-success">
-        <Check className="h-4 w-4" aria-hidden /> Yes
-      </span>
-    );
-  }
-  if (value.kind === "text") return <span className="text-muted-foreground">{value.label}</span>;
-  if (value.kind === "no") {
-    return (
-      <span className="inline-flex items-center gap-1.5 font-semibold text-muted-foreground">
-        <Minus className="h-4 w-4" aria-hidden /> No
-      </span>
-    );
-  }
-  return null;
-}
 
 function AuthLoadingShell() {
   // Public site: the startup overlay belongs to the native iOS shell only. In a
@@ -358,8 +284,9 @@ function LandingPage() {
               The shared family calendar that keeps everyone on the same page.
             </h1>
             <p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
-              School, sports, work and appointments in one color-coded calendar — with your nanny
-              or babysitter's shifts right alongside, and view-only access for caregivers.
+              One color-coded calendar for school, sports, work and appointments — synced with
+              Google Calendar, with your nanny or babysitter's shifts right alongside, and
+              caregiver timesheets parents can review and confirm.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link to="/auth" search={{ mode: "signup" }}>
@@ -442,20 +369,6 @@ function LandingPage() {
               </article>
             ))}
           </div>
-          <article className="mt-4 rounded-3xl border border-border-soft bg-card p-6 shadow-soft sm:mt-6 sm:p-7">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-accent">
-              <Bot className="h-5 w-5 text-accent-foreground" aria-hidden />
-            </div>
-            <h3 className="mt-4 text-lg font-bold">
-              AI assistant access{" "}
-              <span className="ml-1 rounded-full bg-surface-muted px-2.5 py-0.5 align-middle text-xs font-bold text-muted-foreground">
-                Bonus
-              </span>
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Ask ChatGPT or Claude about upcoming family events, with read-only access.
-            </p>
-          </article>
         </section>
 
         {/* Childcare & caregiver timesheets (SEO differentiator) */}
@@ -471,22 +384,36 @@ function LandingPage() {
               A nanny schedule that fits your family calendar
             </h2>
             <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-              Plan recurring nanny shifts and occasional babysitter coverage alongside school,
-              work and family activities. Share a view-only caregiver calendar. Timesheets start
-              with scheduled shifts, caregivers record actual hours, and parents review and confirm them.
+              Plan nanny shifts and babysitter coverage right in the family calendar, then track
+              the hours — all in one place.
             </p>
-            <ul className="mt-6 flex flex-wrap gap-2">
-              {["Nanny scheduling", "Caregiver access", "Nanny timesheets", "Babysitter shifts"].map(
-                (item) => (
-                  <li
-                    key={item}
-                    className="rounded-full border border-border-soft bg-surface-muted px-3 py-1 text-xs font-bold text-muted-foreground"
-                  >
-                    {item}
-                  </li>
-                ),
-              )}
-            </ul>
+            <ol className="mt-6 grid gap-3 sm:grid-cols-3 sm:gap-4">
+              {[
+                {
+                  title: "Schedule caregiver shifts",
+                  body: "Plan recurring nanny shifts and occasional babysitter coverage alongside family activities.",
+                },
+                {
+                  title: "Track scheduled and actual hours",
+                  body: "Caregivers record their actual hours against the shifts you scheduled.",
+                },
+                {
+                  title: "Review and confirm timesheets",
+                  body: "Parents review each pay period and confirm the hours.",
+                },
+              ].map((step, index) => (
+                <li
+                  key={step.title}
+                  className="rounded-2xl border border-border-soft bg-surface-muted p-5"
+                >
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-primary font-display text-sm font-bold text-primary-foreground">
+                    {index + 1}
+                  </span>
+                  <h3 className="mt-3 text-base font-bold">{step.title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
+                </li>
+              ))}
+            </ol>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 to="/features/childcare-scheduling"
@@ -542,8 +469,8 @@ function LandingPage() {
                 Built for more than just Mom and Dad.
               </h2>
               <p className="mt-4 text-base text-muted-foreground sm:text-lg">
-                Grandparents, babysitters, nannies and other caregivers often need to know what's
-                happening without needing full control of your household.
+                Invite grandparents, babysitters and other caregivers with exactly the access
+                they need — and nothing more.
               </p>
             </div>
             <ul className="grid gap-3 sm:grid-cols-2">
@@ -600,86 +527,24 @@ function LandingPage() {
             </h2>
           </div>
 
-          {/* Desktop/tablet table */}
-          <div className="mt-8 hidden overflow-hidden rounded-3xl border border-border-soft bg-card shadow-soft sm:mt-10 sm:block">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-border-soft">
-                  <th scope="col" className="p-4 font-semibold text-muted-foreground">
-                    <span className="sr-only">Feature</span>
-                  </th>
-                  {COMPARISON_COLUMNS.map((column) => (
-                    <th
-                      key={column.key}
-                      scope="col"
-                      className={
-                        column.key === "ours"
-                          ? "bg-accent p-4 font-display text-base font-bold text-accent-foreground"
-                          : "p-4 font-semibold text-muted-foreground"
-                      }
-                    >
-                      {column.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {COMPARISON_ROWS.map((row) => (
-                  <tr key={row.label} className="border-t border-border-soft first:border-t-0">
-                    <th scope="row" className="p-4 font-semibold">
-                      {row.label}
-                    </th>
-                    <td className="bg-accent/60 p-4">
-                      <CompareMark value={row.ours} />
-                    </td>
-                    <td className="p-4">
-                      <CompareMark value={row.organizer} />
-                    </td>
-                    <td className="p-4">
-                      <CompareMark value={row.wall} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile stacked comparison */}
-          <div className="mt-8 space-y-4 sm:hidden">
-            {COMPARISON_ROWS.map((row) => (
-              <article
-                key={row.label}
-                className="rounded-3xl border border-border-soft bg-card p-5 shadow-soft"
+          <div className="mt-6 max-w-3xl">
+            <p className="text-base text-muted-foreground sm:text-lg">
+              No meal planner. No recipe collection. No chore economy. No new screen for your
+              kitchen. Our Family Calendar focuses on the shared schedule itself — including
+              childcare shifts, caregiver access and timesheets that typical organizers and
+              wall-calendar devices don't handle the same way.
+            </p>
+            <p className="mt-4 text-sm text-muted-foreground">
+              See the full{" "}
+              <Link
+                to="/cozi-skylight-alternative"
+                className="font-semibold text-primary underline underline-offset-4"
               >
-                <h3 className="text-sm font-bold">{row.label}</h3>
-                <dl className="mt-3 space-y-2 text-sm">
-                  <div className="flex items-center justify-between gap-3 rounded-xl bg-accent px-3 py-2">
-                    <dt className="font-bold text-accent-foreground">Our Family Calendar</dt>
-                    <dd>
-                      <CompareMark value={row.ours} />
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 px-3 py-1.5">
-                    <dt className="text-muted-foreground">Typical organizer</dt>
-                    <dd>
-                      <CompareMark value={row.organizer} />
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 px-3 py-1.5">
-                    <dt className="text-muted-foreground">Wall calendar device</dt>
-                    <dd>
-                      <CompareMark value={row.wall} />
-                    </dd>
-                  </div>
-                </dl>
-              </article>
-            ))}
+                comparison with Cozi and Skylight
+              </Link>
+              .
+            </p>
           </div>
-
-          <p className="mx-auto mt-8 max-w-3xl text-center text-base text-muted-foreground sm:mt-10 sm:text-lg">
-            No meal planner. No recipe collection. No chore economy. No new screen for your kitchen.
-            Just a family calendar designed to make a complicated week easier to understand.
-          </p>
         </section>
 
         {/* Email summaries */}
