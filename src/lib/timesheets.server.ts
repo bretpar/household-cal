@@ -203,7 +203,8 @@ export async function ensureTimesheet(
   offset: number,
 ) {
   const { settings, timeZone } = await loadPaySettings(admin, familyId);
-  const period = payPeriodFor(settings, todayKey(timeZone), offset);
+  const today = todayKey(timeZone);
+  const period = payPeriodFor(settings, today, offset);
   const member = await admin.from("family_members").select("timesheet_start_date").eq("id", memberId).eq("family_id", familyId).single();
   if (member.error) throw new Error(member.error.message);
   const startDate = (member.data.timesheet_start_date as string | null) ?? null;
@@ -211,7 +212,7 @@ export async function ensureTimesheet(
     .filter((sh) => !startDate || sh.work_date >= startDate);
   const { data: sheet, error } = await admin.rpc("refresh_timesheet_atomic", {
     _family: familyId, _member: memberId, _settings: settings, _timezone: timeZone,
-    _today: todayKey(timeZone), _start: period.start, _end: period.end, _shifts: shifts,
+    _today: today, _start: period.start, _end: period.end, _shifts: shifts,
   });
   if (error) throw new Error(error.message);
   if (!sheet) throw new Error("Timesheet not found");
