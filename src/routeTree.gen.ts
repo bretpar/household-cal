@@ -31,6 +31,7 @@ import { Route as AuthenticatedTimesheetRouteImport } from './routes/_authentica
 import { Route as AuthenticatedTodayRouteImport } from './routes/_authenticated/today'
 import { Route as FeaturesChildcareSchedulingRouteImport } from './routes/features.childcare-scheduling'
 import { Route as FeaturesFamilyCalendarRouteImport } from './routes/features.family-calendar'
+import { Route as FeaturesNannyTimesheetsRouteImport } from './routes/features.nanny-timesheets'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as NativeAuthCallbackRouteImport } from './routes/native-auth.callback'
 import { Route as UnsubscribeTokenRouteImport } from './routes/unsubscribe.$token'
@@ -158,6 +159,11 @@ const FeaturesFamilyCalendarRoute = FeaturesFamilyCalendarRouteImport.update({
   path: '/features/family-calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FeaturesNannyTimesheetsRoute = FeaturesNannyTimesheetsRouteImport.update({
+  id: '/features/nanny-timesheets',
+  path: '/features/nanny-timesheets',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
@@ -254,6 +260,7 @@ export interface FileRoutesByFullPath {
   '/today': typeof AuthenticatedTodayRoute
   '/features/childcare-scheduling': typeof FeaturesChildcareSchedulingRoute
   '/features/family-calendar': typeof FeaturesFamilyCalendarRoute
+  '/features/nanny-timesheets': typeof FeaturesNannyTimesheetsRoute
   '/invite/$token': typeof InviteTokenRoute
   '/native-auth/callback': typeof NativeAuthCallbackRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
@@ -290,6 +297,7 @@ export interface FileRoutesByTo {
   '/today': typeof AuthenticatedTodayRoute
   '/features/childcare-scheduling': typeof FeaturesChildcareSchedulingRoute
   '/features/family-calendar': typeof FeaturesFamilyCalendarRoute
+  '/features/nanny-timesheets': typeof FeaturesNannyTimesheetsRoute
   '/invite/$token': typeof InviteTokenRoute
   '/native-auth/callback': typeof NativeAuthCallbackRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
@@ -328,6 +336,7 @@ export interface FileRoutesById {
   '/_authenticated/today': typeof AuthenticatedTodayRoute
   '/features/childcare-scheduling': typeof FeaturesChildcareSchedulingRoute
   '/features/family-calendar': typeof FeaturesFamilyCalendarRoute
+  '/features/nanny-timesheets': typeof FeaturesNannyTimesheetsRoute
   '/invite/$token': typeof InviteTokenRoute
   '/native-auth/callback': typeof NativeAuthCallbackRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
@@ -366,6 +375,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/features/childcare-scheduling'
     | '/features/family-calendar'
+    | '/features/nanny-timesheets'
     | '/invite/$token'
     | '/native-auth/callback'
     | '/unsubscribe/$token'
@@ -402,6 +412,7 @@ export interface FileRouteTypes {
     | '/today'
     | '/features/childcare-scheduling'
     | '/features/family-calendar'
+    | '/features/nanny-timesheets'
     | '/invite/$token'
     | '/native-auth/callback'
     | '/unsubscribe/$token'
@@ -439,6 +450,7 @@ export interface FileRouteTypes {
     | '/_authenticated/today'
     | '/features/childcare-scheduling'
     | '/features/family-calendar'
+    | '/features/nanny-timesheets'
     | '/invite/$token'
     | '/native-auth/callback'
     | '/unsubscribe/$token'
@@ -469,6 +481,7 @@ export interface RootRouteChildren {
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   FeaturesChildcareSchedulingRoute: typeof FeaturesChildcareSchedulingRoute
   FeaturesFamilyCalendarRoute: typeof FeaturesFamilyCalendarRoute
+  FeaturesNannyTimesheetsRoute: typeof FeaturesNannyTimesheetsRoute
   InviteTokenRoute: typeof InviteTokenRoute
   NativeAuthCallbackRoute: typeof NativeAuthCallbackRoute
   UnsubscribeTokenRoute: typeof UnsubscribeTokenRoute
@@ -640,6 +653,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FeaturesFamilyCalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/features/nanny-timesheets': {
+      id: '/features/nanny-timesheets'
+      path: '/features/nanny-timesheets'
+      fullPath: '/features/nanny-timesheets'
+      preLoaderRoute: typeof FeaturesNannyTimesheetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/invite/$token': {
       id: '/invite/$token'
       path: '/invite/$token'
@@ -776,6 +796,7 @@ const rootRouteChildren: RootRouteChildren = {
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   FeaturesChildcareSchedulingRoute: FeaturesChildcareSchedulingRoute,
   FeaturesFamilyCalendarRoute: FeaturesFamilyCalendarRoute,
+  FeaturesNannyTimesheetsRoute: FeaturesNannyTimesheetsRoute,
   InviteTokenRoute: InviteTokenRoute,
   NativeAuthCallbackRoute: NativeAuthCallbackRoute,
   UnsubscribeTokenRoute: UnsubscribeTokenRoute,

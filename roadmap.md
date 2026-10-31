@@ -1,5 +1,8 @@
 # Roadmap
 
+## Nanny timesheets landing page
+- [x] Add /features/nanny-timesheets with four-step scheduled-to-actual workflow, benefits, three-question FAQ, sitemap entry and childcare-page cross-link; reuses MarketingFeaturePage with a new optional secondary CTA. No QA or publishing.
+
 ## Timesheet data-integrity races
 - [x] Serialize schedule save with period creation and finalization using household transaction locks and protected RPCs.
 - [x] Refresh entries atomically with a fresh status check, preserving authorized owner corrections and payment information; compilation passed, no browser QA or publication. Codex race verification remains pending.
