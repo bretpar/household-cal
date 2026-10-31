@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import mobileDayAsset from "@/assets/landing-mobile-day.png.asset.json";
 import { MarketingFeaturePage, featureHead, linkClass, SITE_URL } from "@/components/MarketingFeaturePage";
+import { Button } from "@/components/ui/button";
 
 const TITLE = "Nanny Timesheet & Babysitter Hours Tracker | Our Family Calendar";
 const DESCRIPTION =
