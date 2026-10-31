@@ -171,3 +171,6 @@
 
 ## Current Pay Period shortcut
 - [x] Show a compact "Current Pay Period" button on caregiver and owner-managed Timesheets only when the selected period isn't the one containing today, reusing server pay-period offsets.
+
+## Comparison page refresh
+- [x] Rewrote /best-shared-calendar-app: new H1, named competitors (Cozi, Skylight, FamilyWall, TimeTree), differentiator-focused comparison, "Which calendar is right for your family?" picks, updated SEO metadata and closing CTA.

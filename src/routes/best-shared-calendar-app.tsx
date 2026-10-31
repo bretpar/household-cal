@@ -10,52 +10,81 @@ import { LegalFooter } from "@/components/LegalFooter";
 const SITE_URL = "https://ourfamilycalendar.com";
 const PAGE_URL = `${SITE_URL}/best-shared-calendar-app`;
 const OG_IMAGE_URL = `${SITE_URL}${heroMonthAsset.url}`;
-const TITLE = "Best Shared Calendar App for Families | Our Family Calendar";
+const TITLE = "Best Shared Family Calendar App: Comparison | Our Family Calendar";
 const DESCRIPTION =
-  "Compare shared calendar features for families: member colors, Google Calendar sync, nanny scheduling, caregiver access and timesheets in one household schedule.";
+  "Family calendar app comparison: how Our Family Calendar compares with Cozi, Skylight, FamilyWall and TimeTree on shared scheduling, Google Calendar sync, nanny scheduling and caregiver timesheets.";
 
-const CRITERIA = [
+const DIFFERENTIATORS = [
   {
-    title: "Everyone sees the same schedule",
-    body: "School, sports, work, appointments and childcare live in one calendar the whole household can open on a phone, tablet or computer.",
+    title: "Babysitter and nanny shift scheduling",
+    body: "Plan recurring caregiver shifts alongside family activities, so coverage is visible in the same schedule as school, sports and work.",
   },
   {
-    title: "You can tell who's who at a glance",
-    body: "Each family member gets their own color and initials, so you know whose activity it is without opening the event.",
+    title: "Caregiver-specific calendar access",
+    body: "Invite babysitters, nannies and grandparents with view-only access. Choose the calendars they can see and, if needed, limit visibility to their assigned shift days.",
   },
   {
-    title: "It works with the calendar you already use",
-    body: "Connect Google Calendar so the events your family relies on show up automatically — no rebuilding your schedule from scratch.",
+    title: "Scheduled versus actual caregiver hours",
+    body: "Caregivers record their actual hours against the scheduled shift, so you can see what was planned and what actually happened.",
   },
   {
-    title: "Caregivers get the right amount of access",
-    body: "Invite babysitters, nannies and grandparents with view-only caregiver access. Choose the calendars they can see and, if needed, limit visibility to their assigned shift days. Caregiver coverage shows inside the family schedule.",
+    title: "Timesheets populated from scheduled shifts",
+    body: "Time cards are prefilled from the shifts already on the calendar — no re-entering hours in a separate system.",
   },
   {
-    title: "It stays a calendar",
-    body: "Use your phone, tablet or computer without buying a dedicated calendar display. The shared schedule stays at the center of the experience.",
+    title: "Caregiver submission and parent confirmation",
+    body: "Caregivers submit their timesheet for the pay period and parents review and confirm it, keeping the babysitter timesheet connected to the schedule it came from.",
+  },
+  {
+    title: "Google Calendar synchronization",
+    body: "Connect Google Calendar so the events your family already relies on show up automatically — no rebuilding your schedule from scratch.",
   },
 ];
 
 type Mark = "yes" | "no" | string;
-const ROWS: { label: string; ours: Mark; general: Mark; wall: Mark }[] = [
-  { label: "Shared household schedule", ours: "yes", general: "yes", wall: "yes" },
-  { label: "Color and initials per family member", ours: "yes", general: "Varies by app", wall: "Varies by device" },
-  { label: "Google Calendar integration", ours: "yes", general: "Varies by app", wall: "Varies by device" },
-  { label: "Babysitter & caregiver access controls", ours: "yes", general: "Varies by app", wall: "Varies by device" },
-  { label: "Childcare visible in the family schedule", ours: "yes", general: "Can add events", wall: "Varies by device" },
-  { label: "Integrated caregiver timesheets and parent confirmation", ours: "yes", general: "Varies by product", wall: "Varies by product" },
-  { label: "Special hardware required", ours: "no", general: "no", wall: "yes" },
+const ROWS: { label: string; ours: Mark; others: Mark }[] = [
+  { label: "Shared household schedule", ours: "yes", others: "yes" },
+  { label: "Google Calendar synchronization", ours: "yes", others: "Varies by app" },
+  { label: "Babysitter & nanny shift scheduling", ours: "yes", others: "Varies by app" },
+  { label: "Caregiver-specific access and permissions", ours: "yes", others: "Varies by app" },
+  { label: "Scheduled vs. actual caregiver hours", ours: "yes", others: "Varies by app" },
+  { label: "Timesheets populated from scheduled shifts", ours: "yes", others: "Varies by app" },
+  { label: "Caregiver timesheet submission & parent confirmation", ours: "yes", others: "Varies by app" },
+  { label: "Special hardware required", ours: "no", others: "Varies by product" },
+];
+
+const PICKS = [
+  {
+    name: "Our Family Calendar",
+    body: "Families wanting shared scheduling, Google Calendar integration, and built-in childcare coordination with caregiver timesheets.",
+    href: "/auth",
+  },
+  {
+    name: "Cozi",
+    body: "Families prioritizing shopping lists, meal planning, and household organization.",
+  },
+  {
+    name: "Skylight",
+    body: "Families wanting a dedicated physical family calendar display.",
+  },
+  {
+    name: "FamilyWall",
+    body: "Families looking for broader household organization tools.",
+  },
+  {
+    name: "TimeTree",
+    body: "Families prioritizing shared calendars across multiple groups.",
+  },
 ];
 
 const FAQ = [
   {
-    question: "What is the best shared calendar app for families?",
+    question: "What is the best shared family calendar app?",
     answer:
-      "There is no single best app for every family. Look for a readable shared schedule, compatibility with your existing calendars and the right caregiver permissions. Our Family Calendar is an option for households that want member colors, Google Calendar connection and view-only caregiver access in one place.",
+      "There is no single best app for every family. Most family calendars handle shared scheduling well, so the right choice depends on what else your household needs. Our Family Calendar is built for families that also want childcare coordination: nanny and babysitter shifts, caregiver-specific access, and timesheets connected to the schedule.",
   },
   {
-    question: "Can I share the calendar with a babysitter?",
+    question: "Can I share the calendar with a babysitter or nanny?",
     answer:
       "Yes. Caregiver access is view-only: caregivers cannot edit family events. The household owner chooses which calendars they can see and can restrict visibility to assigned shift days.",
   },
@@ -129,13 +158,14 @@ function BestSharedCalendarPage() {
 
       <main>
         <section className="mx-auto max-w-4xl px-4 pb-12 pt-6 text-center sm:px-6 sm:pt-12 lg:px-8">
-          <p className="text-sm font-bold uppercase tracking-wide text-primary">Family scheduling, simplified</p>
+          <p className="text-sm font-bold uppercase tracking-wide text-primary">Family calendar app comparison</p>
           <h1 className="mt-3 font-display text-4xl font-bold sm:text-5xl">
-            Choosing the best shared calendar app for your family
+            Our Family Calendar vs. Other Family Calendar Apps
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-            Compare the features that matter to your household. Our Family Calendar brings kids' activities,
-            parents' schedules and caregiver coverage into one shared view.
+            Most family calendars — including Cozi, Skylight, FamilyWall and TimeTree — handle shared scheduling
+            well. Our Family Calendar does that too, and goes further by connecting childcare scheduling,
+            caregiver access and timesheet management in one place.
           </p>
           <div className="mt-7">
             <Button asChild size="lg" className="h-12 rounded-full px-7 font-bold">
@@ -160,9 +190,14 @@ function BestSharedCalendarPage() {
         </section>
 
         <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-          <h2 className="font-display text-3xl font-bold sm:text-4xl">What to look for in a shared calendar app</h2>
+          <h2 className="font-display text-3xl font-bold sm:text-4xl">Where Our Family Calendar is different</h2>
+          <p className="mt-3 max-w-3xl text-muted-foreground">
+            Shared calendars, family-member organization and synchronization are common across family calendar
+            apps. These are the areas where Our Family Calendar adds something most shared calendars don't
+            focus on: the childcare side of family scheduling.
+          </p>
           <ol className="mt-8 space-y-6">
-            {CRITERIA.map((c, i) => (
+            {DIFFERENTIATORS.map((c, i) => (
               <li key={c.title} className="flex gap-4">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent font-bold text-accent-foreground">
                   {i + 1}
@@ -174,14 +209,19 @@ function BestSharedCalendarPage() {
               </li>
             ))}
           </ol>
+          <p className="mt-8">
+            <Link to="/features/childcare-scheduling" className="font-semibold text-primary underline underline-offset-4">
+              Explore nanny scheduling and caregiver timesheets
+            </Link>
+          </p>
         </section>
 
-        <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-          <h2 className="font-display text-3xl font-bold sm:text-4xl">How the options compare</h2>
+        <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+          <h2 className="font-display text-3xl font-bold sm:text-4xl">How the features compare</h2>
           <p className="mt-3 max-w-3xl text-muted-foreground">
-            This is a feature guide from Our Family Calendar, not an independent ranking. Other columns describe
-            product categories, not specific brands; features and sharing permissions vary by product and plan.
-            Childcare events can be added to general calendars, but dedicated caregiver visibility controls vary.
+            This is a feature guide from Our Family Calendar, not an independent ranking. Competitor features
+            and sharing permissions vary by product and plan, and change over time — check each app's current
+            details before deciding.
           </p>
           <div className="mt-6 space-y-3 md:hidden">
             {ROWS.map((r) => (
@@ -190,8 +230,7 @@ function BestSharedCalendarPage() {
                 <dl className="mt-3 space-y-3 text-sm">
                   {[
                     { name: "Our Family Calendar", value: r.ours, highlight: true },
-                    { name: "General shared calendar", value: r.general, highlight: false },
-                    { name: "Wall calendar device", value: r.wall, highlight: false },
+                    { name: "Other family calendar apps", value: r.others, highlight: false },
                   ].map((option) => (
                     <div key={option.name} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
                       <dt className={option.highlight ? "font-semibold text-primary" : "text-muted-foreground"}>{option.name}</dt>
@@ -203,13 +242,12 @@ function BestSharedCalendarPage() {
             ))}
           </div>
           <div className="mt-8 hidden overflow-x-auto rounded-lg border border-border-soft bg-card shadow-soft md:block">
-            <table className="w-full min-w-[560px] text-left text-sm">
+            <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-border-soft">
                   <th scope="col" className="p-4"><span className="sr-only">Feature</span></th>
                   <th scope="col" className="bg-accent p-4 font-display text-base font-bold text-accent-foreground">Our Family Calendar</th>
-                  <th scope="col" className="p-4 font-semibold text-muted-foreground">General shared calendar</th>
-                  <th scope="col" className="p-4 font-semibold text-muted-foreground">Wall calendar device</th>
+                  <th scope="col" className="p-4 font-semibold text-muted-foreground">Other family calendar apps</th>
                 </tr>
               </thead>
               <tbody>
@@ -217,8 +255,7 @@ function BestSharedCalendarPage() {
                   <tr key={r.label} className="border-t border-border-soft first:border-t-0">
                     <th scope="row" className="p-4 font-semibold">{r.label}</th>
                     <td className="bg-accent/60 p-4"><Cell value={r.ours} highlight /></td>
-                    <td className="p-4"><Cell value={r.general} /></td>
-                    <td className="p-4"><Cell value={r.wall} /></td>
+                    <td className="p-4"><Cell value={r.others} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -227,24 +264,21 @@ function BestSharedCalendarPage() {
         </section>
 
         <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-          <h2 className="font-display text-3xl font-bold sm:text-4xl">
-            Need a nanny schedule app as well as a family calendar?
-          </h2>
-          <p className="mt-4 text-muted-foreground">
-            Look for recurring shifts, view-only caregiver access and hours connected to the schedule.
-            Our Family Calendar lets you plan nanny and babysitter shifts alongside family activities and automatically
-            prefills time cards from scheduled shifts, lets caregivers record actual hours, and
-            gives parents a place to review and confirm their timesheets. Your babysitter timesheet
-            stays connected to the schedule it came from, rather than in a separate hour-tracking system.
-          </p>
-          <p className="mt-4">
-            <Link to="/features/childcare-scheduling" className="font-semibold text-primary underline underline-offset-4">
-              Explore nanny scheduling and caregiver timesheets
-            </Link>
-            {" · "}
+          <h2 className="font-display text-3xl font-bold sm:text-4xl">Which calendar is right for your family?</h2>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            {PICKS.map((p) => (
+              <div key={p.name} className="rounded-lg border border-border-soft bg-card p-5">
+                <h3 className="font-display text-lg font-bold">{p.name}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{p.body}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-6 text-sm text-muted-foreground">
+            Want a deeper look at the two most common alternatives?{" "}
             <Link to="/cozi-skylight-alternative" className="font-semibold text-primary underline underline-offset-4">
-              Looking for a Cozi or Skylight alternative?
+              See our Cozi and Skylight comparison
             </Link>
+            .
           </p>
         </section>
 
@@ -263,12 +297,18 @@ function BestSharedCalendarPage() {
         <section className="px-4 pb-16 sm:px-6 sm:pb-24 lg:px-8">
           <div className="mx-auto max-w-4xl rounded-4xl bg-primary px-6 py-12 text-center shadow-lifted sm:px-10">
             <h2 className="font-display text-3xl font-bold text-primary-foreground sm:text-4xl">
-              Try the shared calendar made for families
+              More than a shared calendar. A simpler way to coordinate family life.
             </h2>
-            <div className="mt-7">
+            <div className="mt-7 flex flex-col items-center gap-3">
               <Button asChild size="lg" variant="secondary" className="h-12 rounded-full bg-primary-foreground px-7 font-bold text-primary hover:bg-primary-foreground/90">
                 <Link to="/auth" search={{ mode: "signup" }}>Get started</Link>
               </Button>
+              <Link
+                to="/features/childcare-scheduling"
+                className="text-sm font-semibold text-primary-foreground underline underline-offset-4"
+              >
+                Learn about childcare scheduling and timesheets
+              </Link>
             </div>
           </div>
         </section>
