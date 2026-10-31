@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Timesheet schedule settings
-- [ ] Show saved frequency and dynamically calculated current/next periods; reveal schedule fields only when changing it.
-- [ ] Preserve historical sheets and block proposed boundaries that conflict with submitted, approved or closed history; leave QA and publication to Codex.
+- [x] Show saved frequency and dynamically calculated current/next periods; reveal schedule fields only when changing it.
+- [x] Preserve historical sheets and block proposed boundaries that conflict with all stored periods, including submitted, approved or closed history; browser QA and publication left to Codex. Existing nontransactional refresh/submission races remain outside this focused redesign.
 
 ## Fixed phone Month and scrollable agenda
 - [x] Replace the fixed agenda cap with a height that fills the space between the day heading and the phone navigation (safe area included), so larger phones show more rows; verified on 393×852 with seven temporary events (six fully visible, scroll and chevron flip confirmed) and removed them afterwards.
