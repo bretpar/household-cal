@@ -203,51 +203,20 @@ export async function ensureTimesheet(
   offset: number,
 ) {
   const { settings, timeZone } = await loadPaySettings(admin, familyId);
-  const period = payPeriodFor(settings, todayKey(timeZone), offset);
-  const member = await admin.from("family_members").select("name, timesheet_start_date").eq("id", memberId).single();
+  const today = todayKey(timeZone);
+  const period = payPeriodFor(settings, today, offset);
+  const member = await admin.from("family_members").select("timesheet_start_date").eq("id", memberId).eq("family_id", familyId).single();
   if (member.error) throw new Error(member.error.message);
   const startDate = (member.data.timesheet_start_date as string | null) ?? null;
+  const shifts = (await scheduledShifts(admin, familyId, memberId, period, timeZone))
+    .filter((sh) => !startDate || sh.work_date >= startDate);
+  const { data: sheet, error } = await admin.rpc("refresh_timesheet_atomic", {
+    _family: familyId, _member: memberId, _settings: settings, _timezone: timeZone,
+    _today: today, _start: period.start, _end: period.end, _shifts: shifts,
+  });
+  if (error) throw new Error(error.message);
+  if (!sheet) throw new Error("Timesheet not found");
 
-  let sheet = (
-    await admin.from("timesheets").select("*").eq("family_member_id", memberId).eq("period_start", period.start).maybeSingle()
-  ).data as any;
-  if (!sheet) {
-    const ins = await admin
-      .from("timesheets")
-      .insert({ family_id: familyId, family_member_id: memberId, caregiver_name: member.data.name, period_start: period.start, period_end: period.end })
-      .select("*")
-      .single();
-    if (ins.error) throw new Error(ins.error.message);
-    sheet = ins.data;
-  }
-
-  if (sheet.status === "draft" || sheet.status === "needs_correction") {
-    // Shifts before the caregiver's Timesheet start date are never added.
-    const shifts = (await scheduledShifts(admin, familyId, memberId, { start: sheet.period_start, end: sheet.period_end }, timeZone))
-      .filter((sh) => !startDate || sh.work_date >= startDate);
-    const existing = await admin.from("timesheet_entries").select("id, occurrence_key, is_manual, actual_time_confirmed").eq("timesheet_id", sheet.id);
-    if (existing.error) throw new Error(existing.error.message);
-    const byKey = new Map<string, any>((existing.data ?? []).filter((r: any) => r.occurrence_key).map((r: any) => [r.occurrence_key, r]));
-    const live = new Set(shifts.map((s) => s.occurrence_key));
-    for (const s of shifts) {
-      const hit = byKey.get(s.occurrence_key);
-      if (hit) {
-        // Scheduled always refreshes; Actual follows only while it is still the unconfirmed default.
-        const patch: Record<string, unknown> = { scheduled_title: s.title, scheduled_start: s.start, scheduled_end: s.end };
-        if (!hit.actual_time_confirmed) { patch["actual_start"] = s.start; patch["actual_end"] = s.end; }
-        await admin.from("timesheet_entries").update(patch).eq("id", hit.id);
-      } else {
-        const r = await admin.from("timesheet_entries").insert({
-          timesheet_id: sheet.id, family_id: familyId, event_id: s.event_id, occurrence_key: s.occurrence_key,
-          work_date: s.work_date, scheduled_title: s.title, scheduled_start: s.start, scheduled_end: s.end,
-          actual_start: s.start, actual_end: s.end,
-        });
-        if (r.error) throw new Error(r.error.message);
-      }
-    }
-    const stale = (existing.data ?? []).filter((r: any) => !r.is_manual && r.occurrence_key && !live.has(r.occurrence_key)).map((r: any) => r.id);
-    if (stale.length) await admin.from("timesheet_entries").delete().in("id", stale);
-  }
   return { sheet, timeZone, settings, startDate };
 }
 

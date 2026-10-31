@@ -1,8 +1,12 @@
 # Roadmap
 
+## Timesheet data-integrity races
+- [x] Serialize schedule save with period creation and finalization using household transaction locks and protected RPCs.
+- [x] Refresh entries atomically with a fresh status check, preserving authorized owner corrections and payment information; compilation passed, no browser QA or publication. Codex race verification remains pending.
+
 ## Timesheet schedule settings
 - [x] Show saved frequency and dynamically calculated current/next periods; reveal schedule fields only when changing it.
-- [x] Preserve historical sheets and block proposed boundaries that conflict with all stored periods, including submitted, approved or closed history; browser QA and publication left to Codex. Existing nontransactional refresh/submission races remain outside this focused redesign.
+- [x] Preserve historical sheets and block proposed boundaries that conflict with all stored periods, including submitted, approved or closed history; browser QA and publication left to Codex. Subsequent focused transaction fixes protect refresh/submission races.
 
 ## Fixed phone Month and scrollable agenda
 - [x] Replace the fixed agenda cap with a height that fills the space between the day heading and the phone navigation (safe area included), so larger phones show more rows; verified on 393×852 with seven temporary events (six fully visible, scroll and chevron flip confirmed) and removed them afterwards.

@@ -82,28 +82,22 @@ export const savePaySettings = createServerFn({ method: "POST" })
     const familyId = await s.currentFamilyId(db, context.userId);
     await s.assertOwner(db, familyId);
     const admin = await s.adminDb();
-    const { settings } = await s.loadPaySettings(admin, familyId);
-    const changed = settings.frequency !== data.frequency || settings.anchor_date !== data.anchor_date ||
-      settings.semimonthly_first_end !== data.semimonthly_first_end;
-    if (changed) {
-      const { schedulePreservesPeriod } = await import("@/lib/timesheet-periods");
-      // Read every stored period, including drafts: a changed start can otherwise
-      // orphan an editable card or create overlapping cards. Never rewrite history.
-      for (let from = 0; ; from += 500) {
-        const { data: sheets, error: readError } = await admin.from("timesheets")
-          .select("id, period_start, period_end")
-          .eq("family_id", familyId).order("id").range(from, from + 499);
-        if (readError) throw new Error("Could not verify timesheet history. Schedule was not changed.");
-        if ((sheets ?? []).some((sheet: { period_start: string; period_end: string }) =>
-          !schedulePreservesPeriod(data, { start: sheet.period_start, end: sheet.period_end }))) {
-          throw new Error("This schedule would change an existing timesheet's boundaries. It cannot be saved; existing timesheets, including submitted, approved and closed history, must stay unchanged.");
-        }
-        if ((sheets ?? []).length < 500) break;
+    const { payPeriodFor } = await import("@/lib/timesheet-periods");
+    const validated = [];
+    for (let from = 0; ; from += 500) {
+      const { data: sheets, error: readError } = await admin.from("timesheets")
+        .select("id, period_start, period_end").eq("family_id", familyId).order("id").range(from, from + 499);
+      if (readError) throw new Error("Could not verify timesheet history. Schedule was not changed.");
+      for (const sheet of sheets ?? []) {
+        const proposed = payPeriodFor(data, sheet.period_start);
+        validated.push({ id: sheet.id, start: sheet.period_start, end: sheet.period_end,
+          proposed_start: proposed.start, proposed_end: proposed.end });
       }
+      if ((sheets ?? []).length < 500) break;
     }
-    const { error } = await admin
-      .from("timesheet_settings")
-      .upsert({ family_id: familyId, ...data }, { onConflict: "family_id" });
+    const { error } = await admin.rpc("save_timesheet_schedule_atomic", {
+      _family: familyId, _settings: data, _validated_periods: validated,
+    });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -268,22 +262,9 @@ export const submitTimesheet = createServerFn({ method: "POST" })
     const me = await s.myCaregiver(context.supabase as unknown as AnyDb, context.userId);
     const admin = await s.adminDb();
     const sheet = await s.editableSheet(admin, me.memberId, data.timesheet_id);
-    const { timeZone } = await s.loadPaySettings(admin, me.familyId);
-    const entries = (await s.loadEntries(admin, sheet.id, timeZone)).map((e: any) => ({
-      ...e,
-      submitted_scheduled_start: e.scheduled_start,
-      submitted_scheduled_end: e.scheduled_end,
-      caregiver_adjusted: s.isCaregiverAdjusted(e),
-    }));
-    const { error } = await admin
-      .from("timesheets")
-      .update({
-        status: "submitted",
-        submitted_at: new Date().toISOString(),
-        snapshot: { time_zone: timeZone, caregiver_name: sheet.caregiver_name, entries },
-      })
-      .eq("id", sheet.id)
-      .in("status", ["draft", "needs_correction"]);
+    const { error } = await admin.rpc("transition_timesheet_atomic", {
+      _family: me.familyId, _sheet: sheet.id, _actor: context.userId, _action: "submit", _member: me.memberId,
+    });
     if (error) throw new Error(error.message);
     const { notifyTimesheetSubmitted } = await import("@/lib/timesheet-notify.server");
     await notifyTimesheetSubmitted(sheet.id);
@@ -398,22 +379,10 @@ export const closeTimesheet = createServerFn({ method: "POST" })
     const { data: sheet, error: se } = await admin.from("timesheets").select("*").eq("id", data.timesheet_id).eq("family_id", familyId).maybeSingle();
     if (se || !sheet) throw new Error("Timesheet not found");
     if (!["draft", "needs_correction", "submitted"].includes(sheet.status)) throw new Error("This timesheet is already finalized");
-    const { timeZone } = await s.loadPaySettings(admin, familyId);
-    // A draft can only be closed once its pay period has fully ended in household time.
-    if (sheet.status === "draft" && sheet.period_end >= s.todayKey(timeZone)) {
-      throw new Error("This pay period hasn't ended yet, so its timesheet can't be closed");
-    }
-    // Keep any existing submission snapshot; otherwise freeze current entries for history.
-    const snapshot = sheet.snapshot ?? { time_zone: timeZone, caregiver_name: sheet.caregiver_name, entries: await s.loadEntries(admin, sheet.id, timeZone) };
-    const now = new Date().toISOString();
-    const { data: up, error } = await admin
-      .from("timesheets")
-      .update({ status: "closed", snapshot, closed_at: now, closed_by: context.userId })
-      .eq("id", sheet.id)
-      .eq("status", sheet.status)
-      .select("id");
+    const { error } = await admin.rpc("transition_timesheet_atomic", {
+      _family: familyId, _sheet: sheet.id, _actor: context.userId, _action: "close",
+    });
     if (error) throw new Error(error.message);
-    if (!up?.length) throw new Error("Timesheet changed; refresh and try again");
     return { ok: true };
   });
 
@@ -432,20 +401,11 @@ export const reviewTimesheet = createServerFn({ method: "POST" })
     const familyId = await s.currentFamilyId(db, context.userId);
     await s.assertOwner(db, familyId);
     const admin = await s.adminDb();
-    const { data: updated, error } = await admin
-      .from("timesheets")
-      .update({
-        status: data.action === "approve" ? "approved" : "needs_correction",
-        parent_note: data.action === "approve" ? null : data.note?.trim() || null,
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: context.userId,
-      })
-      .eq("id", data.timesheet_id)
-      .eq("family_id", familyId)
-      .eq("status", "submitted")
-      .select("id");
+    const { error } = await admin.rpc("transition_timesheet_atomic", {
+      _family: familyId, _sheet: data.timesheet_id, _actor: context.userId,
+      _action: data.action, _note: data.note,
+    });
     if (error) throw new Error(error.message);
-    if (!updated?.length) throw new Error("Only submitted timesheets can be reviewed");
     const { notifyTimesheetReviewed } = await import("@/lib/timesheet-notify.server");
     await notifyTimesheetReviewed(data.timesheet_id);
     return { ok: true };
@@ -494,33 +454,9 @@ export const ownerEditEntry = createServerFn({ method: "POST" })
       owner_edited_by: context.userId,
       actual_time_confirmed: true,
     };
-    // Keep the caregiver-entered values the first time an Owner changes this entry.
-    if (!entry.owner_edited_at) {
-      patch["caregiver_actual_start"] = entry.actual_start;
-      patch["caregiver_actual_end"] = entry.actual_end;
-      patch["caregiver_note"] = entry.note;
-    }
-    const up = await admin.from("timesheet_entries").update(patch).eq("id", entry.id);
-    if (up.error) throw new Error(up.error.message);
-    // Carry the frozen submission audit fields forward; owner edits never set caregiver_adjusted.
-    const prior = new Map(((sheet.snapshot?.entries ?? []) as any[]).map((p) => [p.id, p]));
-    const entries = (await s.loadEntries(admin, sheet.id, tz)).map((e: any) => {
-      const p = prior.get(e.id);
-      return p
-        ? { ...e, scheduled_start: p.scheduled_start, scheduled_end: p.scheduled_end, submitted_scheduled_start: p.submitted_scheduled_start, submitted_scheduled_end: p.submitted_scheduled_end, caregiver_adjusted: p.caregiver_adjusted }
-        : e;
+    const { error } = await admin.rpc("correct_timesheet_entry_atomic", {
+      _family: familyId, _sheet: sheet.id, _entry: entry.id, _actor: context.userId, _patch: patch,
     });
-    const { error } = await admin
-      .from("timesheets")
-      .update({
-        snapshot: { ...(sheet.snapshot ?? {}), time_zone: tz, entries },
-        submitted_snapshot: sheet.submitted_snapshot ?? sheet.snapshot,
-        owner_edited_at: new Date().toISOString(),
-        owner_edited_by: context.userId,
-      })
-      .eq("id", sheet.id)
-      .eq("family_id", familyId)
-      .eq("status", sheet.status);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -763,20 +699,9 @@ export const ownerFinalizeManaged = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { s, familyId, admin } = await ownerCtx(context);
     const sheet = await managedEditableSheet(s, admin, familyId, data.timesheet_id);
-    const { timeZone } = await s.loadPaySettings(admin, familyId);
-    const entries = await s.loadEntries(admin, sheet.id, timeZone);
-    const now = new Date().toISOString();
-    const { error } = await admin
-      .from("timesheets")
-      .update({
-        status: "approved",
-        owner_managed: true,
-        reviewed_at: now,
-        reviewed_by: context.userId,
-        snapshot: { time_zone: timeZone, caregiver_name: sheet.caregiver_name, entries, owner_managed: true },
-      })
-      .eq("id", sheet.id)
-      .in("status", ["draft", "needs_correction"]);
+    const { error } = await admin.rpc("transition_timesheet_atomic", {
+      _family: familyId, _sheet: sheet.id, _actor: context.userId, _action: "finalize_managed",
+    });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
