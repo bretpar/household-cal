@@ -75,6 +75,10 @@ function ChildcarePage() {
               ))}
             </ol>
             <p className="mt-8 text-sm text-muted-foreground">Timesheets track hours only — they don't handle payroll, payments or taxes.</p>
+            <p className="mt-4 text-sm text-muted-foreground">
+              Learn more about{" "}
+              <Link to="/features/nanny-timesheets" className={linkClass}>nanny timesheets and babysitter hour tracking</Link>.
+            </p>
           </div>
         </section>
       }

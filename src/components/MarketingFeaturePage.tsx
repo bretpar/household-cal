@@ -83,6 +83,7 @@ export function MarketingFeaturePage(props: {
   faq: FeatureFaq[];
   related: ReactNode;
   ctaTitle: string;
+  secondaryCta?: ReactNode;
 }) {
   return (
     <div className="min-h-screen bg-background">
@@ -105,6 +106,7 @@ export function MarketingFeaturePage(props: {
             <Button asChild size="lg" className="h-12 rounded-full px-7 font-bold">
               <Link to="/auth" search={{ mode: "signup" }}>Create your family calendar</Link>
             </Button>
+            {props.secondaryCta}
             <p className="text-sm text-muted-foreground">
               Already have an account?{" "}
               <Link to="/auth" search={{ mode: "signin" }} className={linkClass}>Sign in</Link>
