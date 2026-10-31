@@ -454,33 +454,9 @@ export const ownerEditEntry = createServerFn({ method: "POST" })
       owner_edited_by: context.userId,
       actual_time_confirmed: true,
     };
-    // Keep the caregiver-entered values the first time an Owner changes this entry.
-    if (!entry.owner_edited_at) {
-      patch["caregiver_actual_start"] = entry.actual_start;
-      patch["caregiver_actual_end"] = entry.actual_end;
-      patch["caregiver_note"] = entry.note;
-    }
-    const up = await admin.from("timesheet_entries").update(patch).eq("id", entry.id);
-    if (up.error) throw new Error(up.error.message);
-    // Carry the frozen submission audit fields forward; owner edits never set caregiver_adjusted.
-    const prior = new Map(((sheet.snapshot?.entries ?? []) as any[]).map((p) => [p.id, p]));
-    const entries = (await s.loadEntries(admin, sheet.id, tz)).map((e: any) => {
-      const p = prior.get(e.id);
-      return p
-        ? { ...e, scheduled_start: p.scheduled_start, scheduled_end: p.scheduled_end, submitted_scheduled_start: p.submitted_scheduled_start, submitted_scheduled_end: p.submitted_scheduled_end, caregiver_adjusted: p.caregiver_adjusted }
-        : e;
+    const { error } = await admin.rpc("correct_timesheet_entry_atomic", {
+      _family: familyId, _sheet: sheet.id, _entry: entry.id, _actor: context.userId, _patch: patch,
     });
-    const { error } = await admin
-      .from("timesheets")
-      .update({
-        snapshot: { ...(sheet.snapshot ?? {}), time_zone: tz, entries },
-        submitted_snapshot: sheet.submitted_snapshot ?? sheet.snapshot,
-        owner_edited_at: new Date().toISOString(),
-        owner_edited_by: context.userId,
-      })
-      .eq("id", sheet.id)
-      .eq("family_id", familyId)
-      .eq("status", sheet.status);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
