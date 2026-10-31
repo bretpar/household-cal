@@ -458,22 +458,36 @@ function LandingPage() {
               A nanny schedule that fits your family calendar
             </h2>
             <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-              Plan recurring nanny shifts and occasional babysitter coverage alongside school,
-              work and family activities. Share a view-only caregiver calendar. Timesheets start
-              with scheduled shifts, caregivers record actual hours, and parents review and confirm them.
+              Plan nanny shifts and babysitter coverage right in the family calendar, then track
+              the hours — all in one place.
             </p>
-            <ul className="mt-6 flex flex-wrap gap-2">
-              {["Nanny scheduling", "Caregiver access", "Nanny timesheets", "Babysitter shifts"].map(
-                (item) => (
-                  <li
-                    key={item}
-                    className="rounded-full border border-border-soft bg-surface-muted px-3 py-1 text-xs font-bold text-muted-foreground"
-                  >
-                    {item}
-                  </li>
-                ),
-              )}
-            </ul>
+            <ol className="mt-6 grid gap-3 sm:grid-cols-3 sm:gap-4">
+              {[
+                {
+                  title: "Schedule caregiver shifts",
+                  body: "Plan recurring nanny shifts and occasional babysitter coverage alongside family activities.",
+                },
+                {
+                  title: "Track scheduled and actual hours",
+                  body: "Caregivers record their actual hours against the shifts you scheduled.",
+                },
+                {
+                  title: "Review and confirm timesheets",
+                  body: "Parents review each pay period and confirm the hours.",
+                },
+              ].map((step, index) => (
+                <li
+                  key={step.title}
+                  className="rounded-2xl border border-border-soft bg-surface-muted p-5"
+                >
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-primary font-display text-sm font-bold text-primary-foreground">
+                    {index + 1}
+                  </span>
+                  <h3 className="mt-3 text-base font-bold">{step.title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
+                </li>
+              ))}
+            </ol>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 to="/features/childcare-scheduling"
@@ -529,8 +543,8 @@ function LandingPage() {
                 Built for more than just Mom and Dad.
               </h2>
               <p className="mt-4 text-base text-muted-foreground sm:text-lg">
-                Grandparents, babysitters, nannies and other caregivers often need to know what's
-                happening without needing full control of your household.
+                Invite grandparents, babysitters and other caregivers with exactly the access
+                they need — and nothing more.
               </p>
             </div>
             <ul className="grid gap-3 sm:grid-cols-2">
