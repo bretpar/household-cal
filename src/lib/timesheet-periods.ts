@@ -69,6 +69,12 @@ export function eachDateKey(p: PayPeriod): string[] {
   return out;
 }
 
+/** A schedule may not change the stored boundaries of an existing time card. */
+export function schedulePreservesPeriod(settings: PaySettings, period: PayPeriod): boolean {
+  const proposed = payPeriodFor(settings, period.start);
+  return proposed.start === period.start && proposed.end === period.end;
+}
+
 export function hoursBetween(startIso: string | null, endIso: string | null): number {
   if (!startIso || !endIso) return 0;
   const ms = new Date(endIso).getTime() - new Date(startIso).getTime();

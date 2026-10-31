@@ -4,12 +4,15 @@ import { useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Flag } from "lucide-react";
+import { CalendarDays, Flag } from "lucide-react";
+import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TimeField } from "@/components/TimeField";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,8 +27,11 @@ import {
   formatDisplayHours,
   hoursBetween,
   localHours,
+  payPeriodFor,
+  DEFAULT_PAY_SETTINGS,
   type PayFrequency,
 } from "@/lib/timesheet-periods";
+import { localDateKey } from "@/lib/google/occurrence";
 import {
   getNotifySettings,
   getPaySettings,
@@ -203,29 +209,64 @@ function PayPeriodSettings() {
   const qc = useQueryClient();
   const fetch = useServerFn(getPaySettings);
   const save = useServerFn(savePaySettings);
-  const { data } = useQuery({ queryKey: ["pay-settings"], queryFn: () => fetch() });
-  const [frequency, setFrequency] = useState<PayFrequency>("biweekly");
-  const [anchor, setAnchor] = useState("2026-01-04");
-  const [cut, setCut] = useState(15);
+  const { data, isError } = useQuery({ queryKey: ["pay-settings"], queryFn: () => fetch() });
+  const [editing, setEditing] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [frequency, setFrequency] = useState<PayFrequency>(DEFAULT_PAY_SETTINGS.frequency);
+  const [anchor, setAnchor] = useState(DEFAULT_PAY_SETTINGS.anchor_date);
+  const [cut, setCut] = useState(DEFAULT_PAY_SETTINGS.semimonthly_first_end);
+  const [today, setToday] = useState<string | null>(null);
+  // Advance display dates on wake/focus and across midnight without persisting an anchor.
   useEffect(() => {
     if (!data) return;
-    setFrequency(data.frequency);
-    setAnchor(data.anchor_date);
-    setCut(data.semimonthly_first_end);
-  }, [data]);
+    const update = () => setToday(localDateKey(new Date().toISOString(), data.time_zone));
+    update();
+    const timer = window.setInterval(update, 30_000);
+    window.addEventListener("focus", update);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", update);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, [data?.time_zone]);
   const mutation = useMutation({
     mutationFn: () => save({ data: { frequency, anchor_date: anchor, semimonthly_first_end: cut } }),
     onSuccess: () => {
-      toast.success("Pay period saved");
+      toast.success("Timesheet schedule saved");
+      qc.setQueryData(["pay-settings"], { ...data, frequency, anchor_date: anchor, semimonthly_first_end: cut });
+      setEditing(false);
       void qc.invalidateQueries({ queryKey: ["pay-settings"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save"),
   });
+  const proposed = { frequency, anchor_date: anchor, semimonthly_first_end: cut };
+  const settings = editing ? proposed : data;
+  const valid = !!anchor && Number.isInteger(cut) && cut >= 1 && cut <= 27;
+  const current = settings && today && (!editing || valid) ? payPeriodFor(settings, today) : null;
+  const next = settings && today && (!editing || valid) ? payPeriodFor(settings, today, 1) : null;
+  const changed = !!data && (frequency !== data.frequency || anchor !== data.anchor_date || cut !== data.semimonthly_first_end);
+  const selected = new Date(`${anchor}T00:00:00`);
+  const startEditing = () => {
+    if (!data) return;
+    setFrequency(data.frequency);
+    setAnchor(data.anchor_date);
+    setCut(data.semimonthly_first_end);
+    mutation.reset();
+    setEditing(true);
+  };
   return (
     <div className="space-y-3 rounded-2xl border border-border-soft bg-card p-4">
-      <p className="text-sm font-bold">Pay period</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-bold">Timesheet schedule</p>
+        {!editing && data ? <Button size="sm" variant="ghost" className="text-xs text-muted-foreground" onClick={startEditing}>Change schedule</Button> : null}
+      </div>
+      {!data ? <p className="text-xs text-muted-foreground">{isError ? "Could not load the schedule." : "Loading…"}</p> : null}
+      {!editing && data ? <p className="text-sm font-semibold">{FREQUENCY_LABEL[data.frequency]}</p> : null}
+      {editing ? <div className="space-y-3">
+      <Label htmlFor="timesheet-frequency">Frequency</Label>
       <Select value={frequency} onValueChange={(v) => setFrequency(v as PayFrequency)}>
-        <SelectTrigger aria-label="Pay period"><SelectValue /></SelectTrigger>
+        <SelectTrigger id="timesheet-frequency" aria-label="Timesheet schedule frequency" disabled={mutation.isPending}><SelectValue /></SelectTrigger>
         <SelectContent>
           {(["weekly", "biweekly", "monthly", ...(frequency === "semimonthly" ? ["semimonthly"] : [])] as PayFrequency[]).map((f) => (
             <SelectItem key={f} value={f}>{FREQUENCY_LABEL[f]}</SelectItem>
@@ -234,23 +275,48 @@ function PayPeriodSettings() {
       </Select>
       {frequency === "weekly" || frequency === "biweekly" ? (
         <div className="space-y-1">
-          <Label htmlFor="pay-anchor">A pay period starts on</Label>
-          <Input id="pay-anchor" type="date" value={anchor} onChange={(e) => setAnchor(e.target.value)} />
+          <Label htmlFor="pay-anchor">First day of a known timesheet period</Label>
+          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button id="pay-anchor" variant="outline" className="w-full justify-start text-left font-normal" disabled={mutation.isPending}>
+                <CalendarDays className="h-4 w-4 shrink-0" />
+                {format(selected, "MMM d, yyyy")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="pointer-events-auto w-auto p-0">
+              <Calendar mode="single" selected={selected} defaultMonth={selected} initialFocus className="pointer-events-auto p-3"
+                onSelect={(date) => { if (!date) return; setAnchor(format(date, "yyyy-MM-dd")); setPickerOpen(false); }} />
+            </PopoverContent>
+          </Popover>
+          <p className="text-xs text-muted-foreground">Choose a date when one of your timesheet periods began. We'll calculate the repeating schedule automatically.</p>
         </div>
       ) : null}
       {frequency === "semimonthly" ? (
         <div className="space-y-1">
           <Label htmlFor="pay-cut">First period ends on day</Label>
-          <Input id="pay-cut" type="number" min={1} max={27} value={cut} onChange={(e) => setCut(Number(e.target.value))} />
+          <Input id="pay-cut" type="number" min={1} max={27} value={cut} disabled={mutation.isPending} onChange={(e) => setCut(Number(e.target.value))} />
           <p className="text-xs text-muted-foreground">
             Periods: 1st–{cut}th, then {cut + 1}th–end of month.
           </p>
         </div>
       ) : null}
+      {frequency === "monthly" ? <p className="text-xs text-muted-foreground">Periods run from the first through the last day of each month.</p> : null}
+      </div> : null}
+      {current && next ? <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+        <dt className="text-muted-foreground">Current period</dt><dd className="min-w-0">{fmtDate(current.start)} – {fmtDate(current.end)}</dd>
+        <dt className="text-muted-foreground">Next period</dt><dd className="min-w-0">{fmtDate(next.start)} – {fmtDate(next.end)}</dd>
+      </dl> : null}
       <p className="text-xs text-muted-foreground">
         Uses the household time zone{data ? ` (${data.time_zone})` : ""}.
       </p>
-      <Button size="sm" disabled={mutation.isPending || !anchor} onClick={() => mutation.mutate()}>Save</Button>
+      {editing ? <>
+        <p className="text-xs text-muted-foreground">Existing timesheets stay unchanged. Changes that conflict with their saved dates cannot be saved.</p>
+        {mutation.isError ? <p role="alert" className="text-xs text-destructive">{mutation.error instanceof Error ? mutation.error.message : "Could not save the schedule."}</p> : null}
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={mutation.isPending || !valid || !changed} onClick={() => mutation.mutate()}>Save Changes</Button>
+          <Button size="sm" variant="outline" disabled={mutation.isPending} onClick={() => { setEditing(false); setPickerOpen(false); mutation.reset(); }}>Cancel</Button>
+        </div>
+      </> : null}
     </div>
   );
 }
