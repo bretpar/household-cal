@@ -174,3 +174,6 @@
 
 ## Comparison page refresh
 - [x] Rewrote /best-shared-calendar-app: new H1, named competitors (Cozi, Skylight, FamilyWall, TimeTree), differentiator-focused comparison, "Which calendar is right for your family?" picks, updated SEO metadata and closing CTA.
+
+## Timesheet PostgreSQL blockers
+- [x] Migration 0016: renamed the conflicting DELETE alias in refresh_timesheet_atomic (42702) and made the entry-write guard acquire the household advisory lock before the parent row lock, so all write paths lock in household → timesheet → entry order (40P01).
