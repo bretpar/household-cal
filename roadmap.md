@@ -1,5 +1,9 @@
 # Roadmap
 
+## Timesheet schedule settings
+- [ ] Show saved frequency and dynamically calculated current/next periods; reveal schedule fields only when changing it.
+- [ ] Preserve historical sheets and block proposed boundaries that conflict with submitted, approved or closed history; leave QA and publication to Codex.
+
 ## Fixed phone Month and scrollable agenda
 - [x] Replace the fixed agenda cap with a height that fills the space between the day heading and the phone navigation (safe area included), so larger phones show more rows; verified on 393×852 with seven temporary events (six fully visible, scroll and chevron flip confirmed) and removed them afterwards.
 - [x] Strengthen agenda isolation with passive native touch/pointer/wheel listeners and both-axis scroll containment; preserve independent momentum scrolling and event clicks. No QA or publishing; physical iPhone behavior remains for Codex.
