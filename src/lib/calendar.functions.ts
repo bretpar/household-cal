@@ -110,39 +110,43 @@ export const createEvent = createServerFn({ method: "POST" })
   });
 
 
-/**
- * Reconcile caregiver timesheets after a shift-affecting event change so a
- * moved shift can never leave duplicate scheduled/payable hours in both the
- * original and destination pay periods. Best-effort: the calendar save is
- * already authoritative, and editable sheets also self-heal when next opened.
- */
-async function reconcileShiftTimesheetsBestEffort(
-  familyId: string,
-  eventIds: string[],
-  dateIsos: (string | null | undefined)[],
-  extraDays: (string | null | undefined)[],
-  priorMemberIds: string[] = [],
-): Promise<void> {
+/** Caregivers currently assigned to these events (best-effort read; never blocks a save). */
+async function shiftMembersSafe(familyId: string, eventIds: string[]): Promise<string[]> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { localDateKey } = await import("@/lib/google/occurrence");
     const ts = await import("@/lib/timesheets.server");
-    const admin = supabaseAdmin as unknown as AnyDb;
-    const memberIds = [
-      ...new Set([...priorMemberIds, ...(await ts.shiftMemberIds(admin, familyId, eventIds))]),
-    ];
-    if (!memberIds.length) return;
-    const { data: fam } = await admin.from("families").select("timezone").eq("id", familyId).single();
-    const tz = (fam?.timezone as string | undefined) || "America/Los_Angeles";
-    const dates = new Set<string>();
-    for (const iso of dateIsos) {
-      const k = iso ? localDateKey(iso, tz) : null;
-      if (k) dates.add(k);
-    }
-    for (const d of extraDays) if (d) dates.add(d);
-    await ts.reconcileShiftTimesheets(admin, familyId, memberIds, [...dates]);
+    return await ts.shiftMemberIds(supabaseAdmin as unknown as AnyDb, familyId, eventIds);
   } catch (e) {
-    console.error("timesheet reconciliation after shift change failed", e);
+    console.error("shift member lookup failed", e);
+    return [];
+  }
+}
+
+/** Records a durable reconciliation intent before a shift-affecting change. */
+async function openReconcile(familyId: string, memberIds: string[]): Promise<string | null> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const ts = await import("@/lib/timesheets.server");
+    return await ts.openReconcileJob(supabaseAdmin as unknown as AnyDb, familyId, memberIds);
+  } catch (e) {
+    console.error("could not record timesheet reconciliation job", e);
+    return null;
+  }
+}
+
+/**
+ * Reconciles every existing editable timesheet of the affected caregivers in
+ * one transaction. On failure the job stays pending (retried hourly) and the
+ * caller reports "pending" instead of silent success.
+ */
+async function finishReconcile(familyId: string, jobId: string | null, memberIds: string[]): Promise<"ok" | "pending"> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const ts = await import("@/lib/timesheets.server");
+    return await ts.runReconcileJob(supabaseAdmin as unknown as AnyDb, familyId, jobId, memberIds);
+  } catch (e) {
+    console.error("timesheet reconciliation failed", e);
+    return "pending";
   }
 }
 
@@ -160,21 +164,9 @@ export const updateEventFn = createServerFn({ method: "POST" })
     const db = context.supabase as unknown as Db;
     const familyId = await resolveWritableFamilyForEvent(db, context.userId, data.event_id);
     await assertEventEditable(db, data.event_id);
-    const { data: before } = await db
-      .from("events")
-      .select("start_at")
-      .eq("id", data.event_id)
-      .single();
     // Capture caregivers before the update so an unassigned caregiver's sheet is reconciled too.
-    const priorMembers = await (async () => {
-      try {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const ts = await import("@/lib/timesheets.server");
-        return await ts.shiftMemberIds(supabaseAdmin as unknown as AnyDb, familyId, [data.event_id]);
-      } catch {
-        return [] as string[];
-      }
-    })();
+    const priorMembers = await shiftMembersSafe(familyId, [data.event_id]);
+    const jobId = await openReconcile(familyId, priorMembers);
     const created = await applyEventUpdate(
       db,
       data.event_id,
@@ -182,13 +174,8 @@ export const updateEventFn = createServerFn({ method: "POST" })
       data.scope,
       data.input,
     );
-    await reconcileShiftTimesheetsBestEffort(
-      familyId,
-      [data.event_id, ...(created ? [created] : [])],
-      [before?.start_at as string | undefined, data.input.start_at],
-      [data.occurrence_day],
-      priorMembers,
-    );
+    const afterMembers = await shiftMembersSafe(familyId, [data.event_id, ...(created ? [created] : [])]);
+    const timesheet_reconcile = await finishReconcile(familyId, jobId, [...priorMembers, ...afterMembers]);
     // assigning family members clears the "needs family assignment" badge
     if (data.input.member_ids.length > 0) {
       await db.from("events").update({ needs_family_assignment: false }).eq("id", data.event_id);
@@ -206,7 +193,7 @@ export const updateEventFn = createServerFn({ method: "POST" })
       pushTargetsForUpdate(data.event_id, created),
     );
 
-    return { ok: true as const, google_sync };
+    return { ok: true as const, google_sync, timesheet_reconcile };
   });
 
 export const deleteEventFn = createServerFn({ method: "POST" })
@@ -220,38 +207,16 @@ export const deleteEventFn = createServerFn({ method: "POST" })
     await assertEventEditable(db, data.event_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const sync = await import("@/lib/google/sync.server");
-    const { data: before } = await db
-      .from("events")
-      .select("start_at")
-      .eq("id", data.event_id)
-      .single();
 
     const wholeEventGone = data.scope === "series";
     const links = wholeEventGone ? await sync.linksForEvent(supabaseAdmin, data.event_id) : [];
 
     // Capture assigned caregivers before the delete removes the shift rows.
-    const ts = await import("@/lib/timesheets.server");
-    const shiftMembers = await ts
-      .shiftMemberIds(supabaseAdmin as unknown as AnyDb, familyId, [data.event_id])
-      .catch(() => [] as string[]);
+    const shiftMembers = await shiftMembersSafe(familyId, [data.event_id]);
+    const jobId = await openReconcile(familyId, shiftMembers);
 
     await applyEventDelete(db, data.event_id, data.occurrence_day, data.scope);
-
-    if (shiftMembers.length) {
-      // The shift rows are gone, so reconcile the affected caregivers directly.
-      try {
-        const { localDateKey } = await import("@/lib/google/occurrence");
-        const admin = supabaseAdmin as unknown as AnyDb;
-        const { data: fam } = await admin.from("families").select("timezone").eq("id", familyId).single();
-        const tz = (fam?.timezone as string | undefined) || "America/Los_Angeles";
-        const dates = new Set<string>([data.occurrence_day]);
-        const k = before?.start_at ? localDateKey(before.start_at as string, tz) : null;
-        if (k) dates.add(k);
-        await ts.reconcileShiftTimesheets(admin, familyId, shiftMembers, [...dates]);
-      } catch (e) {
-        console.error("timesheet reconciliation after shift delete failed", e);
-      }
-    }
+    const timesheet_reconcile = await finishReconcile(familyId, jobId, shiftMembers);
 
     await Promise.race([
       wholeEventGone
@@ -259,7 +224,7 @@ export const deleteEventFn = createServerFn({ method: "POST" })
         : sync.pushEvent(supabaseAdmin, familyId, data.event_id),
       new Promise<void>((resolve) => setTimeout(resolve, 2500)),
     ]);
-    return { ok: true };
+    return { ok: true, timesheet_reconcile };
   });
 
 /**
