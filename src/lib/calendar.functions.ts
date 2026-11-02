@@ -121,13 +121,16 @@ async function reconcileShiftTimesheetsBestEffort(
   eventIds: string[],
   dateIsos: (string | null | undefined)[],
   extraDays: (string | null | undefined)[],
+  priorMemberIds: string[] = [],
 ): Promise<void> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { localDateKey } = await import("@/lib/google/occurrence");
     const ts = await import("@/lib/timesheets.server");
     const admin = supabaseAdmin as unknown as AnyDb;
-    const memberIds = await ts.shiftMemberIds(admin, familyId, eventIds);
+    const memberIds = [
+      ...new Set([...priorMemberIds, ...(await ts.shiftMemberIds(admin, familyId, eventIds))]),
+    ];
     if (!memberIds.length) return;
     const { data: fam } = await admin.from("families").select("timezone").eq("id", familyId).single();
     const tz = (fam?.timezone as string | undefined) || "America/Los_Angeles";
@@ -162,6 +165,16 @@ export const updateEventFn = createServerFn({ method: "POST" })
       .select("start_at")
       .eq("id", data.event_id)
       .single();
+    // Capture caregivers before the update so an unassigned caregiver's sheet is reconciled too.
+    const priorMembers = await (async () => {
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const ts = await import("@/lib/timesheets.server");
+        return await ts.shiftMemberIds(supabaseAdmin as unknown as AnyDb, familyId, [data.event_id]);
+      } catch {
+        return [] as string[];
+      }
+    })();
     const created = await applyEventUpdate(
       db,
       data.event_id,
@@ -174,6 +187,7 @@ export const updateEventFn = createServerFn({ method: "POST" })
       [data.event_id, ...(created ? [created] : [])],
       [before?.start_at as string | undefined, data.input.start_at],
       [data.occurrence_day],
+      priorMembers,
     );
     // assigning family members clears the "needs family assignment" badge
     if (data.input.member_ids.length > 0) {
