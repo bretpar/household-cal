@@ -407,7 +407,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
     // Shift edits reconcile timesheets server-side; refresh mounted Timesheet views.
-    for (const key of TIMESHEET_QUERY_ROOTS) void queryClient.invalidateQueries({ queryKey: [key] });
+    invalidateTimesheetQueries(queryClient);
   };
 
   const createMutation = useMutation({

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getSyncSettings, syncNow } from "@/lib/google.functions";
+import { invalidateTimesheetQueries } from "@/lib/calendar-store";
 
 const SYNC_KEY = ["calendar-sync"] as const;
 
