@@ -764,7 +764,7 @@ export function EventFormFields({
 
 
   return (
-    <div className="w-full min-w-0 space-y-5 sm:space-y-4">
+    <div className="w-full min-w-0 space-y-4.5 sm:space-y-4">
       <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-name`}>Event name</Label>
         <Input
@@ -776,7 +776,7 @@ export function EventFormFields({
         />
       </div>
 
-      <div className="space-y-3.5 sm:space-y-3">
+      <div className="space-y-3 sm:space-y-3">
         <div className="space-y-1">
           <Label htmlFor={`${idPrefix}-date`}>Start</Label>
           <div

@@ -37,15 +37,18 @@ type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.
   onSwipeClose?: () => void;
   /** Constrains a tall mobile dialog to the visible iOS viewport and safe areas. */
   mobileViewportSafe?: boolean;
+  /** Opt-in compact phone event editor, with a fresh scroll position per mode. */
+  mobileEventSheetKey?: string;
+  onMobileBackdropClose?: () => void;
 };
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, hideClose, onSwipeClose, mobileViewportSafe, ...props }, ref) => {
+>(({ className, children, hideClose, onSwipeClose, mobileViewportSafe, mobileEventSheetKey, onMobileBackdropClose, onOpenAutoFocus, ...props }, ref) => {
   const [dragY, setDragY] = React.useState(0);
   const startY = React.useRef<number | null>(null);
-  const viewportRef = useModalViewport(ref);
+  const viewportRef = useModalViewport(ref, mobileEventSheetKey);
 
   // Drag-to-dismiss only applies to the mobile bottom sheet (max-sm). On
   // tablet/desktop the centered dialog relies on translate -50% classes and
@@ -87,7 +90,9 @@ const DialogContent = React.forwardRef<
 
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay onClick={() => {
+        if (isMobileSheet()) onMobileBackdropClose?.();
+      }} />
       <DialogPrimitive.Content
         ref={viewportRef}
         style={dragY > 0 ? { transform: `translateY(${dragY}px)` } : undefined}
@@ -101,6 +106,15 @@ const DialogContent = React.forwardRef<
           "mobile-viewport-dialog",
         )}
         data-viewport-safe={mobileViewportSafe ? "true" : undefined}
+        data-event-sheet={mobileEventSheetKey !== undefined ? "true" : undefined}
+        onOpenAutoFocus={(event) => {
+          onOpenAutoFocus?.(event);
+          if (!event.defaultPrevented && mobileEventSheetKey !== undefined && isMobileSheet()) {
+            event.preventDefault();
+            // Don't open the keyboard or scroll to a form control on entry.
+            if (event.target instanceof HTMLElement) event.target.focus({ preventScroll: true });
+          }
+        }}
         {...touchHandlers}
         {...props}
       >
