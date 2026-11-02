@@ -1196,8 +1196,9 @@ export async function applyGoogleEvent(
         await adoptOccurrenceIdentity(admin, link, state.event);
       }
       if (exceptionCancellationAction({ occurrenceState: state.status }) === "remove") {
-        await withShiftReconcile(admin, familyId, [link.event_id], async () => {
-          await admin.from("events").delete().eq("id", link.event_id);
+        const removedEventId = link.event_id;
+        await withShiftReconcile(admin, familyId, [removedEventId], async () => {
+          await admin.from("events").delete().eq("id", removedEventId);
         });
       }
       return;
