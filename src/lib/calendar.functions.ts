@@ -20,6 +20,7 @@ import {
   type FamilyBundle,
   type RecurrenceScope,
 } from "@/lib/calendar-ops";
+import type { AnyDb } from "@/lib/timesheets.server";
 
 /**
  * Resolves the caller's household (claiming any pending invitation for their email).
