@@ -1,5 +1,9 @@
 # Roadmap
 
+## Onboarding family roles and invitations
+- [ ] Add optional member invitations and Parent/Child/Caregiver review in onboarding.
+- [ ] Complete setup before securely creating member-linked invitations; preserve retries, delivery truth and existing memberships.
+
 ## Final calendar split and legacy timesheet fixes
 - [x] Commit recurring replacement, members, caregiver assignment and original-series changes in one authorized transaction; migration 0022 applied, with Google push remaining after commit.
 - [x] Distinguish proven duplicates from suspected legacy matches; keep suspected hours counted and require owner review before finalization. Automatic compilation passed; no QA or publishing.
