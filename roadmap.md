@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Invitation security and compact Step 2
-- [ ] Restrict pending member invitation emails to Owners and enforce same-household invitation associations with forward-only migrations.
-- [ ] Compact Initial/Color controls, unused-color defaults and stable collapsible member forms; necessary compilation/migration checks only, no browser QA or publishing.
+- [x] Restrict pending member invitation emails to Owners using private intent storage; enforce same-household invitation associations with forward-only migrations 0027–0028, without changing 0024–0026.
+- [x] Compact Initial/Color controls, unused-color defaults and stable collapsible member forms; automatic compilation/migration sanity checks and 16 narrowly scoped preservation/privacy tests passed, no browser QA, broad suites or publishing.
 
 ## Onboarding family roles and invitations
 - [x] Add optional member invitations and Parent/Child/Caregiver review in onboarding.
