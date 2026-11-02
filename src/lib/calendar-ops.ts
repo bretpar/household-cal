@@ -646,6 +646,8 @@ export async function applyEventUpdate(
       ? await existingShiftAssignment(db, eventId)
       : input.babysitter_assignment;
 
+  // Lineage lets timesheets recognize the replacement as the same logical shift.
+  const lineage = { split_from_event_id: eventId, split_from_date: occurrenceDay };
   const createdId =
     scope === "this"
       ? await insertEvent(db, familyId, {
@@ -657,12 +659,12 @@ export async function applyEventUpdate(
           // must not carry over — otherwise the occurrence renders on no day at all.
           member_weekdays: {},
           calendar_source_id: sourceId,
-        })
+        }, lineage)
       : await insertEvent(db, familyId, {
           ...input,
           babysitter_assignment: inherited,
           calendar_source_id: sourceId,
-        });
+        }, lineage);
 
   try {
     if (scope === "this") {

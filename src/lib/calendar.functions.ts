@@ -129,8 +129,9 @@ async function openReconcile(familyId: string, memberIds: string[]): Promise<str
     const ts = await import("@/lib/timesheets.server");
     return await ts.openReconcileJob(supabaseAdmin as unknown as AnyDb, familyId, memberIds);
   } catch (e) {
+    // Fail closed: without a durable job the shift change must not be saved.
     console.error("could not record timesheet reconciliation job", e);
-    return null;
+    throw new Error("Couldn't save this shift change right now. Please try again.");
   }
 }
 

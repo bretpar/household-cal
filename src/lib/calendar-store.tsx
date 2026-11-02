@@ -165,6 +165,13 @@ const sameScope = (a: EventCacheScope | null, b: EventCacheScope | null) =>
 const CalendarContext = createContext<CalendarStore | null>(null);
 
 export const FAMILY_BUNDLE_KEY = ["family-bundle"] as const;
+const TIMESHEET_QUERY_ROOTS = [
+  "my-timesheet",
+  "timesheet-my-actions",
+  "timesheet-pending-count",
+  "household-timesheets",
+  "owner-managed-sheet",
+] as const;
 
 export function CalendarProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
@@ -392,7 +399,11 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   }, [categoryMissing]);
   const effectiveCategory: CategorySelection = categoryMissing ? null : selectedCategory;
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+    // Shift edits reconcile timesheets server-side; refresh mounted Timesheet views.
+    for (const key of TIMESHEET_QUERY_ROOTS) void queryClient.invalidateQueries({ queryKey: [key] });
+  };
 
   const createMutation = useMutation({
     mutationFn: (draft: EventDraft) =>
