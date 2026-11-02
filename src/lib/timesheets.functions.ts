@@ -27,6 +27,15 @@ export interface TimesheetEntry {
   actual_time_confirmed?: boolean;
   /** frozen at caregiver submission: caregiver-confirmed Actual differed from Scheduled */
   caregiver_adjusted?: boolean;
+  /** set when a shift move left this entry conflicting; blocks submission until resolved */
+  schedule_conflict_at?: string | null;
+  /** moved | duplicate_of_finalized | acknowledged | excluded */
+  schedule_conflict_reason?: string | null;
+}
+
+/** Entries counted in Scheduled/Actual totals: unresolved conflicts and excluded duplicates never count. */
+export function countsTowardTotals(e: Pick<TimesheetEntry, "schedule_conflict_at" | "schedule_conflict_reason">): boolean {
+  return !e.schedule_conflict_at && e.schedule_conflict_reason !== "excluded";
 }
 
 export interface TimesheetView {
@@ -343,13 +352,15 @@ export const listHouseholdTimesheets = createServerFn({ method: "GET" })
     // Review reads the submission snapshot; unfinished current drafts read saved entries (read-only, no sync).
     return Promise.all(rows.map(async ({ family_members: fm, ...t }: any) => {
       const current = t.status === "draft" && t.period_end >= today;
-      const entries = current
+      // Editable sheets always read live entries; snapshots are only for finalized history.
+      const editable = t.status === "draft" || t.status === "needs_correction";
+      const entries = editable
         ? ((await s.loadEntries(admin, t.id, timeZone)) as TimesheetEntry[])
         : ((t.snapshot?.entries ?? []) as TimesheetEntry[]);
       return {
         ...t,
         caregiver_name: t.snapshot?.caregiver_name ?? t.caregiver_name ?? fm?.name ?? "Caregiver",
-        time_zone: current ? timeZone : t.snapshot?.time_zone ?? "UTC",
+        time_zone: editable ? timeZone : t.snapshot?.time_zone ?? "UTC",
         entries,
         is_current: current,
       };
