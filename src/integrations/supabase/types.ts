@@ -1089,6 +1089,13 @@ export type Database = {
             referencedRelation: "family_members"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "family_invitations_member_same_family"
+            columns: ["family_member_id", "family_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id", "family_id"]
+          },
         ]
       }
       family_members: {
@@ -1356,6 +1363,46 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      onboarding_member_invites: {
+        Row: {
+          email: string
+          family_id: string
+          family_member_id: string
+        }
+        Insert: {
+          email: string
+          family_id: string
+          family_member_id: string
+        }
+        Update: {
+          email?: string
+          family_id?: string
+          family_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_member_invites_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_member_invites_family_member_id_fkey"
+            columns: ["family_member_id"]
+            isOneToOne: true
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_member_invites_same_family"
+            columns: ["family_member_id", "family_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id", "family_id"]
+          },
+        ]
       }
       profiles: {
         Row: {
