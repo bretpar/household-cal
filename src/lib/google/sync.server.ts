@@ -56,8 +56,45 @@ import { normalizeTimeZone, timeZoneAction } from "@/lib/google/timezone";
 import * as google from "@/lib/google/api.server";
 import { GoogleAuthError } from "@/lib/google/api.server";
 import type { WeekdayCode } from "@/lib/family-data";
+import {
+  householdTimesheetsOn,
+  openReconcileJob,
+  runReconcileJob,
+  shiftMemberIds,
+  type AnyDb,
+} from "@/lib/timesheets.server";
 
 type Admin = { from: (table: string) => any };
+
+/**
+ * Google inbound changes to an assigned caregiver shift reconcile timesheets
+ * exactly like an in-app edit: a durable job is recorded before the mutation
+ * and removed only after every editable sheet is updated; a failure leaves the
+ * job pending for the hourly retry. Events with no caregiver assignment (or
+ * households without Timesheets) skip straight to the mutation.
+ */
+async function withShiftReconcile(
+  admin: Admin,
+  familyId: string,
+  beforeEventIds: string[],
+  mutate: () => Promise<void>,
+  afterEventIds: string[] = [],
+): Promise<void> {
+  const db = admin as unknown as AnyDb;
+  if (!(await householdTimesheetsOn(familyId))) {
+    await mutate();
+    return;
+  }
+  const before = await shiftMemberIds(db, familyId, beforeEventIds);
+  if (before.length === 0) {
+    await mutate();
+    return;
+  }
+  const jobId = await openReconcileJob(db, familyId, before);
+  await mutate();
+  const after = afterEventIds.length ? await shiftMemberIds(db, familyId, afterEventIds) : [];
+  await runReconcileJob(db, familyId, jobId, [...new Set([...before, ...after])]);
+}
 
 /**
  * Household IANA timezone: recurring Google series are anchored to local time,
