@@ -39,7 +39,10 @@ import {
   submitTimesheet,
   type TimesheetEntry,
   type TimesheetView,
+  countsTowardTotals,
+  resolveShiftConflict,
 } from "@/lib/timesheets.functions";
+import { TimesheetConflicts } from "@/components/TimesheetConflicts";
 
 export const Route = createFileRoute("/_authenticated/timesheet")({
   validateSearch: (search: Record<string, unknown>): { period?: string } =>
@@ -261,6 +264,13 @@ function SheetBody({ sheet, statusRevalidated }: { sheet: TimesheetView; statusR
           {sheet.parent_note ? <p className="mt-1 whitespace-pre-wrap">{sheet.parent_note}</p> : null}
         </div>
       ) : null}
+      <TimesheetConflicts
+        entries={sheet.entries}
+        onResolve={editable ? async (entry_id, action) => {
+          await resolveConflict({ data: { timesheet_id: sheet.id, entry_id, action } });
+          await refresh();
+        } : undefined}
+      />
 
       <ul className="space-y-3">
         {sheet.entries.length === 0 ? (
