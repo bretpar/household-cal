@@ -849,6 +849,8 @@ export type Database = {
           notes: string | null
           recurrence_rule: string | null
           recurrence_until: string | null
+          split_from_date: string | null
+          split_from_event_id: string | null
           start_at: string
           title: string
           updated_at: string
@@ -872,6 +874,8 @@ export type Database = {
           notes?: string | null
           recurrence_rule?: string | null
           recurrence_until?: string | null
+          split_from_date?: string | null
+          split_from_event_id?: string | null
           start_at: string
           title: string
           updated_at?: string
@@ -895,6 +899,8 @@ export type Database = {
           notes?: string | null
           recurrence_rule?: string | null
           recurrence_until?: string | null
+          split_from_date?: string | null
+          split_from_event_id?: string | null
           start_at?: string
           title?: string
           updated_at?: string
@@ -919,6 +925,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_split_from_event_id_fkey"
+            columns: ["split_from_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]
@@ -1939,6 +1952,10 @@ export type Database = {
           _membership_id: string
         }
         Returns: undefined
+      }
+      timesheet_lineage_keys: {
+        Args: { _event: string; _tz: string; _work_date: string }
+        Returns: string[]
       }
       transition_timesheet_atomic: {
         Args: {
