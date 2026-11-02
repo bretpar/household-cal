@@ -1,5 +1,9 @@
 # Roadmap
 
+## Final calendar split and legacy timesheet fixes
+- [ ] Commit recurring replacement, members, caregiver assignment and original-series changes in one authorized transaction.
+- [ ] Distinguish proven duplicates from suspected legacy matches; keep suspected hours counted and require owner review before finalization. No QA or publishing.
+
 ## Caregiver rescheduling, visibility and timesheet duplication
 - [x] Active-session calendar freshness: bounded-window bundle revalidates every 2 minutes while visible; foreground/resume invalidation preserved.
 - [x] Recurring splits and partial updates inherit the existing caregiver assignment server-side; intentional removals still clear it.
