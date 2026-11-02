@@ -715,6 +715,19 @@ export const ownerResolveManagedConflict = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Owner decision on a shift flagged as already finalized elsewhere (any caregiver sheet in the household). */
+export const ownerResolveDuplicateConflict = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ timesheet_id: z.string().uuid(), entry_id: z.string().uuid(), action: z.enum(["keep", "discard"]) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { familyId, admin } = await ownerCtx(context);
+    const { error } = await admin.rpc("resolve_timesheet_conflict_atomic", {
+      _family: familyId, _sheet: data.timesheet_id, _entry: data.entry_id, _actor: context.userId, _member: null, _action: data.action,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 /** Owner finalizes (approves) an owner-managed time card. No caregiver submission, no emails. */
 export const ownerFinalizeManaged = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

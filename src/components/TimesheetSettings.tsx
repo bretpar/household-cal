@@ -407,7 +407,14 @@ function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnl
             Scheduled {formatDisplayHours(scheduled)} · <span className="font-semibold">Total · {formatDisplayHours(actual).replace(" h", actual === 1 ? " hour" : " hours")}</span>
           </p>
           <PaidSummary entries={sheet.entries} total={actual} />
-          <TimesheetConflicts entries={sheet.entries} />
+          <TimesheetConflicts
+            entries={sheet.entries}
+            ownerReview
+            onResolve={sheet.status === "draft" || sheet.status === "needs_correction" ? async (entry_id, action) => {
+              await resolveDuplicate({ data: { timesheet_id: sheet.id, entry_id, action } });
+              void qc.invalidateQueries({ queryKey: ["household-timesheets"] });
+            } : undefined}
+          />
           {sheet.status === "needs_correction" && sheet.parent_note ? (
             <p className="rounded-xl bg-surface-muted/60 p-2 text-xs"><span className="font-semibold">Your note: </span>{sheet.parent_note}</p>
           ) : null}
@@ -643,6 +650,7 @@ function OwnerManagedCard({ memberId, name, attention }: { memberId: string; nam
               <PaidSummary entries={sheet.entries} total={actual} />
               <TimesheetConflicts
                 entries={sheet.entries}
+                ownerReview
                 onResolve={editable ? async (entry_id, action) => {
                   await resolveManaged({ data: { timesheet_id: sheet.id, entry_id, action } });
                   refresh();
