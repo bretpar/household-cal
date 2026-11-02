@@ -126,7 +126,7 @@ async function reconcileShiftTimesheetsBestEffort(
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { localDateKey } = await import("@/lib/google/occurrence");
     const ts = await import("@/lib/timesheets.server");
-    const admin = supabaseAdmin as unknown as ts.AnyDb;
+    const admin = supabaseAdmin as unknown as AnyDb;
     const memberIds = await ts.shiftMemberIds(admin, familyId, eventIds);
     if (!memberIds.length) return;
     const { data: fam } = await admin.from("families").select("timezone").eq("id", familyId).single();
@@ -218,7 +218,7 @@ export const deleteEventFn = createServerFn({ method: "POST" })
     // Capture assigned caregivers before the delete removes the shift rows.
     const ts = await import("@/lib/timesheets.server");
     const shiftMembers = await ts
-      .shiftMemberIds(supabaseAdmin as unknown as ts.AnyDb, familyId, [data.event_id])
+      .shiftMemberIds(supabaseAdmin as unknown as AnyDb, familyId, [data.event_id])
       .catch(() => [] as string[]);
 
     await applyEventDelete(db, data.event_id, data.occurrence_day, data.scope);
@@ -227,7 +227,7 @@ export const deleteEventFn = createServerFn({ method: "POST" })
       // The shift rows are gone, so reconcile the affected caregivers directly.
       try {
         const { localDateKey } = await import("@/lib/google/occurrence");
-        const admin = supabaseAdmin as unknown as ts.AnyDb;
+        const admin = supabaseAdmin as unknown as AnyDb;
         const { data: fam } = await admin.from("families").select("timezone").eq("id", familyId).single();
         const tz = (fam?.timezone as string | undefined) || "America/Los_Angeles";
         const dates = new Set<string>([data.occurrence_day]);
