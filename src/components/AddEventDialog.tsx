@@ -145,7 +145,7 @@ export function EventComposerContent({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
 
-      <div className="-mx-4 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-2 sm:-mx-6 sm:px-6">
+      <div className="-mx-5 min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-2 sm:-mx-6 sm:px-6">
         <EventFormFields
           state={state}
           onChange={(next) => {

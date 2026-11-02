@@ -764,7 +764,7 @@ export function EventFormFields({
 
 
   return (
-    <div className="w-full min-w-0 space-y-3 sm:space-y-4">
+    <div className="w-full min-w-0 space-y-5 sm:space-y-4">
       <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-name`}>Event name</Label>
         <Input
@@ -776,7 +776,7 @@ export function EventFormFields({
         />
       </div>
 
-      <div className="space-y-2 sm:space-y-3">
+      <div className="space-y-3.5 sm:space-y-3">
         <div className="space-y-1">
           <Label htmlFor={`${idPrefix}-date`}>Start</Label>
           <div
@@ -840,9 +840,9 @@ export function EventFormFields({
       </div>
 
       {/* Secondary options share one quiet row beneath the prominent dates. */}
-      <div className="space-y-2 sm:space-y-3">
-        <div className="grid min-h-10 grid-cols-2 divide-x divide-border-soft rounded-xl bg-surface-muted sm:min-h-12">
-          <div className="flex min-w-0 items-center justify-between gap-2 px-3">
+      <div className="space-y-3 sm:space-y-3">
+        <div className="grid min-h-12 grid-cols-2 divide-x divide-border-soft rounded-xl bg-surface-muted">
+          <div className="flex min-w-0 items-center justify-between gap-2 px-3.5">
             <Label htmlFor={`${idPrefix}-all-day`} className="flex min-w-0 items-center gap-2 text-xs font-semibold text-muted-foreground">
               <CalendarDays className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
               <span>All day</span>
@@ -854,7 +854,7 @@ export function EventFormFields({
               className="scale-90"
             />
           </div>
-          <div className="flex min-w-0 items-center justify-between gap-2 px-3">
+          <div className="flex min-w-0 items-center justify-between gap-2 px-3.5">
             <Label htmlFor={`${idPrefix}-repeats`} className="flex min-w-0 items-center gap-2 text-xs font-semibold text-muted-foreground">
               <Repeat2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
               <span>Repeats</span>
