@@ -1,0 +1,2 @@
+REVOKE ALL ON public.onboarding_member_invites FROM PUBLIC, anon;
+COMMENT ON TABLE public.onboarding_member_invites IS 'Private pending onboarding email intent: authenticated Owners only through RLS; no anonymous grants. Service-only invitation completion consumes intent.';

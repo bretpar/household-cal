@@ -61,12 +61,12 @@ export const finishOnboardingFn = createServerFn({ method: "POST" })
       if (saved.error) throw saved.error;
     }
     const [members, pending] = await Promise.all([
-      supabaseAdmin.from("family_members").select("id").eq("family_id", current.familyId).not("onboarding_invite_email", "is", null),
+      supabaseAdmin.from("onboarding_member_invites").select("family_member_id").eq("family_id", current.familyId),
       supabaseAdmin.from("family_invitations").select("family_member_id").eq("family_id", current.familyId)
         .eq("status", "pending").not("family_member_id", "is", null),
     ]);
     if (members.error || pending.error) throw members.error ?? pending.error;
-    return { member_ids: [...new Set([...(members.data ?? []).map((m) => m.id),
+    return { member_ids: [...new Set([...(members.data ?? []).map((m) => m.family_member_id),
       ...(pending.data ?? []).flatMap((i) => i.family_member_id ? [i.family_member_id] : [])])] };
   });
 

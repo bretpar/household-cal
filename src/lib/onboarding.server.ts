@@ -110,15 +110,27 @@ export async function loadOnboardingStatus(admin: Db, userId: string): Promise<O
     admin.from("families").select("name, onboarding_finished_at").eq("id", membership.family_id).single(),
     admin
       .from("family_members")
-      .select(isOwner ? "id, name, initial, color, role, onboarding_invite_email" : "id, name, initial, color, role")
+      .select("id, name, initial, color, role")
       .eq("family_id", membership.family_id)
       .order("sort_order", { ascending: true }),
   ]);
 
+  if (familyRes.error || membersRes.error) throw familyRes.error ?? membersRes.error;
+  // Intent lives separately from Viewer-readable member data; never fetch it
+  // through the privileged client until this user's Owner role is verified.
+  let members = membersRes.data ?? [];
+  if (isOwner) {
+    const intents = await admin.from("onboarding_member_invites").select("family_member_id, email")
+      .eq("family_id", membership.family_id);
+    if (intents.error) throw intents.error;
+    const emails = new Map<string, string>((intents.data ?? []).map((i: { family_member_id: string; email: string }) => [i.family_member_id, i.email]));
+    members = members.map((m: { id: string }) => ({ ...m, onboarding_invite_email: emails.get(m.id) ?? null }));
+  }
+
   return {
     family_id: membership.family_id,
     family_name: familyRes.data?.name ?? null,
-    members: membersRes.data ?? [],
+    members,
     my_member_id: membership.family_member_id,
     completed: Boolean(familyRes.data?.onboarding_finished_at),
   };
@@ -234,8 +246,7 @@ export async function saveOnboardingMembers(
 
   const memberIds: string[] = [];
   for (const [index, m] of members.entries()) {
-    const fields = { name: m.name, initial: m.initial, color: m.color, sort_order: index,
-      onboarding_invite_email: m.invite_email ?? null };
+    const fields = { name: m.name, initial: m.initial, color: m.color, sort_order: index };
     if (m.id) {
       // Existing access and caregiver-specific fields are not onboarding's to reset.
       const previous = byId.get(m.id);
@@ -251,6 +262,12 @@ export async function saveOnboardingMembers(
       if (error) throw error;
       memberIds.push(added.id as string);
     }
+    const memberId = memberIds[index];
+    if (!memberId) throw new Error("Could not save family member");
+    const intent = m.invite_email
+      ? await admin.from("onboarding_member_invites").upsert({ family_member_id: memberId, family_id: familyId, email: m.invite_email }, { onConflict: "family_member_id" })
+      : await admin.from("onboarding_member_invites").delete().eq("family_id", familyId).eq("family_member_id", memberId);
+    if (intent.error) throw intent.error;
   }
   if (removedMemberIds.length > 0) {
     const { error } = await admin.from("family_members").delete().eq("family_id", familyId).in("id", removedMemberIds);

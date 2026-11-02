@@ -4,7 +4,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Info, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Info, Palette, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -73,9 +73,9 @@ interface MemberRow {
 }
 
 let rowSeq = 0;
-function newRow(overrides: Partial<MemberRow> = {}): MemberRow {
+function newRow(overrides: Partial<MemberRow> = {}, usedColors: MemberColor[] = []): MemberRow {
   rowSeq += 1;
-  const color = MEMBER_COLORS[(rowSeq - 1) % MEMBER_COLORS.length] ?? "sky";
+  const color = MEMBER_COLORS.find((color) => !usedColors.includes(color)) ?? MEMBER_COLORS[0] ?? "sky";
   return {
     key: `row-${rowSeq}`,
     name: "",
@@ -113,6 +113,9 @@ function OnboardingPage() {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [householdName, setHouseholdName] = useState("");
   const [rows, setRows] = useState<MemberRow[]>(() => [newRow({ is_me: true })]);
+  const [expandedMemberKey, setExpandedMemberKey] = useState<string | null>(null);
+  const [colorPickerKey, setColorPickerKey] = useState<string | null>(null);
+  const [memberError, setMemberError] = useState<{ key: string; message: string } | null>(null);
   const [removedMemberIds, setRemovedMemberIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [creatingNew, setCreatingNew] = useState(false);
@@ -169,8 +172,46 @@ function OnboardingPage() {
     return [...seen.entries()].filter(([, count]) => count > 1).map(([initial]) => initial);
   }, [rows]);
 
-  const patchRow = (key: string, patch: Partial<MemberRow>) =>
+  const activeMemberKey = expandedMemberKey ?? rows.at(-1)?.key;
+  const patchRow = (key: string, patch: Partial<MemberRow>) => {
     setRows((prev) => prev.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+    if (memberError?.key === key) setMemberError(null);
+  };
+
+  const validateMember = (row: MemberRow): string | null => {
+    if (!row.name.trim()) return "Enter a name for this family member";
+    if (!(row.initialTouched ? row.initial : row.name.trim().charAt(0)).trim()) return "Choose an initial";
+    if (row.invite && !row.is_me && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(row.email.trim())) return "Enter a valid invitation email";
+    if (row.invite && !row.is_me && rows.some((other) => other.key !== row.key && other.invite && !other.is_me && other.email.trim().toLowerCase() === row.email.trim().toLowerCase())) return "Use a different email for each invitation";
+    return null;
+  };
+
+  const keepInvalidMemberOpen = (row: MemberRow): boolean => {
+    const message = validateMember(row);
+    if (!message) return false;
+    setExpandedMemberKey(row.key);
+    setColorPickerKey(null);
+    setMemberError({ key: row.key, message });
+    return true;
+  };
+
+  const expandMember = (key: string) => {
+    const active = rows.find((row) => row.key === activeMemberKey);
+    if (active && active.key !== key && keepInvalidMemberOpen(active)) return;
+    setExpandedMemberKey(key);
+    setColorPickerKey(null);
+    setMemberError(null);
+  };
+
+  const addMember = () => {
+    const invalid = rows.find((row) => validateMember(row));
+    if (invalid && keepInvalidMemberOpen(invalid)) return;
+    const added = newRow({ role: "child" }, rows.map((row) => row.color));
+    setRows((prev) => [...prev, added]);
+    setExpandedMemberKey(added.key);
+    setColorPickerKey(null);
+    setMemberError(null);
+  };
 
   const submitHousehold = async () => {
     if (!householdName.trim()) {
@@ -245,6 +286,8 @@ function OnboardingPage() {
   };
 
   const submitMembers = async () => {
+    const invalid = rows.find((row) => validateMember(row));
+    if (invalid && keepInvalidMemberOpen(invalid)) return;
     const submittedRows = rows.filter((row) => row.name.trim().length > 0);
     if (submittedRows.some((row) => row.invite && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(row.email.trim()))) {
       toast.error("Enter an email address for each selected invitation");
@@ -393,48 +436,54 @@ function OnboardingPage() {
                   return (
                     <div
                       key={row.key}
-                      className="rounded-2xl border border-border-soft bg-surface p-4"
+                      className="overflow-hidden rounded-lg border border-border-soft bg-surface"
                     >
-                      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_5rem]">
+                      {row.key !== activeMemberKey ? (
+                        <Button type="button" variant="ghost" className="h-auto min-h-16 w-full justify-start gap-3 rounded-none px-4 py-2 text-left" aria-expanded={false} aria-controls={`member-form-${row.key}`} onClick={() => expandMember(row.key)}>
+                          <span aria-hidden className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-bold", styleForColor(row.color).badge)}>{initial || "?"}</span>
+                          <span className="min-w-0 flex-1 whitespace-normal">
+                            <span className="block break-words font-bold">{row.name}</span>
+                            <span className="block text-xs font-normal text-muted-foreground">{row.role === "parent" ? "Parent (Owner)" : row.role === "child" ? "Child (Viewer)" : row.role === "caregiver" ? "Caregiver (Viewer)" : "Other"}</span>
+                          </span>
+                          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                        </Button>
+                      ) : null}
+                      <div id={`member-form-${row.key}`} hidden={row.key !== activeMemberKey} className="p-4" role="group" aria-label={`Edit ${row.name || "family member"}`}>
                         <div className="space-y-1.5">
                           <Label htmlFor={`member-name-${row.key}`}>Name</Label>
-                          <Input
-                            id={`member-name-${row.key}`}
-                            className="h-12 rounded-xl text-base"
-                            placeholder="e.g. Dad"
-                            value={row.name}
-                            onChange={(event) => patchRow(row.key, { name: event.target.value })}
-                          />
+                          <Input id={`member-name-${row.key}`} className="h-12 rounded-xl text-base" placeholder="e.g. Dad" value={row.name} onChange={(event) => patchRow(row.key, { name: event.target.value })} />
                         </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor={`member-initial-${row.key}`}>Initial</Label>
-                          <Input
-                            id={`member-initial-${row.key}`}
-                            className="h-12 rounded-xl text-center text-base font-bold"
-                            maxLength={1}
-                            value={initial}
-                            onChange={(event) =>
-                              patchRow(row.key, {
-                                initial: event.target.value.slice(0, 1).toUpperCase(),
-                                initialTouched: true,
-                              })
-                            }
-                          />
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`member-initial-${row.key}`}>Initial</Label>
+                            <Input id={`member-initial-${row.key}`} className="h-12 rounded-xl text-center text-base font-bold" maxLength={1} value={initial} onChange={(event) => patchRow(row.key, { initial: event.target.value.slice(0, 1).toUpperCase(), initialTouched: true })} />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`member-color-${row.key}`}>Color</Label>
+                            <Popover open={colorPickerKey === row.key} onOpenChange={(open) => setColorPickerKey(open ? row.key : null)}>
+                              <PopoverTrigger asChild>
+                                <Button id={`member-color-${row.key}`} type="button" variant="outline" className="h-12 w-full justify-between rounded-xl px-3" aria-label={`Choose color for ${row.name || "family member"}`}>
+                                  <span aria-hidden className={cn("h-8 w-8 rounded-full", styleForColor(row.color).dot)} />
+                                  <Palette className="h-4 w-4 text-muted-foreground" aria-hidden />
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent align="end" collisionPadding={16} className="w-auto max-w-[calc(100vw-2rem)] p-3">
+                                <div className="grid grid-cols-4 gap-2" role="group" aria-label="Member colors">
+                                  {MEMBER_COLORS.map((color) => (
+                                    <Button key={color} type="button" variant="ghost" size="icon" aria-label={color} aria-pressed={row.color === color} onClick={() => { patchRow(row.key, { color }); setColorPickerKey(null); }} className={cn("h-11 w-11 rounded-full", styleForColor(color).badge, row.color === color && "ring-2 ring-ring ring-offset-2 ring-offset-surface")}>
+                                      {row.color === color ? <Check className="h-5 w-5" aria-hidden /> : null}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1.5">
+                        <div className="mt-3 space-y-1.5">
                           <Label>Family role</Label>
-                          <Select
-                            value={row.role}
-                            onValueChange={(value) =>
-                              patchRow(row.key, { role: value as MemberRoleInput })
-                            }
-                          >
-                            <SelectTrigger className="h-12 rounded-xl">
-                              <SelectValue />
-                            </SelectTrigger>
+                          <Select value={row.role} onValueChange={(value) => patchRow(row.key, { role: value as MemberRoleInput })}>
+                            <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="parent">Parent</SelectItem>
                               <SelectItem value="child">Child</SelectItem>
@@ -443,26 +492,7 @@ function OnboardingPage() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="space-y-1.5">
-                          <Label>Color</Label>
-                          <div className="flex flex-wrap gap-2">
-                            {MEMBER_COLORS.map((color) => (
-                              <button
-                                key={color}
-                                type="button"
-                                aria-label={color}
-                                aria-pressed={row.color === color}
-                                onClick={() => patchRow(row.key, { color })}
-                                className={cn(
-                                  "h-10 w-10 rounded-full ring-offset-2 ring-offset-surface transition",
-                                  styleForColor(color).dot,
-                                  row.color === color ? "ring-2 ring-foreground" : "",
-                                )}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                        {memberError?.key === row.key ? <p role="alert" className="mt-3 text-sm text-destructive">{memberError.message}</p> : null}
 
                       {!row.is_me ? <div className="mt-3 space-y-2 border-t border-border-soft pt-3">
                         <Label htmlFor={`invite-${row.key}`} className="flex min-h-10 cursor-pointer items-center gap-3">
@@ -501,7 +531,11 @@ function OnboardingPage() {
                             onClick={() => {
                               const memberId = row.id;
                               if (memberId) setRemovedMemberIds((prev) => [...prev, memberId]);
-                              setRows((prev) => prev.filter((r) => r.key !== row.key));
+                              const remaining = rows.filter((r) => r.key !== row.key);
+                              setRows(remaining);
+                              setExpandedMemberKey(remaining.at(-1)?.key ?? null);
+                              setColorPickerKey(null);
+                              setMemberError(null);
                             }}
                             type="button"
                           >
@@ -514,6 +548,7 @@ function OnboardingPage() {
                           </span>
                         )}
                       </div>
+                      </div>
                     </div>
                   );
                 })}
@@ -522,11 +557,11 @@ function OnboardingPage() {
               <Button
                 variant="outline"
                 className="h-12 w-full rounded-full font-bold"
-                onClick={() => setRows((prev) => [...prev, newRow({ role: "child" })])}
+                onClick={addMember}
                 type="button"
               >
                 <Plus className="h-4 w-4" aria-hidden />
-                Add family member
+                Add another member
               </Button>
 
               <Button
