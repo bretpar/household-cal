@@ -8,6 +8,7 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+- Subdirectories have their own AGENTS.md (src/components for calendar view layout, src/routes for public marketing pages); read them before changing files there.
 - calendar_sources.calendar_kind (household_default | custom | legacy_internal) distinguishes the Family calendar, user-created OFC calendars and hidden legacy rows; destinations are validated server-side via assertWritableDestination. Why: never rely on calendar names.
 - CalendarAppearanceSettings owns My Calendars/onboarding adds; GoogleCalendarMaintenance owns diagnostics; HouseholdAccess invite-only mode opens Step 4 invitations. Why: reuse existing flows.
 - Startup stays cream across web/native surfaces; the heart reveals the calendar without document recoloring. Why: prevent first-paint flashes.
@@ -25,17 +26,10 @@
 - Timesheet status "closed" (Owner-only closeTimesheet) is read-only history excluded from actionable queries; family_members.timesheet_start_date (NULL = no limit) filters shifts and periods. Why: retire obsolete periods without deleting data.
 - Caregiver Timesheet editing requires a successful post-mount sheet refresh and stays gated during refetches; session drafts remain intact. Why: cached Draft status must not briefly expose editing controls after submission or household disablement.
 - Caregiver Timesheet session drafts include the paid checkbox, raw paid-hours input and payment note alongside actual times and notes, retaining existing verified user/household scope and save/cancel/sign-out clearing. Why: navigation must preserve unsaved payment edits without treating them as saved or bypassing editability checks.
-- Day, 3-Day, and Week timed cards use the shared header-collision layout in calendar-layout.ts; stack priority follows deterministic occurrence order within each body-overlap cluster. Why: protect later headers without changing true event times.
 - Agent integrations (MCP) live in src/lib/mcp/ (read-only, Supabase OAuth, RLS as caller). Why: assistants act as the signed-in user.
 - Tours wait until onboarding exits, enter Today once, spotlight real tabs, and store versioned app_tour_states per verified user. Why: avoid setup/navigation races.
-- The public comparison guide renders desktop rows and mobile feature lists from the same data. Why: no horizontal scrolling on phones.
-- Public marketing feature pages share MarketingFeaturePage/featureHead (meta, canonical, SoftwareApplication/BreadcrumbList/FAQ JSON-LD); /features/nanny-timesheets targets nanny-timesheet searches and cross-links childcare-scheduling. Why: one SEO metadata convention per public page.
-- Desktop/tablet Calendar Day renders only WeekView; the agenda list stays on Today. Why: the embedded strip squeezed the timeline.
 - Calendar events load in bounded date windows: views report their range via setVisibleRange, the bundle query is keyed by it, and the server returns overlapping one-offs plus all recurring masters. Why: the app no longer downloads the entire event history on launch.
 - Persisted Today-window event cache (src/lib/event-cache.ts): scoped to verified user+household+role, written only when scope unchanged, cleared on sign-out/account switch. Why: instant reopen without leaking events across accounts.
-- Mobile Day/3-Day: touch-action none + single-axis gesture controller in use-day-strip.ts (axis lock, glide, gutter-aware snap). Why: native pan moved both axes.
-- Phone Month uses MobileMonthView with fixed compact MonthView/date heading and a bounded agenda-only scroller whose height is the flex space left between the day heading and the phone navigation (no fixed cap); passive native listeners isolate agenda gestures without blocking scrolling or clicks. Shared occurrence expansion, colors and openOccurrence remain; larger screens retain MonthScrollView. Why: readable narrow cells, more event rows, isolated gestures, unchanged data/access rules.
-- Nonrecurring timed occurrences retain original timestamps and keys; phone Month buckets them with occurrenceOccursOnDay using end-exclusive overlap. Why: show overnight continuations without inventing duplicate occurrences or shifting recurrence dates.
 - Onboarding preserves owner checks and stable IDs; continuation is not authorization. ChildcareSetup shares drafts/idempotent claims with Settings and Google linking. Step state initializes from the first status load only; "Go to Calendar" calls requestHeartReveal(). Why: preserve data, stop step-yanks, fire the reveal.
 - Phone DialogContent uses visualViewport; Add/Edit opt into natural-height sizing, mode-keyed scroll resets and existing close handlers for backdrop taps. Radix retains page lock/focus. Why: avoid keyboard overlap, stale scrolling and oversized sheets without changing desktop.
 - Timesheet "Already paid" lives in timesheet_entries.paid_hours/paid_note, saved only through the existing entry-save server functions (paidPatch caps at worked hours). Why: payment never alters worked time or permissions.
