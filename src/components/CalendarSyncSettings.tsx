@@ -38,6 +38,7 @@ import {
   startGoogleCalendarConnect,
   syncNow,
 } from "@/lib/google.functions";
+import { invalidateTimesheetQueries } from "@/lib/calendar-store";
 import { cn } from "@/lib/utils";
 
 export const SYNC_KEY = ["calendar-sync"] as const;
