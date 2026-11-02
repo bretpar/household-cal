@@ -329,6 +329,13 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     // bundle instead of refetching on focus; explicit invalidations still
     // refetch immediately regardless of staleness.
     staleTime: 5 * 60 * 1000,
+    // Active-session freshness: while the app is open and visible, revalidate
+    // the bounded window every 2 minutes so rescheduled shifts and newly
+    // permitted activities appear without a manual refresh or sign-out. One
+    // bounded-window request per interval; paused while the tab is hidden
+    // (foreground/resume invalidation covers the return).
+    refetchInterval: 2 * 60 * 1000,
+    refetchIntervalInBackground: false,
   });
   const cached = cachedRef.current?.key === queryKeyStr ? cachedRef.current : null;
 
