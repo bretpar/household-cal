@@ -224,7 +224,6 @@ export const deleteEventFn = createServerFn({ method: "POST" })
 
     if (shiftMembers.length) {
       // The shift rows are gone, so reconcile the affected caregivers directly.
-      await reconcileShiftTimesheetsBestEffort(familyId, [], [before?.start_at as string | undefined], [data.occurrence_day]).catch(() => {});
       try {
         const { localDateKey } = await import("@/lib/google/occurrence");
         const admin = supabaseAdmin as unknown as ts.AnyDb;
