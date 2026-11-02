@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { syncShiftAssignment } from "../src/lib/calendar-ops";
-import { normalizeMembers, saveOnboardingMembers } from "../src/lib/onboarding.server";
+import { loadOnboardingStatus, normalizeMembers, saveOnboardingMembers } from "../src/lib/onboarding.server";
 
 function fixture() {
   const tables: Record<string, Record<string, any>[]> = {
@@ -14,12 +14,14 @@ function fixture() {
     ],
     calendar_sources: [{ subscription_member_id: "child" }],
     event_members: [{ event_id: "apple-event", family_member_id: "child" }],
+    onboarding_member_invites: [],
     babysitter_shifts: [{ id: "shift", family_id: "family", event_id: "old-event", assignee_member_id: "unrelated", family_user_id: "caregiver-login", assignment: "caregiver" }],
   };
   let sequence = 0;
   let writes = 0;
   const db = { from(table: string) {
     let action = "read";
+    let conflictKey = "id";
     let payload: Record<string, any> = {};
     const filters: ((row: Record<string, any>) => boolean)[] = [];
     const execute = () => {
@@ -35,6 +37,12 @@ function fixture() {
           (tables.calendar_sources ?? []).forEach((source) => { if (source.subscription_member_id === row.id) source.subscription_member_id = null; });
         }
       }
+      if (action === "upsert") {
+        const existing = all.find((row) => row[conflictKey] === payload[conflictKey]);
+        if (existing) Object.assign(existing, payload);
+        else tables[table] = [...all, { ...payload }];
+        return { data: [], error: null };
+      }
       if (action === "insert") {
         const row = { id: `new-${++sequence}`, ...payload };
         tables[table] = [...all, row];
@@ -49,6 +57,7 @@ function fixture() {
       order() { return query; }, limit() { return query; },
       update(value: Record<string, any>) { action = "update"; payload = value; return query; },
       insert(value: Record<string, any>) { action = "insert"; payload = value; return query; },
+      upsert(value: Record<string, any>, options: { onConflict: string }) { action = "upsert"; payload = value; conflictKey = options.onConflict; return query; },
       delete() { action = "delete"; return query; },
       async single() { const result = execute(); return { ...result, data: result.data[0] ?? null }; },
       async maybeSingle() { const result = execute(); return { ...result, data: result.data[0] ?? null }; },
@@ -120,7 +129,8 @@ describe("onboarding member preservation", () => {
   it("creates a caregiver as view-only without a login or enabling timesheets", async () => {
     const f = fixture();
     await saveOnboardingMembers(f.db, "owner", normalizeMembers([{ ...member(undefined, "Nanny"), role: "caregiver" }]));
-    expect(f.tables.family_members?.find((row) => row.name === "Nanny")).toMatchObject({ role: "caregiver", access: "view_only", onboarding_invite_email: null });
+    expect(f.tables.family_members?.find((row) => row.name === "Nanny")).toMatchObject({ role: "caregiver", access: "view_only" });
+    expect(f.tables.onboarding_member_invites).toEqual([]);
     expect(f.tables.family_users).toHaveLength(1);
   });
   it("stores invitation intent without granting or promoting existing Viewer access", async () => {
@@ -128,13 +138,28 @@ describe("onboarding member preservation", () => {
     f.tables.family_users?.push({ user_id: "child-login", family_id: "family", family_member_id: "child", role: "viewer" });
     await saveOnboardingMembers(f.db, "owner", normalizeMembers([{ ...member("child", "Child"), role: "parent", invite_email: "child@example.com" }]));
     expect(f.tables.family_users?.find((row) => row.user_id === "child-login")?.role).toBe("viewer");
-    expect(f.tables.family_members?.find((row) => row.id === "child")?.onboarding_invite_email).toBe("child@example.com");
+    expect(f.tables.family_members?.find((row) => row.id === "child")?.onboarding_invite_email).toBeUndefined();
+    expect(f.tables.onboarding_member_invites).toEqual([{ family_member_id: "child", family_id: "family", email: "child@example.com" }]);
   });
   it("clears invitation email when no longer selected", async () => {
     const f = fixture();
     await saveOnboardingMembers(f.db, "owner", normalizeMembers([{ ...member("child", "Child"), role: "child", invite_email: "child@example.com" }]));
     await saveOnboardingMembers(f.db, "owner", normalizeMembers([{ ...member("child", "Child"), role: "child" }]));
-    expect(f.tables.family_members?.find((row) => row.id === "child")?.onboarding_invite_email).toBeNull();
+    expect(f.tables.onboarding_member_invites).toEqual([]);
+  });
+  it("does not return pending invitation emails to household Viewers", async () => {
+    const f = fixture();
+    f.tables.family_users?.push({ user_id: "viewer", family_id: "family", family_member_id: "child", role: "viewer" });
+    f.tables.onboarding_member_invites?.push({ family_member_id: "child", family_id: "family", email: "private@example.com" });
+    const status = await loadOnboardingStatus(f.db, "viewer");
+    expect(status.members.find((m) => m.id === "child")?.onboarding_invite_email).toBeUndefined();
+    expect(status.members.find((m) => m.id === "child")?.name).toBe("Child");
+  });
+  it("restores private invitation intent only for its household Owner", async () => {
+    const f = fixture();
+    f.tables.onboarding_member_invites?.push({ family_member_id: "child", family_id: "family", email: "private@example.com" });
+    const status = await loadOnboardingStatus(f.db, "owner");
+    expect(status.members.find((m) => m.id === "child")?.onboarding_invite_email).toBe("private@example.com");
   });
   it("rejects invalid required invitation emails", () => {
     expect(() => normalizeMembers([{ ...member(undefined, "Nanny"), invite_email: "invalid" }])).toThrow("valid email");
