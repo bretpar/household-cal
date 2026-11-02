@@ -236,7 +236,7 @@ export function isCaregiverAdjusted(e: { is_manual: boolean; actual_time_confirm
 export async function loadEntries(admin: AnyDb, timesheetId: string, tz: string) {
   const { data, error } = await admin
     .from("timesheet_entries")
-    .select("id, event_id, work_date, scheduled_title, scheduled_start, scheduled_end, actual_start, actual_end, is_manual, note, paid_hours, paid_note, owner_edited_at, actual_time_confirmed")
+    .select("id, event_id, work_date, scheduled_title, scheduled_start, scheduled_end, actual_start, actual_end, is_manual, note, paid_hours, paid_note, owner_edited_at, actual_time_confirmed, schedule_conflict_at, schedule_conflict_reason")
     .eq("timesheet_id", timesheetId)
     .order("actual_start", { ascending: true });
   if (error) throw new Error(error.message);
@@ -286,33 +286,25 @@ export async function shiftMemberIds(admin: AnyDb, familyId: string, eventIds: s
 }
 
 /**
- * After a caregiver shift is rescheduled, split or deleted, reconcile the
- * timesheet periods covering each affected date so prefilled scheduled entries
- * track the current schedule exactly once — the original AND the destination
- * period, not just whichever period is next opened.
- *
- * Only existing draft/needs_correction sheets are touched: no timesheet is
- * ever created here, and Submitted/Approved/Closed history is never modified.
- * Entries the caregiver already confirmed, annotated or marked paid survive a
- * moved shift (the refresh RPC preserves them); when such an entry no longer
- * matches any scheduled shift it would silently double payable hours, so the
- * sheet is flagged needs_correction for explicit owner reconciliation instead.
+ * After a caregiver shift changes, reconcile EVERY existing editable
+ * (draft/needs_correction) timesheet of the affected caregivers in one
+ * database transaction, so recurring-series moves update later weeks too and
+ * a failure leaves no period half-updated. Never creates timesheets and never
+ * touches Submitted/Approved/Closed history. Protected entries orphaned by a
+ * move, and one-off shifts already recorded on a finalized sheet, are flagged
+ * in the database (schedule_conflict_at) and block submission until resolved.
+ * Throws on failure so callers can keep the durable retry job pending.
  */
 export async function reconcileShiftTimesheets(
   admin: AnyDb,
   familyId: string,
   memberIds: string[],
-  dateKeys: string[],
 ): Promise<void> {
-  if (!memberIds.length || !dateKeys.length) return;
+  if (!memberIds.length) return;
   if (!(await householdTimesheetsOn(familyId))) return;
   const { settings, timeZone } = await loadPaySettings(admin, familyId);
   const today = todayKey(timeZone);
-  const periods = new Map<string, PayPeriod>();
-  for (const key of new Set(dateKeys)) {
-    const p = payPeriodFor(settings, key, 0);
-    periods.set(p.start, p);
-  }
+  const items: { member: string; start: string; end: string; shifts: ScheduledShift[] }[] = [];
   for (const memberId of new Set(memberIds)) {
     const member = await admin
       .from("family_members")
@@ -323,40 +315,90 @@ export async function reconcileShiftTimesheets(
     if (member.error) throw new Error(member.error.message);
     if (!member.data || member.data.timesheets_enabled !== true) continue;
     const startDate = (member.data.timesheet_start_date as string | null) ?? null;
-    for (const period of periods.values()) {
-      const existing = await admin
-        .from("timesheets")
-        .select("id, status")
-        .eq("family_id", familyId)
-        .eq("family_member_id", memberId)
-        .eq("period_start", period.start)
-        .maybeSingle();
-      if (existing.error) throw new Error(existing.error.message);
-      if (!existing.data || (existing.data.status !== "draft" && existing.data.status !== "needs_correction")) continue;
+    const sheets = await admin
+      .from("timesheets")
+      .select("period_start, period_end")
+      .eq("family_id", familyId)
+      .eq("family_member_id", memberId)
+      .in("status", ["draft", "needs_correction"]);
+    if (sheets.error) throw new Error(sheets.error.message);
+    for (const sh of sheets.data ?? []) {
+      const period = { start: sh.period_start as string, end: sh.period_end as string } as PayPeriod;
       const shifts = (await scheduledShifts(admin, familyId, memberId, period, timeZone))
-        .filter((sh) => !startDate || sh.work_date >= startDate);
-      const { error } = await admin.rpc("refresh_timesheet_atomic", {
-        _family: familyId, _member: memberId, _settings: settings, _timezone: timeZone,
-        _today: today, _start: period.start, _end: period.end, _shifts: shifts,
-      });
-      if (error) throw new Error(error.message);
-      const keys = new Set(shifts.map((s) => s.occurrence_key));
-      const orphans = await admin
-        .from("timesheet_entries")
-        .select("id, occurrence_key")
-        .eq("timesheet_id", existing.data.id)
-        .eq("is_manual", false)
-        .eq("actual_time_confirmed", true)
-        .not("occurrence_key", "is", null);
-      if (orphans.error) throw new Error(orphans.error.message);
-      const conflict = (orphans.data ?? []).some((e: any) => !keys.has(e.occurrence_key as string));
-      if (conflict && existing.data.status === "draft") {
-        await admin
-          .from("timesheets")
-          .update({ status: "needs_correction" })
-          .eq("id", existing.data.id)
-          .eq("status", "draft");
-      }
+        .filter((x) => !startDate || x.work_date >= startDate);
+      items.push({ member: memberId, start: period.start, end: period.end, shifts });
     }
   }
+  if (!items.length) return;
+  const { error } = await admin.rpc("reconcile_shift_timesheets_atomic", {
+    _family: familyId, _settings: settings, _timezone: timeZone, _today: today, _items: items,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** Durable reconciliation intent: recorded before a shift change, removed only after success. */
+export async function openReconcileJob(admin: AnyDb, familyId: string, memberIds: string[]): Promise<string | null> {
+  if (!memberIds.length) return null;
+  const { data, error } = await admin
+    .from("timesheet_reconcile_jobs")
+    .insert({ family_id: familyId, member_ids: [...new Set(memberIds)] })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  return data.id as string;
+}
+
+/**
+ * Runs (or retries) a reconciliation job. Returns "ok" or "pending"; a pending
+ * job stays in the table and is retried by the hourly timesheet job.
+ */
+export async function runReconcileJob(
+  admin: AnyDb,
+  familyId: string,
+  jobId: string | null,
+  memberIds: string[],
+): Promise<"ok" | "pending"> {
+  const ids = [...new Set(memberIds)];
+  if (jobId) {
+    const { error } = await admin.from("timesheet_reconcile_jobs").update({ member_ids: ids, updated_at: new Date().toISOString() }).eq("id", jobId);
+    if (error) console.error("reconcile job update failed", error.message);
+  } else if (ids.length) {
+    jobId = await openReconcileJob(admin, familyId, ids);
+  }
+  if (!ids.length) {
+    if (jobId) await admin.from("timesheet_reconcile_jobs").delete().eq("id", jobId);
+    return "ok";
+  }
+  try {
+    await reconcileShiftTimesheets(admin, familyId, ids);
+    if (jobId) await admin.from("timesheet_reconcile_jobs").delete().eq("id", jobId);
+    return "ok";
+  } catch (e) {
+    console.error("timesheet reconciliation failed; left pending for retry", e);
+    if (jobId) {
+      const cur = await admin.from("timesheet_reconcile_jobs").select("attempts").eq("id", jobId).maybeSingle();
+      await admin.from("timesheet_reconcile_jobs").update({
+        attempts: ((cur.data?.attempts as number | undefined) ?? 0) + 1,
+        last_error: e instanceof Error ? e.message : String(e),
+        updated_at: new Date().toISOString(),
+      }).eq("id", jobId);
+    }
+    return "pending";
+  }
+}
+
+/** Retries pending reconciliation jobs (called by the hourly timesheet scheduler). */
+export async function drainReconcileJobs(admin: AnyDb, limit = 50): Promise<{ retried: number; pending: number }> {
+  const { data, error } = await admin
+    .from("timesheet_reconcile_jobs")
+    .select("id, family_id, member_ids")
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  let pending = 0;
+  for (const j of data ?? []) {
+    const r = await runReconcileJob(admin, j.family_id as string, j.id as string, (j.member_ids as string[]) ?? []);
+    if (r === "pending") pending++;
+  }
+  return { retried: (data ?? []).length, pending };
 }

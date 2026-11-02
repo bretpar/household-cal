@@ -134,6 +134,13 @@
       "when": 1793426457762,
       "tag": "0018_fix_owner_managed_entry_rpcs",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793648183489,
+      "tag": "0019_timesheet_moved_shift_integrity",
+      "breakpoints": true
     }
   ]
 }
