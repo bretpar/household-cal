@@ -1308,23 +1308,40 @@ export async function applyGoogleEvent(
       null;
     if (seriesLink) {
       const day = dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime);
-      if (day) await addExcludedDate(admin, seriesLink.event_id, day);
 
       // Idempotency: a local detached exception for this exact Google instance
       // may already exist (earlier inbound pass, a pruned link row, or the same
       // instance seen through another connected calendar). Reuse it instead of
       // creating a second local card for the same occurrence.
       const detached = await findDetachedException(admin, familyId, source.id, g);
-      const eventId =
-        detached ??
-        (await createExceptionEvent(
+      let eventId = detached;
+      if (!eventId) {
+        if (!day) return;
+        // The parent exclusion, replacement event, family participants and the
+        // inherited caregiver assignment commit in one database transaction;
+        // timesheets then reconcile exactly like an in-app occurrence move.
+        await withShiftReconcile(
           admin,
-          source,
-          g,
-          initials,
-          seriesLink.event_id,
-          seriesLink.branch_key ?? "",
-        ));
+          familyId,
+          [seriesLink.event_id],
+          async () => {
+            eventId = await createExceptionEvent(
+              admin,
+              source,
+              g,
+              initials,
+              seriesLink.event_id,
+              seriesLink.branch_key ?? "",
+              day,
+            );
+          },
+          [],
+        );
+      } else if (day) {
+        await withShiftReconcile(admin, familyId, [seriesLink.event_id], () =>
+          addExcludedDate(admin, seriesLink.event_id, day),
+        );
+      }
       if (!eventId) return;
       // keep the Google linkage (instance id / recurringEventId) authoritative
       await admin
