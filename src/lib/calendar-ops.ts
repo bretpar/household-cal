@@ -647,6 +647,12 @@ export async function applyEventUpdate(
     if (exError) throw exError;
     return insertEvent(db, familyId, {
       ...input,
+      // A partial update that omits the assignment (drag-reschedule) keeps the
+      // caregiver attached to the detached occurrence.
+      babysitter_assignment:
+        input.babysitter_assignment === undefined
+          ? await existingShiftAssignment(db, eventId)
+          : input.babysitter_assignment,
       recurrence_rule: null,
       recurrence_until: null,
       // A detached one-off has no repeat pattern, so per-person weekday rules
@@ -662,7 +668,14 @@ export async function applyEventUpdate(
     .update({ recurrence_until: shiftDayKey(occurrenceDay, -1) })
     .eq("id", eventId);
   if (untilError) throw untilError;
-  return insertEvent(db, familyId, { ...input, calendar_source_id: sourceId });
+  return insertEvent(db, familyId, {
+    ...input,
+    babysitter_assignment:
+      input.babysitter_assignment === undefined
+        ? await existingShiftAssignment(db, eventId)
+        : input.babysitter_assignment,
+    calendar_source_id: sourceId,
+  });
 }
 
 export async function applyEventDelete(
