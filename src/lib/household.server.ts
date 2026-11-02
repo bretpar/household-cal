@@ -410,9 +410,7 @@ export async function acceptInvitationByToken(
   }
 
   await admin.from("profiles").upsert({ id: userId }, { onConflict: "id" });
-  await acceptAtomically(admin, invite.id, userId);
-
-  return { family_id: invite.family_id, role: invite.role as HouseholdRole };
+  return acceptAtomically(admin, invite.id, userId);
 }
 
 /** Consumes any pending invitations addressed to this email (used at first sign-in). */

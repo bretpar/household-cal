@@ -946,6 +946,7 @@ export type Database = {
           id: string
           include_google_event_initials: boolean
           name: string
+          onboarding_finished_at: string | null
           timesheets_enabled: boolean
           timezone: string
           updated_at: string
@@ -959,6 +960,7 @@ export type Database = {
           id?: string
           include_google_event_initials?: boolean
           name: string
+          onboarding_finished_at?: string | null
           timesheets_enabled?: boolean
           timezone?: string
           updated_at?: string
@@ -972,6 +974,7 @@ export type Database = {
           id?: string
           include_google_event_initials?: boolean
           name?: string
+          onboarding_finished_at?: string | null
           timesheets_enabled?: boolean
           timezone?: string
           updated_at?: string
@@ -1013,6 +1016,7 @@ export type Database = {
           email: string
           expires_at: string
           family_id: string
+          family_member_id: string | null
           id: string
           invited_by: string | null
           is_babysitter: boolean
@@ -1033,6 +1037,7 @@ export type Database = {
           email: string
           expires_at?: string
           family_id: string
+          family_member_id?: string | null
           id?: string
           invited_by?: string | null
           is_babysitter?: boolean
@@ -1053,6 +1058,7 @@ export type Database = {
           email?: string
           expires_at?: string
           family_id?: string
+          family_member_id?: string | null
           id?: string
           invited_by?: string | null
           is_babysitter?: boolean
@@ -1076,6 +1082,13 @@ export type Database = {
             referencedRelation: "families"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "family_invitations_family_member_id_fkey"
+            columns: ["family_member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
         ]
       }
       family_members: {
@@ -1088,6 +1101,7 @@ export type Database = {
           id: string
           initial: string
           name: string
+          onboarding_invite_email: string | null
           removed_at: string | null
           role: Database["public"]["Enums"]["member_role"]
           sort_order: number
@@ -1105,6 +1119,7 @@ export type Database = {
           id?: string
           initial: string
           name: string
+          onboarding_invite_email?: string | null
           removed_at?: string | null
           role?: Database["public"]["Enums"]["member_role"]
           sort_order?: number
@@ -1122,6 +1137,7 @@ export type Database = {
           id?: string
           initial?: string
           name?: string
+          onboarding_invite_email?: string | null
           removed_at?: string | null
           role?: Database["public"]["Enums"]["member_role"]
           sort_order?: number
@@ -1799,6 +1815,10 @@ export type Database = {
           _start: string
         }
         Returns: boolean
+      }
+      complete_onboarding_invitation: {
+        Args: { _actor: string; _family: string; _member: string }
+        Returns: Json
       }
       consume_auth_lookup: {
         Args: { _bucket: string; _max: number; _window_seconds: number }

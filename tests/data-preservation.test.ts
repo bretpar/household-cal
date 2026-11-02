@@ -117,4 +117,29 @@ describe("onboarding member preservation", () => {
     expect(f.tables.family_members?.find((row) => row.id === "unrelated")).toMatchObject({ role: "caregiver", access: "view_only" });
     expect(f.tables.family_users?.[0]?.family_member_id).toBe("dad");
   });
+  it("creates a caregiver as view-only without a login or enabling timesheets", async () => {
+    const f = fixture();
+    await saveOnboardingMembers(f.db, "owner", normalizeMembers([{ ...member(undefined, "Nanny"), role: "caregiver" }]));
+    expect(f.tables.family_members?.find((row) => row.name === "Nanny")).toMatchObject({ role: "caregiver", access: "view_only", onboarding_invite_email: null });
+    expect(f.tables.family_users).toHaveLength(1);
+  });
+  it("stores invitation intent without granting or promoting existing Viewer access", async () => {
+    const f = fixture();
+    f.tables.family_users?.push({ user_id: "child-login", family_id: "family", family_member_id: "child", role: "viewer" });
+    await saveOnboardingMembers(f.db, "owner", normalizeMembers([{ ...member("child", "Child"), role: "parent", invite_email: "child@example.com" }]));
+    expect(f.tables.family_users?.find((row) => row.user_id === "child-login")?.role).toBe("viewer");
+    expect(f.tables.family_members?.find((row) => row.id === "child")?.onboarding_invite_email).toBe("child@example.com");
+  });
+  it("clears invitation email when no longer selected", async () => {
+    const f = fixture();
+    await saveOnboardingMembers(f.db, "owner", normalizeMembers([{ ...member("child", "Child"), role: "child", invite_email: "child@example.com" }]));
+    await saveOnboardingMembers(f.db, "owner", normalizeMembers([{ ...member("child", "Child"), role: "child" }]));
+    expect(f.tables.family_members?.find((row) => row.id === "child")?.onboarding_invite_email).toBeNull();
+  });
+  it("rejects invalid required invitation emails", () => {
+    expect(() => normalizeMembers([{ ...member(undefined, "Nanny"), invite_email: "invalid" }])).toThrow("valid email");
+  });
+  it("rejects duplicate invitation email intents", () => {
+    expect(() => normalizeMembers([{ ...member(undefined, "One"), invite_email: "same@example.com" }, { ...member(undefined, "Two"), invite_email: "same@example.com" }])).toThrow("different email");
+  });
 });

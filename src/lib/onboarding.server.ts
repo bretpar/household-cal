@@ -9,7 +9,7 @@
 
 export type Db = { from: (table: string) => any };
 
-export type MemberRoleInput = "parent" | "child" | "other";
+export type MemberRoleInput = "parent" | "child" | "caregiver" | "other";
 
 export interface OnboardingMemberInput {
   id?: string;
@@ -19,12 +19,14 @@ export interface OnboardingMemberInput {
   role: MemberRoleInput;
   /** link the current user's login to this calendar member */
   is_me?: boolean;
+  invite_email?: string | null;
 }
 
 export interface OnboardingStatus {
   family_id: string | null;
   family_name: string | null;
-  members: Array<{ id: string; name: string; initial: string; color: string; role: string }>;
+  members: Array<{ id: string; name: string; initial: string; color: string; role: string; onboarding_invite_email?: string | null }>;
+  completed?: boolean;
   my_member_id: string | null;
   /** True when a household-less account previously belonged to a household. */
   had_access?: boolean;
@@ -37,7 +39,7 @@ function cleanColor(color: string): string {
 }
 
 function cleanRole(role: string): MemberRoleInput {
-  return role === "parent" || role === "child" || role === "other" ? role : "other";
+  return role === "parent" || role === "child" || role === "caregiver" || role === "other" ? role : "other";
 }
 
 export function normalizeMembers(raw: unknown): OnboardingMemberInput[] {
@@ -57,13 +59,18 @@ export function normalizeMembers(raw: unknown): OnboardingMemberInput[] {
         color: cleanColor(String(row["color"] ?? "")),
         role: cleanRole(String(row["role"] ?? "")),
         is_me: Boolean(row["is_me"]),
+        invite_email: row["invite_email"] ? String(row["invite_email"]).trim().toLowerCase() : null,
       };
     })
     .filter((m) => m.name.length > 0);
   if (members.length === 0) throw new Error("Add at least one family member");
   for (const m of members) {
     if (!m.initial) throw new Error(`Choose an initial for ${m.name}`);
+    if (m.invite_email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m.invite_email)) throw new Error(`Enter a valid email for ${m.name}`);
+    if (m.invite_email && m.is_me) throw new Error("You already have access; invite another family member");
   }
+  const emails = members.flatMap((m) => m.invite_email ? [m.invite_email] : []);
+  if (new Set(emails).size !== emails.length) throw new Error("Use a different email for each invitation");
   return members;
 }
 
@@ -95,11 +102,15 @@ export async function loadOnboardingStatus(admin: Db, userId: string): Promise<O
     return { family_id: null, family_name: null, members: [], my_member_id: null, had_access };
   }
 
+  const { data: ownerRows, error: ownerError } = await admin.from("family_users").select("role")
+    .eq("family_id", membership.family_id).eq("user_id", userId).limit(1);
+  if (ownerError) throw ownerError;
+  const isOwner = ownerRows?.[0]?.role === "owner";
   const [familyRes, membersRes] = await Promise.all([
-    admin.from("families").select("name").eq("id", membership.family_id).single(),
+    admin.from("families").select("name, onboarding_finished_at").eq("id", membership.family_id).single(),
     admin
       .from("family_members")
-      .select("id, name, initial, color, role")
+      .select(isOwner ? "id, name, initial, color, role, onboarding_invite_email" : "id, name, initial, color, role")
       .eq("family_id", membership.family_id)
       .order("sort_order", { ascending: true }),
   ]);
@@ -109,6 +120,7 @@ export async function loadOnboardingStatus(admin: Db, userId: string): Promise<O
     family_name: familyRes.data?.name ?? null,
     members: membersRes.data ?? [],
     my_member_id: membership.family_member_id,
+    completed: Boolean(familyRes.data?.onboarding_finished_at),
   };
 }
 
@@ -222,7 +234,8 @@ export async function saveOnboardingMembers(
 
   const memberIds: string[] = [];
   for (const [index, m] of members.entries()) {
-    const fields = { name: m.name, initial: m.initial, color: m.color, sort_order: index };
+    const fields = { name: m.name, initial: m.initial, color: m.color, sort_order: index,
+      onboarding_invite_email: m.invite_email ?? null };
     if (m.id) {
       // Existing access and caregiver-specific fields are not onboarding's to reset.
       const previous = byId.get(m.id);
