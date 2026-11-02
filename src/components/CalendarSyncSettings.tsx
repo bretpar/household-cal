@@ -38,6 +38,7 @@ import {
   startGoogleCalendarConnect,
   syncNow,
 } from "@/lib/google.functions";
+import { invalidateTimesheetQueries } from "@/lib/calendar-store";
 import { cn } from "@/lib/utils";
 
 export const SYNC_KEY = ["calendar-sync"] as const;
@@ -89,6 +90,8 @@ function useGoogleRefresh() {
   return () => {
     void queryClient.invalidateQueries({ queryKey: SYNC_KEY });
     void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
+    // A pull may have moved caregiver shifts; refresh mounted Timesheet views.
+    invalidateTimesheetQueries(queryClient);
   };
 }
 
@@ -126,6 +129,7 @@ export function GoogleAccountSettings({ initiallyExpanded = false }: { initially
   useEffect(() => {
     if (wasSyncing.current && !syncing && !connection?.manual_sync_error) {
       void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
+      invalidateTimesheetQueries(queryClient);
     }
     wasSyncing.current = syncing;
   }, [connection?.manual_sync_error, queryClient, syncing]);

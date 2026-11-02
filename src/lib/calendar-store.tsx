@@ -2,7 +2,7 @@ import { getVerifiedMembership, subscribeVerifiedMembership } from "@/lib/auth-g
 import { readEventCache, writeEventCache, type EventCacheScope } from "@/lib/event-cache";
 import { useAppResume } from "@/lib/use-app-resume";
 import { withTimeout } from "@/lib/with-timeout";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
@@ -172,6 +172,11 @@ const TIMESHEET_QUERY_ROOTS = [
   "household-timesheets",
   "owner-managed-sheet",
 ] as const;
+
+/** Refreshes mounted Timesheet views after shift-affecting changes (event edits, Google pulls). */
+export function invalidateTimesheetQueries(queryClient: QueryClient): void {
+  for (const key of TIMESHEET_QUERY_ROOTS) void queryClient.invalidateQueries({ queryKey: [key] });
+}
 
 export function CalendarProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
@@ -402,7 +407,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
     // Shift edits reconcile timesheets server-side; refresh mounted Timesheet views.
-    for (const key of TIMESHEET_QUERY_ROOTS) void queryClient.invalidateQueries({ queryKey: [key] });
+    invalidateTimesheetQueries(queryClient);
   };
 
   const createMutation = useMutation({

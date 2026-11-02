@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { getSyncSettings, syncNow } from "@/lib/google.functions";
+import { invalidateTimesheetQueries } from "@/lib/calendar-store";
 
 const SYNC_KEY = ["calendar-sync"] as const;
 
@@ -40,6 +41,8 @@ export function GoogleSyncSummary() {
   useEffect(() => {
     if (wasSyncing.current && !syncing && !data?.connection?.manual_sync_error) {
       void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
+      // A pull may have moved caregiver shifts; refresh mounted Timesheet views.
+      invalidateTimesheetQueries(queryClient);
     }
     wasSyncing.current = syncing;
   }, [data?.connection?.manual_sync_error, queryClient, syncing]);

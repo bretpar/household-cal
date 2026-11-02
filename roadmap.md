@@ -194,3 +194,8 @@
 ## Timesheet PostgreSQL blockers
 - [x] Migration 0016: renamed the conflicting DELETE alias in refresh_timesheet_atomic (42702) and made the entry-write guard acquire the household advisory lock before the parent row lock, so all write paths lock in household → timesheet → entry order (40P01).
 - [x] Migration 0017: renamed the remaining sh/e alias collisions in refresh's DELETE; routed caregiver and owner-managed entry saves/deletes through new locked RPCs (household advisory → parent row → entry, with in-transaction permission/status rechecks). No QA or publishing; Codex reruns the concurrency scenarios.
+
+## Google inbound caregiver assignment & timesheet sync
+- [x] google_apply_exception_atomic (migration 0023): atomic parent exclusion + lineage replacement + participants + inherited caregiver assignment; idempotent on re-sync; no assignment restored when the parent has none.
+- [x] withShiftReconcile wraps Google inbound deletes, occurrence exclusions, exception creation and linked updates with the durable reconciliation job used by in-app edits.
+- [x] Manual Google pulls now invalidate Timesheet queries alongside the family bundle in the three sync components.
