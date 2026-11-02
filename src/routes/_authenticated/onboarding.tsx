@@ -23,19 +23,19 @@ import {
   createHouseholdFn,
   getOnboardingStatus,
   saveHouseholdMembersFn,
+  finishOnboardingFn,
+  sendOnboardingInvitationFn,
 } from "@/lib/onboarding.functions";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/SignOutButton";
 import { CalendarAppearanceSettings } from "@/components/CalendarAppearanceSettings";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { HouseholdAccess } from "@/components/HouseholdAccess";
 import { ChildcareSetupFields, useChildcareSetup } from "@/components/ChildcareSetup";
 import { useCalendar } from "@/lib/calendar-store";
 import { beginCalendarSetup, finishCalendarSetup } from "@/lib/onboarding-calendar-session";
 import { retryGuard } from "@/lib/auth-guard";
 import { requestHeartReveal } from "@/components/StartupSplash";
-import { getHouseholdAccess } from "@/lib/household.functions";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => ({
@@ -57,7 +57,7 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
   component: OnboardingPage,
 });
 
-type MemberRoleInput = "parent" | "child" | "other";
+type MemberRoleInput = "parent" | "child" | "caregiver" | "other";
 
 interface MemberRow {
   id?: string | undefined;
@@ -68,6 +68,8 @@ interface MemberRow {
   color: MemberColor;
   role: MemberRoleInput;
   is_me: boolean;
+  invite: boolean;
+  email: string;
 }
 
 let rowSeq = 0;
@@ -82,6 +84,8 @@ function newRow(overrides: Partial<MemberRow> = {}): MemberRow {
     color,
     role: "parent",
     is_me: false,
+    invite: false,
+    email: "",
     ...overrides,
   };
 }
@@ -103,7 +107,8 @@ function OnboardingPage() {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  const fetchAccess = useServerFn(getHouseholdAccess);
+  const finishSetup = useServerFn(finishOnboardingFn);
+  const sendInvitation = useServerFn(sendOnboardingInvitationFn);
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [householdName, setHouseholdName] = useState("");
@@ -113,7 +118,8 @@ function OnboardingPage() {
   const [creatingNew, setCreatingNew] = useState(false);
   const [enableChildcare, setEnableChildcare] = useState(false);
   const [enableTimesheets, setEnableTimesheets] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [inviteResults, setInviteResults] = useState<Record<string, { status: string; token?: string | null; message?: string }>>({});
   const saveTimesheetsEnabled = useServerFn(setTimesheetsEnabled);
 
   // Resume from real database state rather than client-side step memory —
@@ -142,12 +148,15 @@ function OnboardingPage() {
           initial: m.initial,
           initialTouched: true,
           color: m.color as MemberColor,
-          role: (m.role === "parent" || m.role === "child" ? m.role : "other") as MemberRoleInput,
+          role: (["parent", "child", "caregiver"].includes(m.role) ? m.role : "other") as MemberRoleInput,
           is_me: m.id === data.my_member_id,
+          invite: Boolean(m.onboarding_invite_email),
+          email: m.onboarding_invite_email ?? "",
         }),
       ),
     );
-    setStep((prev) => prev === 4 ? 4 : 3);
+    setCompleted(Boolean(data.completed));
+    setStep((prev) => data.completed || prev === 4 ? 4 : 3);
   }, [status.data]);
 
   const duplicateInitials = useMemo(() => {
@@ -204,13 +213,30 @@ function OnboardingPage() {
     } finally { setBusy(false); }
   };
 
-  // Warm the invitation data while the owner reads the final step, so the
-  // "Invite someone" dialog opens instantly instead of after a loading flash.
-  useEffect(() => {
-    if (step === 4) {
-      void queryClient.prefetchQuery({ queryKey: ["household-access"], queryFn: () => fetchAccess() });
+  const deliverInvitation = async (memberId: string) => {
+    try {
+      const result = await sendInvitation({ data: { member_id: memberId } });
+      setInviteResults((prev) => ({ ...prev, [memberId]: result }));
+    } catch (error) {
+      setInviteResults((prev) => ({ ...prev, [memberId]: { status: "failed", message: error instanceof Error ? error.message : "Could not create invitation" } }));
     }
-  }, [step, queryClient, fetchAccess]);
+  };
+
+  const completeSetup = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await finishSetup();
+      setCompleted(true);
+      // Each selected invitation invokes its own fixed-recipient action; retries
+      // reuse the existing invitation and email idempotency key.
+      await Promise.all(result.member_ids.map(deliverInvitation));
+      void queryClient.invalidateQueries({ queryKey: ["household-access"] });
+    } catch (error) {
+      // Completion remains usable even if reading outstanding invitations fails.
+      toast.error(error instanceof Error ? error.message : "Could not finish setup; please retry");
+    } finally { setBusy(false); }
+  };
 
   const leaveOnboarding = (to: "/calendar" | "/family") => {
     finishCalendarSetup();
@@ -220,6 +246,10 @@ function OnboardingPage() {
 
   const submitMembers = async () => {
     const submittedRows = rows.filter((row) => row.name.trim().length > 0);
+    if (submittedRows.some((row) => row.invite && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(row.email.trim()))) {
+      toast.error("Enter an email address for each selected invitation");
+      return;
+    }
     const payload = submittedRows
       .map((row) => ({
         id: row.id,
@@ -228,6 +258,7 @@ function OnboardingPage() {
         color: row.color,
         role: row.role,
         is_me: row.is_me,
+        invite_email: row.invite && !row.is_me ? row.email.trim() : null,
       }))
       .filter((row) => row.name.length > 0);
 
@@ -394,7 +425,7 @@ function OnboardingPage() {
 
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         <div className="space-y-1.5">
-                          <Label>Role</Label>
+                          <Label>Family role</Label>
                           <Select
                             value={row.role}
                             onValueChange={(value) =>
@@ -407,7 +438,8 @@ function OnboardingPage() {
                             <SelectContent>
                               <SelectItem value="parent">Parent</SelectItem>
                               <SelectItem value="child">Child</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
+                              <SelectItem value="caregiver">Caregiver</SelectItem>
+                              {row.role === "other" ? <SelectItem value="other">Other (existing)</SelectItem> : null}
                             </SelectContent>
                           </Select>
                         </div>
@@ -432,12 +464,25 @@ function OnboardingPage() {
                         </div>
                       </div>
 
+                      {!row.is_me ? <div className="mt-3 space-y-2 border-t border-border-soft pt-3">
+                        <Label htmlFor={`invite-${row.key}`} className="flex min-h-10 cursor-pointer items-center gap-3">
+                          <Checkbox id={`invite-${row.key}`} checked={row.invite} onCheckedChange={(checked) => patchRow(row.key, { invite: checked === true, email: checked === true ? row.email : "" })} />
+                          Invite to Our Family Calendar
+                        </Label>
+                        {row.invite ? <div className="space-y-2">
+                          <Label htmlFor={`email-${row.key}`}>Email address</Label>
+                          <Input id={`email-${row.key}`} type="email" autoComplete="email" required value={row.email} onChange={(event) => patchRow(row.key, { email: event.target.value })} className="h-12 text-base" />
+                          <p className="text-xs text-muted-foreground">Invitation sent after setup finishes.</p>
+                          <p className="text-xs text-muted-foreground">{row.role === "parent" ? "Owner — full household management. Owner access permits managing this household and its calendars." : row.role === "caregiver" ? "Caregiver — limited calendars and existing Timesheet capabilities." : "Viewer — read-only access."}</p>
+                        </div> : null}
+                      </div> : null}
+
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                         <button
                           type="button"
                           onClick={() =>
                             setRows((prev) =>
-                              prev.map((r) => ({ ...r, is_me: r.key === row.key })),
+                              prev.map((r) => ({ ...r, is_me: r.key === row.key, ...(r.key === row.key ? { invite: false, email: "" } : {}) })),
                             )
                           }
                           className={cn(
@@ -546,12 +591,11 @@ function OnboardingPage() {
           {step === 4 ? (
             <div className="space-y-5 text-center">
               <h1 className="font-display text-2xl font-bold sm:text-3xl">
-                Your family calendar is ready
+                {completed ? "Your family calendar is ready" : "Your family is almost ready!"}
               </h1>
               <p className="text-sm text-muted-foreground">
-                {householdName || "Your household"} is set up with {rows.filter((r) => r.name).length}{" "}
-                {rows.filter((r) => r.name).length === 1 ? "person" : "people"}. Add your first event
-                whenever you like.
+                {householdName || "Your household"} · {rows.filter((r) => r.name).length}{" "}
+                {rows.filter((r) => r.name).length === 1 ? "person" : "people"}
               </p>
               <ul className="flex flex-wrap items-center justify-center gap-2" aria-label="Your family members">
                 {rows.filter((r) => r.name.trim()).map((row) => (
@@ -569,27 +613,35 @@ function OnboardingPage() {
                       {(row.initialTouched ? row.initial : row.name.charAt(0)).toUpperCase().slice(0, 1)}
                     </span>
                     {row.name.trim()}
+                    <span className="text-xs font-normal text-muted-foreground">{row.role === "parent" ? "Parent" : row.role === "caregiver" ? "Caregiver" : row.role === "child" ? "Child" : "Other"}</span>
                   </li>
                 ))}
               </ul>
+              <div className="space-y-2 text-left text-sm">
+                <p><span className="font-semibold">Calendars:</span> {sources.filter((s) => s.active && s.calendar_kind !== "legacy_internal").map((s) => s.name).join(", ") || "Family calendar"}</p>
+                <p><span className="font-semibold">Childcare:</span> {family?.babysitter_calendar_source_id ? sources.find((s) => s.id === family.babysitter_calendar_source_id)?.name ?? "Set up" : "Not enabled"}</p>
+                {rows.filter((r) => r.invite && !r.is_me).map((row) => <p key={row.key} className="break-words">{row.name}: {row.email} — {completed ? "See invitation status below" : "Invitation after Finish setup"}</p>)}
+                {completed ? Object.entries(inviteResults).map(([memberId, result]) => <div key={memberId} className="space-y-1 border-t border-border-soft pt-2">
+                  <p className="font-semibold">{rows.find((r) => r.id === memberId)?.name ?? "Family member"}: {result.status === "sent" ? "Invitation sent" : result.status === "manual" ? "Pending — email not sent; share a link" : result.status === "accepted" || result.status === "already_joined" ? "Already joined" : result.status === "expired" ? "Expired — resend from Settings" : result.status === "none" ? "No invitation selected" : "Invitation failed"}</p>
+                  {result.message ? <p className="text-xs text-muted-foreground">{result.message}</p> : null}
+                  {result.token ? <Button variant="outline" size="sm" onClick={() => void navigator.clipboard.writeText(`https://ourfamilycalendar.com/invite/${result.token}`).then(() => toast.success("Invitation link copied")).catch(() => toast.error("Could not copy link"))}>Copy invitation link</Button> : null}
+                  {result.status === "failed" || result.status === "manual" ? <Button variant="ghost" size="sm" disabled={busy} onClick={() => { setBusy(true); void deliverInvitation(memberId).finally(() => setBusy(false)); }}>Retry invitation</Button> : null}
+                </div>) : null}
+              </div>
               <div className="space-y-2">
                 <Button
                   className="h-12 w-full rounded-full font-bold"
-                  onClick={() => leaveOnboarding("/calendar")}
+                  disabled={busy}
+                  onClick={() => completed ? leaveOnboarding("/calendar") : void completeSetup()}
                   type="button"
                 >
-                  Go to Calendar
+                  {busy ? "Finishing…" : completed ? "Go to Calendar" : "Finish setup"}
                 </Button>
-                <Button
-                  variant="outline"
-                  className="h-12 w-full rounded-full font-bold"
-                  onClick={() => setInviteOpen(true)}
-                  type="button"
-                >
-                  Invite someone
-                </Button>
+                {!completed ? <Button variant="ghost" disabled={busy} onClick={() => setStep(3)}>Back</Button> : <>
+                  <Button variant="ghost" disabled={busy} onClick={() => void completeSetup()}>Refresh invitation status</Button>
+                  <p className="text-xs text-muted-foreground">Invite additional people or manage invitations later in Settings.</p>
+                </>}
               </div>
-              {inviteOpen ? <HouseholdAccess inviteOnly inviteOpen={inviteOpen} onInviteOpenChange={setInviteOpen} /> : null}
             </div>
           ) : null}
         </div>
