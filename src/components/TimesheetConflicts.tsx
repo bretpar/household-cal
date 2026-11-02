@@ -15,7 +15,7 @@ export function TimesheetConflicts({
 }: {
   entries: TimesheetEntry[];
   /** omitted = read-only notice */
-  onResolve?: (entryId: string, action: "keep" | "discard") => Promise<unknown>;
+  onResolve?: ((entryId: string, action: "keep" | "discard") => Promise<unknown>) | undefined;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const flagged = entries.filter((e) => e.schedule_conflict_at);
