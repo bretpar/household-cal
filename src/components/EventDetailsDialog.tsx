@@ -224,8 +224,7 @@ export function EventDetailsDialog() {
       <DialogContent
         className="rounded-3xl sm:max-w-lg"
         mobileViewportSafe
-        mobileEventSheetKey={mode === "edit" ? `edit-${event.id}` : undefined}
-        onMobileBackdropClose={mode === "edit" ? closeOccurrence : undefined}
+        {...(mode === "edit" ? { mobileEventSheetKey: `edit-${event.id}`, onMobileBackdropClose: closeOccurrence } : {})}
         hideClose={mode === "details"}
         {...(mode === "details" ? { onSwipeClose: closeOccurrence } : {})}
       >

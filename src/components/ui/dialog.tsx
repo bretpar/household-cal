@@ -112,7 +112,7 @@ const DialogContent = React.forwardRef<
           if (!event.defaultPrevented && mobileEventSheetKey !== undefined && isMobileSheet()) {
             event.preventDefault();
             // Don't open the keyboard or scroll to a form control on entry.
-            event.currentTarget?.focus({ preventScroll: true });
+            if (event.target instanceof HTMLElement) event.target.focus({ preventScroll: true });
           }
         }}
         {...touchHandlers}
