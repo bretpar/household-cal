@@ -1846,6 +1846,17 @@ export type Database = {
         Args: { _family_id: string }
         Returns: Database["public"]["Enums"]["family_role"]
       }
+      google_apply_exception_atomic: {
+        Args: {
+          _day: string
+          _event: Json
+          _family: string
+          _member_ids: Json
+          _parent: string
+          _source: string
+        }
+        Returns: string
+      }
       has_family_access: { Args: { _family_id: string }; Returns: boolean }
       is_babysitter: { Args: { _family_id: string }; Returns: boolean }
       is_family_owner: { Args: { _family_id: string }; Returns: boolean }
