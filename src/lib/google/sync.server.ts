@@ -1196,7 +1196,9 @@ export async function applyGoogleEvent(
         await adoptOccurrenceIdentity(admin, link, state.event);
       }
       if (exceptionCancellationAction({ occurrenceState: state.status }) === "remove") {
-        await admin.from("events").delete().eq("id", link.event_id);
+        await withShiftReconcile(admin, familyId, [link.event_id], async () => {
+          await admin.from("events").delete().eq("id", link.event_id);
+        });
       }
       return;
     }
@@ -1234,7 +1236,9 @@ export async function applyGoogleEvent(
         await admin.from("event_sync_links").delete().eq("id", link.id);
         await removeBranchParticipation(admin, link);
       } else {
-        await admin.from("events").delete().eq("id", link.event_id);
+        await withShiftReconcile(admin, familyId, [link.event_id], async () => {
+          await admin.from("events").delete().eq("id", link.event_id);
+        });
       }
       return;
     }
