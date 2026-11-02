@@ -176,6 +176,13 @@
       "when": 1793659565888,
       "tag": "0024_onboarding_member_invitations",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793659664413,
+      "tag": "0025_onboarding_invitation_lock_and_member_removal",
+      "breakpoints": true
     }
   ]
 }
