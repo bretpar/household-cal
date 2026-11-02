@@ -366,8 +366,8 @@ function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnl
   const [askNote, setAskNote] = useState(false);
   const [note, setNote] = useState("");
   const tz = sheet.time_zone;
-  const scheduled = sheet.entries.reduce((n, e) => n + hoursBetween(e.scheduled_start, e.scheduled_end), 0);
-  const actual = sheet.entries.reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
+  const scheduled = sheet.entries.filter(countsTowardTotals).reduce((n, e) => n + hoursBetween(e.scheduled_start, e.scheduled_end), 0);
+  const actual = sheet.entries.filter(countsTowardTotals).reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["household-timesheets"] });
     void qc.invalidateQueries({ queryKey: PENDING_TIMESHEETS_KEY });
@@ -585,7 +585,7 @@ function OwnerManagedCard({ memberId, name, attention }: { memberId: string; nam
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not confirm"),
   });
   const editable = sheet ? (sheet.status === "draft" || sheet.status === "needs_correction") && !sheet.before_start : false;
-  const actual = (sheet?.entries ?? []).reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
+  const actual = (sheet?.entries ?? []).filter(countsTowardTotals).reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
   return (
     <div className="space-y-2 rounded-2xl border border-border-soft bg-card p-4 text-sm">
       <button type="button" className="flex w-full items-start justify-between gap-2 text-left" onClick={() => setOpen((o) => !o)}>

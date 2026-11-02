@@ -200,6 +200,7 @@ function UpcomingBody({ sheet }: { sheet: TimesheetView }) {
 function SheetBody({ sheet, statusRevalidated }: { sheet: TimesheetView; statusRevalidated: boolean }) {
   const qc = useQueryClient();
   const submit = useServerFn(submitTimesheet);
+  const resolveConflict = useServerFn(resolveShiftConflict);
   const [adding, setAdding] = useState(() => !!readTimesheetDraft(draftKey(sheet.id, null)));
   // Display-only hours while an editor is open or a save is refreshing; server stays authoritative.
   const [preview, setPreview] = useState<Record<string, number>>({});
@@ -212,7 +213,7 @@ function SheetBody({ sheet, statusRevalidated }: { sheet: TimesheetView; statusR
     });
   const editable = statusRevalidated && (sheet.status === "draft" || sheet.status === "needs_correction") && !sheet.before_start && !sheet.read_only;
   const hoursFor = (e: TimesheetEntry) => preview[e.id] ?? hoursBetween(e.actual_start, e.actual_end);
-  const total = sheet.entries.reduce((n, e) => n + hoursFor(e), 0) + (preview["new"] ?? 0);
+  const total = sheet.entries.filter(countsTowardTotals).reduce((n, e) => n + hoursFor(e), 0) + (preview["new"] ?? 0);
   const refresh = async () => {
     await qc.invalidateQueries({ queryKey: ["my-timesheet"] });
     void qc.invalidateQueries({ queryKey: MY_TIMESHEET_ACTIONS_KEY });
