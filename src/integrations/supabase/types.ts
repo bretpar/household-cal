@@ -1953,6 +1953,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      split_calendar_event_atomic: {
+        Args: { _day: string; _event: string; _input: Json; _scope: string }
+        Returns: string
+      }
+      timesheet_entry_duplicate_classification: {
+        Args: { _entry: string; _tz: string }
+        Returns: string
+      }
       timesheet_entry_duplicates_finalized: {
         Args: { _entry: string; _tz: string }
         Returns: boolean
