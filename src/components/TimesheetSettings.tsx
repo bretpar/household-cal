@@ -53,6 +53,7 @@ import {
   type TimesheetView,
   countsTowardTotals,
   ownerResolveManagedConflict,
+  ownerResolveDuplicateConflict,
 } from "@/lib/timesheets.functions";
 import { TimesheetConflicts } from "@/components/TimesheetConflicts";
 
@@ -363,6 +364,7 @@ function NotificationSettings() {
 function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnly?: boolean }) {
   const qc = useQueryClient();
   const review = useServerFn(reviewTimesheet);
+  const resolveDuplicate = useServerFn(ownerResolveDuplicateConflict);
   const search = useSearch({ strict: false }) as { timesheet?: string };
   const [open, setOpen] = useState(search.timesheet === sheet.id);
   const [editing, setEditing] = useState(false);
@@ -410,7 +412,7 @@ function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnl
           <TimesheetConflicts
             entries={sheet.entries}
             ownerReview
-            onResolve={sheet.status === "draft" || sheet.status === "needs_correction" ? async (entry_id, action) => {
+            onResolve={!readOnly && (sheet.status === "draft" || sheet.status === "needs_correction") ? async (entry_id, action) => {
               await resolveDuplicate({ data: { timesheet_id: sheet.id, entry_id, action } });
               void qc.invalidateQueries({ queryKey: ["household-timesheets"] });
             } : undefined}
