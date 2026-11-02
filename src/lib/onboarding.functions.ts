@@ -49,6 +49,10 @@ export const finishOnboardingFn = createServerFn({ method: "POST" })
     if (!current) throw new Error("No household found");
     await requireOwner(context.supabase, context.userId, current.familyId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const savedMembers = await supabaseAdmin.from("family_members").select("id")
+      .eq("family_id", current.familyId).eq("active", true).limit(1);
+    if (savedMembers.error) throw savedMembers.error;
+    if (!savedMembers.data.length) throw new Error("Save your family members before finishing setup");
     const existing = await supabaseAdmin.from("families").select("onboarding_finished_at").eq("id", current.familyId).single();
     if (existing.error) throw existing.error;
     if (!existing.data.onboarding_finished_at) {
