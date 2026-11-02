@@ -476,15 +476,17 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
             ...draft,
           } as EventInput,
         });
+        if (result.timesheet_reconcile === "pending") notifyReconcilePending();
         return { event_id: occurrence.event.id, google_sync: result.google_sync };
       },
 
       deleteEvent: async (occurrence, scope) => {
-        await deleteMutation.mutateAsync({
+        const del = await deleteMutation.mutateAsync({
           event_id: occurrence.event.id,
           occurrence_day: dayKey(occurrence.start),
           scope,
         });
+        if ((del as { timesheet_reconcile?: string } | undefined)?.timesheet_reconcile === "pending") notifyReconcilePending();
       },
 
       selectedMembers,
@@ -530,4 +532,11 @@ export function useCalendar(): CalendarStore {
   const ctx = useContext(CalendarContext);
   if (!ctx) throw new Error("useCalendar must be used inside CalendarProvider");
   return ctx;
+}
+
+/** Calendar save succeeded but timesheet updates are queued for automatic retry. */
+function notifyReconcilePending() {
+  void import("sonner").then(({ toast }) =>
+    toast.warning("Event saved. Timesheet hours are still updating and will retry automatically."),
+  );
 }
