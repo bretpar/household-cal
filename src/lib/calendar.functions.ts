@@ -85,15 +85,13 @@ export const createEvent = createServerFn({ method: "POST" })
     try {
       id = await insertEvent(db, familyId, { ...data, calendar_source_id: sourceId });
     } catch (e) {
-      await finishReconcile(familyId, jobId, ["00000000-0000-0000-0000-000000000000"]);
+      await releaseReconcile(jobId);
       throw e;
     }
     const createdMembers = await shiftMembersOrNull(familyId, [id]);
-    const timesheet_reconcile = await finishReconcile(
-      familyId,
-      jobId,
-      createdMembers === null ? [] : createdMembers.length ? createdMembers : ["00000000-0000-0000-0000-000000000000"],
-    );
+    const timesheet_reconcile = createdMembers?.length === 0
+      ? await releaseReconcile(jobId)
+      : await finishReconcile(familyId, jobId, createdMembers ?? []);
 
     // Authoritative confirmation: the caller only reports success once the row
     // is readable back under the caller's own RLS context. Without this an
@@ -124,7 +122,7 @@ export const createEvent = createServerFn({ method: "POST" })
   });
 
 
-/** Like shiftMembersSafe, but null when the lookup failed (caller must then treat the whole household as affected). */
+/** Caregivers assigned to these events; null when the lookup failed (caller must then treat the whole household as affected). */
 async function shiftMembersOrNull(familyId: string, eventIds: string[]): Promise<string[] | null> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -136,15 +134,17 @@ async function shiftMembersOrNull(familyId: string, eventIds: string[]): Promise
   }
 }
 
-/** Caregivers currently assigned to these events (best-effort read; never blocks a save). */
-async function shiftMembersSafe(familyId: string, eventIds: string[]): Promise<string[]> {
+/** Drops a hold that turned out to affect no caregiver. Left in place (and drained hourly) if this fails. */
+async function releaseReconcile(jobId: string | null): Promise<"ok" | "pending"> {
+  if (!jobId) return "ok";
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const ts = await import("@/lib/timesheets.server");
-    return await ts.shiftMemberIds(supabaseAdmin as unknown as AnyDb, familyId, eventIds);
+    const { error } = await (supabaseAdmin as unknown as AnyDb).from("timesheet_reconcile_jobs").delete().eq("id", jobId);
+    if (error) throw error;
+    return "ok";
   } catch (e) {
-    console.error("shift member lookup failed", e);
-    return [];
+    console.error("could not release reconciliation hold", e);
+    return "pending";
   }
 }
 
@@ -249,7 +249,7 @@ export const deleteEventFn = createServerFn({ method: "POST" })
 
     await applyEventDelete(db, data.event_id, data.occurrence_day, data.scope);
     const timesheet_reconcile = shiftMembers?.length === 0
-      ? await finishReconcile(familyId, jobId, ["00000000-0000-0000-0000-000000000000"])
+      ? await releaseReconcile(jobId)
       : await finishReconcile(familyId, jobId, shiftMembers ?? []);
 
     await Promise.race([
