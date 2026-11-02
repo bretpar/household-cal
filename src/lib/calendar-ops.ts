@@ -22,7 +22,7 @@ import type { EventCategory } from "@/lib/event-categories";
 import { canonicalRecurrenceRule } from "@/lib/google/mapping";
 
 /** Minimal shape of the Supabase client surface these helpers need. */
-export type Db = { from: (table: string) => any };
+export type Db = { from: (table: string) => any; rpc?: (name: string, args: unknown) => any };
 
 export interface EventInput {
   calendar_source_id: string | null;
@@ -562,33 +562,6 @@ export function pushTargetsForUpdate(eventId: string, createdId: string | null):
   return createdId && createdId !== eventId ? [eventId, createdId] : [eventId];
 }
 
-/**
- * The event's current caregiver shift assignment, or undefined when it has
- * none. Used so a partial update that omits `babysitter_assignment` (e.g. a
- * drag-reschedule) keeps the assignment attached when a recurring split
- * creates a new event row — without ever restoring an assignment that was
- * intentionally removed (an explicit `{ kind: "none" }` still clears it).
- */
-async function existingShiftAssignment(
-  db: Db,
-  eventId: string,
-): Promise<ShiftAssignment | undefined> {
-  const { data, error } = await db
-    .from("babysitter_shifts")
-    .select("assignment, assignee_name, assignee_member_id")
-    .eq("event_id", eventId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) return undefined;
-  if (data.assignment === "caregiver" && data.assignee_member_id) {
-    return { kind: "caregiver", family_member_id: data.assignee_member_id as string };
-  }
-  if (data.assignment === "other") {
-    return { kind: "other", name: (data.assignee_name as string | null) ?? "" };
-  }
-  return { kind: "none" };
-}
-
 /** Returns the id of a newly created event when the scope split the series. */
 
 export async function applyEventUpdate(
@@ -637,67 +610,22 @@ export async function applyEventUpdate(
     return null;
   }
 
-  // Splits: read and validate the inherited assignment BEFORE touching the
-  // original, create the replacement first, then mutate the original. If the
-  // original mutation fails, the replacement is removed so the original event
-  // and its recurrence are left exactly as they were.
-  const inherited =
-    input.babysitter_assignment === undefined
-      ? await existingShiftAssignment(db, eventId)
-      : input.babysitter_assignment;
-
-  // Lineage lets timesheets recognize the replacement as the same logical shift.
-  const lineage = { split_from_event_id: eventId, split_from_date: occurrenceDay };
-  const createdId =
-    scope === "this"
-      ? await insertEvent(db, familyId, {
-          ...input,
-          babysitter_assignment: inherited,
-          recurrence_rule: null,
-          recurrence_until: null,
-          // A detached one-off has no repeat pattern, so per-person weekday rules
-          // must not carry over — otherwise the occurrence renders on no day at all.
-          member_weekdays: {},
-          calendar_source_id: sourceId,
-        }, lineage)
-      : await insertEvent(db, familyId, {
-          ...input,
-          babysitter_assignment: inherited,
-          calendar_source_id: sourceId,
-        }, lineage);
-
-  try {
-    if (scope === "this") {
-      // Merge against a fresh read so a concurrent exclusion is never clobbered.
-      const { data: fresh, error: readError } = await db
-        .from("events")
-        .select("excluded_dates")
-        .eq("id", eventId)
-        .single();
-      if (readError) throw readError;
-      const current = (fresh?.excluded_dates ?? []) as string[];
-      if (!current.includes(occurrenceDay)) {
-        const { error: exError } = await db
-          .from("events")
-          .update({ excluded_dates: [...current, occurrenceDay] })
-          .eq("id", eventId);
-        if (exError) throw exError;
-      }
-    } else {
-      // "future": end the old series the day before, the new series starts here
-      const { error: untilError } = await db
-        .from("events")
-        .update({ recurrence_until: shiftDayKey(occurrenceDay, -1) })
-        .eq("id", eventId);
-      if (untilError) throw untilError;
-    }
-  } catch (e) {
-    if (createdId) {
-      const { error: undoError } = await db.from("events").delete().eq("id", createdId);
-      if (undoError) console.error("could not remove replacement after failed split", undoError);
-    }
-    throw e;
-  }
+  // One authenticated transaction creates the complete replacement and changes
+  // the locked original; assignment inheritance is read inside that transaction.
+  if (!db.rpc) throw new Error("Transactional calendar updates are unavailable");
+  const { data: createdId, error: splitError } = await db.rpc("split_calendar_event_atomic", {
+    _event: eventId,
+    _day: occurrenceDay,
+    _scope: scope,
+    _input: {
+      ...input,
+      calendar_source_id: sourceId,
+      recurrence_rule: scope === "this" ? null : canonicalRecurrenceRule(input.recurrence_rule, input.member_weekdays),
+      member_weekdays: scope === "this" ? {} : input.member_weekdays ?? {},
+    },
+  });
+  if (splitError) throw splitError;
+  if (typeof createdId !== "string") throw new Error("Calendar split could not be confirmed");
   return createdId;
 }
 
