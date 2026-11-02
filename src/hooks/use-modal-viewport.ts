@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ForwardedRef } from "react";
 
 /** Track the keyboard's visible viewport without moving focus or the document. */
-export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedRef<T>) {
+export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedRef<T>, scrollResetKey?: string) {
   const [node, setNode] = useState<T | null>(null);
   const ref = useCallback((value: T | null) => {
     setNode(value);
@@ -10,10 +10,24 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
   }, [forwardedRef]);
 
   useEffect(() => {
+    if (!node || scrollResetKey === undefined || !window.matchMedia("(max-width: 639px)").matches) return;
+    const reset = () => {
+      node.scrollTop = 0;
+      node.querySelectorAll<HTMLElement>("[data-event-form-scroll]").forEach((scroller) => {
+        scroller.scrollTop = 0;
+      });
+    };
+    reset();
+    const frame = requestAnimationFrame(reset);
+    return () => cancelAnimationFrame(frame);
+  }, [node, scrollResetKey]);
+
+  useEffect(() => {
     if (!node) return;
     const viewport = window.visualViewport;
     const mobile = window.matchMedia("(max-width: 639px)");
     let frame = 0;
+    let previousHeight = viewport?.height ?? window.innerHeight;
     const update = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
@@ -24,8 +38,13 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
         }
         const height = viewport?.height ?? window.innerHeight;
         const top = viewport?.offsetTop ?? 0;
+        const expanding = height > previousHeight + 1;
+        previousHeight = height;
         node.style.setProperty("--modal-visible-height", `${height}px`);
         node.style.setProperty("--modal-visible-bottom", `${Math.max(0, window.innerHeight - top - height)}px`);
+        // An event sheet should regain its natural layout, not chase a still-focused
+        // field while iOS restores the viewport after keyboard dismissal.
+        if (scrollResetKey !== undefined && expanding) return;
         const active = document.activeElement;
         if (!(active instanceof HTMLElement) || !node.contains(active) ||
             !active.matches("input, textarea, [contenteditable='true']")) return;
@@ -59,6 +78,6 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
       mobile.removeEventListener("change", update);
       node.removeEventListener("focusin", update);
     };
-  }, [node]);
+  }, [node, scrollResetKey]);
   return ref;
 }
