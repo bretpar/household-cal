@@ -562,6 +562,33 @@ export function pushTargetsForUpdate(eventId: string, createdId: string | null):
   return createdId && createdId !== eventId ? [eventId, createdId] : [eventId];
 }
 
+/**
+ * The event's current caregiver shift assignment, or undefined when it has
+ * none. Used so a partial update that omits `babysitter_assignment` (e.g. a
+ * drag-reschedule) keeps the assignment attached when a recurring split
+ * creates a new event row — without ever restoring an assignment that was
+ * intentionally removed (an explicit `{ kind: "none" }` still clears it).
+ */
+async function existingShiftAssignment(
+  db: Db,
+  eventId: string,
+): Promise<ShiftAssignment | undefined> {
+  const { data, error } = await db
+    .from("babysitter_shifts")
+    .select("assignment, assignee_name, assignee_member_id")
+    .eq("event_id", eventId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return undefined;
+  if (data.assignment === "caregiver" && data.assignee_member_id) {
+    return { kind: "caregiver", family_member_id: data.assignee_member_id as string };
+  }
+  if (data.assignment === "other") {
+    return { kind: "other", name: (data.assignee_name as string | null) ?? "" };
+  }
+  return { kind: "none" };
+}
+
 /** Returns the id of a newly created event when the scope split the series. */
 
 export async function applyEventUpdate(
