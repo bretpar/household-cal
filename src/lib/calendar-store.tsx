@@ -361,6 +361,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       .then((result) => {
         if (result && "applied" in result && (result.applied ?? 0) > 0) {
           queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+          invalidateTimesheetQueries(queryClient);
         }
       })
       .catch(() => {
@@ -386,6 +387,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       .then((result) => {
         if (result && "applied" in result && (result.applied ?? 0) > 0) {
           queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+          invalidateTimesheetQueries(queryClient);
         }
       })
       .catch(() => {});
