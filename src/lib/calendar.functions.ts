@@ -205,11 +205,39 @@ export const deleteEventFn = createServerFn({ method: "POST" })
     await assertEventEditable(db, data.event_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const sync = await import("@/lib/google/sync.server");
+    const { data: before } = await db
+      .from("events")
+      .select("start_at")
+      .eq("id", data.event_id)
+      .single();
 
     const wholeEventGone = data.scope === "series";
     const links = wholeEventGone ? await sync.linksForEvent(supabaseAdmin, data.event_id) : [];
 
+    // Capture assigned caregivers before the delete removes the shift rows.
+    const ts = await import("@/lib/timesheets.server");
+    const shiftMembers = await ts
+      .shiftMemberIds(supabaseAdmin as unknown as ts.AnyDb, familyId, [data.event_id])
+      .catch(() => [] as string[]);
+
     await applyEventDelete(db, data.event_id, data.occurrence_day, data.scope);
+
+    if (shiftMembers.length) {
+      // The shift rows are gone, so reconcile the affected caregivers directly.
+      await reconcileShiftTimesheetsBestEffort(familyId, [], [before?.start_at as string | undefined], [data.occurrence_day]).catch(() => {});
+      try {
+        const { localDateKey } = await import("@/lib/google/occurrence");
+        const admin = supabaseAdmin as unknown as ts.AnyDb;
+        const { data: fam } = await admin.from("families").select("timezone").eq("id", familyId).single();
+        const tz = (fam?.timezone as string | undefined) || "America/Los_Angeles";
+        const dates = new Set<string>([data.occurrence_day]);
+        const k = before?.start_at ? localDateKey(before.start_at as string, tz) : null;
+        if (k) dates.add(k);
+        await ts.reconcileShiftTimesheets(admin, familyId, shiftMembers, [...dates]);
+      } catch (e) {
+        console.error("timesheet reconciliation after shift delete failed", e);
+      }
+    }
 
     await Promise.race([
       wholeEventGone
