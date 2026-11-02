@@ -1953,6 +1953,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      timesheet_entry_duplicates_finalized: {
+        Args: { _entry: string; _tz: string }
+        Returns: boolean
+      }
       timesheet_lineage_keys: {
         Args: { _event: string; _tz: string; _work_date: string }
         Returns: string[]
