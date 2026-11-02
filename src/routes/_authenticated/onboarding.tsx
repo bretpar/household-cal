@@ -4,7 +4,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Info, Palette, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Info, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -75,7 +75,7 @@ interface MemberRow {
 let rowSeq = 0;
 function newRow(overrides: Partial<MemberRow> = {}, usedColors: MemberColor[] = []): MemberRow {
   rowSeq += 1;
-  const color = MEMBER_COLORS.find((color) => !usedColors.includes(color)) ?? MEMBER_COLORS[0] ?? "sky";
+  const color = MEMBER_COLORS.find((color) => !usedColors.includes(color)) ?? MEMBER_COLORS[usedColors.length % MEMBER_COLORS.length] ?? "sky";
   return {
     key: `row-${rowSeq}`,
     name: "",
@@ -433,6 +433,12 @@ function OnboardingPage() {
                   const initial = (
                     row.initialTouched ? row.initial : row.name.charAt(0)
                   ).toUpperCase();
+                  const usedColors = rows.filter((other) => other.key !== row.key).map((other) => other.color);
+                  const suggestedColors = [...new Set([
+                    row.color,
+                    ...MEMBER_COLORS.filter((color) => !usedColors.includes(color)),
+                    ...MEMBER_COLORS,
+                  ])].slice(0, 3);
                   return (
                     <div
                       key={row.key}
@@ -453,21 +459,30 @@ function OnboardingPage() {
                           <Label htmlFor={`member-name-${row.key}`}>Name</Label>
                           <Input id={`member-name-${row.key}`} className="h-12 rounded-xl text-base" placeholder="e.g. Dad" value={row.name} onChange={(event) => patchRow(row.key, { name: event.target.value })} />
                         </div>
-                        <div className="mt-3 grid grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
+                        <div className="mt-3 grid w-full max-w-sm grid-cols-[minmax(0,1fr)_minmax(0,2.7fr)] gap-3">
+                          <div className="min-w-0 space-y-1.5">
                             <Label htmlFor={`member-initial-${row.key}`}>Initial</Label>
                             <Input id={`member-initial-${row.key}`} className="h-12 rounded-xl text-center text-base font-bold" maxLength={1} value={initial} onChange={(event) => patchRow(row.key, { initial: event.target.value.slice(0, 1).toUpperCase(), initialTouched: true })} />
                           </div>
-                          <div className="space-y-1.5">
-                            <Label htmlFor={`member-color-${row.key}`}>Color</Label>
+                          <div className="min-w-0 space-y-1.5">
+                            <Label id={`member-color-label-${row.key}`}>Color</Label>
                             <Popover open={colorPickerKey === row.key} onOpenChange={(open) => setColorPickerKey(open ? row.key : null)}>
-                              <PopoverTrigger asChild>
-                                <Button id={`member-color-${row.key}`} type="button" variant="outline" className="h-12 w-full justify-between rounded-xl px-3" aria-label={`Choose color for ${row.name || "family member"}`}>
-                                  <span aria-hidden className={cn("h-8 w-8 rounded-full", styleForColor(row.color).dot)} />
-                                  <Palette className="h-4 w-4 text-muted-foreground" aria-hidden />
-                                  <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
-                                </Button>
-                              </PopoverTrigger>
+                              <div className="flex h-12 min-w-0 items-center rounded-xl border border-input bg-background shadow-sm" role="group" aria-labelledby={`member-color-label-${row.key}`}>
+                                <div className="grid min-w-0 flex-1 grid-cols-3 px-0.5 sm:px-1">
+                                  {suggestedColors.map((color) => (
+                                    <Button key={color} type="button" variant="ghost" size="icon" aria-label={`Select ${color}`} aria-pressed={row.color === color} onClick={() => patchRow(row.key, { color })} className="h-11 w-full min-w-0 rounded-lg p-0">
+                                      <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-full sm:size-8", styleForColor(color).badge, row.color === color && "ring-1 ring-ring ring-offset-2 ring-offset-background")}>
+                                        {row.color === color ? <Check aria-hidden /> : null}
+                                      </span>
+                                    </Button>
+                                  ))}
+                                </div>
+                                <PopoverTrigger asChild>
+                                  <Button id={`member-color-${row.key}`} type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0 rounded-none rounded-r-xl p-0" aria-label={`More colors for ${row.name || "family member"}`} title="More colors">
+                                    <span className="flex h-6 w-full items-center justify-center border-l border-input"><ChevronDown className="text-muted-foreground" aria-hidden /></span>
+                                  </Button>
+                                </PopoverTrigger>
+                              </div>
                               <PopoverContent align="end" collisionPadding={16} className="w-auto max-w-[calc(100vw-2rem)] p-3">
                                 <div className="grid grid-cols-4 gap-2" role="group" aria-label="Member colors">
                                   {MEMBER_COLORS.map((color) => (
