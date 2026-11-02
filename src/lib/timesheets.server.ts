@@ -13,7 +13,7 @@ import {
   type PaySettings,
 } from "@/lib/timesheet-periods";
 
-type AnyDb = { from: (t: string) => any; rpc: (f: string, a: unknown) => any };
+export type AnyDb = { from: (t: string) => any; rpc: (f: string, a: unknown) => any };
 
 export async function adminDb(): Promise<AnyDb> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -258,4 +258,105 @@ export async function editableSheet(admin: AnyDb, memberId: string, timesheetId:
   const start = await timesheetStartDate(admin, memberId);
   if (start && data.period_end < start) throw new Error("This pay period is before your Timesheet start date");
   return data as any;
+}
+
+/* ------------------------------------------- shift-change reconciliation */
+
+/** Caregiver member ids assigned to any of the given events (legacy login links resolved). */
+export async function shiftMemberIds(admin: AnyDb, familyId: string, eventIds: string[]): Promise<string[]> {
+  if (!eventIds.length) return [];
+  const { data, error } = await admin
+    .from("babysitter_shifts")
+    .select("assignee_member_id, family_user_id")
+    .eq("family_id", familyId)
+    .in("event_id", eventIds);
+  if (error) throw new Error(error.message);
+  const ids = new Set<string>();
+  const legacyLoginIds: string[] = [];
+  for (const r of data ?? []) {
+    if (r.assignee_member_id) ids.add(r.assignee_member_id as string);
+    else if (r.family_user_id) legacyLoginIds.push(r.family_user_id as string);
+  }
+  if (legacyLoginIds.length) {
+    const fu = await admin.from("family_users").select("family_member_id").in("id", legacyLoginIds);
+    if (fu.error) throw new Error(fu.error.message);
+    for (const r of fu.data ?? []) if (r.family_member_id) ids.add(r.family_member_id as string);
+  }
+  return [...ids];
+}
+
+/**
+ * After a caregiver shift is rescheduled, split or deleted, reconcile the
+ * timesheet periods covering each affected date so prefilled scheduled entries
+ * track the current schedule exactly once — the original AND the destination
+ * period, not just whichever period is next opened.
+ *
+ * Only existing draft/needs_correction sheets are touched: no timesheet is
+ * ever created here, and Submitted/Approved/Closed history is never modified.
+ * Entries the caregiver already confirmed, annotated or marked paid survive a
+ * moved shift (the refresh RPC preserves them); when such an entry no longer
+ * matches any scheduled shift it would silently double payable hours, so the
+ * sheet is flagged needs_correction for explicit owner reconciliation instead.
+ */
+export async function reconcileShiftTimesheets(
+  admin: AnyDb,
+  familyId: string,
+  memberIds: string[],
+  dateKeys: string[],
+): Promise<void> {
+  if (!memberIds.length || !dateKeys.length) return;
+  if (!(await householdTimesheetsOn(familyId))) return;
+  const { settings, timeZone } = await loadPaySettings(admin, familyId);
+  const today = todayKey(timeZone);
+  const periods = new Map<string, PayPeriod>();
+  for (const key of new Set(dateKeys)) {
+    const p = payPeriodFor(settings, key, 0);
+    periods.set(p.start, p);
+  }
+  for (const memberId of new Set(memberIds)) {
+    const member = await admin
+      .from("family_members")
+      .select("timesheets_enabled, timesheet_start_date")
+      .eq("id", memberId)
+      .eq("family_id", familyId)
+      .maybeSingle();
+    if (member.error) throw new Error(member.error.message);
+    if (!member.data || member.data.timesheets_enabled !== true) continue;
+    const startDate = (member.data.timesheet_start_date as string | null) ?? null;
+    for (const period of periods.values()) {
+      const existing = await admin
+        .from("timesheets")
+        .select("id, status")
+        .eq("family_id", familyId)
+        .eq("family_member_id", memberId)
+        .eq("period_start", period.start)
+        .maybeSingle();
+      if (existing.error) throw new Error(existing.error.message);
+      if (!existing.data || (existing.data.status !== "draft" && existing.data.status !== "needs_correction")) continue;
+      const shifts = (await scheduledShifts(admin, familyId, memberId, period, timeZone))
+        .filter((sh) => !startDate || sh.work_date >= startDate);
+      const { error } = await admin.rpc("refresh_timesheet_atomic", {
+        _family: familyId, _member: memberId, _settings: settings, _timezone: timeZone,
+        _today: today, _start: period.start, _end: period.end, _shifts: shifts,
+      });
+      if (error) throw new Error(error.message);
+      const keys = new Set(shifts.map((s) => s.occurrence_key));
+      const orphans = await admin
+        .from("timesheet_entries")
+        .select("id, occurrence_key")
+        .eq("timesheet_id", existing.data.id)
+        .eq("is_manual", false)
+        .eq("actual_time_confirmed", true)
+        .not("occurrence_key", "is", null);
+      if (orphans.error) throw new Error(orphans.error.message);
+      const conflict = (orphans.data ?? []).some((e: any) => !keys.has(e.occurrence_key as string));
+      if (conflict && existing.data.status === "draft") {
+        await admin
+          .from("timesheets")
+          .update({ status: "needs_correction" })
+          .eq("id", existing.data.id)
+          .eq("status", "draft");
+      }
+    }
+  }
 }
