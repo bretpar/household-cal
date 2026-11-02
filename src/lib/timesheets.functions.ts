@@ -29,13 +29,14 @@ export interface TimesheetEntry {
   caregiver_adjusted?: boolean;
   /** set when a shift move left this entry conflicting; blocks submission until resolved */
   schedule_conflict_at?: string | null;
-  /** moved | duplicate_of_finalized | acknowledged | excluded */
+  /** moved | duplicate_of_finalized | suspected_duplicate | acknowledged | excluded */
   schedule_conflict_reason?: string | null;
 }
 
-/** Entries counted in Scheduled/Actual totals: unresolved conflicts and excluded duplicates never count. */
+/** Suspected relationships stay counted while review-blocked; proven duplicates do not. */
 export function countsTowardTotals(e: Pick<TimesheetEntry, "schedule_conflict_at" | "schedule_conflict_reason">): boolean {
-  return !e.schedule_conflict_at && e.schedule_conflict_reason !== "excluded";
+  if (e.schedule_conflict_reason === "excluded") return false;
+  return e.schedule_conflict_reason === "suspected_duplicate" || !e.schedule_conflict_at;
 }
 
 export interface TimesheetView {

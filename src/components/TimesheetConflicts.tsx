@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import type { TimesheetEntry } from "@/lib/timesheets.functions";
 
 /**
- * Lists shifts flagged by a calendar move. Flagged entries never count toward
- * totals and block submission until someone explicitly keeps or removes them.
+ * Conflicts block submission. Suspected legacy duplicates remain counted until
+ * an Owner decides; proven duplicates and moved orphan entries do not count.
  */
 export function TimesheetConflicts({
   entries,
@@ -29,11 +29,12 @@ export function TimesheetConflicts({
         <AlertTriangle className="h-4 w-4" aria-hidden /> A shift was moved on the calendar
       </p>
       <p className="text-xs text-muted-foreground">
-        These hours aren't counted until resolved, so the same shift is never paid twice.
+        Confirmed duplicates and moved shifts aren't counted. Suspected matches remain counted and need a parent's review before submission.
       </p>
       <ul className="space-y-2">
         {flagged.map((e) => {
           const moved = e.schedule_conflict_reason === "moved";
+          const suspected = e.schedule_conflict_reason === "suspected_duplicate";
           return (
             <li key={e.id} className="rounded-xl bg-card px-3 py-2">
               <p className="font-semibold">
@@ -42,6 +43,8 @@ export function TimesheetConflicts({
               <p className="text-xs text-muted-foreground">
                 {moved
                   ? "This shift's scheduled date changed after time was entered."
+                  : suspected
+                    ? "The timing resembles historical work, but duplication isn't confirmed. These hours remain counted until a parent reviews them."
                   : ownerReview
                     ? "This shift may already be on a submitted or approved timesheet. Choose whether to count it."
                     : "This shift may already be on a submitted or approved timesheet. A parent will review it."}
