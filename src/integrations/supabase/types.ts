@@ -1413,6 +1413,8 @@ export type Database = {
           owner_edited_by: string | null
           paid_hours: number | null
           paid_note: string | null
+          schedule_conflict_at: string | null
+          schedule_conflict_reason: string | null
           scheduled_end: string | null
           scheduled_start: string | null
           scheduled_title: string | null
@@ -1438,6 +1440,8 @@ export type Database = {
           owner_edited_by?: string | null
           paid_hours?: number | null
           paid_note?: string | null
+          schedule_conflict_at?: string | null
+          schedule_conflict_reason?: string | null
           scheduled_end?: string | null
           scheduled_start?: string | null
           scheduled_title?: string | null
@@ -1463,6 +1467,8 @@ export type Database = {
           owner_edited_by?: string | null
           paid_hours?: number | null
           paid_note?: string | null
+          schedule_conflict_at?: string | null
+          schedule_conflict_reason?: string | null
           scheduled_end?: string | null
           scheduled_start?: string | null
           scheduled_title?: string | null
@@ -1554,6 +1560,44 @@ export type Database = {
             columns: ["timesheet_id"]
             isOneToOne: false
             referencedRelation: "timesheets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timesheet_reconcile_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          family_id: string
+          id: string
+          last_error: string | null
+          member_ids: string[]
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          family_id: string
+          id?: string
+          last_error?: string | null
+          member_ids?: string[]
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          family_id?: string
+          id?: string
+          last_error?: string | null
+          member_ids?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timesheet_reconcile_jobs_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
         ]
@@ -1825,6 +1869,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      reconcile_shift_timesheets_atomic: {
+        Args: {
+          _family: string
+          _items: Json
+          _settings: Json
+          _timezone: string
+          _today: string
+        }
+        Returns: number
+      }
       recover_stale_account_deletion: {
         Args: { _user_id: string }
         Returns: string
@@ -1845,6 +1899,17 @@ export type Database = {
       remove_caregiver_app_access: {
         Args: { _member_id: string }
         Returns: number
+      }
+      resolve_timesheet_conflict_atomic: {
+        Args: {
+          _action: string
+          _actor: string
+          _entry: string
+          _family: string
+          _member: string
+          _sheet: string
+        }
+        Returns: undefined
       }
       save_timesheet_entry_atomic: {
         Args: {
