@@ -12,7 +12,10 @@ import type { TimesheetEntry } from "@/lib/timesheets.functions";
 export function TimesheetConflicts({
   entries,
   onResolve,
+  ownerReview = false,
 }: {
+  /** duplicates of finalized shifts are resolvable only by an Owner */
+  ownerReview?: boolean;
   entries: TimesheetEntry[];
   /** omitted = read-only notice */
   onResolve?: ((entryId: string, action: "keep" | "discard") => Promise<unknown>) | undefined;
@@ -39,9 +42,11 @@ export function TimesheetConflicts({
               <p className="text-xs text-muted-foreground">
                 {moved
                   ? "This shift's scheduled date changed after time was entered."
-                  : "This shift is already on a submitted or approved timesheet."}
+                  : ownerReview
+                    ? "This shift may already be on a submitted or approved timesheet. Choose whether to count it."
+                    : "This shift may already be on a submitted or approved timesheet. A parent will review it."}
               </p>
-              {onResolve ? (
+              {onResolve && (moved || ownerReview) ? (
                 <div className="mt-2 flex gap-2">
                   <Button
                     size="sm"
