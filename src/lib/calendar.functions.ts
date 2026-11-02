@@ -109,6 +109,39 @@ export const createEvent = createServerFn({ method: "POST" })
   });
 
 
+/**
+ * Reconcile caregiver timesheets after a shift-affecting event change so a
+ * moved shift can never leave duplicate scheduled/payable hours in both the
+ * original and destination pay periods. Best-effort: the calendar save is
+ * already authoritative, and editable sheets also self-heal when next opened.
+ */
+async function reconcileShiftTimesheetsBestEffort(
+  familyId: string,
+  eventIds: string[],
+  dateIsos: (string | null | undefined)[],
+  extraDays: (string | null | undefined)[],
+): Promise<void> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { localDateKey } = await import("@/lib/google/occurrence");
+    const ts = await import("@/lib/timesheets.server");
+    const admin = supabaseAdmin as unknown as ts.AnyDb;
+    const memberIds = await ts.shiftMemberIds(admin, familyId, eventIds);
+    if (!memberIds.length) return;
+    const { data: fam } = await admin.from("families").select("timezone").eq("id", familyId).single();
+    const tz = (fam?.timezone as string | undefined) || "America/Los_Angeles";
+    const dates = new Set<string>();
+    for (const iso of dateIsos) {
+      const k = iso ? localDateKey(iso, tz) : null;
+      if (k) dates.add(k);
+    }
+    for (const d of extraDays) if (d) dates.add(d);
+    await ts.reconcileShiftTimesheets(admin, familyId, memberIds, [...dates]);
+  } catch (e) {
+    console.error("timesheet reconciliation after shift change failed", e);
+  }
+}
+
 export const updateEventFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
@@ -123,12 +156,23 @@ export const updateEventFn = createServerFn({ method: "POST" })
     const db = context.supabase as unknown as Db;
     const familyId = await resolveWritableFamilyForEvent(db, context.userId, data.event_id);
     await assertEventEditable(db, data.event_id);
+    const { data: before } = await db
+      .from("events")
+      .select("start_at")
+      .eq("id", data.event_id)
+      .single();
     const created = await applyEventUpdate(
       db,
       data.event_id,
       data.occurrence_day,
       data.scope,
       data.input,
+    );
+    await reconcileShiftTimesheetsBestEffort(
+      familyId,
+      [data.event_id, ...(created ? [created] : [])],
+      [before?.start_at as string | undefined, data.input.start_at],
+      [data.occurrence_day],
     );
     // assigning family members clears the "needs family assignment" badge
     if (data.input.member_ids.length > 0) {
