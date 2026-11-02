@@ -1,5 +1,9 @@
 # Roadmap
 
+## Invitation security and compact Step 2
+- [ ] Restrict pending member invitation emails to Owners and enforce same-household invitation associations with forward-only migrations.
+- [ ] Compact Initial/Color controls, unused-color defaults and stable collapsible member forms; necessary compilation/migration checks only, no browser QA or publishing.
+
 ## Onboarding family roles and invitations
 - [x] Add optional member invitations and Parent/Child/Caregiver review in onboarding.
 - [x] Complete setup before securely creating member-linked invitations; preserve retries, delivery truth and existing memberships. Additive migrations 0024–0026 preserve member linkage, lock order and safe removal; focused preservation tests passed, no browser QA, broad regression tests or publishing.
