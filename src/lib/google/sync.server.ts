@@ -1501,12 +1501,17 @@ export async function applyGoogleEvent(
     omitTimes: Boolean(timeReview),
     omitTitle: Boolean(titleReview),
   });
-  await admin.from("events").update(patch).eq("id", link.event_id);
+  // An assigned caregiver shift changed in Google reconciles timesheets like an
+  // in-app edit: durable job first, then the mutation, then one transaction
+  // across every editable sheet.
+  await withShiftReconcile(admin, familyId, [link.event_id], async () => {
+    await admin.from("events").update(patch).eq("id", link.event_id);
 
-  // moved between the two connected calendars directly in Google
-  if (link.calendar_source_id !== source.id) {
-    await admin.from("events").update({ calendar_source_id: source.id }).eq("id", link.event_id);
-  }
+    // moved between the two connected calendars directly in Google
+    if (link.calendar_source_id !== source.id) {
+      await admin.from("events").update({ calendar_source_id: source.id }).eq("id", link.event_id);
+    }
+  });
 
   // per-person weekday branches share one local rule: a Google recurrence edit
   // on a single branch is flagged for review instead of rewriting that rule
@@ -1741,6 +1746,7 @@ async function createExceptionEvent(
   initials: Map<string, string>,
   parentEventId: string,
   branchKey: string,
+  day: string,
 ): Promise<string | null> {
   const { data: parent } = await admin
     .from("events")
@@ -1762,41 +1768,33 @@ async function createExceptionEvent(
     google: g,
   });
 
-  const { data, error } = await admin
-    .from("events")
-    .insert({
-      family_id: source.family_id,
-      calendar_source_id: source.id,
-      title: fields.title,
-      start_at: fields.start_at,
-      end_at: fields.end_at,
-      all_day: fields.all_day,
-      location: g.location ?? parentRow.location ?? null,
-      notes: g.description ?? parentRow.notes ?? null,
-      event_type: fields.event_type,
-      recurrence_rule: null,
-      recurrence_until: null,
-      excluded_dates: [],
-      external_event_id: g.id,
-      external_recurring_event_id: g.recurringEventId ?? null,
-      needs_family_assignment: fields.needs_family_assignment,
-      last_change_source: "google",
-    })
-    .select("id")
-    .single();
+  // One service-only transaction: parent exclusion, replacement event with
+  // split lineage, family participants and the inherited caregiver assignment.
+  // A parent with no assignment row (removed in the app) yields no assignment.
+  const { data, error } = await (admin as unknown as AnyDb).rpc(
+    "google_apply_exception_atomic",
+    {
+      _family: source.family_id,
+      _source: source.id,
+      _parent: parentEventId,
+      _day: day,
+      _event: {
+        title: fields.title,
+        start_at: fields.start_at,
+        end_at: fields.end_at,
+        all_day: fields.all_day,
+        location: g.location ?? parentRow.location ?? null,
+        notes: g.description ?? parentRow.notes ?? null,
+        event_type: fields.event_type,
+        needs_family_assignment: fields.needs_family_assignment,
+        external_event_id: g.id,
+        external_recurring_event_id: g.recurringEventId ?? null,
+      },
+      _member_ids: fields.member_ids,
+    },
+  );
   if (error) throw error;
-
-  const eventId = data.id as string;
-  if (fields.member_ids.length > 0) {
-    await admin.from("event_members").insert(
-      fields.member_ids.map((id: string) => ({
-        event_id: eventId,
-        family_member_id: id,
-        weekdays: null,
-      })),
-    );
-  }
-  return eventId;
+  return (data as string | null) ?? null;
 }
 
 
