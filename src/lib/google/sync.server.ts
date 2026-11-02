@@ -1255,7 +1255,9 @@ export async function applyGoogleEvent(
         .maybeSingle();
       const day = dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime);
       if (seriesLink && seriesLink.calendar_source_id === source.id && day) {
-        await addExcludedDate(admin, seriesLink.event_id, day);
+        await withShiftReconcile(admin, familyId, [seriesLink.event_id], () =>
+          addExcludedDate(admin, seriesLink.event_id, day),
+        );
       }
     }
     return;
@@ -1282,7 +1284,9 @@ export async function applyGoogleEvent(
         ((parentLinks ?? []) as ParentLinkRow[])[0] ??
         null;
       if (parentLink && parentLink.event_id !== link.event_id) {
-        await addExcludedDate(admin, parentLink.event_id, occurrenceDay);
+        await withShiftReconcile(admin, familyId, [parentLink.event_id], () =>
+          addExcludedDate(admin, parentLink.event_id, occurrenceDay),
+        );
       }
     }
   }
