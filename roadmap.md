@@ -1,5 +1,10 @@
 # Roadmap
 
+## Caregiver rescheduling, visibility and timesheet duplication
+- [x] Active-session calendar freshness: bounded-window bundle revalidates every 2 minutes while visible; foreground/resume invalidation preserved.
+- [x] Recurring splits and partial updates inherit the existing caregiver assignment server-side; intentional removals still clear it.
+- [x] Shift moves reconcile both original and destination pay periods through the atomic refresh RPC; orphaned confirmed actuals flag the sheet for owner correction; Submitted/Approved/Closed history untouched. No QA or publishing; Codex verifies.
+
 ## iPhone event-sheet behavior
 - [x] Reset Add/Edit form scrolling on entry, restore compact height after keyboard dismissal, and allow backdrop dismissal without changing event behavior; physical iPhone verification remains unverified.
 - [x] Slightly reduce phone-only extra spacing while preserving comfortable field tap targets. No broad QA or publishing.
