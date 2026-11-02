@@ -9,6 +9,13 @@ export const Route = createFileRoute("/api/public/timesheets/notify")({
       POST: async ({ request }) =>
         runScheduledJob("timesheet-notifications", request, async () => {
           const { runTimesheetNotifications } = await import("@/lib/timesheet-notify.server");
+          // Retry any pending shift-change reconciliations first (durable, idempotent).
+          try {
+            const ts = await import("@/lib/timesheets.server");
+            await ts.drainReconcileJobs(await ts.adminDb());
+          } catch (e) {
+            console.error("reconcile retry failed", e);
+          }
           return runTimesheetNotifications(new Date());
         }),
     },

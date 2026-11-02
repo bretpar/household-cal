@@ -637,45 +637,66 @@ export async function applyEventUpdate(
     return null;
   }
 
-  if (scope === "this") {
-    // detach one occurrence: exclude it from the series, store a one-off event
-    const excluded = [...(existing.excluded_dates ?? []), occurrenceDay];
-    const { error: exError } = await db
-      .from("events")
-      .update({ excluded_dates: excluded })
-      .eq("id", eventId);
-    if (exError) throw exError;
-    return insertEvent(db, familyId, {
-      ...input,
-      // A partial update that omits the assignment (drag-reschedule) keeps the
-      // caregiver attached to the detached occurrence.
-      babysitter_assignment:
-        input.babysitter_assignment === undefined
-          ? await existingShiftAssignment(db, eventId)
-          : input.babysitter_assignment,
-      recurrence_rule: null,
-      recurrence_until: null,
-      // A detached one-off has no repeat pattern, so per-person weekday rules
-      // must not carry over — otherwise the occurrence renders on no day at all.
-      member_weekdays: {},
-      calendar_source_id: sourceId,
-    });
-  }
+  // Splits: read and validate the inherited assignment BEFORE touching the
+  // original, create the replacement first, then mutate the original. If the
+  // original mutation fails, the replacement is removed so the original event
+  // and its recurrence are left exactly as they were.
+  const inherited =
+    input.babysitter_assignment === undefined
+      ? await existingShiftAssignment(db, eventId)
+      : input.babysitter_assignment;
 
-  // "future": end the old series the day before, start a new series here
-  const { error: untilError } = await db
-    .from("events")
-    .update({ recurrence_until: shiftDayKey(occurrenceDay, -1) })
-    .eq("id", eventId);
-  if (untilError) throw untilError;
-  return insertEvent(db, familyId, {
-    ...input,
-    babysitter_assignment:
-      input.babysitter_assignment === undefined
-        ? await existingShiftAssignment(db, eventId)
-        : input.babysitter_assignment,
-    calendar_source_id: sourceId,
-  });
+  const createdId =
+    scope === "this"
+      ? await insertEvent(db, familyId, {
+          ...input,
+          babysitter_assignment: inherited,
+          recurrence_rule: null,
+          recurrence_until: null,
+          // A detached one-off has no repeat pattern, so per-person weekday rules
+          // must not carry over — otherwise the occurrence renders on no day at all.
+          member_weekdays: {},
+          calendar_source_id: sourceId,
+        })
+      : await insertEvent(db, familyId, {
+          ...input,
+          babysitter_assignment: inherited,
+          calendar_source_id: sourceId,
+        });
+
+  try {
+    if (scope === "this") {
+      // Merge against a fresh read so a concurrent exclusion is never clobbered.
+      const { data: fresh, error: readError } = await db
+        .from("events")
+        .select("excluded_dates")
+        .eq("id", eventId)
+        .single();
+      if (readError) throw readError;
+      const current = (fresh?.excluded_dates ?? []) as string[];
+      if (!current.includes(occurrenceDay)) {
+        const { error: exError } = await db
+          .from("events")
+          .update({ excluded_dates: [...current, occurrenceDay] })
+          .eq("id", eventId);
+        if (exError) throw exError;
+      }
+    } else {
+      // "future": end the old series the day before, the new series starts here
+      const { error: untilError } = await db
+        .from("events")
+        .update({ recurrence_until: shiftDayKey(occurrenceDay, -1) })
+        .eq("id", eventId);
+      if (untilError) throw untilError;
+    }
+  } catch (e) {
+    if (createdId) {
+      const { error: undoError } = await db.from("events").delete().eq("id", createdId);
+      if (undoError) console.error("could not remove replacement after failed split", undoError);
+    }
+    throw e;
+  }
+  return createdId;
 }
 
 export async function applyEventDelete(

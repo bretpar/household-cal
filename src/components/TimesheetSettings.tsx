@@ -51,7 +51,10 @@ import {
   savePaySettings,
   setTimesheetsEnabled,
   type TimesheetView,
+  countsTowardTotals,
+  ownerResolveManagedConflict,
 } from "@/lib/timesheets.functions";
+import { TimesheetConflicts } from "@/components/TimesheetConflicts";
 
 const fmtDate = (key: string) =>
   new Date(`${key}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
@@ -366,8 +369,8 @@ function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnl
   const [askNote, setAskNote] = useState(false);
   const [note, setNote] = useState("");
   const tz = sheet.time_zone;
-  const scheduled = sheet.entries.reduce((n, e) => n + hoursBetween(e.scheduled_start, e.scheduled_end), 0);
-  const actual = sheet.entries.reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
+  const scheduled = sheet.entries.filter(countsTowardTotals).reduce((n, e) => n + hoursBetween(e.scheduled_start, e.scheduled_end), 0);
+  const actual = sheet.entries.filter(countsTowardTotals).reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["household-timesheets"] });
     void qc.invalidateQueries({ queryKey: PENDING_TIMESHEETS_KEY });
@@ -404,6 +407,7 @@ function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnl
             Scheduled {formatDisplayHours(scheduled)} · <span className="font-semibold">Total · {formatDisplayHours(actual).replace(" h", actual === 1 ? " hour" : " hours")}</span>
           </p>
           <PaidSummary entries={sheet.entries} total={actual} />
+          <TimesheetConflicts entries={sheet.entries} />
           {sheet.status === "needs_correction" && sheet.parent_note ? (
             <p className="rounded-xl bg-surface-muted/60 p-2 text-xs"><span className="font-semibold">Your note: </span>{sheet.parent_note}</p>
           ) : null}
@@ -567,6 +571,7 @@ function OwnerManagedCard({ memberId, name, attention }: { memberId: string; nam
   const [offset, setOffset] = useState(0);
   const fetch = useServerFn(getOwnerManagedTimesheet);
   const finalize = useServerFn(ownerFinalizeManaged);
+  const resolveManaged = useServerFn(ownerResolveManagedConflict);
   const key = ["owner-managed-sheet", memberId, offset];
   const { data: sheet } = useQuery({ queryKey: key, queryFn: () => fetch({ data: { member_id: memberId, offset } }), enabled: open });
   const [adding, setAdding] = useState(false);
@@ -585,7 +590,7 @@ function OwnerManagedCard({ memberId, name, attention }: { memberId: string; nam
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not confirm"),
   });
   const editable = sheet ? (sheet.status === "draft" || sheet.status === "needs_correction") && !sheet.before_start : false;
-  const actual = (sheet?.entries ?? []).reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
+  const actual = (sheet?.entries ?? []).filter(countsTowardTotals).reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
   return (
     <div className="space-y-2 rounded-2xl border border-border-soft bg-card p-4 text-sm">
       <button type="button" className="flex w-full items-start justify-between gap-2 text-left" onClick={() => setOpen((o) => !o)}>
@@ -636,6 +641,13 @@ function OwnerManagedCard({ memberId, name, attention }: { memberId: string; nam
             <>
               <p className="text-xs font-semibold">Total · {formatDisplayHours(actual).replace(" h", actual === 1 ? " hour" : " hours")}</p>
               <PaidSummary entries={sheet.entries} total={actual} />
+              <TimesheetConflicts
+                entries={sheet.entries}
+                onResolve={editable ? async (entry_id, action) => {
+                  await resolveManaged({ data: { timesheet_id: sheet.id, entry_id, action } });
+                  refresh();
+                } : undefined}
+              />
               {sheet.entries.length === 0 && !adding ? (
                 <p className="text-xs text-muted-foreground">No shifts in this pay period.</p>
               ) : null}

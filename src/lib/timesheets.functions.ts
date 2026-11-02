@@ -27,6 +27,15 @@ export interface TimesheetEntry {
   actual_time_confirmed?: boolean;
   /** frozen at caregiver submission: caregiver-confirmed Actual differed from Scheduled */
   caregiver_adjusted?: boolean;
+  /** set when a shift move left this entry conflicting; blocks submission until resolved */
+  schedule_conflict_at?: string | null;
+  /** moved | duplicate_of_finalized | acknowledged | excluded */
+  schedule_conflict_reason?: string | null;
+}
+
+/** Entries counted in Scheduled/Actual totals: unresolved conflicts and excluded duplicates never count. */
+export function countsTowardTotals(e: Pick<TimesheetEntry, "schedule_conflict_at" | "schedule_conflict_reason">): boolean {
+  return !e.schedule_conflict_at && e.schedule_conflict_reason !== "excluded";
 }
 
 export interface TimesheetView {
@@ -244,6 +253,22 @@ export const deleteManualEntry = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Caregiver explicitly resolves a moved-shift conflict on their own editable sheet. */
+export const resolveShiftConflict = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ timesheet_id: z.string().uuid(), entry_id: z.string().uuid(), action: z.enum(["keep", "discard"]) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const s = await import("@/lib/timesheets.server");
+    const me = await s.myCaregiver(context.supabase as unknown as AnyDb, context.userId);
+    const admin = await s.adminDb();
+    const sheet = await s.editableSheet(admin, me.memberId, data.timesheet_id);
+    const { error } = await admin.rpc("resolve_timesheet_conflict_atomic", {
+      _family: me.familyId, _sheet: sheet.id, _entry: data.entry_id, _actor: context.userId, _member: me.memberId, _action: data.action,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const submitTimesheet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ timesheet_id: z.string().uuid() }).parse(d))
@@ -343,13 +368,15 @@ export const listHouseholdTimesheets = createServerFn({ method: "GET" })
     // Review reads the submission snapshot; unfinished current drafts read saved entries (read-only, no sync).
     return Promise.all(rows.map(async ({ family_members: fm, ...t }: any) => {
       const current = t.status === "draft" && t.period_end >= today;
-      const entries = current
+      // Editable sheets always read live entries; snapshots are only for finalized history.
+      const editable = t.status === "draft" || t.status === "needs_correction";
+      const entries = editable
         ? ((await s.loadEntries(admin, t.id, timeZone)) as TimesheetEntry[])
         : ((t.snapshot?.entries ?? []) as TimesheetEntry[]);
       return {
         ...t,
         caregiver_name: t.snapshot?.caregiver_name ?? t.caregiver_name ?? fm?.name ?? "Caregiver",
-        time_zone: current ? timeZone : t.snapshot?.time_zone ?? "UTC",
+        time_zone: editable ? timeZone : t.snapshot?.time_zone ?? "UTC",
         entries,
         is_current: current,
       };
@@ -669,6 +696,20 @@ export const ownerDeleteManagedEntry = createServerFn({ method: "POST" })
     const sheet = await managedEditableSheet(s, admin, familyId, data.timesheet_id);
     const { error } = await admin.rpc("owner_delete_managed_entry_atomic", {
       _family: familyId, _sheet: sheet.id, _entry: data.entry_id, _actor: context.userId,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Owner explicitly resolves a moved-shift conflict on an owner-managed time card. */
+export const ownerResolveManagedConflict = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ timesheet_id: z.string().uuid(), entry_id: z.string().uuid(), action: z.enum(["keep", "discard"]) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { s, familyId, admin } = await ownerCtx(context);
+    const sheet = await managedEditableSheet(s, admin, familyId, data.timesheet_id);
+    const { error } = await admin.rpc("resolve_timesheet_conflict_atomic", {
+      _family: familyId, _sheet: sheet.id, _entry: data.entry_id, _actor: context.userId, _member: null, _action: data.action,
     });
     if (error) throw new Error(error.message);
     return { ok: true };
