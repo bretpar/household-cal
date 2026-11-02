@@ -79,7 +79,19 @@ export const createEvent = createServerFn({ method: "POST" })
       await assertWritableDestination(db, familyId, data.calendar_source_id);
     }
     const sourceId = data.calendar_source_id ?? (await defaultEventSource(db, familyId));
-    const id = await insertEvent(db, familyId, { ...data, calendar_source_id: sourceId });
+    // New shifts can land on a caregiver's open period: hold submissions until reconciled.
+    const jobId = await openReconcile(familyId, []);
+    let id: string;
+    try {
+      id = await insertEvent(db, familyId, { ...data, calendar_source_id: sourceId });
+    } catch (e) {
+      await releaseReconcile(jobId);
+      throw e;
+    }
+    const createdMembers = await shiftMembersOrNull(familyId, [id]);
+    const timesheet_reconcile = createdMembers?.length === 0
+      ? await releaseReconcile(jobId)
+      : await finishReconcile(familyId, jobId, createdMembers ?? []);
 
     // Authoritative confirmation: the caller only reports success once the row
     // is readable back under the caller's own RLS context. Without this an
@@ -106,19 +118,33 @@ export const createEvent = createServerFn({ method: "POST" })
     // running in the background if Google is slow.
     const { pushWithDeadline } = await import("@/lib/google/push.server");
     const google_sync = await pushWithDeadline(familyId, [saved.id as string]);
-    return { id: saved.id as string, google_sync };
+    return { id: saved.id as string, google_sync, timesheet_reconcile };
   });
 
 
-/** Caregivers currently assigned to these events (best-effort read; never blocks a save). */
-async function shiftMembersSafe(familyId: string, eventIds: string[]): Promise<string[]> {
+/** Caregivers assigned to these events; null when the lookup failed (caller must then treat the whole household as affected). */
+async function shiftMembersOrNull(familyId: string, eventIds: string[]): Promise<string[] | null> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const ts = await import("@/lib/timesheets.server");
     return await ts.shiftMemberIds(supabaseAdmin as unknown as AnyDb, familyId, eventIds);
   } catch (e) {
     console.error("shift member lookup failed", e);
-    return [];
+    return null;
+  }
+}
+
+/** Drops a hold that turned out to affect no caregiver. Left in place (and drained hourly) if this fails. */
+async function releaseReconcile(jobId: string | null): Promise<"ok" | "pending"> {
+  if (!jobId) return "ok";
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await (supabaseAdmin as unknown as AnyDb).from("timesheet_reconcile_jobs").delete().eq("id", jobId);
+    if (error) throw error;
+    return "ok";
+  } catch (e) {
+    console.error("could not release reconciliation hold", e);
+    return "pending";
   }
 }
 
@@ -166,8 +192,9 @@ export const updateEventFn = createServerFn({ method: "POST" })
     const familyId = await resolveWritableFamilyForEvent(db, context.userId, data.event_id);
     await assertEventEditable(db, data.event_id);
     // Capture caregivers before the update so an unassigned caregiver's sheet is reconciled too.
-    const priorMembers = await shiftMembersSafe(familyId, [data.event_id]);
-    const jobId = await openReconcile(familyId, priorMembers);
+    const priorMembers = await shiftMembersOrNull(familyId, [data.event_id]);
+    // Unknown or none yet: hold the whole household, since the edit may add a caregiver.
+    const jobId = await openReconcile(familyId, priorMembers?.length ? priorMembers : []);
     const created = await applyEventUpdate(
       db,
       data.event_id,
@@ -175,8 +202,12 @@ export const updateEventFn = createServerFn({ method: "POST" })
       data.scope,
       data.input,
     );
-    const afterMembers = await shiftMembersSafe(familyId, [data.event_id, ...(created ? [created] : [])]);
-    const timesheet_reconcile = await finishReconcile(familyId, jobId, [...priorMembers, ...afterMembers]);
+    const afterMembers = await shiftMembersOrNull(familyId, [data.event_id, ...(created ? [created] : [])]);
+    const timesheet_reconcile = await finishReconcile(
+      familyId,
+      jobId,
+      priorMembers === null || afterMembers === null ? [] : [...priorMembers, ...afterMembers],
+    );
     // assigning family members clears the "needs family assignment" badge
     if (data.input.member_ids.length > 0) {
       await db.from("events").update({ needs_family_assignment: false }).eq("id", data.event_id);
@@ -213,11 +244,13 @@ export const deleteEventFn = createServerFn({ method: "POST" })
     const links = wholeEventGone ? await sync.linksForEvent(supabaseAdmin, data.event_id) : [];
 
     // Capture assigned caregivers before the delete removes the shift rows.
-    const shiftMembers = await shiftMembersSafe(familyId, [data.event_id]);
-    const jobId = await openReconcile(familyId, shiftMembers);
+    const shiftMembers = await shiftMembersOrNull(familyId, [data.event_id]);
+    const jobId = await openReconcile(familyId, shiftMembers ?? []);
 
     await applyEventDelete(db, data.event_id, data.occurrence_day, data.scope);
-    const timesheet_reconcile = await finishReconcile(familyId, jobId, shiftMembers);
+    const timesheet_reconcile = shiftMembers?.length === 0
+      ? await releaseReconcile(jobId)
+      : await finishReconcile(familyId, jobId, shiftMembers ?? []);
 
     await Promise.race([
       wholeEventGone

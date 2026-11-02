@@ -277,6 +277,8 @@ export const submitTimesheet = createServerFn({ method: "POST" })
     const me = await s.myCaregiver(context.supabase as unknown as AnyDb, context.userId);
     const admin = await s.adminDb();
     const sheet = await s.editableSheet(admin, me.memberId, data.timesheet_id);
+    // Pick up calendar changes made outside the app's event saves (e.g. Google sync) first.
+    await s.reconcileShiftTimesheets(admin, me.familyId, [me.memberId]);
     const { error } = await admin.rpc("transition_timesheet_atomic", {
       _family: me.familyId, _sheet: sheet.id, _actor: context.userId, _action: "submit", _member: me.memberId,
     });
@@ -735,6 +737,7 @@ export const ownerFinalizeManaged = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { s, familyId, admin } = await ownerCtx(context);
     const sheet = await managedEditableSheet(s, admin, familyId, data.timesheet_id);
+    await s.reconcileShiftTimesheets(admin, familyId, [sheet.family_member_id as string]);
     const { error } = await admin.rpc("transition_timesheet_atomic", {
       _family: familyId, _sheet: sheet.id, _actor: context.userId, _action: "finalize_managed",
     });

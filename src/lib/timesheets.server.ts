@@ -337,8 +337,8 @@ export async function reconcileShiftTimesheets(
 }
 
 /** Durable reconciliation intent: recorded before a shift change, removed only after success. */
+/** An empty member list is a whole-household hold: it blocks every caregiver's submit/approve until it runs. */
 export async function openReconcileJob(admin: AnyDb, familyId: string, memberIds: string[]): Promise<string | null> {
-  if (!memberIds.length) return null;
   const { data, error } = await admin
     .from("timesheet_reconcile_jobs")
     .insert({ family_id: familyId, member_ids: [...new Set(memberIds)] })
@@ -361,16 +361,20 @@ export async function runReconcileJob(
   const ids = [...new Set(memberIds)];
   if (jobId) {
     const { error } = await admin.from("timesheet_reconcile_jobs").update({ member_ids: ids, updated_at: new Date().toISOString() }).eq("id", jobId);
+    // Keep the original (possibly household-wide) hold if the narrowing update fails.
     if (error) console.error("reconcile job update failed", error.message);
-  } else if (ids.length) {
+  } else {
     jobId = await openReconcileJob(admin, familyId, ids);
   }
-  if (!ids.length) {
-    if (jobId) await admin.from("timesheet_reconcile_jobs").delete().eq("id", jobId);
-    return "ok";
-  }
   try {
-    await reconcileShiftTimesheets(admin, familyId, ids);
+    // Unknown affected caregivers (empty list) means reconcile every Timesheet caregiver.
+    let targets = ids;
+    if (!targets.length) {
+      const all = await admin.from("family_members").select("id").eq("family_id", familyId).eq("timesheets_enabled", true);
+      if (all.error) throw new Error(all.error.message);
+      targets = (all.data ?? []).map((m: { id: string }) => m.id);
+    }
+    await reconcileShiftTimesheets(admin, familyId, targets);
     if (jobId) await admin.from("timesheet_reconcile_jobs").delete().eq("id", jobId);
     return "ok";
   } catch (e) {
