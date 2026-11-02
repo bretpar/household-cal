@@ -169,6 +169,13 @@
       "when": 1793653461366,
       "tag": "0023_google_exception_atomic",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793659565888,
+      "tag": "0024_onboarding_member_invitations",
+      "breakpoints": true
     }
   ]
 }
