@@ -475,6 +475,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
 
       addEvent: async (draft) => {
         const result = await createMutation.mutateAsync(draft);
+        if (result.timesheet_reconcile === "pending") notifyReconcilePending();
         return { event_id: result.id, google_sync: result.google_sync };
       },
       updateEvent: async (occurrence, draft, scope) => {
