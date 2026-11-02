@@ -290,7 +290,7 @@ export function EventDetailsDialog() {
             </DialogHeader>
 
 
-            <div className="-mx-4 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 text-sm sm:-mx-6 sm:px-6">
+            <div className="-mx-5 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 text-sm sm:-mx-6 sm:px-6">
               <p className="flex items-center gap-2 font-semibold">
                 <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 {format(start, "EEEE, MMM d")} · {formatTimeRange(start, end, event.all_day)}
@@ -348,7 +348,7 @@ export function EventDetailsDialog() {
             </DialogHeader>
 
             {state ? (
-              <div className="-mx-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 pb-2 sm:-mx-6 sm:px-6">
+              <div className="-mx-5 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 pb-2 sm:-mx-6 sm:px-6">
                 <EventFormFields
                   state={state}
                   onChange={(next) => {
@@ -407,7 +407,7 @@ export function EventDetailsDialog() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="-mx-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-4 sm:-mx-6 sm:px-6">
+            <div className="-mx-5 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-5 sm:-mx-6 sm:px-6">
               {SAVE_OPTIONS.map((option) => (
                 <button
                   key={option.id}
@@ -447,7 +447,7 @@ export function EventDetailsDialog() {
             </DialogHeader>
 
             {needsScope ? (
-              <div className="-mx-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-4 sm:-mx-6 sm:px-6">
+              <div className="-mx-5 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-5 sm:-mx-6 sm:px-6">
                 {DELETE_OPTIONS.map((option) => (
                   <button
                     key={option.id}
