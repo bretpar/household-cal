@@ -1,5 +1,9 @@
 # Roadmap
 
+## iPhone event-sheet behavior
+- [ ] Reset Add/Edit form scrolling on entry, restore compact height after keyboard dismissal, and allow backdrop dismissal without changing event behavior.
+- [ ] Slightly reduce phone-only extra spacing while preserving comfortable field tap targets.
+
 ## Nanny timesheets landing page
 - [x] Add /features/nanny-timesheets with four-step scheduled-to-actual workflow, benefits, three-question FAQ, sitemap entry and childcare-page cross-link; reuses MarketingFeaturePage with a new optional secondary CTA. No QA or publishing.
 
