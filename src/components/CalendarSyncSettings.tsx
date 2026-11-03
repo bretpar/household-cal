@@ -127,7 +127,8 @@ export function GoogleAccountSettings({ initiallyExpanded = false }: { initially
   const connection = settings.data?.connection;
   const syncing = syncMutation.isPending || Boolean(connection?.manual_sync_running);
   useEffect(() => {
-    if (wasSyncing.current && !syncing && !connection?.manual_sync_error) {
+    if (wasSyncing.current && !syncing) {
+      // Earlier writes may have committed even when the attempt ends in error.
       void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
       invalidateTimesheetQueries(queryClient);
     }

@@ -365,7 +365,9 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {
-        /* freshness sync is best-effort; the cached calendar stays usable */
+        // A failed pull may already have committed earlier event changes.
+        void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+        invalidateTimesheetQueries(queryClient);
       });
   }, [bundle.data?.family, refreshGoogle, queryClient]);
 
@@ -390,7 +392,10 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
           invalidateTimesheetQueries(queryClient);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+        invalidateTimesheetQueries(queryClient);
+      });
   });
 
   // A category filter can point at a category that was just deleted in Family
