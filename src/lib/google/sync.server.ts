@@ -1150,13 +1150,13 @@ async function addExcludedDate(admin: Admin, eventId: string, day: string): Prom
     .from("events")
     .select("excluded_dates")
     .eq("id", eventId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   const current: string[] = data?.excluded_dates ?? [];
   if (current.includes(day)) return;
   await admin
     .from("events")
     .update({ excluded_dates: [...current, day], last_change_source: "google" })
-    .eq("id", eventId);
+    .eq("id", eventId).throwOnError();
 }
 
 /**
@@ -1180,7 +1180,7 @@ export async function applyGoogleEvent(
     .eq("google_event_id", g.id)
     .eq("family_id", familyId)
     .order("created_at", { ascending: true })
-    .limit(1);
+    .limit(1).throwOnError();
   let link = ((linkRows ?? [])[0] as LinkRow | undefined) ?? null;
 
 
@@ -1198,7 +1198,7 @@ export async function applyGoogleEvent(
       if (exceptionCancellationAction({ occurrenceState: state.status }) === "remove") {
         const removedEventId = link.event_id;
         await withShiftReconcile(admin, familyId, [removedEventId], async () => {
-          await admin.from("events").delete().eq("id", removedEventId);
+          await admin.from("events").delete().eq("id", removedEventId).throwOnError();
         });
       }
       return;
@@ -1231,15 +1231,15 @@ export async function applyGoogleEvent(
       const { data: siblings } = await admin
         .from("event_sync_links")
         .select("id")
-        .eq("event_id", link.event_id);
+        .eq("event_id", link.event_id).throwOnError();
       // deleting one Google branch removes only that branch of the logical event
       if ((siblings ?? []).length > 1) {
-        await admin.from("event_sync_links").delete().eq("id", link.id);
         await removeBranchParticipation(admin, link);
+        await admin.from("event_sync_links").delete().eq("id", link.id).throwOnError();
       } else {
         const removedEventId = link.event_id;
         await withShiftReconcile(admin, familyId, [removedEventId], async () => {
-          await admin.from("events").delete().eq("id", removedEventId);
+          await admin.from("events").delete().eq("id", removedEventId).throwOnError();
         });
       }
       return;
@@ -1254,7 +1254,7 @@ export async function applyGoogleEvent(
         .select("event_id, calendar_source_id")
         .eq("google_event_id", g.recurringEventId)
         .eq("family_id", familyId)
-        .maybeSingle();
+        .maybeSingle().throwOnError();
       const day = dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime);
       if (seriesLink && seriesLink.calendar_source_id === source.id && day) {
         await withShiftReconcile(admin, familyId, [seriesLink.event_id], () =>
@@ -1279,7 +1279,7 @@ export async function applyGoogleEvent(
         .from("event_sync_links")
         .select("event_id, calendar_source_id")
         .eq("family_id", familyId)
-        .eq("google_event_id", link.google_recurring_event_id);
+        .eq("google_event_id", link.google_recurring_event_id).throwOnError();
       type ParentLinkRow = { event_id: string; calendar_source_id: string };
       const parentLink =
         ((parentLinks ?? []) as ParentLinkRow[]).find((l) => l.calendar_source_id === source.id) ??
@@ -1301,7 +1301,7 @@ export async function applyGoogleEvent(
       .from("event_sync_links")
       .select("event_id, branch_key, calendar_source_id")
       .eq("google_event_id", g.recurringEventId)
-      .eq("family_id", familyId);
+      .eq("family_id", familyId).throwOnError();
     type SeriesLinkRow = { event_id: string; branch_key: string | null; calendar_source_id: string };
     const candidates = (seriesLinks ?? []) as SeriesLinkRow[];
     const seriesLink =
@@ -1353,7 +1353,7 @@ export async function applyGoogleEvent(
           external_recurring_event_id: g.recurringEventId,
           last_change_source: "google",
         })
-        .eq("id", eventId);
+        .eq("id", eventId).throwOnError();
       await admin.from("event_sync_links").upsert(
         {
           family_id: familyId,
@@ -1368,7 +1368,7 @@ export async function applyGoogleEvent(
           last_source: "google",
         },
         { onConflict: "event_id,branch_key" },
-      );
+      ).throwOnError();
       if (!detached) return;
       // an already-known exception falls through to the normal update path so a
       // fresh Google edit of the same occurrence is applied in place
@@ -1378,7 +1378,7 @@ export async function applyGoogleEvent(
         .eq("family_id", familyId)
         .eq("event_id", eventId)
         .order("created_at", { ascending: true })
-        .limit(1);
+        .limit(1).throwOnError();
       link = ((adoptedRows ?? [])[0] as LinkRow | undefined) ?? null;
       if (!link) return;
 
@@ -1405,14 +1405,14 @@ export async function applyGoogleEvent(
       .eq("family_id", familyId)
       .eq("google_event_id", g.id)
       .limit(1)
-      .maybeSingle();
+      .maybeSingle().throwOnError();
     const { data: existingLocal } = await admin
       .from("events")
       .select("id")
       .eq("family_id", familyId)
       .eq("external_event_id", g.id)
       .limit(1)
-      .maybeSingle();
+      .maybeSingle().throwOnError();
     // The self-originated echo of an outbound create: Google returns our own
     // marker, so the originating row is adopted even when its sync link has not
     // landed yet. Nothing is deleted or replaced — the same app event id, its
@@ -1425,7 +1425,7 @@ export async function applyGoogleEvent(
         .select("id")
         .eq("family_id", familyId)
         .eq("id", markedId)
-        .maybeSingle();
+        .maybeSingle().throwOnError();
       originId = (origin?.id as string | undefined) ?? undefined;
     }
     const recovered =
@@ -1447,7 +1447,7 @@ export async function applyGoogleEvent(
         last_source: "google",
       },
       { onConflict: "event_id,branch_key" },
-    );
+    ).throwOnError();
     return;
   }
 
@@ -1457,7 +1457,7 @@ export async function applyGoogleEvent(
     .from("events")
     .select("*, event_members(family_member_id, weekdays)")
     .eq("id", link.event_id)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (!event) return;
 
   if (
@@ -1506,15 +1506,6 @@ export async function applyGoogleEvent(
   // An assigned caregiver shift changed in Google reconciles timesheets like an
   // in-app edit: durable job first, then the mutation, then one transaction
   // across every editable sheet.
-  await withShiftReconcile(admin, familyId, [link.event_id], async () => {
-    await admin.from("events").update(patch).eq("id", link.event_id);
-
-    // moved between the two connected calendars directly in Google
-    if (link.calendar_source_id !== source.id) {
-      await admin.from("events").update({ calendar_source_id: source.id }).eq("id", link.event_id);
-    }
-  });
-
   // per-person weekday branches share one local rule: a Google recurrence edit
   // on a single branch is flagged for review instead of rewriting that rule
   const recurrenceReview = branchRecurrenceReview({
@@ -1530,17 +1521,27 @@ export async function applyGoogleEvent(
   }
   const review = [recurrenceReview, timeReview, titleReview].filter(Boolean).join(" ") || null;
 
-  await admin
-    .from("event_sync_links")
-    .update({
-      calendar_source_id: source.id,
-      google_etag: g.etag ?? null,
-      google_updated_at: g.updated ?? null,
-      google_recurring_event_id: g.recurringEventId ?? null,
-      last_source: "google",
-      sync_error: review,
-    })
-    .eq("id", link.id);
+  const eventId = link.event_id;
+  const linkId = link.id;
+  const moved = link.calendar_source_id !== source.id;
+  await withShiftReconcile(admin, familyId, [eventId], async () => {
+    // One checked event update, including any calendar move.
+    await admin.from("events").update({
+      ...patch,
+      ...(moved ? { calendar_source_id: source.id } : {}),
+    }).eq("id", eventId).throwOnError();
+    await admin
+      .from("event_sync_links")
+      .update({
+        calendar_source_id: source.id,
+        google_etag: g.etag ?? null,
+        google_updated_at: g.updated ?? null,
+        google_recurring_event_id: g.recurringEventId ?? null,
+        last_source: "google",
+        sync_error: review,
+      })
+      .eq("id", linkId).throwOnError();
+  });
 }
 
 
@@ -1578,7 +1579,7 @@ async function removeBranchParticipation(admin: Admin, link: LinkRow): Promise<v
   const { data: rows } = await admin
     .from("event_members")
     .select("family_member_id, weekdays")
-    .eq("event_id", link.event_id);
+    .eq("event_id", link.event_id).throwOnError();
   for (const row of (rows ?? []) as { family_member_id: string; weekdays: string[] | null }[]) {
     if (!row.weekdays) continue;
     const next = row.weekdays.filter((d) => !removed.includes(d as WeekdayCode));
@@ -1588,13 +1589,13 @@ async function removeBranchParticipation(admin: Admin, link: LinkRow): Promise<v
         .from("event_members")
         .delete()
         .eq("event_id", link.event_id)
-        .eq("family_member_id", row.family_member_id);
+        .eq("family_member_id", row.family_member_id).throwOnError();
     } else {
       await admin
         .from("event_members")
         .update({ weekdays: next })
         .eq("event_id", link.event_id)
-        .eq("family_member_id", row.family_member_id);
+        .eq("family_member_id", row.family_member_id).throwOnError();
     }
   }
 }
@@ -1618,7 +1619,7 @@ async function findExceptionLinkByOccurrence(
     .select("*")
     .eq("family_id", familyId)
     .eq("google_recurring_event_id", g.recurringEventId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true }).throwOnError();
   const rows = (data ?? []) as LinkRow[];
   const matches = rows.filter(
     (l) => isExceptionLink(l) && sameOriginalStart(l.google_original_start ?? null, originalStart),
@@ -1669,11 +1670,11 @@ async function adoptOccurrenceIdentity(
   link: LinkRow,
   g: GoogleEvent,
 ): Promise<void> {
+  await admin.from("events").update({ external_event_id: g.id }).eq("id", link.event_id).throwOnError();
   await admin
     .from("event_sync_links")
     .update({ google_event_id: g.id, google_etag: g.etag ?? null, google_updated_at: g.updated ?? null })
-    .eq("id", link.id);
-  await admin.from("events").update({ external_event_id: g.id }).eq("id", link.event_id);
+    .eq("id", link.id).throwOnError();
 }
 
 /**
@@ -1694,7 +1695,7 @@ async function findDetachedException(
     .eq("family_id", familyId)
     .eq("google_event_id", g.id)
     .order("created_at", { ascending: true })
-    .limit(1);
+    .limit(1).throwOnError();
   const linked = (linkRows ?? [])[0]?.event_id as string | undefined;
   if (linked) return linked;
 
@@ -1710,7 +1711,7 @@ async function findDetachedException(
     .eq("family_id", familyId)
     .eq("external_event_id", g.id)
     .order("created_at", { ascending: true })
-    .limit(1);
+    .limit(1).throwOnError();
   const stamped = (byInstance ?? [])[0]?.id as string | undefined;
   if (stamped) return stamped;
 
@@ -1723,7 +1724,7 @@ async function findDetachedException(
     .eq("family_id", familyId)
     .eq("external_recurring_event_id", g.recurringEventId)
     .is("recurrence_rule", null)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true }).throwOnError();
   for (const row of (orphans ?? []) as { id: string; start_at: string }[]) {
     if (dayOf(row.start_at) === day) return row.id;
   }
@@ -1754,7 +1755,7 @@ async function createExceptionEvent(
     .from("events")
     .select("*, event_members(family_member_id, weekdays)")
     .eq("id", parentEventId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (!parent) return null;
 
   const parentRow = parent as EventRow;
@@ -1829,7 +1830,7 @@ async function createLocalEvent(
       location: g.location ?? null,
       notes: g.description ?? null,
       // A background-coverage calendar (babysitter) imports as childcare so the
-      // occurrence keeps its coverage classification; its own Google title is
+      // occurrence keeps its coverage classification.throwOnError(); its own Google title is
       // preserved either way.
       event_type: source.display_mode === "coverage_background" ? "childcare" : "other",
       recurrence_rule: localRuleFromGoogle(rec),
@@ -1854,6 +1855,7 @@ export async function pullSource(
   initial = false,
 ): Promise<{ applied: number; ok: boolean }> {
   const now = new Date().toISOString();
+  let applied = 0;
   try {
     // The stable calendarId is the identity: a rename in Google just refreshes
     // the local label, it never creates a new connection.
@@ -1879,6 +1881,8 @@ export async function pullSource(
     }
 
     for (const item of res.items) {
+      // A failing item may already have committed writes; refresh conservatively.
+      applied += 1;
       await applyGoogleEvent(admin, conn, source, item, initials);
     }
 
@@ -1891,9 +1895,9 @@ export async function pullSource(
         ...(googleTimeZone ? { google_time_zone: googleTimeZone } : {}),
         ...sourceSyncPatch({ outcome: "ok", failureCount: 0, now }),
       })
-      .eq("id", source.id);
+      .eq("id", source.id).throwOnError();
 
-    return { applied: res.items.length, ok: true };
+    return { applied, ok: true };
   } catch (error) {
     if (error instanceof GoogleAuthError) throw error;
     const unavailable = error instanceof google.GoogleCalendarUnavailableError;
@@ -1920,7 +1924,7 @@ export async function pullSource(
       source.id,
       reason,
     );
-    return { applied: 0, ok: false };
+    return { applied, ok: false };
   }
 }
 
@@ -1929,19 +1933,22 @@ export async function pullHousehold(
   admin: Admin,
   familyId: string,
   initial = false,
-): Promise<{ applied?: number; skipped?: string }> {
+): Promise<{ applied?: number; failed?: number; skipped?: string }> {
+  let applied = 0;
+  let failed = 0;
   const result = await guard(admin, familyId, async () => {
     const conn = await getConnection(admin, familyId);
     if (!conn) return { skipped: "not_connected" };
     const sources = await googleSources(admin, familyId);
-    let applied = 0;
     for (const source of sources) {
-      applied += (await pullSource(admin, conn, source, initial)).applied;
+      const outcome = await pullSource(admin, conn, source, initial);
+      applied += outcome.applied;
+      if (!outcome.ok) failed += 1;
     }
-    await touchSynced(admin, familyId);
-    return { applied };
+    if (failed === 0) await touchSynced(admin, familyId);
+    return { applied, failed };
   });
-  return result as { applied?: number; skipped?: string };
+  return { ...result, applied, failed };
 }
 
 /**
@@ -1957,23 +1964,23 @@ export async function pullSelectedSources(
   familyId: string,
   sourceIds: string[] | null,
 ): Promise<{ applied?: number; attempted?: number; failed?: number; skipped?: string }> {
+  let applied = 0;
+  let failed = 0;
   const result = await guard(admin, familyId, async () => {
     const conn = await getConnection(admin, familyId);
     if (!conn) return { skipped: "not_connected" };
     const all = await googleSources(admin, familyId);
     const wanted = sourceIds ? all.filter((s) => sourceIds.includes(s.id)) : all;
     if (wanted.length === 0) return { skipped: "no_google_calendar" };
-    let applied = 0;
-    let failed = 0;
     for (const source of wanted) {
       const outcome = await pullSource(admin, conn, source, false);
       applied += outcome.applied;
       if (!outcome.ok) failed += 1;
     }
-    await touchSynced(admin, familyId);
+    if (failed === 0) await touchSynced(admin, familyId);
     return { applied, attempted: wanted.length, failed };
   });
-  return result as { applied?: number; attempted?: number; failed?: number; skipped?: string };
+  return { ...result, applied, failed };
 }
 
 /* --------------------------------------------------------------- reconcile */
@@ -1988,22 +1995,28 @@ export async function reconcileHousehold(
   familyId: string,
 ): Promise<{
   applied?: number;
+  failed?: number;
   repaired?: number;
   unsynced?: number;
   failures?: string[];
   skipped?: string;
 }> {
 
+  let applied = 0;
+  let failed = 0;
   const result = await guard(admin, familyId, async () => {
     const conn = await getConnection(admin, familyId);
     if (!conn) return { skipped: "not_connected" };
     const sources = await googleSources(admin, familyId);
     if (sources.length === 0) return { skipped: "no_google_calendar" };
 
-    let applied = 0;
     for (const source of sources) {
-      applied += (await pullSource(admin, conn, source, false)).applied;
+      const outcome = await pullSource(admin, conn, source, false);
+      applied += outcome.applied;
+      if (!outcome.ok) failed += 1;
     }
+    // Do not repair outbound state from an incomplete inbound view.
+    if (failed > 0) return { applied, failed };
 
     // app events inside the forward window whose Google counterpart is missing.
     // A link row alone is not proof of a working sync: it can point at a
@@ -2098,13 +2111,7 @@ export async function reconcileHousehold(
     if (unsynced === 0) await touchSynced(admin, familyId);
     return { applied, repaired, unsynced, failures };
   });
-  return result as {
-    applied?: number;
-    repaired?: number;
-    unsynced?: number;
-    failures?: string[];
-    skipped?: string;
-  };
+  return { ...result, applied, failed };
 
 }
 
@@ -2137,6 +2144,10 @@ export async function runAcceptedManualSync(
         attemptId,
         skipped: result.skipped,
       });
+    } else if (result.failed) {
+      failure = "Google Calendar sync couldn’t finish. Try again.";
+      thrown = new Error(failure);
+      console.error("[google-sync] manual inbound sync incomplete", { familyId, attemptId, failed: result.failed });
     } else if ((result as { unsynced?: number }).unsynced) {
       // A pass that pulled fine but left an eligible event out of Google is not
       // a successful sync: keep the error so it cannot look "recently synced".
