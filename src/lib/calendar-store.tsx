@@ -359,13 +359,15 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     openSyncRan.current = true;
     void refreshGoogle()
       .then((result) => {
-        if (result && "applied" in result && (result.applied ?? 0) > 0) {
+        if (result && (("applied" in result && (result.applied ?? 0) > 0) || result.skipped === "google_disconnected")) {
           queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
           invalidateTimesheetQueries(queryClient);
         }
       })
       .catch(() => {
-        /* freshness sync is best-effort; the cached calendar stays usable */
+        // A failed pull may already have committed earlier event changes.
+        void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+        invalidateTimesheetQueries(queryClient);
       });
   }, [bundle.data?.family, refreshGoogle, queryClient]);
 
@@ -385,12 +387,15 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     if (!bundle.data?.family) return;
     void refreshGoogle()
       .then((result) => {
-        if (result && "applied" in result && (result.applied ?? 0) > 0) {
+        if (result && (("applied" in result && (result.applied ?? 0) > 0) || result.skipped === "google_disconnected")) {
           queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
           invalidateTimesheetQueries(queryClient);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        void queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
+        invalidateTimesheetQueries(queryClient);
+      });
   });
 
   // A category filter can point at a category that was just deleted in Family

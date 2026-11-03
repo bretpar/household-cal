@@ -41,7 +41,7 @@ export function SyncStatusIndicator() {
 
   const syncing = syncMutation.isPending || Boolean(data?.connection?.manual_sync_running);
   useEffect(() => {
-    if (wasSyncing.current && !syncing && !data?.connection?.manual_sync_error) {
+    if (wasSyncing.current && !syncing) {
       void queryClient.invalidateQueries({ queryKey: ["family-bundle"] });
       // A pull may have moved caregiver shifts; refresh mounted Timesheet views.
       invalidateTimesheetQueries(queryClient);
