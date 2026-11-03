@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Google sync partial-failure safety
-- [ ] Preserve refreshes after partial automatic/manual sync failures, check inbound database writes before advancing progress, and retain durable retry/error protections; no QA or publishing.
+- [x] Preserve refreshes after partial automatic/manual sync failures, check inbound database writes before advancing progress, and retain durable retry/error protections; no QA or publishing.
 
 ## Invitation security and compact Step 2
 - [x] Restrict pending member invitation emails to Owners using private intent storage; enforce same-household invitation associations with forward-only migrations 0027–0028, without changing 0024–0026.

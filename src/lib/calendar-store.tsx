@@ -359,7 +359,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     openSyncRan.current = true;
     void refreshGoogle()
       .then((result) => {
-        if (result && "applied" in result && (result.applied ?? 0) > 0) {
+        if (result && (("applied" in result && (result.applied ?? 0) > 0) || result.skipped === "google_disconnected")) {
           queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
           invalidateTimesheetQueries(queryClient);
         }
@@ -387,7 +387,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     if (!bundle.data?.family) return;
     void refreshGoogle()
       .then((result) => {
-        if (result && "applied" in result && (result.applied ?? 0) > 0) {
+        if (result && (("applied" in result && (result.applied ?? 0) > 0) || result.skipped === "google_disconnected")) {
           queryClient.invalidateQueries({ queryKey: FAMILY_BUNDLE_KEY });
           invalidateTimesheetQueries(queryClient);
         }
