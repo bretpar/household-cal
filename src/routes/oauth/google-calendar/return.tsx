@@ -10,6 +10,8 @@ export const Route = createFileRoute("/oauth/google-calendar/return")({
     meta: [
       { title: "Finishing Google Calendar connection" },
       { name: "description", content: "Completing the Google Calendar sync connection." },
+      { property: "og:title", content: "Finishing your Google Calendar connection" },
+      { property: "og:description", content: "Completing the link between Google Calendar and your Our Family Calendar household." },
       { name: "robots", content: "noindex" },
     ],
   }),

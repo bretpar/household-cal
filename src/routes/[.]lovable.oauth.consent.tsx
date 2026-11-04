@@ -22,6 +22,8 @@ export const Route = createFileRoute("/.lovable/oauth/consent")({
     meta: [
       { title: "Connect an app — Family Calendar" },
       { name: "description", content: "Approve an assistant to read your household calendar." },
+      { property: "og:title", content: "Connect an assistant to Our Family Calendar" },
+      { property: "og:description", content: "Approve an AI assistant to read your household calendar on your behalf." },
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
