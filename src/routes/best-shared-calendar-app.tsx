@@ -10,9 +10,17 @@ import { LegalFooter } from "@/components/LegalFooter";
 const SITE_URL = "https://ourfamilycalendar.com";
 const PAGE_URL = `${SITE_URL}/best-shared-calendar-app`;
 const OG_IMAGE_URL = `${SITE_URL}${heroMonthAsset.url}`;
-const TITLE = "Best Shared Family Calendar App: Comparison | Our Family Calendar";
+const TITLE = "Best Family Calendar Apps Compared: Cozi, Skylight, TimeTree & More";
 const DESCRIPTION =
-  "Family calendar app comparison: how Our Family Calendar compares with Cozi, Skylight, FamilyWall and TimeTree on shared scheduling, Google Calendar sync, nanny scheduling and caregiver timesheets.";
+  "Compare shared family calendar apps — Cozi, Skylight, FamilyWall, TimeTree and Our Family Calendar — by what each is best for: lists, wall displays, group sharing or nanny scheduling.";
+
+const QUICK_ANSWER = [
+  { need: "Lists, meal planning and household organization", pick: "Cozi" },
+  { need: "A dedicated wall or countertop calendar display", pick: "Skylight" },
+  { need: "Broader household hub features", pick: "FamilyWall" },
+  { need: "Separate shared calendars for many groups", pick: "TimeTree" },
+  { need: "Nanny or babysitter shifts and caregiver timesheets tied to the family calendar", pick: "Our Family Calendar" },
+];
 
 const DIFFERENTIATORS = [
   {
@@ -91,6 +99,15 @@ const FAQ = [
   {
     question: "Does it sync with Google Calendar?",
     answer: "Yes. You can connect Google Calendar so your existing events appear in your family calendar.",
+  },
+  {
+    question: "How do I choose between Cozi, Skylight, TimeTree and FamilyWall?",
+    answer:
+      "Start with your household's main need beyond a shared schedule: lists and meal planning, a physical display, many separate groups, or broader household tools. If coordinating a nanny or babysitter is the main need, look for shift scheduling, caregiver permissions and timesheets connected to the calendar.",
+  },
+  {
+    question: "Do I need special hardware for Our Family Calendar?",
+    answer: "No. It works in a web browser on phones, tablets and computers.",
   },
 ];
 
@@ -187,6 +204,21 @@ function BestSharedCalendarPage() {
             alt="Our Family Calendar phone day view with family events and caregiver coverage"
             className="mx-auto mt-8 w-full max-w-[280px] rounded-3xl border border-border-soft shadow-lifted sm:hidden"
           />
+        </section>
+
+        <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+          <h2 className="font-display text-3xl font-bold sm:text-4xl">Quick answer: the best family calendar app for your need</h2>
+          <p className="mt-3 max-w-3xl text-muted-foreground">
+            Every app below handles a shared family schedule. Choose based on what else your household needs most.
+          </p>
+          <dl className="mt-6 divide-y divide-border-soft rounded-lg border border-border-soft bg-card">
+            {QUICK_ANSWER.map((q) => (
+              <div key={q.pick} className="grid gap-1 p-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] sm:gap-4">
+                <dt className="text-muted-foreground">{q.need}</dt>
+                <dd className="font-display font-bold">{q.pick}</dd>
+              </div>
+            ))}
+          </dl>
         </section>
 
         <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
