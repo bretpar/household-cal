@@ -114,9 +114,9 @@ const DialogContent = React.forwardRef<
         className={cn(
           "fixed left-[50%] top-[50%] z-50 flex w-full max-w-lg max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] translate-x-[-50%] translate-y-[-50%] flex-col gap-4 overflow-hidden overscroll-contain border bg-background p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
           eventSheet
-            ? // Phone event editor: stable full-screen surface, no floating sheet
-              // and no keyboard-driven repositioning.
-              "max-sm:inset-0 max-sm:h-[100dvh] max-sm:w-full max-sm:max-w-none max-sm:max-h-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:gap-0 max-sm:rounded-none max-sm:border-0 max-sm:p-0 max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)] max-sm:data-[state=closed]:zoom-out-100 max-sm:data-[state=open]:zoom-in-100 max-sm:data-[state=closed]:slide-out-to-bottom max-sm:data-[state=open]:slide-in-from-bottom"
+            ? // Phone event editor: stable bottom-anchored surface with a fixed
+              // top gap and rounded top corners; no keyboard-driven repositioning.
+              "max-sm:inset-x-0 max-sm:top-[calc(env(safe-area-inset-top)+3rem)] max-sm:bottom-0 max-sm:w-full max-sm:max-w-none max-sm:max-h-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:gap-0 max-sm:rounded-t-3xl max-sm:rounded-b-none max-sm:border-0 max-sm:p-0 max-sm:pb-[env(safe-area-inset-bottom)] max-sm:data-[state=closed]:zoom-out-100 max-sm:data-[state=open]:zoom-in-100 max-sm:data-[state=closed]:slide-out-to-bottom max-sm:data-[state=open]:slide-in-from-bottom"
             : // Mobile: raised sheet card that clears the bottom system gesture area.
               "max-sm:inset-x-2 max-sm:bottom-[calc(env(safe-area-inset-bottom)+1.5rem)] max-sm:left-2 max-sm:right-2 max-sm:top-auto max-sm:w-auto max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-3xl max-sm:p-5 max-sm:pb-6 max-sm:max-h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] max-sm:data-[state=closed]:zoom-out-100 max-sm:data-[state=open]:zoom-in-100 max-sm:data-[state=closed]:slide-out-to-bottom max-sm:data-[state=open]:slide-in-from-bottom",
           mobileViewportSafe && !eventSheet &&
