@@ -11,7 +11,8 @@ export function isTypingElement(el: Element | null): el is HTMLElement {
  *
  * Event sheets (scrollResetKey set) follow one simple model on phones:
  * - the outer sheet never scrolls; only [data-event-form-scroll] does;
- * - viewport pans/resizes use the same geometry (CSS vars);
+ * - keyboard open: geometry is applied once, then only settled height changes
+ *   (>=8px) update it, so pans and focus changes never re-anchor the sheet;
  * - only an obscured focused field is revealed after viewport movement settles.
  */
 export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedRef<T>, scrollResetKey?: string) {
@@ -64,23 +65,66 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
       else if (field.top < upper) scroller.scrollTop -= upper - field.top;
     };
 
+    let exitTimer = 0;
+    let applyTimer = 0;
+    let applied = { height: -1, bottom: -1 };
+    const read = () => {
+      const height = viewport?.height ?? window.innerHeight;
+      const top = viewport?.offsetTop ?? 0;
+      return { height, bottom: Math.max(0, window.innerHeight - top - height) };
+    };
+    const apply = (g: { height: number; bottom: number }) => {
+      applied = g;
+      node.style.setProperty("--modal-visible-height", `${g.height}px`);
+      node.style.setProperty("--modal-visible-bottom", `${g.bottom}px`);
+    };
+    // Keyboard open when a substantial bottom slice of the window is covered.
+    const KEYBOARD = 120;
     const position = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         if (!mobile.matches) {
+          window.clearTimeout(exitTimer);
+          window.clearTimeout(applyTimer);
           node.style.removeProperty("--modal-visible-height");
           node.style.removeProperty("--modal-visible-bottom");
           delete node.dataset["keyboard"];
           return;
         }
-        const height = viewport?.height ?? window.innerHeight;
-        const top = viewport?.offsetTop ?? 0;
-        const bottom = Math.max(0, window.innerHeight - top - height);
-        node.style.setProperty("--modal-visible-height", `${height}px`);
-        node.style.setProperty("--modal-visible-bottom", `${bottom}px`);
-        // Keyboard open when a substantial bottom slice of the window is covered.
-        if (eventSheet && bottom > 120) node.dataset["keyboard"] = "open";
-        else delete node.dataset["keyboard"];
+        const g = read();
+        if (!eventSheet) return apply(g);
+        const isOpen = node.dataset["keyboard"] === "open";
+        if (g.bottom > KEYBOARD) {
+          window.clearTimeout(exitTimer);
+          if (!isOpen) {
+            apply(g);
+            node.dataset["keyboard"] = "open";
+            return;
+          }
+          // Anchored above the keyboard: ignore pan/focus jitter and coalesce
+          // real keyboard-height changes into one settled update.
+          if (Math.abs(g.height - applied.height) < 8 && Math.abs(g.bottom - applied.bottom) < 8) return;
+          window.clearTimeout(applyTimer);
+          applyTimer = window.setTimeout(() => {
+            const next = read();
+            if (node.dataset["keyboard"] === "open" && next.bottom > KEYBOARD) apply(next);
+          }, 160);
+          return;
+        }
+        if (!isOpen) return apply(g);
+        const exit = () => {
+          window.clearTimeout(applyTimer);
+          delete node.dataset["keyboard"];
+          apply(read());
+        };
+        // Moving between fields can briefly drop the keyboard; stay compact unless it really closed.
+        const active = document.activeElement;
+        window.clearTimeout(exitTimer);
+        if (isTypingElement(active) && node.contains(active)) {
+          exitTimer = window.setTimeout(() => {
+            if (read().bottom <= KEYBOARD) exit();
+          }, 250);
+        } else exit();
       });
     };
 
@@ -136,6 +180,8 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
     return () => {
       cancelAnimationFrame(frame);
       window.clearTimeout(settle);
+      window.clearTimeout(exitTimer);
+      window.clearTimeout(applyTimer);
       viewport?.removeEventListener("resize", onResize);
       viewport?.removeEventListener("scroll", onViewportScroll);
       window.removeEventListener("resize", onResize);

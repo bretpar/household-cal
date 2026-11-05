@@ -33,10 +33,18 @@
     scroll-padding-block: 1rem;
   }
   /* Keyboard open: compact single-line header, hidden subtitle/footer, space to the form. */
+  /* Anchored just above the keyboard and filling most of the visible height. */
   .mobile-viewport-dialog[data-event-sheet="true"][data-keyboard="open"] {
+    --modal-gap: 0.5rem;
+    bottom: calc(var(--modal-visible-bottom, 0px) + var(--modal-gap));
+    height: calc(var(--modal-visible-height, 100dvh) - var(--modal-gap) - max(env(safe-area-inset-top), 0.75rem) - 0.5rem);
+    max-height: none;
     gap: 0.5rem;
     padding-top: 1rem;
-    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    padding-bottom: 0.75rem;
+  }
+  .mobile-viewport-dialog[data-event-sheet="true"][data-keyboard="open"] > [data-event-form-scroll] {
+    flex: 1 1 auto;
   }
   .mobile-viewport-dialog[data-event-sheet="true"][data-keyboard="open"] .event-sheet-keyboard-hide {
     display: none;
