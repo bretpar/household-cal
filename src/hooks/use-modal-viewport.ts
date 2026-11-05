@@ -45,8 +45,8 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
         node.style.setProperty("--modal-visible-bottom", `${bottom}px`);
         // The keyboard covers the home-indicator inset; flag it so CSS stops
         // double-subtracting safe areas (which collapsed the sheet).
-        if (bottom > 80) node.dataset.keyboard = "open";
-        else delete node.dataset.keyboard;
+        if (bottom > 80) node.dataset["keyboard"] = "open";
+        else delete node.dataset["keyboard"];
         // An event sheet should regain its natural layout, not chase a still-focused
         // field while iOS restores the viewport after keyboard dismissal.
         if (scrollResetKey !== undefined && expanding) {
