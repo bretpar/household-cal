@@ -21,6 +21,7 @@
 - [x] Shift moves reconcile both original and destination pay periods through the atomic refresh RPC; orphaned confirmed actuals flag the sheet for owner correction; Submitted/Approved/Closed history untouched. No QA or publishing; Codex verifies.
 
 ## iPhone event-sheet behavior
+- [x] Replace keyboard-dependent sheet geometry with one visual-viewport layout and settled, necessary-only focused-field scrolling; preserve all event workflows, no QA or publishing. Physical iPhone behavior remains unverified.
 - [x] Reset Add/Edit form scrolling on entry, restore compact height after keyboard dismissal, and allow backdrop dismissal without changing event behavior; physical iPhone verification remains unverified.
 - [x] Slightly reduce phone-only extra spacing while preserving comfortable field tap targets. No broad QA or publishing.
 

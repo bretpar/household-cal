@@ -11,8 +11,8 @@ export function isTypingElement(el: Element | null): el is HTMLElement {
  *
  * Event sheets (scrollResetKey set) follow one simple model on phones:
  * - the outer sheet never scrolls; only [data-event-form-scroll] does;
- * - viewport pans/resizes only reposition the sheet (CSS vars);
- * - the focused field is nudged into view once, after the keyboard settles.
+ * - viewport pans/resizes use the same geometry (CSS vars);
+ * - only an obscured focused field is revealed after viewport movement settles.
  */
 export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedRef<T>, scrollResetKey?: string) {
   const [node, setNode] = useState<T | null>(null);
@@ -31,8 +31,6 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
       });
     };
     reset();
-    const frame = requestAnimationFrame(reset);
-    return () => cancelAnimationFrame(frame);
   }, [node, scrollResetKey]);
 
   useEffect(() => {
@@ -42,6 +40,8 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
     const mobile = window.matchMedia("(max-width: 639px)");
     let frame = 0;
     let settle = 0;
+    let previousHeight = viewport?.height ?? window.innerHeight;
+    let revealAllowed = false;
 
     // Scroll only the form scroller (or the dialog itself for other dialogs),
     // never scrollIntoView, which can pan Safari's page.
@@ -78,36 +78,47 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
         const bottom = Math.max(0, window.innerHeight - top - height);
         node.style.setProperty("--modal-visible-height", `${height}px`);
         node.style.setProperty("--modal-visible-bottom", `${bottom}px`);
-        // The keyboard covers the home-indicator inset; flag it so CSS stops
-        // double-subtracting safe areas (which collapsed the sheet).
-        if (bottom > 80) node.dataset["keyboard"] = "open";
-        else delete node.dataset["keyboard"];
-        if (eventSheet) node.scrollTop = 0;
       });
     };
 
-    // Keyboard open/close: reposition every frame, reveal the field once settled.
-    const onResize = () => {
-      position();
+    const scheduleReveal = () => {
       window.clearTimeout(settle);
-      settle = window.setTimeout(revealFocused, 180);
+      if (!eventSheet || revealAllowed) settle = window.setTimeout(revealFocused, 180);
+    };
+    // A growing viewport restores CSS layout, not the form's scroll position.
+    // Resize and pan share one settle callback rather than competing corrections.
+    const onResize = () => {
+      const height = viewport?.height ?? window.innerHeight;
+      if (eventSheet) {
+        if (height > previousHeight + 1) revealAllowed = false;
+        else if (height < previousHeight - 1) revealAllowed = true;
+        previousHeight = height;
+      }
+      position();
+      scheduleReveal();
+    };
+    const onViewportScroll = () => {
+      position();
+      if (eventSheet) scheduleReveal();
     };
     const onFocusIn = () => {
-      window.clearTimeout(settle);
-      settle = window.setTimeout(revealFocused, 180);
+      revealAllowed = true;
+      scheduleReveal();
     };
-    // iOS focus-scroll can pan an overflow-hidden sheet; keep its header in place.
-    const pinOuter = () => {
-      if (eventSheet && mobile.matches && node.scrollTop !== 0) node.scrollTop = 0;
+    const onFocusOut = () => {
+      if (eventSheet) {
+        revealAllowed = false;
+        window.clearTimeout(settle);
+      }
     };
 
     position();
     viewport?.addEventListener("resize", onResize);
-    viewport?.addEventListener("scroll", position);
+    viewport?.addEventListener("scroll", onViewportScroll);
     window.addEventListener("resize", onResize);
     mobile.addEventListener("change", onResize);
     node.addEventListener("focusin", onFocusIn);
-    node.addEventListener("scroll", pinOuter);
+    node.addEventListener("focusout", onFocusOut);
     // Event sheets: a genuine tap on blank sheet space dismisses the keyboard, not the sheet.
     const blurOnBlankTap = (event: MouseEvent) => {
       if (!eventSheet || !mobile.matches) return;
@@ -123,11 +134,11 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
       cancelAnimationFrame(frame);
       window.clearTimeout(settle);
       viewport?.removeEventListener("resize", onResize);
-      viewport?.removeEventListener("scroll", position);
+      viewport?.removeEventListener("scroll", onViewportScroll);
       window.removeEventListener("resize", onResize);
       mobile.removeEventListener("change", onResize);
       node.removeEventListener("focusin", onFocusIn);
-      node.removeEventListener("scroll", pinOuter);
+      node.removeEventListener("focusout", onFocusOut);
       node.removeEventListener("click", blurOnBlankTap);
     };
   }, [node, scrollResetKey]);
