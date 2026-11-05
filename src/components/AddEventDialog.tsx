@@ -70,7 +70,7 @@ export function AddEventDialog({
 
       <EventComposerContent
         title="Add an event"
-        description="Everything the family needs to know, in one place."
+        description="Keep everyone in the loop."
         state={state}
         onChange={setState}
         idPrefix="add"
@@ -142,7 +142,7 @@ export function EventComposerContent({
     <DialogContent className="rounded-3xl sm:max-w-lg" mobileViewportSafe mobileEventSheetKey={idPrefix} onMobileBackdropClose={onClose}>
       <DialogHeader className="max-sm:pr-8">
         <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
+        <DialogDescription className="event-sheet-keyboard-hide whitespace-nowrap truncate">{description}</DialogDescription>
       </DialogHeader>
 
       <div data-event-form-scroll className="-mx-5 min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-2 sm:-mx-6 sm:px-6">
@@ -162,7 +162,7 @@ export function EventComposerContent({
         </p>
       ) : null}
 
-      <DialogFooter className="border-t border-border-soft pt-3">
+      <DialogFooter className="event-sheet-keyboard-hide border-t border-border-soft pt-3">
         <Button
           variant="ghost"
           type="button"

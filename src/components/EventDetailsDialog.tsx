@@ -345,7 +345,7 @@ export function EventDetailsDialog() {
           <>
             <DialogHeader className="max-sm:pr-8">
               <DialogTitle>Edit event</DialogTitle>
-              <DialogDescription>Update the details for {event.title}.</DialogDescription>
+              <DialogDescription className="event-sheet-keyboard-hide">Update the details for {event.title}.</DialogDescription>
             </DialogHeader>
 
             {state ? (
@@ -379,7 +379,7 @@ export function EventDetailsDialog() {
               </p>
             ) : null}
 
-            <DialogFooter className="border-t border-border-soft pt-3">
+            <DialogFooter className="event-sheet-keyboard-hide border-t border-border-soft pt-3">
               <Button
                 variant="ghost"
                 type="button"

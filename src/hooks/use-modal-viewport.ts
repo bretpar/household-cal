@@ -78,6 +78,9 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
         const bottom = Math.max(0, window.innerHeight - top - height);
         node.style.setProperty("--modal-visible-height", `${height}px`);
         node.style.setProperty("--modal-visible-bottom", `${bottom}px`);
+        // Keyboard open when a substantial bottom slice of the window is covered.
+        if (eventSheet && bottom > 120) node.dataset["keyboard"] = "open";
+        else delete node.dataset["keyboard"];
       });
     };
 
