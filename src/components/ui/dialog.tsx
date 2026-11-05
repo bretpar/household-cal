@@ -5,7 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { useModalViewport } from "@/hooks/use-modal-viewport";
+import { isTypingElement, useModalViewport } from "@/hooks/use-modal-viewport";
 
 const Dialog = DialogPrimitive.Root;
 
@@ -45,8 +45,10 @@ type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, hideClose, onSwipeClose, mobileViewportSafe, mobileEventSheetKey, onMobileBackdropClose, onOpenAutoFocus, ...props }, ref) => {
+>(({ className, children, hideClose, onSwipeClose, mobileViewportSafe, mobileEventSheetKey, onMobileBackdropClose, onOpenAutoFocus, onInteractOutside, ...props }, ref) => {
   const [dragY, setDragY] = React.useState(0);
+  // A backdrop close needs a tap that both started and ended on the backdrop.
+  const backdropDown = React.useRef(false);
   const startY = React.useRef<number | null>(null);
   const viewportRef = useModalViewport(ref, mobileEventSheetKey);
 
@@ -90,9 +92,20 @@ const DialogContent = React.forwardRef<
 
   return (
     <DialogPortal>
-      <DialogOverlay onClick={() => {
-        if (isMobileSheet()) onMobileBackdropClose?.();
-      }} />
+      <DialogOverlay
+        onPointerDown={(e) => { backdropDown.current = e.target === e.currentTarget; }}
+        onClick={(e) => {
+          const genuine = backdropDown.current && e.target === e.currentTarget;
+          backdropDown.current = false;
+          if (!isMobileSheet() || !genuine) return;
+          // Event sheets: with the keyboard up, a backdrop tap only dismisses the keyboard.
+          if (mobileEventSheetKey !== undefined && isTypingElement(document.activeElement)) {
+            document.activeElement.blur();
+            return;
+          }
+          onMobileBackdropClose?.();
+        }}
+      />
       <DialogPrimitive.Content
         ref={viewportRef}
         style={dragY > 0 ? { transform: `translateY(${dragY}px)` } : undefined}
@@ -107,6 +120,12 @@ const DialogContent = React.forwardRef<
         )}
         data-viewport-safe={mobileViewportSafe ? "true" : undefined}
         data-event-sheet={mobileEventSheetKey !== undefined ? "true" : undefined}
+        onInteractOutside={(event) => {
+          onInteractOutside?.(event);
+          // Phone event sheets close only via the explicit backdrop handler above,
+          // so taps landing beside a keyboard-sized sheet can't dismiss it.
+          if (mobileEventSheetKey !== undefined && isMobileSheet()) event.preventDefault();
+        }}
         onOpenAutoFocus={(event) => {
           onOpenAutoFocus?.(event);
           if (!event.defaultPrevented && mobileEventSheetKey !== undefined && isMobileSheet()) {

@@ -20,7 +20,9 @@
   .mobile-viewport-dialog[data-event-sheet="true"] {
     height: auto;
     max-height: min(80svh, calc(var(--modal-visible-height, 100dvh) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--modal-gap) - 1rem));
-    overflow-y: hidden;
+    /* Outer sheet is never a scroll container (clip can't be panned by iOS focus). */
+    overflow: hidden;
+    overflow: clip;
     gap: 0.875rem;
   }
   /* Keyboard open: fill the visible area above the keyboard with a stable height
@@ -36,6 +38,10 @@
   .mobile-viewport-dialog[data-event-sheet="true"] > [data-event-form-scroll] {
     flex: 0 1 auto;
     min-height: 0;
+    scroll-padding-block: 1rem;
+  }
+  .mobile-viewport-dialog[data-event-sheet="true"][data-keyboard="open"] > [data-event-form-scroll] {
+    flex: 1 1 auto;
   }
   .mobile-viewport-dialog input,
   .mobile-viewport-dialog textarea { font-size: 16px; }
