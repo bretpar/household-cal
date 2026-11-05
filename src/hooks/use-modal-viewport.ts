@@ -80,7 +80,7 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
     mobile.addEventListener("change", update);
     node.addEventListener("focusin", update);
     // Event sheets: tapping blank sheet space dismisses the keyboard, not the sheet.
-    const blurOnBlankTap = (event: PointerEvent) => {
+    const blurOnBlankTap = (event: MouseEvent) => {
       if (scrollResetKey === undefined || !mobile.matches) return;
       const active = document.activeElement;
       if (!(active instanceof HTMLElement) || !active.matches("input, textarea, [contenteditable='true']")) return;
@@ -89,7 +89,7 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
           target.closest("input, textarea, select, button, label, a, [role='combobox'], [role='option'], [role='switch'], [role='checkbox'], [contenteditable='true']")) return;
       active.blur();
     };
-    node.addEventListener("pointerdown", blurOnBlankTap);
+    node.addEventListener("click", blurOnBlankTap);
     return () => {
       cancelAnimationFrame(frame);
       viewport?.removeEventListener("resize", update);
@@ -97,7 +97,7 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
       window.removeEventListener("resize", update);
       mobile.removeEventListener("change", update);
       node.removeEventListener("focusin", update);
-      node.removeEventListener("pointerdown", blurOnBlankTap);
+      node.removeEventListener("click", blurOnBlankTap);
     };
   }, [node, scrollResetKey]);
   return ref;
