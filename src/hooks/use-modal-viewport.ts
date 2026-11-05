@@ -179,7 +179,10 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
         const g = read();
         if (!eventSheet) return apply(g);
         const isOpen = node.dataset["keyboard"] === "open";
-        if (g.bottom > KEYBOARD) {
+        // Once open, only a recovered viewport height confirms closure;
+        // visualViewport panning shifts offsetTop (and so g.bottom) without closing.
+        const heightCovered = window.innerHeight - g.height > KEYBOARD;
+        if (g.bottom > KEYBOARD || (isOpen && heightCovered)) {
           window.clearTimeout(exitTimer);
           if (!isOpen) {
             apply(g);
@@ -197,6 +200,7 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
             const next = read();
             kbLog(node, "apply-timer-fire");
             if (node.dataset["keyboard"] === "open" && next.bottom > KEYBOARD) apply(next);
+            // Panned (small bottom) but keyboard still covering: keep the applied anchor.
           }, 160);
           return;
         }
@@ -215,7 +219,7 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
           kbLog(node, "exit-timer-set");
           exitTimer = window.setTimeout(() => {
             kbLog(node, "exit-timer-fire");
-            if (read().bottom <= KEYBOARD) exit();
+            if (window.innerHeight - read().height <= KEYBOARD) exit();
           }, 250);
         } else exit();
       });
