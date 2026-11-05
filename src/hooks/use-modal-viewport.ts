@@ -301,3 +301,7 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
   }, [node, scrollResetKey]);
   return ref;
 }
+
+// TEMPORARY: activate diagnostics on page load (after hydration) so the
+// button appears without first opening a dialog.
+if (typeof window !== "undefined") window.setTimeout(kbEnabled, 1500);
