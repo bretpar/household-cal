@@ -140,12 +140,33 @@ export function EventComposerContent({
 
   return (
     <DialogContent className="rounded-3xl sm:max-w-lg" mobileViewportSafe mobileEventSheetKey={idPrefix} onMobileBackdropClose={onClose}>
-      <DialogHeader className="max-sm:pr-8">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription className="event-sheet-keyboard-hide whitespace-nowrap truncate">{description}</DialogDescription>
+      {/* Phone: stationary header row with Cancel / title / Save. Desktop keeps
+          the title block above the form and the action footer below it. */}
+      <DialogHeader className="max-sm:grid max-sm:grid-cols-[auto_minmax(0,1fr)_auto] max-sm:items-center max-sm:gap-1 max-sm:space-y-0 max-sm:border-b max-sm:border-border-soft max-sm:px-2 max-sm:py-2">
+        <Button
+          variant="ghost"
+          type="button"
+          className="hidden h-10 rounded-full px-3 max-sm:inline-flex"
+          onClick={onClose}
+          disabled={saving}
+        >
+          Cancel
+        </Button>
+        <div className="min-w-0 max-sm:text-center">
+          <DialogTitle className="max-sm:text-base">{title}</DialogTitle>
+          <DialogDescription className="whitespace-nowrap truncate max-sm:hidden">{description}</DialogDescription>
+        </div>
+        <Button
+          type="button"
+          className="hidden h-10 rounded-full px-4 font-bold max-sm:inline-flex"
+          onClick={() => void submit()}
+          disabled={saving}
+        >
+          {saving ? "Saving…" : submitLabel}
+        </Button>
       </DialogHeader>
 
-      <div data-event-form-scroll className="-mx-5 min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-2 sm:-mx-6 sm:px-6">
+      <div data-event-form-scroll className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-2 sm:-mx-6 sm:px-6">
         <EventFormFields
           state={state}
           onChange={(next) => {
@@ -157,12 +178,12 @@ export function EventComposerContent({
       </div>
 
       {formError ? (
-        <p role="alert" className="shrink-0 text-sm font-semibold text-destructive">
+        <p role="alert" className="shrink-0 px-5 text-sm font-semibold text-destructive sm:px-0">
           {formError}
         </p>
       ) : null}
 
-      <DialogFooter className="event-sheet-keyboard-hide border-t border-border-soft pt-3">
+      <DialogFooter className="border-t border-border-soft pt-3 max-sm:hidden">
         <Button
           variant="ghost"
           type="button"

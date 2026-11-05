@@ -90,6 +90,8 @@ const DialogContent = React.forwardRef<
       }
     : {};
 
+  const eventSheet = mobileEventSheetKey !== undefined;
+
   return (
     <DialogPortal>
       <DialogOverlay
@@ -99,7 +101,7 @@ const DialogContent = React.forwardRef<
           backdropDown.current = false;
           if (!isMobileSheet() || !genuine) return;
           // Event sheets: with the keyboard up, a backdrop tap only dismisses the keyboard.
-          if (mobileEventSheetKey !== undefined && isTypingElement(document.activeElement)) {
+          if (eventSheet && isTypingElement(document.activeElement)) {
             document.activeElement.blur();
             return;
           }
@@ -111,9 +113,13 @@ const DialogContent = React.forwardRef<
         style={dragY > 0 ? { transform: `translateY(${dragY}px)` } : undefined}
         className={cn(
           "fixed left-[50%] top-[50%] z-50 flex w-full max-w-lg max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] translate-x-[-50%] translate-y-[-50%] flex-col gap-4 overflow-hidden overscroll-contain border bg-background p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
-          // Mobile: raised sheet card that clears the bottom system gesture area.
-          "max-sm:inset-x-2 max-sm:bottom-[calc(env(safe-area-inset-bottom)+1.5rem)] max-sm:left-2 max-sm:right-2 max-sm:top-auto max-sm:w-auto max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-3xl max-sm:p-5 max-sm:pb-6 max-sm:max-h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] max-sm:data-[state=closed]:zoom-out-100 max-sm:data-[state=open]:zoom-in-100 max-sm:data-[state=closed]:slide-out-to-bottom max-sm:data-[state=open]:slide-in-from-bottom",
-          mobileViewportSafe &&
+          eventSheet
+            ? // Phone event editor: stable full-screen surface, no floating sheet
+              // and no keyboard-driven repositioning.
+              "max-sm:inset-0 max-sm:h-[100dvh] max-sm:w-full max-sm:max-w-none max-sm:max-h-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:gap-0 max-sm:rounded-none max-sm:border-0 max-sm:p-0 max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)] max-sm:data-[state=closed]:zoom-out-100 max-sm:data-[state=open]:zoom-in-100 max-sm:data-[state=closed]:slide-out-to-bottom max-sm:data-[state=open]:slide-in-from-bottom"
+            : // Mobile: raised sheet card that clears the bottom system gesture area.
+              "max-sm:inset-x-2 max-sm:bottom-[calc(env(safe-area-inset-bottom)+1.5rem)] max-sm:left-2 max-sm:right-2 max-sm:top-auto max-sm:w-auto max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-3xl max-sm:p-5 max-sm:pb-6 max-sm:max-h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] max-sm:data-[state=closed]:zoom-out-100 max-sm:data-[state=open]:zoom-in-100 max-sm:data-[state=closed]:slide-out-to-bottom max-sm:data-[state=open]:slide-in-from-bottom",
+          mobileViewportSafe && !eventSheet &&
             "max-sm:bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] max-sm:max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem)] max-sm:pt-5",
           className,
           "mobile-viewport-dialog",
@@ -148,6 +154,8 @@ const DialogContent = React.forwardRef<
           <DialogPrimitive.Close className={cn(
             "absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background cursor-pointer transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground",
             mobileViewportSafe && "max-sm:top-5",
+            // Phone event editors provide Cancel in their stationary header.
+            eventSheet && "max-sm:hidden",
           )}>
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
