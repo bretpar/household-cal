@@ -41,10 +41,19 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
         const expanding = height > previousHeight + 1;
         previousHeight = height;
         node.style.setProperty("--modal-visible-height", `${height}px`);
-        node.style.setProperty("--modal-visible-bottom", `${Math.max(0, window.innerHeight - top - height)}px`);
+        const bottom = Math.max(0, window.innerHeight - top - height);
+        node.style.setProperty("--modal-visible-bottom", `${bottom}px`);
+        // The keyboard covers the home-indicator inset; flag it so CSS stops
+        // double-subtracting safe areas (which collapsed the sheet).
+        if (bottom > 80) node.dataset.keyboard = "open";
+        else delete node.dataset.keyboard;
         // An event sheet should regain its natural layout, not chase a still-focused
         // field while iOS restores the viewport after keyboard dismissal.
-        if (scrollResetKey !== undefined && expanding) return;
+        if (scrollResetKey !== undefined && expanding) {
+          // iOS can leave the clipped outer sheet panned; inner form keeps its position.
+          node.scrollTop = 0;
+          return;
+        }
         const active = document.activeElement;
         if (!(active instanceof HTMLElement) || !node.contains(active) ||
             !active.matches("input, textarea, [contenteditable='true']")) return;
@@ -70,6 +79,17 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
     window.addEventListener("resize", update);
     mobile.addEventListener("change", update);
     node.addEventListener("focusin", update);
+    // Event sheets: tapping blank sheet space dismisses the keyboard, not the sheet.
+    const blurOnBlankTap = (event: PointerEvent) => {
+      if (scrollResetKey === undefined || !mobile.matches) return;
+      const active = document.activeElement;
+      if (!(active instanceof HTMLElement) || !active.matches("input, textarea, [contenteditable='true']")) return;
+      const target = event.target;
+      if (target instanceof Element &&
+          target.closest("input, textarea, select, button, label, a, [role='combobox'], [role='option'], [role='switch'], [role='checkbox'], [contenteditable='true']")) return;
+      active.blur();
+    };
+    node.addEventListener("pointerdown", blurOnBlankTap);
     return () => {
       cancelAnimationFrame(frame);
       viewport?.removeEventListener("resize", update);
@@ -77,6 +97,7 @@ export function useModalViewport<T extends HTMLElement>(forwardedRef: ForwardedR
       window.removeEventListener("resize", update);
       mobile.removeEventListener("change", update);
       node.removeEventListener("focusin", update);
+      node.removeEventListener("pointerdown", blurOnBlankTap);
     };
   }, [node, scrollResetKey]);
   return ref;

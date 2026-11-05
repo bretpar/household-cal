@@ -23,6 +23,16 @@
     overflow-y: hidden;
     gap: 0.875rem;
   }
+  /* Keyboard open: fill the visible area above the keyboard with a stable height
+     (no safe-area subtraction, which the keyboard already covers). */
+  .mobile-viewport-dialog[data-event-sheet="true"][data-keyboard="open"] {
+    --modal-gap: 0.5rem;
+    bottom: calc(var(--modal-visible-bottom, 0px) + var(--modal-gap));
+    height: calc(var(--modal-visible-height, 100dvh) - env(safe-area-inset-top) - var(--modal-gap) * 2);
+    max-height: calc(var(--modal-visible-height, 100dvh) - env(safe-area-inset-top) - var(--modal-gap) * 2);
+    min-height: min(14rem, calc(var(--modal-visible-height, 100dvh) - var(--modal-gap) * 2));
+    transition: none;
+  }
   .mobile-viewport-dialog[data-event-sheet="true"] > [data-event-form-scroll] {
     flex: 0 1 auto;
     min-height: 0;
