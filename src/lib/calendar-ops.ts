@@ -562,6 +562,48 @@ export function pushTargetsForUpdate(eventId: string, createdId: string | null):
   return createdId && createdId !== eventId ? [eventId, createdId] : [eventId];
 }
 
+/**
+ * SQLSTATE classes that positively prove Postgres aborted the statement and
+ * rolled the whole transaction back. `split_calendar_event_atomic` runs as a
+ * single statement, so a server-reported rejection of its contents, its
+ * constraints, its permissions or its own RAISE EXCEPTION means nothing was
+ * written.
+ *
+ * Deliberately absent (outcome unknown or not confidently established, so the
+ * Timesheet reconciliation hold must stay for hourly retry):
+ * - 08007 transaction_resolution_unknown and every other class-08 connection
+ *   failure: the commit decision may already have been made server-side.
+ * - 40003 statement_completion_unknown and the rest of class 40: the code's own
+ *   meaning is "we cannot tell you whether it applied".
+ * - 53/55/57/58 resource, operator-intervention and system errors.
+ * - any SQLSTATE not listed here, plus transport errors with no code at all.
+ */
+const DEFINITELY_ROLLED_BACK_SQLSTATE_PREFIXES = [
+  "09", // triggered action exception
+  "0A", // feature not supported
+  "0B", // invalid transaction termination
+  "0L", // invalid grantor
+  "0P", // invalid role specification
+  "22", // data exception, e.g. the date[] mismatch this RPC once failed on
+  "23", // integrity constraint violation
+  "24", // invalid cursor state
+  "25", // invalid transaction state, e.g. read-only transaction
+  "42", // syntax / access-rule violation, e.g. undefined column, bad type
+  "P0", // PL/pgSQL error raised by the RPC's own guard clauses
+] as const;
+
+/**
+ * True only when the error is positively identified as a rolled-back database
+ * failure. Everything else — unknown codes, connection losses, ambiguous or
+ * truncated responses — is reported as "maybe committed" so callers keep the
+ * reconciliation hold rather than assuming the split never happened.
+ */
+export function isDefinitelyRolledBackSqlstate(code: unknown): boolean {
+  if (typeof code !== "string" || !/^[0-9A-Z]{5}$/.test(code)) return false;
+  const prefix = code.slice(0, 2);
+  return (DEFINITELY_ROLLED_BACK_SQLSTATE_PREFIXES as readonly string[]).includes(prefix);
+}
+
 /** Returns the id of a newly created event when the scope split the series. */
 
 export async function applyEventUpdate(
@@ -625,10 +667,12 @@ export async function applyEventUpdate(
     },
   });
   if (splitError) {
-    // A SQLSTATE from this single-statement RPC means Postgres aborted (and
-    // rolled back) the whole split. Transport errors carry no SQLSTATE and stay uncertain.
+    // Only a positively identified abort (see isDefinitelyRolledBackSqlstate)
+    // proves the split rolled back. Unknown-outcome codes such as 08007 and
+    // 40003, connection failures and unrecognised codes stay unmarked, so the
+    // caller keeps the Timesheet reconciliation hold for retry.
     const code = (splitError as { code?: unknown }).code;
-    if (typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)) {
+    if (isDefinitelyRolledBackSqlstate(code)) {
       throw Object.assign(new Error(splitError.message), { code, splitRolledBack: true });
     }
     throw splitError;
