@@ -624,7 +624,15 @@ export async function applyEventUpdate(
       member_weekdays: scope === "this" ? {} : input.member_weekdays ?? {},
     },
   });
-  if (splitError) throw splitError;
+  if (splitError) {
+    // A SQLSTATE from this single-statement RPC means Postgres aborted (and
+    // rolled back) the whole split. Transport errors carry no SQLSTATE and stay uncertain.
+    const code = (splitError as { code?: unknown }).code;
+    if (typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)) {
+      throw Object.assign(new Error(splitError.message), { code, splitRolledBack: true });
+    }
+    throw splitError;
+  }
   if (typeof createdId !== "string") throw new Error("Calendar split could not be confirmed");
   return createdId;
 }

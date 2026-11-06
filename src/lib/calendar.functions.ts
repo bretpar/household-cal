@@ -195,13 +195,21 @@ export const updateEventFn = createServerFn({ method: "POST" })
     const priorMembers = await shiftMembersOrNull(familyId, [data.event_id]);
     // Unknown or none yet: hold the whole household, since the edit may add a caregiver.
     const jobId = await openReconcile(familyId, priorMembers?.length ? priorMembers : []);
-    const created = await applyEventUpdate(
-      db,
-      data.event_id,
-      data.occurrence_day,
-      data.scope,
-      data.input,
-    );
+    let created: string | null;
+    try {
+      created = await applyEventUpdate(
+        db,
+        data.event_id,
+        data.occurrence_day,
+        data.scope,
+        data.input,
+      );
+    } catch (e) {
+      // Release only when the atomic split certainly rolled back; any other
+      // failure may have partially written, so the hold stays for hourly retry.
+      if ((e as { splitRolledBack?: unknown })?.splitRolledBack === true) await releaseReconcile(jobId);
+      throw e;
+    }
     const afterMembers = await shiftMembersOrNull(familyId, [data.event_id, ...(created ? [created] : [])]);
     const timesheet_reconcile = await finishReconcile(
       familyId,
