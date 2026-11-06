@@ -31,7 +31,7 @@ function PrivacyPage() {
         <strong>Effective Date:</strong> August 25, 2026
       </p>
       <p className="text-muted-foreground">
-        <strong>Last Updated:</strong> October 27, 2026
+        <strong>Last Updated:</strong> November 6, 2026
       </p>
 
       <p className="text-muted-foreground">
@@ -78,10 +78,17 @@ function PrivacyPage() {
           <li>Calendar events</li>
           <li>School, childcare, work, appointment, travel, and activity information</li>
           <li>Babysitter or caregiver schedules</li>
+          <li>Household membership, invitations, and caregiver relationships</li>
+          <li>Caregiver timesheets, including scheduled and actual hours, payment status, and owner-entered payment notes</li>
           <li>Notes and other information entered by users</li>
         </ul>
         <p className="text-muted-foreground">
           Users control the information they choose to enter into the Service.
+        </p>
+        <p className="text-muted-foreground">
+          We store household membership, invitations, and caregiver relationships to support shared
+          calendars and access permissions. Timesheet payment information records information entered
+          by users; Our Family Calendar does not independently process caregiver payments.
         </p>
 
         <h3 className="text-lg font-semibold">Calendar Information</h3>
@@ -128,6 +135,21 @@ function PrivacyPage() {
           We may use cookies, local storage, and similar technologies necessary to operate, secure,
           and improve the Service.
         </p>
+
+        <h3 className="text-lg font-semibold">Analytics</h3>
+        <p className="text-muted-foreground">
+          The app and website may collect page visits, feature interactions, session identifiers,
+          approximate location inferred from technical data such as IP addresses, and performance
+          metrics to improve functionality and understand usage. This approximate technical location
+          is distinct from precise GPS location. Analytics data is not necessarily anonymous and may
+          be associated with an account or session.
+        </p>
+
+        <h3 className="text-lg font-semibold">Diagnostics</h3>
+        <p className="text-muted-foreground">
+          We may collect JavaScript errors, crashes, resource failures, performance information, and
+          calendar synchronization errors to troubleshoot problems and improve reliability.
+        </p>
       </section>
 
       <section className="space-y-3">
@@ -140,6 +162,7 @@ function PrivacyPage() {
           <li>Manage household members, invitations, and permissions</li>
           <li>Send invitations, reminders, notifications, and other requested communications</li>
           <li>Maintain and improve the Service</li>
+          <li>Understand page visits and feature usage</li>
           <li>Diagnose technical problems</li>
           <li>Protect against fraud, abuse, and unauthorized access</li>
           <li>Provide customer support</li>
@@ -231,6 +254,9 @@ function PrivacyPage() {
         </ul>
         <p className="text-muted-foreground">
           These providers may process information on our behalf as necessary to provide their services.
+          This includes Lovable infrastructure and services supporting authentication and email
+          delivery, as well as Google Calendar when you choose to connect it. We do not assume that
+          information processed by analytics providers is anonymous or cannot be linked to accounts.
         </p>
         <p className="text-muted-foreground">
           We may also disclose information when required by law or when reasonably necessary to
@@ -294,8 +320,9 @@ function PrivacyPage() {
           authentication, security, preferences, and operation of the Service.
         </p>
         <p className="text-muted-foreground">
-          If we introduce advertising, nonessential tracking, or additional analytics technologies in
-          the future, this Privacy Policy may be updated accordingly.
+          Analytics and diagnostics collection are described above. If we introduce advertising,
+          nonessential tracking, or additional analytics technologies in the future, this Privacy
+          Policy may be updated accordingly.
         </p>
       </section>
 
