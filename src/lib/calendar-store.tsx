@@ -511,6 +511,13 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
           scope,
         });
         if ((del as { timesheet_reconcile?: string } | undefined)?.timesheet_reconcile === "pending") notifyReconcilePending();
+        if (del.google_sync === "pending" || del.google_sync === "failed") {
+          void import("sonner").then(({ toast }) => toast.warning(
+            del.google_sync === "failed"
+              ? "Deleted from the family calendar. Google synchronization failed."
+              : "Deleted from the family calendar. Google synchronization is still pending.",
+          ));
+        }
       },
 
       selectedMembers,

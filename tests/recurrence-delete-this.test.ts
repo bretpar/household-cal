@@ -6,8 +6,7 @@ import { expandOccurrences, type CalendarEvent } from "@/lib/family-data";
 /**
  * Regression coverage for the recurring "Delete this event only" bug:
  * deleting a generated occurrence must append that day to the recurring
- * parent's excluded_dates exactly once — even when a concurrent write
- * clobbers the first append.
+ * parent's excluded_dates exactly once using an atomic merge RPC.
  */
 
 interface Row {
@@ -18,8 +17,16 @@ interface Row {
 }
 
 /** Minimal in-memory stand-in for the Supabase client surface used here. */
-function makeDb(row: Row, hooks?: { afterUpdate?: (snapshot: Row) => void }) {
+function makeDb(row: Row) {
   return {
+    rpc: async (name: string, args: { _family: string; _event: string; _dates: string[]; _source: string }) => {
+      if (name !== "merge_event_exclusions_atomic") throw new Error(`unexpected RPC ${name}`);
+      if (args._family !== row.family_id || args._event !== row.id || args._source !== "app") {
+        return { data: null, error: new Error("Forbidden") };
+      }
+      row.excluded_dates = [...new Set([...row.excluded_dates, ...args._dates])].sort();
+      return { data: [...row.excluded_dates], error: null };
+    },
     from: (table: string) => {
       if (table !== "events") throw new Error(`unexpected table ${table}`);
       return {
@@ -35,7 +42,6 @@ function makeDb(row: Row, hooks?: { afterUpdate?: (snapshot: Row) => void }) {
           eq: async (_col: string, id: string) => {
             if (id !== row.id) return { error: { message: "not found" } };
             Object.assign(row, vals);
-            hooks?.afterUpdate?.(row);
             return { error: null };
           },
         }),
@@ -101,23 +107,29 @@ describe("applyEventDelete scope=this", () => {
     expect(row.excluded_dates).toEqual(["2026-09-16"]);
   });
 
-  it("recovers when a concurrent writer clobbers the first append", async () => {
+  it("sends concurrent distinct deletions through the atomic merge", async () => {
     const row = parentRow(["2026-09-09"]);
-    let clobbered = false;
-    const db = makeDb(row, {
-      afterUpdate: (snapshot) => {
-        // Simulate the Sep 23 delete racing us: its stale read-modify-write
-        // overwrites our just-written array with its own merge.
-        if (!clobbered) {
-          clobbered = true;
-          snapshot.excluded_dates = ["2026-09-09", "2026-09-23"];
-        }
-      },
-    });
-    await applyEventDelete(db as never, "parent-1", "2026-09-16", "this");
+    const db = makeDb(row);
+    await Promise.all([
+      applyEventDelete(db, "parent-1", "2026-09-16", "this"),
+      applyEventDelete(db, "parent-1", "2026-09-23", "this"),
+    ]);
     expect(row.excluded_dates).toContain("2026-09-16");
     expect(row.excluded_dates).toContain("2026-09-23");
     expect(row.excluded_dates).toContain("2026-09-09");
     expect(row.excluded_dates).toHaveLength(3);
+  });
+
+  it("excludes December 29 without removing December 22 or January 5", async () => {
+    const row = { ...parentRow(), start_at: "2026-12-22T14:30:00.000Z", end_at: "2026-12-22T15:30:00.000Z", recurrence_rule: "FREQ=WEEKLY;BYDAY=TU" };
+    await applyEventDelete(makeDb(row), row.id, "2026-12-29", "this");
+    expect(row.excluded_dates).toEqual(["2026-12-29"]);
+    expect(occurrenceDays(asEvent(row), "2026-12-22T00:00:00", "2027-01-06T00:00:00")).toEqual(["2026-12-22", "2027-01-05"]);
+  });
+
+  it("propagates an atomic write failure instead of claiming deletion", async () => {
+    const db = makeDb(parentRow());
+    db.rpc = async () => ({ data: null as never, error: new Error("write failed") });
+    await expect(applyEventDelete(db, "parent-1", "2026-12-29", "this")).rejects.toThrow("write failed");
   });
 });

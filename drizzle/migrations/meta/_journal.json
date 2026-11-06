@@ -211,6 +211,13 @@
       "when": 1793993637301,
       "tag": "0029_fix_split_event_excluded_dates_types",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794006232873,
+      "tag": "0030_atomic_recurring_exclusion_merge",
+      "breakpoints": true
     }
   ]
 }

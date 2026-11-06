@@ -367,6 +367,25 @@ describe("Google whole-series edit preserves app-owned data", () => {
     expect(patch["last_change_source"]).toBe("google");
   });
 
+  it("passes partial remote EXDATE additions to the database merge without changing the weekly rule", () => {
+    const patch = seriesPatchFromGoogle({
+      local: { title: "Synthetic weekly fixture", memberCount: 1, branchKey: "" },
+      branchInitials: [],
+      google: { ...google, recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=TU", "EXDATE;VALUE=DATE:20261215"] },
+    });
+    expect(patch["excluded_dates"]).toEqual(["2026-12-15"]);
+    expect(patch["recurrence_rule"]).toBe("FREQ=WEEKLY;BYDAY=TU");
+    expect(patch["last_change_source"]).toBe("google");
+  });
+
+  it("never sends an empty replacement of local deletions when Google omits EXDATE", () => {
+    const patch = seriesPatchFromGoogle({
+      local: { title: "Synthetic weekly fixture", memberCount: 1, branchKey: "" },
+      branchInitials: [], google,
+    });
+    expect(patch).not.toHaveProperty("excluded_dates");
+  });
+
   it("never touches members, weekdays or event type", () => {
     const patch = seriesPatchFromGoogle({
       local: { title: "Baseball Practice", memberCount: 2, branchKey: "" },

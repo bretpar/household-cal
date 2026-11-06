@@ -1935,6 +1935,15 @@ export type Database = {
         Args: { _family: string }
         Returns: undefined
       }
+      merge_event_exclusions_atomic: {
+        Args: {
+          _dates: string[]
+          _event: string
+          _family: string
+          _source?: string
+        }
+        Returns: string[]
+      }
       my_caregiver_member_id: { Args: { _family_id: string }; Returns: string }
       owner_delete_managed_entry_atomic: {
         Args: {

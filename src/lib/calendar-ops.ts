@@ -689,7 +689,7 @@ export async function applyEventDelete(
 ): Promise<void> {
   const { data: existing, error } = await db
     .from("events")
-    .select("id, recurrence_rule, excluded_dates")
+    .select("id, family_id, recurrence_rule")
     .eq("id", eventId)
     .single();
   if (error) throw error;
@@ -701,31 +701,16 @@ export async function applyEventDelete(
   }
 
   if (scope === "this") {
-    // Exclude exactly this occurrence from the recurring parent. The merge
-    // re-reads the parent and verifies the day landed: two quick
-    // "This event only" deletions used to race read–modify–write, and the
-    // later write clobbered the earlier one, silently un-deleting an
-    // occurrence. The includes() guard keeps repeated deletes idempotent.
-    let current = (existing.excluded_dates ?? []) as string[];
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (current.includes(occurrenceDay)) return;
-      const { error: exError } = await db
-        .from("events")
-        .update({ excluded_dates: [...current, occurrenceDay] })
-        .eq("id", eventId);
-      if (exError) throw exError;
-      const { data: check, error: readError } = await db
-        .from("events")
-        .select("excluded_dates")
-        .eq("id", eventId)
-        .single();
-      if (readError) throw readError;
-      current = (check?.excluded_dates ?? []) as string[];
-      if (current.includes(occurrenceDay)) return;
-      // A concurrent writer overwrote our append — merge against the fresh
-      // value and try again.
-    }
-    throw new Error("Could not persist the excluded occurrence date.");
+    // Merge against the locked database row, never a stale client snapshot.
+    if (!db.rpc) throw new Error("Atomic calendar exclusions are unavailable");
+    const { error: exError } = await db.rpc("merge_event_exclusions_atomic", {
+      _family: existing.family_id,
+      _event: eventId,
+      _dates: [occurrenceDay],
+      _source: "app",
+    });
+    if (exError) throw exError;
+    return;
   }
 
   const { error: untilError } = await db

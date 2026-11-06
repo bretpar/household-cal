@@ -1101,8 +1101,9 @@ export async function pushEventDeletion(
   admin: Admin,
   familyId: string,
   links: { google_event_id: string; calendar_source_id: string }[],
-): Promise<void> {
-  await guard(admin, familyId, async () => {
+): Promise<{ ok?: true; skipped?: string }> {
+  if (links.length === 0) return { skipped: "not_linked" };
+  const outcome = await guard(admin, familyId, async () => {
     const conn = await getConnection(admin, familyId);
     if (!conn) return { skipped: "not_connected" };
     const sources = await googleSources(admin, familyId);
@@ -1114,10 +1115,20 @@ export async function pushEventDeletion(
           source.external_calendar_id,
           link.google_event_id,
         );
+      } else {
+        throw new Error("Google deletion calendar is unavailable");
       }
     }
-    return { ok: true };
+    return { ok: true as const };
   });
+  if ("skipped" in outcome && outcome.skipped !== "not_connected") {
+    // The local event/link may be gone already; retain the failure on its
+    // sources rather than swallowing guard()'s incomplete result.
+    await admin.from("calendar_sources").update({
+      sync_status: "error", sync_error: outcome.skipped,
+    }).eq("family_id", familyId).in("id", [...new Set(links.map((l) => l.calendar_source_id))]).throwOnError();
+  }
+  return outcome;
 }
 
 /** Reads the links for an event before it is deleted locally. */
@@ -1128,7 +1139,7 @@ export async function linksForEvent(
   const { data } = await admin
     .from("event_sync_links")
     .select("google_event_id, calendar_source_id")
-    .eq("event_id", eventId);
+    .eq("event_id", eventId).throwOnError();
   return data ?? [];
 }
 
@@ -1145,18 +1156,11 @@ function dayOf(value: string | null | undefined): string | null {
   return value ? value.slice(0, 10) : null;
 }
 
-async function addExcludedDate(admin: Admin, eventId: string, day: string): Promise<void> {
-  const { data } = await admin
-    .from("events")
-    .select("excluded_dates")
-    .eq("id", eventId)
-    .maybeSingle().throwOnError();
-  const current: string[] = data?.excluded_dates ?? [];
-  if (current.includes(day)) return;
-  await admin
-    .from("events")
-    .update({ excluded_dates: [...current, day], last_change_source: "google" })
-    .eq("id", eventId).throwOnError();
+async function addExcludedDate(admin: Admin, familyId: string, eventId: string, day: string): Promise<void> {
+  const { error } = await (admin as unknown as AnyDb).rpc("merge_event_exclusions_atomic", {
+    _family: familyId, _event: eventId, _dates: [day], _source: "google",
+  });
+  if (error) throw error;
 }
 
 /**
@@ -1258,7 +1262,7 @@ export async function applyGoogleEvent(
       const day = dayOf(g.originalStartTime?.date ?? g.originalStartTime?.dateTime);
       if (seriesLink && seriesLink.calendar_source_id === source.id && day) {
         await withShiftReconcile(admin, familyId, [seriesLink.event_id], () =>
-          addExcludedDate(admin, seriesLink.event_id, day),
+          addExcludedDate(admin, familyId, seriesLink.event_id, day),
         );
       }
     }
@@ -1287,7 +1291,7 @@ export async function applyGoogleEvent(
         null;
       if (parentLink && parentLink.event_id !== link.event_id) {
         await withShiftReconcile(admin, familyId, [parentLink.event_id], () =>
-          addExcludedDate(admin, parentLink.event_id, occurrenceDay),
+          addExcludedDate(admin, familyId, parentLink.event_id, occurrenceDay),
         );
       }
     }
@@ -1341,7 +1345,7 @@ export async function applyGoogleEvent(
         );
       } else if (day) {
         await withShiftReconcile(admin, familyId, [seriesLink.event_id], () =>
-          addExcludedDate(admin, seriesLink.event_id, day),
+          addExcludedDate(admin, familyId, seriesLink.event_id, day),
         );
       }
       if (!eventId) return;
@@ -1525,11 +1529,13 @@ export async function applyGoogleEvent(
   const linkId = link.id;
   const moved = link.calendar_source_id !== source.id;
   await withShiftReconcile(admin, familyId, [eventId], async () => {
-    // One checked event update, including any calendar move.
+    // The exclusion trigger unions any Google EXDATE additions with the live
+    // locked row. Refuse a stale master patch without advancing its link.
     await admin.from("events").update({
       ...patch,
       ...(moved ? { calendar_source_id: source.id } : {}),
-    }).eq("id", eventId).throwOnError();
+    }).eq("id", eventId).eq("family_id", familyId)
+      .eq("updated_at", event.updated_at).select("id").single().throwOnError();
     await admin
       .from("event_sync_links")
       .update({

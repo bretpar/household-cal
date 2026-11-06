@@ -590,6 +590,8 @@ export function seriesPatchFromGoogle(input: {
     const rec = fromGoogleRecurrence(google.recurrence);
     patch["recurrence_rule"] = localRuleFromGoogle(rec);
     patch["recurrence_until"] = rec.until;
+    // These are additions, not an authoritative replacement: the database
+    // unions them with the locked row's exclusions, preserving local deletes.
     if (rec.excludedDates.length > 0) patch["excluded_dates"] = rec.excludedDates;
   }
   // an assigned event stays assigned; only a genuinely memberless one is flagged

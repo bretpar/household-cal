@@ -1,5 +1,9 @@
 # Roadmap
 
+## Recurring-event exclusion resurrection
+- [x] Atomic exclusion RPC and Google-only union trigger in forward-only migration 0030; master updates reject stale versions before link acknowledgement. Existing events and migrations unchanged.
+- [x] Return pending/failed Google deletion outcomes and retain source diagnostics; two updated test files pass and automatic compilation passes. Live concurrency/Google verification and historical repair remain for Codex; no publishing.
+
 ## Google sync partial-failure safety
 - [x] Preserve refreshes after partial automatic/manual sync failures, check inbound database writes before advancing progress, and retain durable retry/error protections; no QA or publishing.
 

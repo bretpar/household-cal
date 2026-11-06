@@ -260,13 +260,18 @@ export const deleteEventFn = createServerFn({ method: "POST" })
       ? await releaseReconcile(jobId)
       : await finishReconcile(familyId, jobId, shiftMembers ?? []);
 
-    await Promise.race([
-      wholeEventGone
-        ? sync.pushEventDeletion(supabaseAdmin, familyId, links)
-        : sync.pushEvent(supabaseAdmin, familyId, data.event_id),
-      new Promise<void>((resolve) => setTimeout(resolve, 2500)),
-    ]);
-    return { ok: true, timesheet_reconcile };
+    const { pushWithDeadline, PUSH_DEADLINE_MS } = await import("@/lib/google/push.server");
+    const google_sync = wholeEventGone
+      ? await Promise.race([
+          sync.pushEventDeletion(supabaseAdmin, familyId, links).then((outcome) =>
+            outcome.ok ? "synced" as const
+              : outcome.skipped === "not_linked" || outcome.skipped === "not_connected"
+                ? "unlinked" as const : "failed" as const,
+          ).catch(() => "failed" as const),
+          new Promise<"pending">((resolve) => setTimeout(() => resolve("pending"), PUSH_DEADLINE_MS)),
+        ])
+      : await pushWithDeadline(familyId, [data.event_id]);
+    return { ok: true, timesheet_reconcile, google_sync };
   });
 
 /**
