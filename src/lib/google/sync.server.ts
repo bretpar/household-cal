@@ -1125,7 +1125,10 @@ export async function pushEventDeletion(
     // The local event/link may be gone already; retain the failure on its
     // sources rather than swallowing guard()'s incomplete result.
     await admin.from("calendar_sources").update({
-      sync_status: "error", sync_error: outcome.skipped,
+      // "needs_attention" is the only failure status the calendar_sources
+      // check constraint allows; an unknown value would abort this write with
+      // SQLSTATE 23514 and lose the diagnostic entirely.
+      sync_status: "needs_attention", sync_error: outcome.skipped,
     }).eq("family_id", familyId).in("id", [...new Set(links.map((l) => l.calendar_source_id))]).throwOnError();
   }
   return outcome;
