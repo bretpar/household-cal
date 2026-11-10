@@ -115,6 +115,22 @@ export function proposalNeedsReview(shift: ProposedShift, existing: ExistingShif
   return !shift.existing && existing.some(e => e.date <= shift.date && e.endDate >= shift.date && !sameSlot(shift, e));
 }
 
+/** A change proposal whose referenced calendar occurrence is no longer present in the month. */
+export function proposalOrphaned(shift: ProposedShift, existing: ExistingShift[]): boolean {
+  return !!shift.existing && !existing.some(e => sameIdentity(shift, e));
+}
+
+/** Owner-confirmed: drop the dead reference and re-add as a standalone proposal through normal reconciliation.
+ * Never recreates or restores the deleted occurrence; a duplicate of an existing slot or proposal is dropped. */
+export function convertOrphanToNew(draft: ScheduleDraft, id: string, existing: ExistingShift[], makeId: () => string): { draft: ScheduleDraft; added: boolean } {
+  const shift = draft.shifts.find(s => s.id === id);
+  if (!shift || !proposalOrphaned(shift, existing)) return { draft, added: false };
+  const { existing: _ref, ...rest } = shift;
+  const fresh: ProposedShift = { ...rest, id: makeId() };
+  const next = appendProposals({ shifts: draft.shifts.filter(s => s.id !== id) }, [fresh], existing);
+  return { draft: next, added: next.shifts.some(s => s.id === fresh.id) };
+}
+
 /** Reconcile identities first, then intended household date/time/caregiver slots. */
 export function appendProposals(draft: ScheduleDraft, shifts: ProposedShift[], existing: ExistingShift[] = []): ScheduleDraft {
   const result = [...draft.shifts];
@@ -156,6 +172,6 @@ export function scheduleSummary(draft: ScheduleDraft, existing: ExistingShift[])
     proposals: draft.shifts.length,
     hours: draft.shifts.reduce((sum, s) => sum + minutes(s.end) - minutes(s.start), 0) / 60,
     existing: new Set(existing.map(s => s.key)).size,
-    conflicts: draft.shifts.filter(s => proposalNeedsReview(s, existing)).length,
+    conflicts: draft.shifts.filter(s => proposalNeedsReview(s, existing) || proposalOrphaned(s, existing)).length,
   };
 }
