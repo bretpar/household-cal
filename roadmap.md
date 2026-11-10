@@ -243,3 +243,5 @@
 ## Phase 3A Repair 2 — Publishing blockers
 - [x] Migration 0034: dropped the real truncated per-shift unique constraint (0033 missed it), hardened apply_schedule_publish_op — service-role-only execution, explicit caller-owner check, in-transaction draft/revision/run validation, detached replacements copy participants without weekday restrictions. Migration 0035 dropped the old 8-arg overload.
 - [x] Executor: RPC runs via the privileged server client; uncertain RPC outcomes re-read the journal and never downgrade applied ops; execution binds to the reviewed preview's event versions (missing/stale rejected); failed caregiver lookups abort before writes or keep the reconciliation hold pending. Codex verifies; no publishing.
+
+- [x] Phase 3A Google sync reliability repair: durable deletion intent, duplicate-safe create adoption, retryable push ops (Codex verification pending)
