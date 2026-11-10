@@ -5,6 +5,7 @@
  * helpers only group the returned plan and decide review readiness.
  */
 import type { PublishPlan, PublishPlanOp } from "@/lib/schedule-publish";
+import type { ScheduleDraft } from "@/lib/schedule-builder";
 
 export interface GroupedPlanOps {
   /** New shifts the draft would add. */
@@ -29,6 +30,26 @@ export function groupPlanOps(plan: PublishPlan): GroupedPlanOps {
     else groups.unchanged.push(op);
   }
   return groups;
+}
+
+/**
+ * Effective planned hours for the month: publishable draft shifts (new,
+ * changed, unchanged) plus preserved existing shifts. Conflicts and
+ * unsupported removals are excluded because they cannot publish.
+ */
+export function plannedHours(plan: PublishPlan, draft: ScheduleDraft): number {
+  const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+  const byId = new Map(draft.shifts.map((s) => [s.id, s]));
+  let total = 0;
+  for (const op of plan.ops) {
+    if (op.kind !== "create" && op.kind !== "update" && op.kind !== "unchanged") continue;
+    const s = byId.get(op.shiftId);
+    if (s) total += minutes(s.end) - minutes(s.start);
+  }
+  for (const e of plan.preserved) {
+    if (!e.allDay && e.date === e.endDate) total += Math.max(0, minutes(e.end) - minutes(e.start));
+  }
+  return total / 60;
 }
 
 export interface ReviewReadiness {

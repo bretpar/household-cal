@@ -69,7 +69,10 @@ export async function loadPublishPlan(
   if (!draft.data) throw new Error("There is no saved draft for this month.");
   const content = draftSchema.parse(draft.data.content);
   const { currentMonthOccurrences } = await import("@/lib/schedule-publish");
-  const existing = currentMonthOccurrences(bundle.events, month, family.data.timezone, Object.fromEntries(
+  // Match the builder: only Babysitter-calendar events are existing shifts.
+  const sitterSource = (family.data.babysitter_calendar_source_id as string | null) ?? null;
+  const sitterEvents = sitterSource ? bundle.events.filter((e) => e.calendar_source_id === sitterSource) : [];
+  const existing = currentMonthOccurrences(sitterEvents, month, family.data.timezone, Object.fromEntries(
     (lineage.data ?? []).map((e: { id: string; split_from_event_id: string | null; split_from_date: string | null }) => [
       e.id,
       { split_from_event_id: e.split_from_event_id, split_from_date: e.split_from_date },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupPlanOps, reviewReadiness } from "@/lib/schedule-review";
+import { groupPlanOps, plannedHours, reviewReadiness } from "@/lib/schedule-review";
 import type { PublishPlan, PublishPlanOp } from "@/lib/schedule-publish";
 
 const shiftA = "33333333-3333-4333-8333-333333333333";
@@ -37,6 +37,28 @@ describe("groupPlanOps", () => {
     expect(groups.conflicts.map((o) => o.shiftId)).toEqual([shiftC]);
     expect(groups.excludes).toEqual([]);
     expect(groups.unchanged).toEqual([]);
+  });
+});
+
+describe("modified shift plus conflict", () => {
+  const plan = planWith([
+    op({ shiftId: shiftA, kind: "update", requiresReview: true }),
+    op({ shiftId: shiftB, kind: "conflict", requiresReview: true, reason: "gone" }),
+  ]);
+  it("stays blocked by the conflict after the change is confirmed", () => {
+    const r = reviewReadiness(plan, new Set([shiftA]), false);
+    expect(r.ready).toBe(false);
+    expect(r.unreviewed).toEqual([]);
+    expect(r.conflictCount).toBe(1);
+  });
+  it("counts hours only for publishable shifts plus kept existing shifts", () => {
+    const draft = { shifts: [
+      { id: shiftA, date: "2026-11-10", start: "09:00", end: "13:00", title: "B", assignment: { kind: "none" as const } },
+      { id: shiftB, date: "2026-11-11", start: "09:00", end: "17:00", title: "B", assignment: { kind: "none" as const } },
+    ] };
+    const withKept = { ...plan, preserved: [{ key: "k", eventId: shiftC, date: "2026-11-12", title: "B", start: "10:00", end: "12:00",
+      allDay: false, assignment: { kind: "none" as const }, startAt: "2026-11-12T18:00:00.000Z", endDate: "2026-11-12", splitFromEventId: null, splitFromDate: null }] };
+    expect(plannedHours(withKept, draft)).toBe(6);
   });
 });
 

@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { scheduleSummary, type Assignment, type ExistingShift, type ScheduleDraft } from "@/lib/schedule-builder";
+import type { Assignment, ExistingShift, ScheduleDraft } from "@/lib/schedule-builder";
 import type { PublishPlan, PublishPlanOp } from "@/lib/schedule-publish";
-import { groupPlanOps, reviewReadiness } from "@/lib/schedule-review";
+import { groupPlanOps, plannedHours, reviewReadiness } from "@/lib/schedule-review";
 import { planSchedulePublish } from "@/lib/schedule-publish.functions";
 import type { FamilyMember } from "@/lib/family-data";
 
@@ -78,7 +78,7 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
       : a.kind === "other"
         ? a.name
         : "Unassigned";
-  const hours = scheduleSummary(draft, existing).hours;
+  const hours = preview ? plannedHours(preview.plan, draft) : 0;
 
   const toggleConfirmed = (shiftId: string, checked: boolean) =>
     setConfirmed((prev) => {
@@ -90,7 +90,8 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
 
   const updateRow = (op: PublishPlanOp) => {
     const after = shiftById.get(op.shiftId);
-    const before = op.occurrenceKey ? existingByKey.get(op.occurrenceKey) : undefined;
+    const before = (op.occurrenceKey ? existingByKey.get(op.occurrenceKey) : undefined)
+      ?? (op.eventId ? existing.find((e) => e.eventId === op.eventId && (!op.occurrenceDate || e.date === op.occurrenceDate)) : undefined);
     const isConfirmed = confirmed.has(op.shiftId);
     return (
       <article key={op.shiftId} className="rounded-md border border-member-amber bg-member-amber-soft p-3 text-member-amber-ink">
