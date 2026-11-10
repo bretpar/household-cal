@@ -253,6 +253,13 @@
       "when": 1794280794494,
       "tag": "0035_drop_old_publish_op_overload",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794281743984,
+      "tag": "0036_schedule_publish_review_and_draft_locks",
+      "breakpoints": true
     }
   ]
 }

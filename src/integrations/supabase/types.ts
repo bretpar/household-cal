@@ -365,6 +365,54 @@ export type Database = {
           },
         ]
       }
+      babysitter_schedule_publish_previews: {
+        Row: {
+          created_at: string
+          created_by: string
+          draft_id: string
+          draft_revision: number
+          event_versions: Json
+          family_id: string
+          id: string
+          plan: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          draft_id: string
+          draft_revision: number
+          event_versions: Json
+          family_id: string
+          id?: string
+          plan: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          draft_id?: string
+          draft_revision?: number
+          event_versions?: Json
+          family_id?: string
+          id?: string
+          plan?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "babysitter_schedule_publish_previews_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "babysitter_schedule_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "babysitter_schedule_publish_previews_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       babysitter_schedule_publish_runs: {
         Row: {
           completed_at: string | null

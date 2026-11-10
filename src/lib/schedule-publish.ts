@@ -67,12 +67,27 @@ function sameSlotAsDraft(shift: ProposedShift, e: ExistingShift): boolean {
  * the authoritative current month occurrences (expanded recurring masters and
  * detached exceptions included), projected into household wall time.
  */
-export function planPublish(draft: ScheduleDraft, existing: ExistingShift[]): PublishPlan {
+export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], mappedEvents: Record<string, string> = {}): PublishPlan {
   const ops: PublishPlanOp[] = [];
   const referenced = new Set<string>();
 
   for (const shift of draft.shifts) {
     const ref = shift.existing;
+    const mappedEventId = !ref ? mappedEvents[shift.id] : undefined;
+    if (mappedEventId) {
+      const match = existing.find((e) => e.eventId === mappedEventId);
+      if (match) referenced.add(match.key);
+      ops.push({
+        shiftId: shift.id,
+        kind: match ? "update" : "conflict",
+        eventId: mappedEventId,
+        occurrenceKey: match?.key ?? null,
+        occurrenceDate: match?.date ?? null,
+        requiresReview: true,
+        reason: match ? "This proposal updates its previously published event." : "The previously published event is no longer available in this month.",
+      });
+      continue;
+    }
     if (!ref) {
       ops.push({
         shiftId: shift.id,

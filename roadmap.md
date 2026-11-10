@@ -1,5 +1,9 @@
 # Roadmap
 
+## Phase 3A Repair 3 — Publishing concurrency
+- [x] Bind mapped proposals to service-only immutable server-reviewed identities/versions; migration 0036 rejects missing, mismatched, manipulated or stale versions under event row lock.
+- [x] Migration 0036 locks household → monthly draft → journal → event before revision validation/writes; execution remains disabled and prior migrations/live events untouched. Seven planner tests and automatic compilation pass; final concurrency QA remains with Codex.
+
 ## Desktop Babysitter Schedule Editor — Phase 2
 - [x] Add compact monthly grid, private proposal editing/moving and bulk assignment/removal using shared commands; preserve saved-draft protections and read-only calendar occurrences.
 - [x] Add monthly totals and recurring indicators; keep publishing disabled. No browser QA or live event changes; final targeted verification remains with Codex.

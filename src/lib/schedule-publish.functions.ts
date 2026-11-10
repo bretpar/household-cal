@@ -42,9 +42,16 @@ export const planSchedulePublish = createServerFn({ method: "GET" })
       data.familyId,
       data.month,
     );
-    // The reviewed calendar versions are part of the preview: execution later
-    // binds to exactly these, never to freshly loaded substitutes.
-    return { revision: draft.revision, plan, eventVersions };
+    // Persist a service-only snapshot so echoed client versions cannot be
+    // manipulated into authorizing an event version never reviewed here.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: preview, error } = await supabaseAdmin
+      .from("babysitter_schedule_publish_previews")
+      .insert({ family_id: data.familyId, draft_id: draft.id, draft_revision: draft.revision,
+        created_by: context.userId, plan: JSON.parse(JSON.stringify(plan)), event_versions: eventVersions })
+      .select("id").single();
+    if (error || !preview) throw new Error("The publish preview could not be recorded. Try again.");
+    return { revision: draft.revision, plan, eventVersions, previewId: preview.id };
   });
 
 /**
@@ -58,6 +65,7 @@ export const executeSchedulePublish = createServerFn({ method: "POST" })
     scope
       .extend({
         revision: z.number().int().positive(),
+        previewId: z.uuid(),
         reviewedShiftIds: z.array(z.uuid()).max(500),
         // Immutable reviewed calendar versions echoed back from the preview;
         // execution rejects any update op whose version is missing or stale.
@@ -82,6 +90,7 @@ export const executeSchedulePublish = createServerFn({ method: "POST" })
       data.revision,
       data.reviewedShiftIds,
       data.reviewedEventVersions,
+      data.previewId,
     );
   });
 

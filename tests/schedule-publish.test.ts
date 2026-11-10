@@ -52,6 +52,19 @@ describe("planPublish", () => {
     expect(plan.ops[0]).toMatchObject({ kind: "create", requiresReview: false });
   });
 
+  it("requires an update and review for a proposal mapped to a published event", () => {
+    const plan = planPublish(draftWith([baseShift]), [existing()], { [baseShift.id]: existing().eventId });
+    expect(plan.ops[0]).toMatchObject({ kind: "update", requiresReview: true, eventId: existing().eventId });
+    expect(plan.counts.create).toBe(0);
+    expect(plan.preserved).toHaveLength(0);
+  });
+
+  it("never recreates a mapped proposal whose published event is missing", () => {
+    const plan = planPublish(draftWith([baseShift]), [], { [baseShift.id]: existing().eventId });
+    expect(plan.ops[0]).toMatchObject({ kind: "conflict", eventId: existing().eventId });
+    expect(plan.counts.create).toBe(0);
+  });
+
   it("flags changed referenced occurrences as update requiring review", () => {
     const plan = planPublish(
       draftWith([{ ...baseShift, start: "10:00", existing: { eventId: existing().eventId, occurrenceKey: existing().key, startAt: existing().startAt, splitFromEventId: null, splitFromDate: null } }]),

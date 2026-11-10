@@ -75,17 +75,29 @@ export async function loadPublishPlan(
       { split_from_event_id: e.split_from_event_id, split_from_date: e.split_from_date },
     ]),
   ));
-  const plan = planPublish(content, existing);
+  const { data: mappings, error: mappingError } = await db
+    .from("babysitter_schedule_publish_ops")
+    .select("draft_shift_id,event_id,draft_revision")
+    .eq("family_id", familyId).eq("draft_id", draft.data.id)
+    .eq("status", "applied").not("event_id", "is", null)
+    .order("draft_revision", { ascending: false });
+  if (mappingError) throw new Error("Couldn't confirm previously published proposals. Reload the preview.");
+  const mappedEvents: Record<string, string> = {};
+  for (const row of mappings ?? []) {
+    if (row.event_id && !mappedEvents[row.draft_shift_id]) mappedEvents[row.draft_shift_id] = row.event_id;
+  }
+  const plan = planPublish(content, existing, mappedEvents);
 
   // Record the reviewed calendar version for every referenced event.
   const referencedIds = [...new Set(plan.ops.flatMap((op) => (op.eventId ? [op.eventId] : [])))];
   const eventVersions: Record<string, string> = {};
   if (referencedIds.length > 0) {
-    const { data: versions } = await db
+    const { data: versions, error: versionError } = await db
       .from("events")
       .select("id, updated_at")
       .eq("family_id", familyId)
       .in("id", referencedIds);
+    if (versionError) throw new Error("Couldn't confirm calendar versions. Reload the preview.");
     for (const row of versions ?? []) {
       eventVersions[row.id as string] = row.updated_at as string;
     }
@@ -119,8 +131,9 @@ export async function executePublish(
   expectedRevision: number,
   reviewedShiftIds: string[],
   reviewedEventVersions: Record<string, string>,
+  previewId: string,
 ): Promise<PublishExecutionResult> {
-  const { draft, plan, timeZone, babysitterSourceId } = await loadPublishPlan(
+  const { draft, timeZone, babysitterSourceId } = await loadPublishPlan(
     db,
     userId,
     familyId,
@@ -129,6 +142,17 @@ export async function executePublish(
   if (draft.revision !== expectedRevision) {
     throw new Error("This draft changed since you reviewed it. Reload the preview before publishing.");
   }
+
+  // Only the server can write these snapshots. Client-echoed versions cannot
+  // replace the immutable reviewed identity/version with a newer one.
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: preview, error: previewError } = await supabaseAdmin
+    .from("babysitter_schedule_publish_previews").select("plan,event_versions")
+    .eq("id", previewId).eq("family_id", familyId).eq("draft_id", draft.id)
+    .eq("draft_revision", expectedRevision).eq("created_by", userId).single();
+  if (previewError || !preview) throw new Error("Reload the publish preview before publishing.");
+  const plan = preview.plan as unknown as PublishPlan;
+  const immutableVersions = preview.event_versions as Record<string, string>;
 
   const updateEventIds = plan.ops.flatMap((op) =>
     op.kind === "update" && op.eventId ? [op.eventId] : [],
@@ -189,7 +213,8 @@ export async function executePublish(
       // Bind execution to the exact reviewed calendar version. A missing
       // version means the preview predates this op — reject, never substitute
       // a freshly loaded version.
-      if (op.kind === "update" && op.eventId && !reviewedEventVersions[op.eventId]) {
+      if (op.kind === "update" && (!op.eventId || !immutableVersions[op.eventId]
+        || reviewedEventVersions[op.eventId] !== immutableVersions[op.eventId])) {
         result.conflicts.push({
           shiftId: op.shiftId,
           reason: "This change was not part of the reviewed preview. Reload the preview before publishing.",
@@ -199,10 +224,11 @@ export async function executePublish(
       }
 
       const opPayload = {
+        previewId,
         kind: op.kind,
         eventId: op.eventId,
         occurrenceDate: op.occurrenceDate,
-        expectedUpdatedAt: op.eventId ? (reviewedEventVersions[op.eventId] ?? null) : null,
+        expectedUpdatedAt: op.eventId ? (immutableVersions[op.eventId] ?? null) : null,
       };
       const opKey = `${draft.id}:${op.shiftId}:${draft.revision}`;
       try {
