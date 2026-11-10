@@ -295,6 +295,13 @@
       "when": 1794329426068,
       "tag": "0041_schedule_publish_qa_gate",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1794339196777,
+      "tag": "0042_babysitter_coverage_settings",
+      "breakpoints": true
     }
   ]
 }

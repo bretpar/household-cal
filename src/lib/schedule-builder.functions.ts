@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadFamilyBundle, type Db } from "@/lib/calendar-ops";
 import { type ReferencedEvent, draftSchema, monthSchema, templateSchema, monthDates, type Assignment, type ScheduleDraft, type ScheduleTemplate } from "@/lib/schedule-builder";
+import { sourceHealth, type CoverageSettings, type ParentCalendar } from "@/lib/smart-coverage";
 import type { supabase } from "@/integrations/supabase/client";
 type Client = typeof supabase;
 const scope = z.object({ familyId: z.uuid(), month: monthSchema });
@@ -23,7 +24,7 @@ export const loadScheduleWorkspace = createServerFn({ method: "GET" }).middlewar
     const dates = monthDates(data.month);
     const [bundle, family, draft, templates, lineage] = await Promise.all([
       loadFamilyBundle(db as unknown as Db, context.userId, undefined, { from: `${data.month}-01`, to: dates.at(-1) ?? `${data.month}-01` }),
-      db.from("families").select("timezone").eq("id", data.familyId).single().throwOnError(),
+      db.from("families").select("timezone,default_babysitter_member_id").eq("id", data.familyId).single().throwOnError(),
       db.from("babysitter_schedule_drafts").select("*").eq("family_id", data.familyId).eq("month", `${data.month}-01`).maybeSingle().throwOnError(),
       db.from("babysitter_schedule_templates").select("*").eq("family_id", data.familyId).order("name").throwOnError(),
       db.from("events").select("id,split_from_event_id,split_from_date").eq("family_id", data.familyId).not("split_from_event_id", "is", null).throwOnError(),
@@ -40,7 +41,8 @@ export const loadScheduleWorkspace = createServerFn({ method: "GET" }).middlewar
       for (const r of rows.data ?? []) referenced[r.id] = { onSitterCalendar: r.calendar_source_id === bundle.family?.babysitter_calendar_source_id,
         month: formatInTimeZone(new Date(r.start_at), family.data.timezone, "yyyy-MM"), recurring: !!r.recurrence_rule };
     }
-    return { referenced, checkedEventIds: refIds, bundle, timeZone: family.data.timezone, draft: draft.data ? { revision: draft.data.revision, content: draftSchema.parse(draft.data.content) } : null,
+    const coverage = await loadCoverageSettings(db, data.familyId, bundle.family?.babysitter_calendar_source_id ?? null);
+    return { coverage, regularCaregiverId: family.data.default_babysitter_member_id ?? null, referenced, checkedEventIds: refIds, bundle, timeZone: family.data.timezone, draft: draft.data ? { revision: draft.data.revision, content: draftSchema.parse(draft.data.content) } : null,
       templates: (templates.data ?? []).map(t => ({ id: t.id, name: t.name, revision: t.revision, content: templateSchema.parse(t.content) })),
       lineage: Object.fromEntries((lineage.data ?? []).map(e => [e.id, { split_from_event_id: e.split_from_event_id, split_from_date: e.split_from_date }])),
     };
@@ -68,4 +70,42 @@ export const saveScheduleTemplate = createServerFn({ method: "POST" }).middlewar
     const { data: row, error } = await context.supabase.from("babysitter_schedule_templates").insert({ family_id: data.familyId, name: data.name, content }).select("id").single();
     if (error || !row) throw new Error("Template could not be saved.");
     return { id: row.id };
+  });
+/** Work-calendar choices and their current health; read-only for the calendars themselves. */
+async function loadCoverageSettings(db: Client, familyId: string, sitterSourceId: string | null) {
+  const [settings, sources] = await Promise.all([
+    db.from("babysitter_coverage_settings").select("*").eq("family_id", familyId).maybeSingle().throwOnError(),
+    db.from("calendar_sources").select("id,name,active,provider,sync_error,sync_paused_at,sync_status,last_synced_at").eq("family_id", familyId).order("sort_order").throwOnError(),
+  ]);
+  const rows = (sources.data ?? []).filter(r => r.id !== sitterSourceId);
+  const s = settings.data;
+  const parent = (label: string, id: string | null): ParentCalendar => {
+    const row = id ? rows.find(r => r.id === id) : undefined;
+    return { label, sourceId: id, sourceName: row?.name ?? null, health: !id ? "missing" : sourceHealth(row) };
+  };
+  return {
+    settings: { parents: [parent(s?.parent_one_label ?? "Dad", s?.parent_one_source_id ?? null), parent(s?.parent_two_label ?? "Mom", s?.parent_two_source_id ?? null)] as [ParentCalendar, ParentCalendar],
+      bufferBefore: s?.buffer_before_minutes ?? 0, bufferAfter: s?.buffer_after_minutes ?? 0 } satisfies CoverageSettings,
+    sources: rows.filter(r => r.active).map(r => ({ id: r.id, name: r.name, provider: r.provider })),
+  };
+}
+const coverageInput = z.object({ familyId: z.uuid(),
+  parents: z.array(z.object({ label: z.string().trim().min(1).max(40), sourceId: z.uuid().nullable() })).length(2),
+  bufferBefore: z.number().int().min(0).max(240), bufferAfter: z.number().int().min(0).max(240) });
+export const saveCoverageSettings = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator(data => coverageInput.parse(data)).handler(async ({ data, context }) => {
+    const db = context.supabase; await owner(db, context.userId, data.familyId);
+    const ids = [...new Set(data.parents.flatMap(p => p.sourceId ? [p.sourceId] : []))];
+    if (ids.length) {
+      const fam = await db.from("families").select("babysitter_calendar_source_id").eq("id", data.familyId).single().throwOnError();
+      const { data: rows, error } = await db.from("calendar_sources").select("id").eq("family_id", data.familyId).eq("active", true).in("id", ids);
+      if (error || rows?.length !== ids.length || ids.includes(fam.data?.babysitter_calendar_source_id ?? "")) throw new Error("Choose a current household calendar other than the Babysitter calendar.");
+    }
+    const [one, two] = data.parents as [typeof data.parents[0], typeof data.parents[0]];
+    const { error } = await db.from("babysitter_coverage_settings").upsert({ family_id: data.familyId,
+      parent_one_label: one.label, parent_one_source_id: one.sourceId,
+      parent_two_label: two.label, parent_two_source_id: two.sourceId,
+      buffer_before_minutes: data.bufferBefore, buffer_after_minutes: data.bufferAfter, updated_at: new Date().toISOString() });
+    if (error) throw new Error("Coverage settings could not be saved.");
+    return { ok: true };
   });

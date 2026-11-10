@@ -244,6 +244,61 @@ export type Database = {
           },
         ]
       }
+      babysitter_coverage_settings: {
+        Row: {
+          buffer_after_minutes: number
+          buffer_before_minutes: number
+          family_id: string
+          parent_one_label: string
+          parent_one_source_id: string | null
+          parent_two_label: string
+          parent_two_source_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          buffer_after_minutes?: number
+          buffer_before_minutes?: number
+          family_id: string
+          parent_one_label?: string
+          parent_one_source_id?: string | null
+          parent_two_label?: string
+          parent_two_source_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          buffer_after_minutes?: number
+          buffer_before_minutes?: number
+          family_id?: string
+          parent_one_label?: string
+          parent_one_source_id?: string | null
+          parent_two_label?: string
+          parent_two_source_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "babysitter_coverage_settings_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: true
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "babysitter_coverage_settings_parent_one_source_id_fkey"
+            columns: ["parent_one_source_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "babysitter_coverage_settings_parent_two_source_id_fkey"
+            columns: ["parent_two_source_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       babysitter_schedule_drafts: {
         Row: {
           content: Json

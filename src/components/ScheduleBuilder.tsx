@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronLeft, ChevronRight, Plus, Save, Trash2, Pencil, LockKeyhole, Repeat2, Move, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Save, Trash2, Pencil, LockKeyhole, ShieldCheck, Repeat2, Move, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { useCalendar } from "@/lib/calendar-store";
 import { getVerifiedMembership } from "@/lib/auth-guard";
 import { ScheduleReviewDialog } from "@/components/ScheduleReviewDialog";
+import { SmartCoverageDialog } from "@/components/SmartCoverageDialog";
+import { suggestionToShift, ignoreSuggestion, setNoCare } from "@/lib/smart-coverage";
 import { cn } from "@/lib/utils";
 import { useScheduleDrag } from "@/hooks/use-schedule-drag";
 import { monthDates, shiftMonth, buildTemplate, appendProposals, proposalNeedsReview, proposalOrphaned, convertOrphanToNew, orphanStatus, orphanLabel, existingMonthShifts, draftSchema, templateSchema,
@@ -58,6 +60,7 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
   const [moving, setMoving] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [coverageOpen, setCoverageOpen] = useState(false);
   const draftRef = useRef(draft); const dirtyRef = useRef(false); const savingRef = useRef(false);
   const acceptSaved = (saved: WorkspaceData) => {
     const content = saved.draft?.content ?? { shifts: [] };
@@ -122,7 +125,7 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
         <Button variant="outline" disabled={busy} onClick={() => setTemplateOpen(true)}>Build from Template</Button>
         <Button disabled={busy || conflict || (!dirty && revision > 0)} onClick={() => void saveDraft()}><Save className="h-4 w-4" />Save Draft</Button></div>
     </div>
-    <div className="flex flex-wrap items-center justify-between gap-3 text-xs"><div className="flex gap-4"><span className="text-member-sky-ink">● Existing</span><span className="text-member-sage-ink">● Proposed</span><span className="text-member-amber-ink">● Modified proposal</span></div><Button variant="outline" disabled={busy} onClick={() => setReviewOpen(true)}><LockKeyhole className="h-4 w-4" />Review Schedule</Button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3 text-xs"><div className="flex gap-4"><span className="text-member-sky-ink">● Existing</span><span className="text-member-sage-ink">● Proposed</span><span className="text-member-amber-ink">● Modified proposal</span></div><div className="flex gap-2"><Button variant="outline" disabled={busy} onClick={() => setCoverageOpen(true)}><ShieldCheck className="h-4 w-4" />Check Coverage</Button><Button variant="outline" disabled={busy} onClick={() => setReviewOpen(true)}><LockKeyhole className="h-4 w-4" />Review Schedule</Button></div></div>
     <dl className="grid grid-cols-4 divide-x divide-border border-y border-border py-3">
       {[["Proposed shifts", summary.proposals], ["Proposed hours", Number(summary.hours.toFixed(2))], ["Existing calendar shifts", summary.existing], ["Template conflicts", summary.conflicts]].map(([label, value]) => <div key={label} className="px-4 first:pl-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="text-xl font-semibold tabular-nums">{value}</dd></div>)}
     </dl>
@@ -155,11 +158,17 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
       onSave={s => { command({ kind: "keep", shift: s }); setEditing(null); }}
       onRemove={draft.shifts.some(s => s.id === editing.id) ? () => { command({ kind: "remove", ids: [editing.id] }); setEditing(null); } : undefined} />}
     {bulkOpen && <BulkCaregiverDialog count={selection.length} caregivers={caregivers} onClose={() => setBulkOpen(false)} onApply={assignment => { command({ kind: "assign", ids: selection, assignment }); setBulkOpen(false); }} />}
+    {coverageOpen && <SmartCoverageDialog familyId={familyId} month={month} timeZone={data.timeZone} coverage={data.coverage} events={data.bundle.events} existing={existing}
+      draft={draft} lineage={data.lineage} caregivers={caregivers} regularCaregiverId={data.regularCaregiverId} onClose={() => setCoverageOpen(false)}
+      onAdd={(sg, a) => { const shift = suggestionToShift(sg, a, crypto.randomUUID()); const next = appendProposals(draftRef.current, [shift], existing);
+        if (next.shifts.some(x => x.id === shift.id)) modify(next); else setMessage("That shift is already in the draft or on the calendar."); }}
+      onDraft={(kind, value) => modify(kind === "ignore" ? ignoreSuggestion(draftRef.current, value) : setNoCare(draftRef.current, value, kind === "noCare"))}
+      onSettingsSaved={async () => { await reload(); }} />}
     {reviewOpen && <ScheduleReviewDialog familyId={familyId} month={month} draft={draft} revision={revision} dirty={dirty} existing={existing} members={data.bundle.members} timeZone={data.timeZone} onClose={() => setReviewOpen(false)} />}
   </div>;
 }
 
-function CaregiverSelect({ value, onChange, caregivers }: { value: Assignment; onChange: (a: Assignment) => void; caregivers: FamilyMember[] }) {
+export function CaregiverSelect({ value, onChange, caregivers }: { value: Assignment; onChange: (a: Assignment) => void; caregivers: FamilyMember[] }) {
   return <div className={fieldClass}><label>Caregiver</label><Select value={value.kind === "caregiver" ? value.family_member_id : value.kind} onValueChange={v => onChange(v === "none" ? { kind: "none" } : v === "other" ? { kind: "other", name: "" } : { kind: "caregiver", family_member_id: v })}><SelectTrigger aria-label="Caregiver"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Unassigned</SelectItem>{caregivers.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}<SelectItem value="other">Other</SelectItem></SelectContent></Select>{value.kind === "other" && <Input aria-label="Other caregiver name" placeholder="Caregiver name" maxLength={100} value={value.name} onChange={e => onChange({ kind: "other", name: e.target.value })} />}</div>;
 }
 function BulkCaregiverDialog({ count, caregivers, onClose, onApply }: { count: number; caregivers: FamilyMember[]; onClose: () => void; onApply: (a: Assignment) => void }) {

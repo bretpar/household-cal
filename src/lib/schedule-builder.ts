@@ -20,7 +20,9 @@ export const shiftSchema = z.object({
   }).optional(),
 }).refine(s => s.start < s.end, { message: "End time must be after start time (same day)." });
 export type ProposedShift = z.infer<typeof shiftSchema>;
-export const draftSchema = z.object({ shifts: z.array(shiftSchema).max(500) }).superRefine((d, ctx) => {
+/** Smart Coverage decisions, private to the monthly draft; never published. */
+export const coverageDecisionsSchema = z.object({ ignored: z.array(z.string().max(40)).max(500), noCare: z.array(dateSchema).max(31) });
+export const draftSchema = z.object({ shifts: z.array(shiftSchema).max(500), coverage: coverageDecisionsSchema.optional() }).superRefine((d, ctx) => {
   const ids = new Set<string>(); const refs = new Set<string>();
   for (const s of d.shifts) {
     if (ids.has(s.id) || (s.existing && refs.has(s.existing.occurrenceKey))) ctx.addIssue({ code: "custom", message: "Duplicate draft shift identity." });
@@ -148,7 +150,7 @@ export function convertOrphanToNew(draft: ScheduleDraft, id: string, existing: E
   if (!shift || !proposalOrphaned(shift, existing)) return { draft, added: false };
   const { existing: _ref, ...rest } = shift;
   const fresh: ProposedShift = { ...rest, id: makeId() };
-  const next = appendProposals({ shifts: draft.shifts.filter(s => s.id !== id) }, [fresh], existing);
+  const next = appendProposals({ ...draft, shifts: draft.shifts.filter(s => s.id !== id) }, [fresh], existing);
   return { draft: next, added: next.shifts.some(s => s.id === fresh.id) };
 }
 
@@ -160,7 +162,7 @@ export function appendProposals(draft: ScheduleDraft, shifts: ProposedShift[], e
       || result.some(p => p.id === shift.id || sameIdentity(shift, p) || (!shift.existing && sameSlot(shift, p)))) continue;
     result.push(shift);
   }
-  return draftSchema.parse({ shifts: result });
+  return draftSchema.parse({ ...draft, shifts: result });
 }
 
 /** All editor commands affect proposals only, retaining original occurrence references. */
@@ -182,7 +184,7 @@ export function editSchedule(draft: ScheduleDraft, month: string, command: Sched
     }
     case "remove": shifts = shifts.filter(s => !command.ids.includes(s.id)); break;
   }
-  const next = draftSchema.parse({ shifts });
+  const next = draftSchema.parse({ ...draft, shifts });
   if (next.shifts.some(s => !s.date.startsWith(`${month}-`))) throw new Error("Proposals must stay in the selected month.");
   return next;
 }
