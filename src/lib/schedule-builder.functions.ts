@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadFamilyBundle, type Db } from "@/lib/calendar-ops";
-import { draftSchema, monthSchema, templateSchema, monthDates, type Assignment, type ScheduleDraft, type ScheduleTemplate } from "@/lib/schedule-builder";
+import { type ReferencedEvent, draftSchema, monthSchema, templateSchema, monthDates, type Assignment, type ScheduleDraft, type ScheduleTemplate } from "@/lib/schedule-builder";
 import type { supabase } from "@/integrations/supabase/client";
 type Client = typeof supabase;
 const scope = z.object({ familyId: z.uuid(), month: monthSchema });
@@ -29,7 +29,18 @@ export const loadScheduleWorkspace = createServerFn({ method: "GET" }).middlewar
       db.from("events").select("id,split_from_event_id,split_from_date").eq("family_id", data.familyId).not("split_from_event_id", "is", null).throwOnError(),
     ]);
     if (bundle.family?.id !== data.familyId || !family.data) throw new Error("Household changed. Reopen the schedule builder.");
-    return { bundle, timeZone: family.data.timezone, draft: draft.data ? { revision: draft.data.revision, content: draftSchema.parse(draft.data.content) } : null,
+    // Locate every event a saved proposal references, in any month, so a missing
+    // occurrence can be told apart from a deleted one. Fails closed on error.
+    const savedDraft = draft.data ? draftSchema.parse(draft.data.content) : null;
+    const refIds = [...new Set((savedDraft?.shifts ?? []).flatMap(s => s.existing ? [s.existing.eventId] : []))];
+    const referenced: Record<string, ReferencedEvent> = {};
+    if (refIds.length) {
+      const { formatInTimeZone } = await import("date-fns-tz");
+      const rows = await db.from("events").select("id,calendar_source_id,start_at,recurrence_rule").eq("family_id", data.familyId).in("id", refIds).throwOnError();
+      for (const r of rows.data ?? []) referenced[r.id] = { onSitterCalendar: r.calendar_source_id === bundle.family?.babysitter_calendar_source_id,
+        month: formatInTimeZone(new Date(r.start_at), family.data.timezone, "yyyy-MM"), recurring: !!r.recurrence_rule };
+    }
+    return { referenced, checkedEventIds: refIds, bundle, timeZone: family.data.timezone, draft: draft.data ? { revision: draft.data.revision, content: draftSchema.parse(draft.data.content) } : null,
       templates: (templates.data ?? []).map(t => ({ id: t.id, name: t.name, revision: t.revision, content: templateSchema.parse(t.content) })),
       lineage: Object.fromEntries((lineage.data ?? []).map(e => [e.id, { split_from_event_id: e.split_from_event_id, split_from_date: e.split_from_date }])),
     };

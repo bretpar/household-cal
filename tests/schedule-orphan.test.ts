@@ -29,3 +29,18 @@ describe("orphaned change proposals", () => {
     expect(r.added).toBe(false); expect(r.draft.shifts[0].id).toBe("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
   });
 });
+import { orphanStatus } from "@/lib/schedule-builder";
+describe("orphan status", () => {
+  it("labels a shift moved to another month as moved, not deleted, and keeps it a conflict", () => {
+    expect(orphanStatus(orphan, [], { [ev]: { onSitterCalendar: true, month: "2027-01", recurring: false } }, [ev], "2026-12")).toBe("moved");
+    expect(scheduleSummary({ shifts: [orphan] }, []).conflicts).toBe(1);
+  });
+  it("is deleted only when the server checked and found nothing", () => {
+    expect(orphanStatus(orphan, [], {}, [ev], "2026-12")).toBe("deleted");
+    expect(orphanStatus(orphan, [], {}, [], "2026-12")).toBe("unresolved");
+  });
+  it("is unresolved for a recurring master or an event off the Babysitter calendar", () => {
+    expect(orphanStatus(orphan, [], { [ev]: { onSitterCalendar: true, month: "2026-11", recurring: true } }, [ev], "2026-12")).toBe("unresolved");
+    expect(orphanStatus(orphan, [], { [ev]: { onSitterCalendar: false, month: "2027-01", recurring: false } }, [ev], "2026-12")).toBe("unresolved");
+  });
+});

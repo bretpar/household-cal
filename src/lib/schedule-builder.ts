@@ -120,6 +120,27 @@ export function proposalOrphaned(shift: ProposedShift, existing: ExistingShift[]
   return !!shift.existing && !existing.some(e => sameIdentity(shift, e));
 }
 
+export interface ReferencedEvent { onSitterCalendar: boolean; month: string; recurring: boolean }
+/**
+ * Why a referenced occurrence is missing from this month. "deleted" only when the
+ * server looked the event up and it no longer exists; "moved" when it now starts
+ * in another month on the Babysitter calendar; otherwise "unresolved". All stay conflicts.
+ */
+export type OrphanStatus = "deleted" | "moved" | "unresolved";
+export function orphanStatus(shift: ProposedShift, existing: ExistingShift[], referenced: Record<string, ReferencedEvent>,
+  checkedEventIds: readonly string[], month: string): OrphanStatus | null {
+  if (!proposalOrphaned(shift, existing)) return null;
+  const id = shift.existing!.eventId; const row = referenced[id];
+  if (!row) return checkedEventIds.includes(id) ? "deleted" : "unresolved";
+  if (row.onSitterCalendar && !row.recurring && row.month !== month) return "moved";
+  return "unresolved";
+}
+export const orphanLabel: Record<OrphanStatus, string> = {
+  deleted: "Original calendar shift no longer exists",
+  moved: "Original calendar shift moved to another month",
+  unresolved: "Original calendar shift isn't in this month — check the calendar",
+};
+
 /** Owner-confirmed: drop the dead reference and re-add as a standalone proposal through normal reconciliation.
  * Never recreates or restores the deleted occurrence; a duplicate of an existing slot or proposal is dropped. */
 export function convertOrphanToNew(draft: ScheduleDraft, id: string, existing: ExistingShift[], makeId: () => string): { draft: ScheduleDraft; added: boolean } {
