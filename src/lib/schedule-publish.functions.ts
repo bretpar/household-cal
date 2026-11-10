@@ -63,7 +63,12 @@ export const executeSchedulePublish = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const db = context.supabase;
     await owner(db, context.userId, data.familyId);
-    const { executePublish } = await import("@/lib/schedule-publish.server");
+    const { executePublish, PUBLISH_EXECUTION_ENABLED } = await import("@/lib/schedule-publish.server");
+    // Phase 3A execution lock: publishing stays disabled for everyone,
+    // including direct server-function callers, until Review & Publish ships.
+    if (!PUBLISH_EXECUTION_ENABLED) {
+      throw new Error("Schedule publishing is turned off while the publish foundation is under review.");
+    }
     return executePublish(
       db as unknown as Db,
       context.userId,

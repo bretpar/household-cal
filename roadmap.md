@@ -230,3 +230,8 @@
 - [x] Owner-gated publish planning classifies draft shifts (unchanged/create/update/conflict) by stored identity only; unreferenced occurrences preserved, updates require explicit reviewed intent.
 - [x] Idempotent execution service and journal/outbox (migration 0032): per-shift op keys, durable payloads, run records, Timesheet reconcile holds and bounded Google pushes; no UI wired, no live writes.
 - [x] Durable Google deletion outbox with owner-gated replay; failed deletions keep retry metadata and uncertain creates are never re-inserted. Codex handles targeted verification; no publishing.
+
+## Phase 3A Repair 1 — Local publishing safety
+- [x] Server-side execution lock rejects all publishing (including direct callers); planning stays available.
+- [x] Migration 0033: dropped per-shift unique mismatch, added atomic apply_schedule_publish_op RPC — single-transaction claim, event, participants, assignment and journal; stale-version revalidation; metadata-preserving updates; recurring single-occurrence exclusion+detached lineage; exclusions rejected as unsupported.
+- [x] Executor reconciles prior and new caregivers via existing holds; Google delivery deferred (no Google writes). Codex handles targeted checks; no publishing.

@@ -232,6 +232,13 @@
       "when": 1794278759296,
       "tag": "0032_schedule_publish_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794279500015,
+      "tag": "0033_schedule_publish_atomic_ops",
+      "breakpoints": true
     }
   ]
 }

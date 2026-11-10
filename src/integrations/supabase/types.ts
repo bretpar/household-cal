@@ -2109,6 +2109,19 @@ export type Database = {
         Returns: Json
       }
       account_deletion_blocked: { Args: { _user_id: string }; Returns: boolean }
+      apply_schedule_publish_op: {
+        Args: {
+          _draft: string
+          _family: string
+          _op: Json
+          _revision: number
+          _run: string
+          _shift: Json
+          _source: string
+          _timezone: string
+        }
+        Returns: Json
+      }
       babysitter_membership: { Args: { _family_id: string }; Returns: string }
       can_edit_family: { Args: { _family_id: string }; Returns: boolean }
       can_read_calendar_source: {

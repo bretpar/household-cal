@@ -1,22 +1,18 @@
 /**
  * Server-side execution service for publishing a private Babysitter Schedule
  * Builder draft. Owner-authorized callers only (the server functions gate
- * first); every write is idempotent on a per-draft-shift operation key, and
- * the operation journal survives interruption for recovery.
+ * first); every operation is claimed and applied by the atomic
+ * apply_schedule_publish_op RPC, so event, participants, caregiver assignment
+ * and journal mapping commit or roll back together.
  *
- * Local event, member and caregiver-assignment writes reuse the existing
- * atomic calendar helpers and Timesheet reconciliation holds — no separate
- * calendar engine. Google pushes keep their bounded-wait semantics: a wait
- * that expires leaves the operation "pending", never "synced".
+ * Publishing is disabled for everyone while Phase 3A is under review: the
+ * execution gate below rejects all mutation, including direct server-function
+ * calls. Planning/preview stays available. Google delivery is deliberately
+ * deferred — no Google writes happen here.
  */
-import { fromZonedTime } from "date-fns-tz";
 import {
-  applyEventDelete,
-  applyEventUpdate,
-  insertEvent,
   loadFamilyBundle,
   type Db,
-  type EventInput,
 } from "@/lib/calendar-ops";
 import {
   finishReconcile,
@@ -28,36 +24,16 @@ import { draftSchema, monthDates, type ProposedShift } from "@/lib/schedule-buil
 import { planPublish, type PublishPlan } from "@/lib/schedule-publish";
 import type { Assignment } from "@/lib/schedule-builder";
 
+/** Phase 3A execution lock: no user or direct caller can publish yet. */
+export const PUBLISH_EXECUTION_ENABLED = false;
+
 export interface PublishExecutionResult {
   runId: string;
   applied: number;
   skipped: number;
   needsAttention: number;
   conflicts: { shiftId: string; reason: string }[];
-  google: "synced" | "pending" | "failed" | "unlinked";
   timesheetReconcile: "ok" | "pending";
-}
-
-function shiftToEventInput(
-  shift: ProposedShift,
-  timeZone: string,
-  sourceId: string | null,
-): EventInput {
-  const startAt = fromZonedTime(`${shift.date}T${shift.start}:00`, timeZone);
-  const endAt = fromZonedTime(`${shift.date}T${shift.end}:00`, timeZone);
-  return {
-    calendar_source_id: sourceId,
-    title: shift.title,
-    start_at: startAt.toISOString(),
-    end_at: endAt.toISOString(),
-    all_day: false,
-    location: null,
-    notes: null,
-    event_type: "childcare",
-    recurrence_rule: null,
-    member_ids: [],
-    babysitter_assignment: shift.assignment as EventInput["babysitter_assignment"],
-  };
 }
 
 /**
@@ -74,6 +50,8 @@ export async function loadPublishPlan(
   plan: PublishPlan;
   timeZone: string;
   babysitterSourceId: string | null;
+  /** Reviewed calendar version per referenced event, revalidated at execution. */
+  eventVersions: Record<string, string>;
 }> {
   const dates = monthDates(month);
   const [bundle, family, draft, lineage] = await Promise.all([
@@ -97,20 +75,37 @@ export async function loadPublishPlan(
       { split_from_event_id: e.split_from_event_id, split_from_date: e.split_from_date },
     ]),
   ));
+  const plan = planPublish(content, existing);
+
+  // Record the reviewed calendar version for every referenced event.
+  const referencedIds = [...new Set(plan.ops.flatMap((op) => (op.eventId ? [op.eventId] : [])))];
+  const eventVersions: Record<string, string> = {};
+  if (referencedIds.length > 0) {
+    const { data: versions } = await db
+      .from("events")
+      .select("id, updated_at")
+      .eq("family_id", familyId)
+      .in("id", referencedIds);
+    for (const row of versions ?? []) {
+      eventVersions[row.id as string] = row.updated_at as string;
+    }
+  }
+
   return {
     draft: { id: draft.data.id as string, revision: draft.data.revision as number, content },
-    plan: planPublish(content, existing),
+    plan,
     timeZone: family.data.timezone as string,
     babysitterSourceId: (family.data.babysitter_calendar_source_id as string | null) ?? null,
+    eventVersions,
   };
 }
 
 /**
- * Applies a planned draft. `reviewedShiftIds` is the explicit reviewed intent:
- * operations that modify or remove an existing occurrence run only when their
- * shift id is present. Creates never touch existing occurrences and need no
- * review. Unreviewed and conflicting operations are left pending in the
- * journal for a later run.
+ * Applies a reviewed draft through the atomic publish RPC. `reviewedShiftIds`
+ * is the explicit reviewed intent: operations that modify an existing
+ * occurrence run only when their shift id is present. Creates never touch
+ * existing occurrences and need no review. Unreviewed and conflicting
+ * operations are left pending in the journal for a later run.
  */
 export async function executePublish(
   db: Db,
@@ -120,7 +115,12 @@ export async function executePublish(
   expectedRevision: number,
   reviewedShiftIds: string[],
 ): Promise<PublishExecutionResult> {
-  const { draft, plan, timeZone, babysitterSourceId } = await loadPublishPlan(db, userId, familyId, month);
+  const { draft, plan, timeZone, babysitterSourceId, eventVersions } = await loadPublishPlan(
+    db,
+    userId,
+    familyId,
+    month,
+  );
   if (draft.revision !== expectedRevision) {
     throw new Error("This draft changed since you reviewed it. Reload the preview before publishing.");
   }
@@ -148,12 +148,16 @@ export async function executePublish(
     skipped: 0,
     needsAttention: 0,
     conflicts: [],
-    google: "unlinked",
     timesheetReconcile: "ok",
   };
   const touchedEventIds: string[] = [];
-  const affectedMembers = new Set<string>();
-  const jobId = await openReconcile(familyId, []);
+  const updateEventIds = plan.ops.flatMap((op) =>
+    op.kind === "update" && op.eventId ? [op.eventId] : [],
+  );
+  // Capture previous caregivers before any change so an unassigned caregiver's
+  // sheet is reconciled too.
+  const priorMembers = updateEventIds.length > 0 ? await shiftMembersOrNull(familyId, updateEventIds) : [];
+  const jobId = await openReconcile(familyId, priorMembers ?? []);
 
   try {
     for (const op of plan.ops) {
@@ -172,102 +176,58 @@ export async function executePublish(
         continue;
       }
 
-      // Idempotency: one journal row per draft shift per revision. A repeated
-      // or concurrent request finds the row and does not re-apply.
-      const opKey = `${draft.id}:${op.shiftId}:${draft.revision}`;
-      const { data: existingOp } = await db
-        .from("babysitter_schedule_publish_ops")
-        .select("id, status, event_id")
-        .eq("family_id", familyId)
-        .eq("op_key", opKey)
-        .maybeSingle();
-      if (existingOp?.status === "applied") {
-        result.skipped += 1;
-        if (existingOp.event_id) touchedEventIds.push(existingOp.event_id as string);
-        continue;
-      }
-
-      const payload = JSON.parse(JSON.stringify({ shift, op }));
-      if (!existingOp) {
-        const { error: insError } = await db.from("babysitter_schedule_publish_ops").insert({
-          family_id: familyId,
-          run_id: runId,
-          draft_id: draft.id,
-          draft_revision: draft.revision,
-          op_key: opKey,
-          draft_shift_id: op.shiftId,
-          kind: op.kind,
-          status: "pending",
-          payload,
-        });
-        if (insError) throw insError;
-      }
-
+      const opPayload = {
+        kind: op.kind,
+        eventId: op.eventId,
+        occurrenceDate: op.occurrenceDate,
+        expectedUpdatedAt: op.eventId ? (eventVersions[op.eventId] ?? null) : null,
+      };
       try {
-        let eventId: string | null = (existingOp?.event_id as string | null) ?? null;
-        if (op.kind === "create") {
-          if (!eventId) {
-            eventId = await insertEvent(db, familyId, shiftToEventInput(shift, timeZone, babysitterSourceId));
-          }
-        } else if (op.kind === "update" && op.eventId && op.occurrenceDate) {
-          const created = await applyEventUpdate(
-            db,
-            op.eventId,
-            op.occurrenceDate,
-            "this",
-            shiftToEventInput(shift, timeZone, babysitterSourceId),
-          );
-          eventId = created ?? op.eventId;
-        } else if (op.kind === "exclude" && op.eventId && op.occurrenceDate) {
-          await applyEventDelete(db, op.eventId, op.occurrenceDate, "this");
-          eventId = op.eventId;
-        } else {
-          throw new Error("Unsupported publish operation.");
-        }
-        if (eventId) touchedEventIds.push(eventId);
-        if (shift.assignment.kind === "caregiver") affectedMembers.add(shift.assignment.family_member_id);
-        await db
-          .from("babysitter_schedule_publish_ops")
-          .update({ status: "applied", event_id: eventId, run_id: runId, updated_at: new Date().toISOString() })
-          .eq("family_id", familyId)
-          .eq("op_key", opKey)
-          .throwOnError();
-        result.applied += 1;
+        if (!db.rpc) throw new Error("Atomic publish operations are unavailable");
+        const { data: rpcResult, error: rpcError } = await db.rpc("apply_schedule_publish_op", {
+          _family: familyId,
+          _draft: draft.id,
+          _revision: draft.revision,
+          _run: runId,
+          _shift: JSON.parse(JSON.stringify(shift)),
+          _op: opPayload,
+          _source: babysitterSourceId,
+          _timezone: timeZone,
+        });
+        if (rpcError) throw rpcError;
+        const outcome = rpcResult as { outcome?: string; event_id?: string } | null;
+        if (outcome?.event_id) touchedEventIds.push(outcome.event_id);
+        if (outcome?.outcome === "already_applied") result.skipped += 1;
+        else result.applied += 1;
       } catch (e) {
-        await db
-          .from("babysitter_schedule_publish_ops")
-          .update({
+        // The RPC rolled back atomically; record the failure for review/retry.
+        await db.from("babysitter_schedule_publish_ops").upsert(
+          {
+            family_id: familyId,
+            run_id: runId,
+            draft_id: draft.id,
+            draft_revision: draft.revision,
+            op_key: `${draft.id}:${op.shiftId}:${draft.revision}`,
+            draft_shift_id: op.shiftId,
+            kind: op.kind,
             status: "needs_attention",
             last_error: (e instanceof Error ? e.message : "Publish step failed").slice(0, 500),
-            run_id: runId,
+            payload: JSON.parse(JSON.stringify({ shift, op: opPayload })),
             updated_at: new Date().toISOString(),
-          })
-          .eq("family_id", familyId)
-          .eq("op_key", opKey);
+          },
+          { onConflict: "family_id,op_key" },
+        );
         result.needsAttention += 1;
       }
     }
 
-    const members = await shiftMembersOrNull(familyId, touchedEventIds);
-    const reconcileMembers = members ?? [...affectedMembers];
-    result.timesheetReconcile = reconcileMembers.length === 0 && members?.length === 0
+    const afterMembers = await shiftMembersOrNull(familyId, touchedEventIds);
+    const reconcileMembers = [
+      ...new Set([...(priorMembers ?? []), ...(afterMembers ?? [])]),
+    ];
+    result.timesheetReconcile = reconcileMembers.length === 0
       ? await releaseReconcile(jobId)
       : await finishReconcile(familyId, jobId, reconcileMembers);
-
-    if (touchedEventIds.length > 0) {
-      const { pushWithDeadline } = await import("@/lib/google/push.server");
-      result.google = await pushWithDeadline(familyId, [...new Set(touchedEventIds)]);
-      // A bounded wait that expires is "pending", never "synced"; per-op
-      // Google state stays queryable from the journal.
-      const googleStatus = result.google === "synced" ? "synced"
-        : result.google === "unlinked" ? "not_applicable" : "pending";
-      await db
-        .from("babysitter_schedule_publish_ops")
-        .update({ google_status: googleStatus, updated_at: new Date().toISOString() })
-        .eq("family_id", familyId)
-        .eq("run_id", runId)
-        .eq("status", "applied");
-    }
 
     await db
       .from("babysitter_schedule_publish_runs")
@@ -287,4 +247,4 @@ export async function executePublish(
   }
 }
 
-export type { Assignment };
+export type { Assignment, ProposedShift };
