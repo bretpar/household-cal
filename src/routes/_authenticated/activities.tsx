@@ -4,7 +4,7 @@ import { hasFeature } from "@/lib/features";
 import { useTimesheetsStatus } from "@/lib/use-timesheets-status";
 import { useMemo, useState } from "react";
 import { addDays, format } from "date-fns";
-import { ChevronLeft, ChevronRight, ClipboardCheck, Info, Pencil, Repeat, Search } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, Info, Pencil, Repeat, Search } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { ParentOnly } from "@/components/CaregiverGate";
@@ -97,6 +97,11 @@ function ActivitiesPage() {
             </p>
           </div>
         </header>
+        {isOwner && (
+          <Button variant="outline" className="hidden w-fit gap-2 lg:flex" onClick={() => void navigate({ to: "/babysitter-schedule" })}>
+            <CalendarDays className="h-4 w-4" />Build Babysitter Schedule
+          </Button>
+        )}
         {tab === "hub" ? (
           <div className="space-y-5">
             <Button

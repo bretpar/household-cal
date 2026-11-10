@@ -22,6 +22,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as DotwellKnownAppleAppSiteAssociationRouteImport } from './routes/[.]well-known.apple-app-site-association'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AuthenticatedActivitiesRouteImport } from './routes/_authenticated/activities'
+import { Route as AuthenticatedBabysitterScheduleRouteImport } from './routes/_authenticated/babysitter-schedule'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedFamilyRouteImport } from './routes/_authenticated/family'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
@@ -112,6 +113,12 @@ const AuthenticatedActivitiesRoute = AuthenticatedActivitiesRouteImport.update({
   path: '/activities',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedBabysitterScheduleRoute =
+  AuthenticatedBabysitterScheduleRouteImport.update({
+    id: '/babysitter-schedule',
+    path: '/babysitter-schedule',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
@@ -251,6 +258,7 @@ export interface FileRoutesByFullPath {
   '/.well-known/apple-app-site-association': typeof DotwellKnownAppleAppSiteAssociationRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/activities': typeof AuthenticatedActivitiesRoute
+  '/babysitter-schedule': typeof AuthenticatedBabysitterScheduleRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/family': typeof AuthenticatedFamilyRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
@@ -288,6 +296,7 @@ export interface FileRoutesByTo {
   '/.well-known/apple-app-site-association': typeof DotwellKnownAppleAppSiteAssociationRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/activities': typeof AuthenticatedActivitiesRoute
+  '/babysitter-schedule': typeof AuthenticatedBabysitterScheduleRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/family': typeof AuthenticatedFamilyRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
@@ -327,6 +336,7 @@ export interface FileRoutesById {
   '/.well-known/apple-app-site-association': typeof DotwellKnownAppleAppSiteAssociationRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/activities': typeof AuthenticatedActivitiesRoute
+  '/_authenticated/babysitter-schedule': typeof AuthenticatedBabysitterScheduleRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/family': typeof AuthenticatedFamilyRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
@@ -366,6 +376,7 @@ export interface FileRouteTypes {
     | '/.well-known/apple-app-site-association'
     | '/.well-known/oauth-protected-resource'
     | '/activities'
+    | '/babysitter-schedule'
     | '/calendar'
     | '/family'
     | '/onboarding'
@@ -403,6 +414,7 @@ export interface FileRouteTypes {
     | '/.well-known/apple-app-site-association'
     | '/.well-known/oauth-protected-resource'
     | '/activities'
+    | '/babysitter-schedule'
     | '/calendar'
     | '/family'
     | '/onboarding'
@@ -441,6 +453,7 @@ export interface FileRouteTypes {
     | '/.well-known/apple-app-site-association'
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/activities'
+    | '/_authenticated/babysitter-schedule'
     | '/_authenticated/calendar'
     | '/_authenticated/family'
     | '/_authenticated/onboarding'
@@ -588,6 +601,13 @@ declare module '@tanstack/react-router' {
       path: '/activities'
       fullPath: '/activities'
       preLoaderRoute: typeof AuthenticatedActivitiesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/babysitter-schedule': {
+      id: '/_authenticated/babysitter-schedule'
+      path: '/babysitter-schedule'
+      fullPath: '/babysitter-schedule'
+      preLoaderRoute: typeof AuthenticatedBabysitterScheduleRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/calendar': {
@@ -756,6 +776,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedActivitiesRoute: typeof AuthenticatedActivitiesRoute
+  AuthenticatedBabysitterScheduleRoute: typeof AuthenticatedBabysitterScheduleRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedFamilyRoute: typeof AuthenticatedFamilyRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
@@ -767,6 +788,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedActivitiesRoute: AuthenticatedActivitiesRoute,
+  AuthenticatedBabysitterScheduleRoute: AuthenticatedBabysitterScheduleRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedFamilyRoute: AuthenticatedFamilyRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,

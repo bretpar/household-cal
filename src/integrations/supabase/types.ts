@@ -244,6 +244,76 @@ export type Database = {
           },
         ]
       }
+      babysitter_schedule_drafts: {
+        Row: {
+          content: Json
+          family_id: string
+          id: string
+          month: string
+          revision: number
+          updated_at: string
+        }
+        Insert: {
+          content?: Json
+          family_id: string
+          id?: string
+          month: string
+          revision?: number
+          updated_at?: string
+        }
+        Update: {
+          content?: Json
+          family_id?: string
+          id?: string
+          month?: string
+          revision?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "babysitter_schedule_drafts_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      babysitter_schedule_templates: {
+        Row: {
+          content: Json
+          family_id: string
+          id: string
+          name: string
+          revision: number
+          updated_at: string
+        }
+        Insert: {
+          content: Json
+          family_id: string
+          id?: string
+          name: string
+          revision?: number
+          updated_at?: string
+        }
+        Update: {
+          content?: Json
+          family_id?: string
+          id?: string
+          name?: string
+          revision?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "babysitter_schedule_templates_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       babysitter_shifts: {
         Row: {
           assignee_member_id: string | null

@@ -1,5 +1,10 @@
 # Roadmap
 
+## Desktop Babysitter Schedule Builder — Phase 1
+- [x] Add owner-only private monthly drafts and reusable templates with revision conflicts in migration 0031.
+- [x] Add a desktop month workspace with preserved existing occurrences, editable proposals, and disabled publishing; same-day proposals only, overnight/all-day existing shifts remain read-only.
+- [x] Prepare scoped implementation for commit; three small engine-rule tests and automatic compilation pass. No browser QA or publication; end-to-end, timezone and concurrency verification remain with Codex.
+
 ## Recurring-event exclusion resurrection
 - [x] Atomic exclusion RPC and Google-only union trigger in forward-only migration 0030; master updates reject stale versions before link acknowledgement. Existing events and migrations unchanged.
 - [x] Return pending/failed Google deletion outcomes and retain source diagnostics; two updated test files pass and automatic compilation passes. Live concurrency/Google verification and historical repair remain for Codex; no publishing.
