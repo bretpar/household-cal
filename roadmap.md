@@ -1,5 +1,9 @@
 # Roadmap
 
+## Google Sync Repair 2
+- [x] Add exclusive database leases, transactional delivery/deletion intents, deterministic create generations and exact verified operation acknowledgments in migrations 0037–0038; monthly publishing stays disabled and live events untouched.
+- [x] Prepare executable changes and diff evidence; 13 narrow delivery/branch tests pass. Codex still owns real concurrency/Google verification; legacy uncertain creates and incomplete deletion identities fail closed for review. No deployment or publishing.
+
 ## Phase 3A Repair 3 — Publishing concurrency
 - [x] Bind mapped proposals to service-only immutable server-reviewed identities/versions; migration 0036 rejects missing, mismatched, manipulated or stale versions under event row lock.
 - [x] Migration 0036 locks household → monthly draft → journal → event before revision validation/writes; execution remains disabled and prior migrations/live events untouched. Seven planner tests and automatic compilation pass; final concurrency QA remains with Codex.

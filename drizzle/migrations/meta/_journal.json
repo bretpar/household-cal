@@ -260,6 +260,20 @@
       "when": 1794281743984,
       "tag": "0036_schedule_publish_review_and_draft_locks",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794287429311,
+      "tag": "0037_google_delivery_claims_and_transactional_intents",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794287636103,
+      "tag": "0038_google_delivery_version_fencing",
+      "breakpoints": true
     }
   ]
 }

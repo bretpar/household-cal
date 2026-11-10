@@ -248,18 +248,12 @@ export const deleteEventFn = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const sync = await import("@/lib/google/sync.server");
 
-    const wholeEventGone = data.scope === "series";
+    const { data: deleting, error: deletingError } = await db.from("events").select("recurrence_rule").eq("id", data.event_id).single();
+    if (deletingError) throw deletingError;
+    const wholeEventGone = !deleting.recurrence_rule || data.scope === "series";
     const links = wholeEventGone ? await sync.linksForEvent(supabaseAdmin, data.event_id) : [];
-    // Persist the exact remote deletion intent (destination calendar, Google
-    // event id, source identity) before the local rows disappear, so an
-    // interrupted deletion stays retryable from the durable outbox.
-    if (wholeEventGone && links.length > 0) {
-      try {
-        await sync.recordDeletionIntent(supabaseAdmin, familyId, links);
-      } catch (e) {
-        console.error("[google-sync] could not persist deletion intent", e);
-      }
-    }
+    // The BEFORE DELETE trigger stores exact identities in the deletion's
+    // transaction. Failure aborts deletion; rollback exposes no executable intent.
 
     // Capture assigned caregivers before the delete removes the shift rows.
     const shiftMembers = await shiftMembersOrNull(familyId, [data.event_id]);
@@ -275,7 +269,7 @@ export const deleteEventFn = createServerFn({ method: "POST" })
       ? await Promise.race([
           sync.pushEventDeletion(supabaseAdmin, familyId, links).then((outcome) =>
             outcome.ok ? "synced" as const
-              : outcome.skipped === "not_linked" || outcome.skipped === "not_connected"
+              : outcome.skipped === "not_linked"
                 ? "unlinked" as const : "failed" as const,
           ).catch(() => "failed" as const),
           new Promise<"pending">((resolve) => setTimeout(() => resolve("pending"), PUSH_DEADLINE_MS)),
@@ -321,6 +315,14 @@ export const getEventSyncState = createServerFn({ method: "GET" })
       }
 
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: pendingOps, error: pendingError } = await supabaseAdmin.from("google_sync_outbox")
+        .select("status, last_error").eq("family_id", event.family_id).eq("event_id", data.event_id)
+        .in("status", ["pending", "needs_attention"]);
+      if (pendingError) return { state: "pending", error: null };
+      if (pendingOps?.length) {
+        const attention = pendingOps.find((op) => op.status === "needs_attention");
+        return attention ? { state: "failed", error: attention.last_error } : { state: "pending", error: null };
+      }
       const { data: links } = await supabaseAdmin
         .from("event_sync_links")
         .select("google_event_id, sync_error")

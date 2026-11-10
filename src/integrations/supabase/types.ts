@@ -1553,12 +1553,15 @@ export type Database = {
           attempts: number
           calendar_source_id: string | null
           created_at: string
+          delivery_version: string
           event_id: string | null
           family_id: string
           google_event_id: string | null
           id: string
           kind: string
           last_error: string | null
+          lease_token: string | null
+          lease_until: string | null
           op_key: string
           payload: Json
           status: string
@@ -1568,12 +1571,15 @@ export type Database = {
           attempts?: number
           calendar_source_id?: string | null
           created_at?: string
+          delivery_version?: string
           event_id?: string | null
           family_id: string
           google_event_id?: string | null
           id?: string
           kind: string
           last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
           op_key: string
           payload: Json
           status?: string
@@ -1583,12 +1589,15 @@ export type Database = {
           attempts?: number
           calendar_source_id?: string | null
           created_at?: string
+          delivery_version?: string
           event_id?: string | null
           family_id?: string
           google_event_id?: string | null
           id?: string
           kind?: string
           last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
           op_key?: string
           payload?: Json
           status?: string
@@ -2188,6 +2197,26 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_google_delivery_lease: {
+        Args: {
+          _family: string
+          _key: string
+          _token: string
+          _version: string
+        }
+        Returns: boolean
+      }
+      claim_google_delivery: {
+        Args: {
+          _event: string
+          _family: string
+          _key: string
+          _payload: Json
+          _source: string
+          _token: string
+        }
+        Returns: Json
+      }
       complete_onboarding_invitation: {
         Args: { _actor: string; _family: string; _member: string }
         Returns: Json
@@ -2215,6 +2244,10 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_google_inbound_event: {
+        Args: { _event: string; _family: string }
+        Returns: undefined
+      }
       delete_timesheet_entry_atomic: {
         Args: {
           _actor: string
@@ -2237,6 +2270,17 @@ export type Database = {
       family_role_of: {
         Args: { _family_id: string }
         Returns: Database["public"]["Enums"]["family_role"]
+      }
+      finish_google_delivery: {
+        Args: {
+          _error?: string
+          _family: string
+          _key: string
+          _remote: string
+          _token: string
+          _version: string
+        }
+        Returns: boolean
       }
       google_apply_exception_atomic: {
         Args: {
@@ -2292,6 +2336,10 @@ export type Database = {
           _start: string
           _work_date: string
         }
+        Returns: undefined
+      }
+      queue_google_event_delivery: {
+        Args: { _event: string }
         Returns: undefined
       }
       reconcile_shift_timesheets_atomic: {

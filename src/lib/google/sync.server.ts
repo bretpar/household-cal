@@ -64,6 +64,9 @@ import {
   type AnyDb,
 } from "@/lib/timesheets.server";
 
+import { remoteMatchesDelivery, deliveryRemoteId } from "@/lib/google/delivery";
+import * as outbox from "@/lib/google/outbox.server";
+
 type Admin = { from: (table: string) => any };
 
 /**
@@ -143,7 +146,7 @@ async function reconcileSourceTimeZone(
   try {
     await google.setCalendarTimeZone(
       conn.connectionKey,
-      source.external_calendar_id!,
+      source['external_calendar_id']!,
       action.timeZone,
     );
     return action.timeZone;
@@ -283,11 +286,11 @@ async function linkIsUsable(
   link: { calendar_source_id: string; google_event_id: string },
 ): Promise<boolean> {
   const source = sources.find((s) => s.id === link.calendar_source_id);
-  if (!source?.external_calendar_id) return false;
+  if (!source?.['external_calendar_id']) return false;
   try {
     const state = await google.getEventState(
       conn.connectionKey,
-      source.external_calendar_id,
+      source['external_calendar_id'],
       link.google_event_id,
     );
     return state !== "missing";
@@ -347,7 +350,6 @@ async function pruneStaleLinks(
  * opposed to a real outbound failure that must be surfaced and kept.
  */
 export const BENIGN_PUSH_SKIPS = new Set([
-  "not_connected",
   "no_google_calendar",
   "read_only_subscription",
   "google_owned_exception",
@@ -545,15 +547,15 @@ async function staleRecurringBranches(
   const stale: StaleRecurringBranch[] = [];
 
   for (const branch of branches) {
-    const link = links.find((l) => l.branch_key === branch.key);
+    const link = links.find((l) => l['branch_key'] === branch.key);
     if (!link || isExceptionLink(link)) continue;
     const source = sources.find((s) => s.id === link.calendar_source_id);
-    if (!source?.external_calendar_id) continue;
+    if (!source?.['external_calendar_id']) continue;
     let remote: GoogleEvent;
     try {
       remote = await google.getEvent(
         conn.connectionKey,
-        source.external_calendar_id,
+        source['external_calendar_id'],
         link.google_event_id,
       );
     } catch {
@@ -569,7 +571,7 @@ async function staleRecurringBranches(
       stale.push({
         linkId: link.id,
         googleEventId: link.google_event_id,
-        calendarId: source.external_calendar_id!,
+        calendarId: source['external_calendar_id']!,
         reason,
         body,
       });
@@ -588,7 +590,7 @@ async function staleRecurringBranches(
         const probeMax = new Date(Date.now() + 120 * 24 * 60 * 60 * 1000).toISOString();
         const instances = await google.listInstances(
           conn.connectionKey,
-          source.external_calendar_id,
+          source['external_calendar_id'],
           link.google_event_id,
           probeMin,
           probeMax,
@@ -757,7 +759,7 @@ async function loadEvent(admin: Admin, eventId: string): Promise<EventRow | null
     .from("events")
     .select("*, event_members(family_member_id, weekdays)")
     .eq("id", eventId)
-    .maybeSingle();
+    .throwOnError().maybeSingle();
   return (data as EventRow) ?? null;
 }
 
@@ -858,6 +860,7 @@ function branchBody(
         // Per-branch identity lets a retry find the exact series an uncertain
         // first insert may already have created, instead of inserting a copy.
         ofc_branch_key: branch.key,
+        ofc_source_id: event.calendar_source_id ?? "",
       },
     },
     summary: googleTitle(event.title, branchInitials(branch, initials), includeInitials),
@@ -880,11 +883,13 @@ export async function pushEvent(
   admin: Admin,
   familyId: string,
   eventId: string,
+  operation?: outbox.OutboxRow,
 ): Promise<{ pushed?: number; skipped?: string }> {
   const result = await guard(admin, familyId, async () => {
-    const conn = await getConnection(admin, familyId);
-    if (!conn) return { skipped: "not_connected" };
-
+    const { data: pending, error: pendingError } = await admin.from("google_sync_outbox").select("*")
+      .eq("family_id", familyId).eq("op_key", `push:${eventId}`).maybeSingle();
+    if (pendingError) throw pendingError;
+    const umbrella = pending as outbox.OutboxRow | null;
     const event = await loadEvent(admin, eventId);
     if (!event || event.family_id !== familyId) return { skipped: "event_not_found" };
 
@@ -921,7 +926,11 @@ export async function pushEvent(
     }
 
 
-    const sources = await googleSources(admin, familyId);
+    // Delivery uses configured destinations even while their diagnostic is needs_attention.
+    const { data: sourceRows, error: sourceError } = await admin.from("calendar_sources").select("*")
+      .eq("family_id", familyId).eq("provider", "google").not("external_calendar_id", "is", null);
+    if (sourceError) throw sourceError;
+    const sources = (sourceRows ?? []) as SourceRow[];
     if (sources.length === 0) return { skipped: "no_google_calendar" };
     // Events on a Google source sync to that source. Family (and other
     // non-Google) events go only to the explicitly designated main Google
@@ -932,6 +941,8 @@ export async function pushEvent(
       sources.find((s) => s.is_main);
     if (!target) return { skipped: "local_only_calendar" };
 
+    const conn = await getConnection(admin, familyId);
+    if (!conn) return { skipped: "not_connected" };
     const initials = await initialsFor(admin, familyId);
     const includeInitials = await householdIncludesGoogleEventInitials(admin, familyId);
     const participants = (event.event_members ?? []).map((m) => ({
@@ -947,7 +958,7 @@ export async function pushEvent(
     const { data: linkRows } = await admin
       .from("event_sync_links")
       .select("*")
-      .eq("event_id", eventId);
+      .eq("event_id", eventId).eq("family_id", familyId).throwOnError();
     const allLinks = (linkRows ?? []) as LinkRow[];
 
     // Obsolete branch series are removed BEFORE the desired ones are written.
@@ -958,148 +969,120 @@ export async function pushEvent(
       branches.map((b) => b.key),
       allLinks,
     );
+    // Retire obsolete branch/create retries only after the corresponding remote
+    // identity is positively absent; a parent/sibling success is not sufficient.
+    const { data: oldOps, error: oldOpsError } = await admin.from("google_sync_outbox").select("*")
+      .eq("family_id", familyId).eq("event_id", eventId).in("status", ["pending", "needs_attention"]);
+    if (oldOpsError) throw oldOpsError;
+    for (const old of (oldOps ?? []) as outbox.OutboxRow[]) {
+      if (!old.calendar_source_id || old.kind === "delete") continue;
+      if (branches.some((branch) => old.calendar_source_id === target.id && old.payload["branch_key"] === branch.key)) continue;
+      const calendarId = old.payload["external_calendar_id"];
+      if (typeof calendarId !== "string" || !old.google_event_id) continue;
+      const state = await google.getEventState(conn.connectionKey, calendarId, old.google_event_id);
+      if (state !== "live") await outbox.acknowledgeVersion(admin, old);
+    }
     for (const stale of obsolete) {
-      const source = sources.find((s) => s.id === stale.calendar_source_id);
-      if (source?.external_calendar_id) {
-        await google.deleteEvent(
-          conn.connectionKey,
-          source.external_calendar_id,
-          stale.google_event_id,
-        );
-      }
-      await admin.from("event_sync_links").delete().eq("id", stale.id);
+      if (operation && operation.calendar_source_id) continue;
+      const source = sources.find((candidate) => candidate.id === stale.calendar_source_id);
+      if (!source?.['external_calendar_id']) throw new Error("Obsolete branch destination is unknown");
+      await outbox.enqueueOutbox(admin, familyId, {
+        opKey: `delete:${source.id}:${stale.google_event_id}`, kind: "delete", eventId,
+        calendarSourceId: source.id, googleEventId: stale.google_event_id,
+        payload: { external_calendar_id: source['external_calendar_id'], branch_key: stale['branch_key'], committed: true, obsolete: true },
+      });
+      const current = await loadEvent(admin, eventId);
+      if (!current || current.updated_at !== event.updated_at || JSON.stringify(current.event_members) !== JSON.stringify(event.event_members)) throw new Error("Local branch selection changed; obsolete deletion withheld");
+      await google.deleteEvent(conn.connectionKey, source['external_calendar_id'], stale.google_event_id);
+      if (await google.getEventState(conn.connectionKey, source['external_calendar_id'], stale.google_event_id) === "live") throw new Error("Obsolete branch deletion not verified");
+      await admin.from("event_sync_links").delete().eq("id", stale.id).eq("family_id", familyId).throwOnError();
+      await outbox.setOutboxStatusByKey(admin, familyId, `delete:${source.id}:${stale.google_event_id}`, "synced", null);
     }
     const obsoleteIds = new Set(obsolete.map((l) => l.id));
     const links = allLinks.filter((l) => !obsoleteIds.has(l.id));
 
     const timeZone = await householdTimeZone(admin, familyId);
     let pushed = 0;
-    for (const branch of branches) {
+    const required = operation?.calendar_source_id
+      ? branches.filter((branch) => operation.calendar_source_id === target.id && operation.payload['branch_key'] === branch.key && operation.payload['external_calendar_id'] === target.external_calendar_id)
+      : branches;
+    if (operation?.calendar_source_id && required.length !== 1) throw new Error("Stored operation no longer identifies a desired destination branch");
+    for (const branch of required) {
+      const calendarId = target['external_calendar_id'];
+      if (!calendarId) throw new Error("Missing Google destination");
       const body = branchBody(event, branch, initials, timeZone, includeInitials);
-      const link = links.find((l) => l.branch_key === branch.key);
-
-      // Temporary diagnostic: verify DST Clean Test sends 09:00 + America/Los_Angeles
-      if (event.recurrence_rule && !event.all_day) {
-        const start = (body["start"] ?? {}) as GoogleDateTime;
-        const end = (body["end"] ?? {}) as GoogleDateTime;
-        console.log("[google-sync-diag] recurring timed push", {
-          action: link ? "PATCH" : "INSERT",
-          eventId,
-          googleEventId: link?.google_event_id ?? null,
-          calendarSourceId: target.id,
-          timeZone,
-          startDateTime: start.dateTime ?? null,
-          startTimeZone: start.timeZone ?? null,
-          endDateTime: end.dateTime ?? null,
-          endTimeZone: end.timeZone ?? null,
-          recurrence: body["recurrence"] ?? null,
-        });
-      }
+      const props = (body["extendedProperties"] as { private: Record<string, string> }).private;
+      props['ofc_source_id'] = target.id;
+      const link = links.find((l) => l['branch_key'] === branch.key);
+      const claim = await outbox.claimCreateIntent(admin, familyId, {
+        eventId, branchKey: branch.key, calendarSourceId: target.id, externalCalendarId: calendarId, body,
+      });
+      if (claim.state === "held") throw new Error("Google branch delivery is already in flight");
+      const deliveryKey = outbox.createIntentKey(eventId, branch.key, target.id);
+      try {
       let saved: GoogleEvent;
-
-      if (link) {
-        // moved to the other connected calendar in the app: move it in Google too,
-        // keeping the same Google event id so history and invites survive
-        if (link.calendar_source_id !== target.id) {
-          const from = sources.find((s) => s.id === link.calendar_source_id);
-          if (from?.external_calendar_id) {
-            await google.moveEvent(
-              conn.connectionKey,
-              from.external_calendar_id,
-              link.google_event_id,
-              target.external_calendar_id!,
-            );
-          }
-        }
-        // A link pointing at a single instance/exception id cannot accept
-        // series-level fields: Google answers 400 badRequest. Patch the
-        // occurrence with its own fields only and leave the series alone.
-        // Some rows carry only the recurring master id (no original start), so
-        // the instance id shape is treated as an exception too.
-        const patchBody =
-          isExceptionLink(link) || isInstanceEventId(link.google_event_id)
-            ? Object.fromEntries(Object.entries(body).filter(([key]) => key !== "recurrence"))
-            : body;
-
-        try {
-          saved = await google.patchEvent(
-            conn.connectionKey,
-            target.external_calendar_id!,
-            link.google_event_id,
-            patchBody,
-          );
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          const rejected = /\[(400|404|410)\]/.test(message);
-          if (!rejected) throw error;
-          // A rejected write is only allowed to re-create the event when Google
-          // confirms the stored target is really gone. A 400 badRequest on a
-          // live event means the payload was unacceptable, not that the target
-          // vanished: dropping the link there would orphan the live Google
-          // event and insert a duplicate series.
-          const state = await google.getEventState(
-            conn.connectionKey,
-            target.external_calendar_id!,
-            link.google_event_id,
-          );
-          if (state === "live") throw error;
-          console.warn(
-            "[google-sync] dropping unusable Google link",
-            link.google_event_id,
-            message.slice(0, 200),
-          );
-          await admin.from("event_sync_links").delete().eq("id", link.id);
-          saved = await google.insertEvent(
-            conn.connectionKey,
-            target.external_calendar_id!,
-            body,
-          );
-        }
-
-      } else {
-        // Duplicate-safe first create, coordinated through a database-backed
-        // claim on the branch's create intent:
-        // - "held": another request owns the in-flight create; fail safe and
-        //   let the retry path finish it instead of inserting a second copy.
-        // - "adopt": an earlier attempt went stale mid-create (timeout, lost
-        //   response, crashed worker); look up the remote event it may already
-        //   have created and adopt it. If the lookup itself cannot answer, the
-        //   error propagates and no insert happens.
-        // - "claimed": this request recorded the intent and may insert.
-        const outbox = await import("@/lib/google/outbox.server");
-        const claim = await outbox.claimCreateIntent(admin, familyId, {
-          eventId,
-          branchKey: branch.key,
-          calendarSourceId: target.id,
-          externalCalendarId: target.external_calendar_id,
-        });
-        if (claim === "held") {
-          throw new Error(
-            `concurrent first create in flight for branch "${branch.key}" of event ${eventId}`,
-          );
-        }
-        if (claim === "adopt") {
-          const matches = await google.findEventsByPrivateProperties(
-            conn.connectionKey,
-            target.external_calendar_id!,
-            { ofc_event_id: event.id, ofc_branch_key: branch.key },
-          );
-          if (matches.length > 0) {
-            saved = matches[0]!;
-            console.warn(
-              "[google-sync] adopted remote event from interrupted create",
-              eventId,
-              branch.key,
-              saved.id,
-            );
-          } else {
-            saved = await google.insertEvent(conn.connectionKey, target.external_calendar_id!, body);
-          }
-        } else {
-          saved = await google.insertEvent(conn.connectionKey, target.external_calendar_id!, body);
+      let remoteId: string | null = link?.google_event_id ?? null;
+      if (link && link.calendar_source_id !== target.id) {
+        const from = sources.find((source) => source.id === link.calendar_source_id);
+        if (!from?.['external_calendar_id']) throw new Error("Move origin destination is unknown");
+        const targetState = await google.getEventState(conn.connectionKey, calendarId, link.google_event_id);
+        if (targetState === "missing") {
+          await outbox.assertDeliveryLease(admin, familyId, deliveryKey, claim);
+          await google.moveEvent(conn.connectionKey, from['external_calendar_id'], link.google_event_id, calendarId);
         }
       }
-
+      if (remoteId) {
+        const state = await google.getEventState(conn.connectionKey, calendarId, remoteId);
+        if (state !== "live") remoteId = null;
+      }
+      if (!remoteId) {
+        // Always reconcile before insert, including resolved/stale claims and lost links.
+        const matches = await google.findEventsByPrivateProperties(conn.connectionKey, calendarId, {
+          ofc_event_id: event.id, ofc_family_id: familyId, ofc_branch_key: branch.key,
+        });
+        if (matches.length > 1) throw new Error("Ambiguous Google branch identity; insertion withheld");
+        const match = matches[0];
+        if (match) {
+          const sourceMarker = match.extendedProperties?.private?.['ofc_source_id'];
+          if (sourceMarker && sourceMarker !== target.id) throw new Error("Remote source marker mismatch");
+          remoteId = match.id;
+        } else {
+          const { data: legacyIntent, error: legacyReadError } = await admin.from("google_sync_outbox").select("status")
+            .eq("family_id", familyId).eq("op_key", outbox.createIntentKey(eventId, branch.key)).maybeSingle();
+          if (legacyReadError) throw legacyReadError;
+          if (legacyIntent && legacyIntent.status !== "synced") throw new Error("Legacy uncertain create has no verified remote match; insertion withheld for review");
+          // A deterministic generation id also fences expired workers and delayed insert responses.
+          const id = await deliveryRemoteId(`${familyId}:${deliveryKey}:${link?.google_event_id ?? "first"}`);
+          const state = await google.getEventState(conn.connectionKey, calendarId, id);
+          if (state === "cancelled") throw new Error("Create generation is cancelled; manual review required");
+          if (state === "live") remoteId = id;
+          else {
+            try {
+              await outbox.assertDeliveryLease(admin, familyId, deliveryKey, claim);
+              remoteId = (await google.insertEvent(conn.connectionKey, calendarId, { ...body, id })).id; }
+            catch (error) {
+              // Timeout/conflict never authorizes a second insertion in this request.
+              if (await google.getEventState(conn.connectionKey, calendarId, id) !== "live") throw error;
+              remoteId = id;
+            }
+          }
+        }
+      }
+      if (!remoteId) throw new Error("Google create identity was not confirmed");
+      const remoteBefore = await google.getEvent(conn.connectionKey, calendarId, remoteId);
+      const marker = remoteBefore.extendedProperties?.private;
+      if (remoteBefore.status === "cancelled" || (marker?.['ofc_event_id'] && marker['ofc_event_id'] !== eventId) || (marker?.['ofc_family_id'] && marker['ofc_family_id'] !== familyId) || (marker?.['ofc_branch_key'] !== undefined && marker['ofc_branch_key'] !== branch.key) || (marker?.['ofc_source_id'] && marker['ofc_source_id'] !== target.id)) throw new Error("Remote identity is not the intended live branch");
+      if (!link && (!marker || marker['ofc_event_id'] !== eventId || marker['ofc_family_id'] !== familyId || marker['ofc_branch_key'] !== branch.key)) throw new Error("Unlinked remote adoption lacks exact identity");
+      const patchBody = link && (isExceptionLink(link) || isInstanceEventId(link.google_event_id))
+        ? Object.fromEntries(Object.entries(body).filter(([key]) => key !== "recurrence")) : body;
+      // Adopted creates are updated to the latest desired body, not merely linked.
+      await outbox.assertDeliveryLease(admin, familyId, deliveryKey, claim);
+      if (!remoteBefore.etag) throw new Error("Remote version unavailable; update withheld");
+      await google.patchEvent(conn.connectionKey, calendarId, remoteId, patchBody, remoteBefore.etag);
+      saved = await google.getEvent(conn.connectionKey, calendarId, remoteId);
+      if (!remoteMatchesDelivery(saved, patchBody, remoteId)) throw new Error("Remote desired body was not verified");
+      const current = await loadEvent(admin, eventId);
+      if (!current || current.updated_at !== event.updated_at || JSON.stringify(current.event_members) !== JSON.stringify(event.event_members)) throw new Error("Local event changed during Google delivery");
       const { error: linkError } = await admin.from("event_sync_links").upsert(
         {
           family_id: familyId,
@@ -1127,24 +1110,23 @@ export async function pushEvent(
           `event_sync_links upsert failed for branch "${branch.key}": ${linkError.message ?? String(linkError)}`,
         );
       }
-      // The link row is persisted, so the first-create intent is resolved:
-      // future pushes update through the link and never search/adopt again.
-      try {
-        const outbox = await import("@/lib/google/outbox.server");
-        await outbox.setOutboxStatusByKey(
-          admin,
-          familyId,
-          outbox.createIntentKey(eventId, branch.key),
-          "synced",
-          null,
-        );
-      } catch (e) {
-        console.error("[google-sync] could not resolve create intent", eventId, branch.key, e);
-      }
+      await outbox.finishDelivery(admin, familyId, deliveryKey, claim, saved.id, null);
+      // Legacy create retries are resolved only by this exact verified branch.
+      const { data: legacy, error: legacyError } = await admin.from("google_sync_outbox").select("*")
+        .eq("family_id", familyId).eq("op_key", outbox.createIntentKey(eventId, branch.key)).maybeSingle();
+      if (legacyError) throw legacyError;
+      if (legacy && legacy.calendar_source_id === target.id && legacy.payload["external_calendar_id"] === calendarId) await outbox.acknowledgeVersion(admin, legacy);
       pushed += 1;
+      } catch (error) {
+        await outbox.finishDelivery(admin, familyId, deliveryKey, claim, null, (error instanceof Error ? error.message : "Delivery uncertain").slice(0, 500));
+        throw error;
+      }
     }
-
-
+    if (!operation?.calendar_source_id && pushed === branches.length && umbrella) await outbox.acknowledgeVersion(admin, umbrella);
+    const { data: unfinished, error: unfinishedError } = await admin.from("google_sync_outbox").select("id")
+      .eq("family_id", familyId).eq("event_id", eventId).in("status", ["pending", "needs_attention"]).limit(1);
+    if (unfinishedError) throw unfinishedError;
+    if (unfinished?.length && !operation?.calendar_source_id) throw new Error("Required Google operations remain unverified");
 
     await touchSynced(admin, familyId);
     return { pushed };
@@ -1154,25 +1136,8 @@ export async function pushEvent(
   // flag a perfectly healthy calendar as needing attention.
   if (outcome.skipped && !BENIGN_PUSH_SKIPS.has(outcome.skipped)) {
     await recordPushDiagnostic(admin, familyId, eventId, outcome.skipped);
-    // Durable retryable operation: a failed edit (or a recurring occurrence
-    // edit, whose parent exclusion and detached replacement each push
-    // separately) stays in the outbox until a replay push succeeds, so an
-    // interrupted sync is never silently dropped. Each event's op is only
-    // marked synced when its own push completes, so a half-successful
-    // recurring edit never reports fully synced.
-    try {
-      const { enqueueOutbox } = await import("@/lib/google/outbox.server");
-      await enqueueOutbox(admin, familyId, {
-        opKey: `push:${eventId}`,
-        kind: "update",
-        eventId,
-        payload: { reason: outcome.skipped },
-        status: "needs_attention",
-        lastError: outcome.skipped,
-      });
-    } catch (e) {
-      console.error("[google-sync] could not persist push retry op", eventId, e);
-    }
+    // The committed umbrella/branch intent already exists; never replace it after failure.
+
   }
   return outcome;
 }
@@ -1183,113 +1148,30 @@ export async function pushEvent(
  * disappear. Idempotent on the per-link op key, so both the delete path and
  * the push path can record it safely.
  */
-export async function recordDeletionIntent(
-  admin: Admin,
-  familyId: string,
-  links: { google_event_id: string; calendar_source_id: string }[],
-): Promise<void> {
-  if (links.length === 0) return;
-  const { enqueueOutbox } = await import("@/lib/google/outbox.server");
-  // Resolve the destination identity directly from the source rows, not the
-  // eligible-sync list: a source that later falls out of eligibility must not
-  // lose the recorded destination.
-  const { data } = await admin
-    .from("calendar_sources")
-    .select("id, external_calendar_id")
-    .eq("family_id", familyId)
-    .in("id", [...new Set(links.map((l) => l.calendar_source_id))]);
-  const calendarById = new Map(
-    ((data ?? []) as { id: string; external_calendar_id: string | null }[]).map((s) => [
-      s.id,
-      s.external_calendar_id,
-    ]),
-  );
-  for (const link of links) {
-    await enqueueOutbox(admin, familyId, {
-      opKey: `delete:${link.calendar_source_id}:${link.google_event_id}`,
-      kind: "delete",
-      calendarSourceId: link.calendar_source_id,
-      googleEventId: link.google_event_id,
-      payload: { external_calendar_id: calendarById.get(link.calendar_source_id) ?? null },
-      status: "pending",
-    });
-  }
-}
-
-/** Mirrors an app-side delete (whole event or truncated series) onto Google. */
 export async function pushEventDeletion(
-  admin: Admin,
-  familyId: string,
+  admin: Admin, familyId: string,
   links: { google_event_id: string; calendar_source_id: string }[],
 ): Promise<{ ok?: true; skipped?: string }> {
-  if (links.length === 0) return { skipped: "not_linked" };
-  // Durable intent first: the local event/link rows may already be gone, and
-  // the operation must remain retryable regardless of what happens next.
-  try {
-    await recordDeletionIntent(admin, familyId, links);
-  } catch (e) {
-    console.error("[google-sync] could not persist deletion intent", e);
-  }
-  const outcome = await guard(admin, familyId, async () => {
-    const conn = await getConnection(admin, familyId);
-    if (!conn) return { skipped: "not_connected" };
-    const sources = await googleSources(admin, familyId);
-    for (const link of links) {
-      const source = sources.find((s) => s.id === link.calendar_source_id);
-      if (source?.external_calendar_id) {
-        await google.deleteEvent(
-          conn.connectionKey,
-          source.external_calendar_id,
-          link.google_event_id,
-        );
-      } else {
-        throw new Error("Google deletion calendar is unavailable");
-      }
+  if (!links.length) return { skipped: "not_linked" };
+  for (const link of links) {
+    const key = `delete:${link.calendar_source_id}:${link.google_event_id}`;
+    const { data: row, error } = await admin.from("google_sync_outbox").select("*")
+      .eq("family_id", familyId).eq("op_key", key).single();
+    if (error) throw error;
+    if (!row || row.payload['committed'] !== true || !row.payload['external_calendar_id']) throw new Error("Deletion intent is not transactionally committed");
+    const outcome = await pushEventDeletionResolved(admin, familyId, [{
+      google_event_id: link.google_event_id, external_calendar_id: row.payload['external_calendar_id'],
+      calendar_source_id: link.calendar_source_id, event_id: row.event_id, local_delete: true,
+    }]);
+    if (!outcome.ok) {
+      await outbox.setOutboxStatusByKey(admin, familyId, key, "needs_attention", outcome.skipped ?? "Deletion uncertain");
+      await admin.from("calendar_sources").update({ sync_status: "needs_attention", sync_error: outcome.skipped })
+        .eq("family_id", familyId).eq("id", link.calendar_source_id).throwOnError();
+      return outcome;
     }
-    return { ok: true as const };
-  });
-  const { setOutboxStatusByKey } = await import("@/lib/google/outbox.server");
-  if ("ok" in outcome && outcome.ok) {
-    // Google acknowledged every deletion (or confirmed the exact stored
-    // identity was already absent): the intent is resolved.
-    for (const link of links) {
-      await setOutboxStatusByKey(
-        admin,
-        familyId,
-        `delete:${link.calendar_source_id}:${link.google_event_id}`,
-        "synced",
-        null,
-      );
-    }
-    return outcome;
+    await outbox.acknowledgeVersion(admin, row);
   }
-  // not_connected, timeout, unknown remote result: never a success. The
-  // recorded intent stays retryable with its failure diagnostic.
-  const reason = "skipped" in outcome ? outcome.skipped : "unknown_error";
-  try {
-    for (const link of links) {
-      await setOutboxStatusByKey(
-        admin,
-        familyId,
-        `delete:${link.calendar_source_id}:${link.google_event_id}`,
-        "needs_attention",
-        reason,
-      );
-    }
-  } catch (e) {
-    console.error("[google-sync] could not persist deletion outbox", e);
-  }
-  if (reason !== "not_connected") {
-    // The local event/link may be gone already; retain the failure on its
-    // sources rather than swallowing guard()'s incomplete result.
-    await admin.from("calendar_sources").update({
-      // "needs_attention" is the only failure status the calendar_sources
-      // check constraint allows; an unknown value would abort this write with
-      // SQLSTATE 23514 and lose the diagnostic entirely.
-      sync_status: "needs_attention", sync_error: reason,
-    }).eq("family_id", familyId).in("id", [...new Set(links.map((l) => l.calendar_source_id))]).throwOnError();
-  }
-  return outcome;
+  return { ok: true };
 }
 
 /**
@@ -1302,54 +1184,36 @@ export async function pushEventDeletion(
 export async function pushEventDeletionResolved(
   admin: Admin,
   familyId: string,
-  ops: { google_event_id: string; external_calendar_id: string }[],
+  ops: { google_event_id: string; external_calendar_id: string; calendar_source_id: string; event_id: string | null; local_delete: boolean }[],
 ): Promise<{ ok?: true; skipped?: string }> {
   if (ops.length === 0) return { skipped: "not_linked" };
   return guard(admin, familyId, async () => {
     const conn = await getConnection(admin, familyId);
     if (!conn) return { skipped: "not_connected" };
     for (const op of ops) {
-      await google.deleteEvent(conn.connectionKey, op.external_calendar_id, op.google_event_id);
+      const { data: source, error } = await admin.from("calendar_sources").select("external_calendar_id")
+        .eq("id", op.calendar_source_id).eq("family_id", familyId).eq("provider", "google").single();
+      if (error) throw error;
+      if (source?.['external_calendar_id'] !== op['external_calendar_id']) throw new Error("Stored deletion destination no longer matches source");
+      if (op['local_delete']) {
+        if (!op.event_id) throw new Error("Local deletion identity missing");
+        const { data: live, error: liveError } = await admin.from("events").select("id").eq("id", op.event_id).eq("family_id", familyId).maybeSingle();
+        if (liveError) throw liveError;
+        if (live) throw new Error("Local deletion has not committed");
+      } else {
+        if (!op.event_id) throw new Error("Obsolete branch local identity missing");
+        const local = await loadEvent(admin, op.event_id);
+        if (!local || local.family_id !== familyId) throw new Error("Obsolete branch cannot be verified against local event");
+        const { data: linked, error: linkError } = await admin.from("event_sync_links").select("branch_key")
+          .eq("family_id", familyId).eq("event_id", op.event_id).eq("google_event_id", op.google_event_id).maybeSingle();
+        if (linkError) throw linkError;
+        const members = (local.event_members ?? []).map((member) => ({ member_id: member.family_member_id, weekdays: member.weekdays }));
+        const desired = computeBranches({ recurrence_rule: local.recurrence_rule, participants: members, member_ids: members.map((member) => member.member_id) });
+        if (linked && desired.some((branch) => branch.key === linked.branch_key)) throw new Error("Branch is desired again; obsolete deletion withheld");
+      }
+      await google.deleteEvent(conn.connectionKey, op['external_calendar_id'], op.google_event_id);
+      if (await google.getEventState(conn.connectionKey, op['external_calendar_id'], op.google_event_id) === "live") throw new Error("Google deletion was not verified");
     }
-    return { ok: true as const };
-  });
-}
-
-/**
- * Verifies a stored remote event identity with Google and durably adopts it
- * into the event's sync links. Used by outbox replay: a stored Google id is
- * never treated as synced on faith — only after the exact destination/event
- * identity is confirmed live (or cancelled) and the link row persists.
- */
-export async function verifyAndAdoptRemoteEvent(
-  admin: Admin,
-  familyId: string,
-  eventId: string,
-  calendarSourceId: string,
-  externalCalendarId: string,
-  googleEventId: string,
-  branchKey: string,
-): Promise<{ ok?: true; skipped?: string }> {
-  return guard(admin, familyId, async () => {
-    const conn = await getConnection(admin, familyId);
-    if (!conn) return { skipped: "not_connected" };
-    const state = await google.getEventState(conn.connectionKey, externalCalendarId, googleEventId);
-    if (state === "missing") return { skipped: "remote_event_missing" };
-    const { error } = await admin.from("event_sync_links").upsert(
-      {
-        family_id: familyId,
-        event_id: eventId,
-        calendar_source_id: calendarSourceId,
-        google_event_id: googleEventId,
-        branch_key: branchKey,
-        last_source: "app",
-        last_pushed_at: new Date().toISOString(),
-        app_version: SYNC_BODY_VERSION,
-        sync_error: null,
-      },
-      { onConflict: "event_id,branch_key" },
-    );
-    if (error) throw new Error(`link adoption failed: ${error.message ?? String(error)}`);
     return { ok: true as const };
   });
 }
@@ -1367,6 +1231,10 @@ export async function linksForEvent(
 }
 
 async function touchSynced(admin: Admin, familyId: string): Promise<void> {
+  const { data: pending, error } = await admin.from("google_sync_outbox").select("id")
+    .eq("family_id", familyId).in("status", ["pending", "needs_attention"]).limit(1);
+  if (error) throw error;
+  if (pending?.length) return;
   await admin
     .from("google_connections")
     .update({ last_synced_at: new Date().toISOString(), last_error: null })
@@ -1425,7 +1293,8 @@ export async function applyGoogleEvent(
       if (exceptionCancellationAction({ occurrenceState: state.status }) === "remove") {
         const removedEventId = link.event_id;
         await withShiftReconcile(admin, familyId, [removedEventId], async () => {
-          await admin.from("events").delete().eq("id", removedEventId).throwOnError();
+          const { error } = await (admin as unknown as AnyDb).rpc("delete_google_inbound_event", { _family: familyId, _event: removedEventId });
+          if (error) throw error;
         });
       }
       return;
@@ -1434,11 +1303,11 @@ export async function applyGoogleEvent(
       // A tombstone can be stale, or the leftover of a cross-calendar move, so
       // never delete before Google confirms this exact event is really gone.
       let remoteState: "live" | "cancelled" | "missing" | "unknown" = "unknown";
-      if (link.calendar_source_id === source.id && source.external_calendar_id) {
+      if (link.calendar_source_id === source.id && source['external_calendar_id']) {
         try {
           remoteState = await google.getEventState(
             conn.connectionKey,
-            source.external_calendar_id,
+            source['external_calendar_id'],
             g.id,
           );
         } catch (error) {
@@ -1466,7 +1335,8 @@ export async function applyGoogleEvent(
       } else {
         const removedEventId = link.event_id;
         await withShiftReconcile(admin, familyId, [removedEventId], async () => {
-          await admin.from("events").delete().eq("id", removedEventId).throwOnError();
+          const { error } = await (admin as unknown as AnyDb).rpc("delete_google_inbound_event", { _family: familyId, _event: removedEventId });
+          if (error) throw error;
         });
       }
       return;
@@ -1560,7 +1430,7 @@ export async function applyGoogleEvent(
               g,
               initials,
               seriesLink.event_id,
-              seriesLink.branch_key ?? "",
+              seriesLink['branch_key'] ?? "",
               day,
             );
           },
@@ -1702,7 +1572,7 @@ export async function applyGoogleEvent(
   // a single branch is flagged for review instead of moving every branch
   const timeReview = branchTimeReview({
     local: {
-      branchKey: link.branch_key ?? "",
+      branchKey: link['branch_key'] ?? "",
       start_at: event.start_at,
       end_at: event.end_at,
       all_day: event.all_day,
@@ -1713,7 +1583,7 @@ export async function applyGoogleEvent(
   // per-person weekday branches share one local title: a Google rename of a
   // single branch is flagged for review instead of retitling every branch
   const titleReview = branchTitleReview({
-    local: { branchKey: link.branch_key ?? "", title: event.title },
+    local: { branchKey: link['branch_key'] ?? "", title: event.title },
     branchInitials: branchInitials(branch, initials),
     google: g,
   });
@@ -1723,7 +1593,7 @@ export async function applyGoogleEvent(
     local: {
       title: event.title,
       memberCount: (event.event_members ?? []).length,
-      branchKey: link.branch_key ?? "",
+      branchKey: link['branch_key'] ?? "",
     },
     branchInitials: branchInitials(branch, initials),
     google: g,
@@ -1737,7 +1607,7 @@ export async function applyGoogleEvent(
   // on a single branch is flagged for review instead of rewriting that rule
   const recurrenceReview = branchRecurrenceReview({
     local: {
-      branchKey: link.branch_key ?? "",
+      branchKey: link['branch_key'] ?? "",
       recurrence_rule: event.recurrence_rule,
       recurrence_until: event.recurrence_until ?? null,
     },
@@ -1790,8 +1660,8 @@ function branchForLink(
     member_ids: participants.map((p) => p.member_id),
   });
   return (
-    branches.find((b) => b.key === link.branch_key) ?? {
-      key: link.branch_key,
+    branches.find((b) => b.key === link['branch_key']) ?? {
+      key: link['branch_key'],
       weekdays: null,
       memberIds: participants.map((p) => p.member_id),
     }
@@ -1803,8 +1673,8 @@ function branchForLink(
  * the members that only attended on those days, leaving other branches intact.
  */
 async function removeBranchParticipation(admin: Admin, link: LinkRow): Promise<void> {
-  if (!link.branch_key) return;
-  const removed = link.branch_key.split(",") as WeekdayCode[];
+  if (!link['branch_key']) return;
+  const removed = link['branch_key'].split(",") as WeekdayCode[];
   const { data: rows } = await admin
     .from("event_members")
     .select("family_member_id, weekdays")
@@ -1869,19 +1739,19 @@ async function detachedOccurrenceState(
   source: SourceRow,
   link: LinkRow,
 ): Promise<{ status: "live" | "gone" | "unknown"; event?: GoogleEvent }> {
-  if (!source.external_calendar_id || link.calendar_source_id !== source.id) {
+  if (!source['external_calendar_id'] || link.calendar_source_id !== source.id) {
     return { status: "unknown" };
   }
   try {
     const direct = await google.getEventState(
       conn.connectionKey,
-      source.external_calendar_id,
+      source['external_calendar_id'],
       link.google_event_id,
     );
     if (direct === "live") return { status: "live" };
     const occurrence = await google.findLiveOccurrence(
       conn.connectionKey,
-      source.external_calendar_id,
+      source['external_calendar_id'],
       link.google_recurring_event_id!,
       link.google_original_start!,
     );
@@ -2088,7 +1958,7 @@ export async function pullSource(
   try {
     // The stable calendarId is the identity: a rename in Google just refreshes
     // the local label, it never creates a new connection.
-    const remote = await google.getCalendar(conn.connectionKey, source.external_calendar_id!);
+    const remote = await google.getCalendar(conn.connectionKey, source['external_calendar_id']!);
     // A linked OFC calendar (calendar_kind "custom") keeps its own name as the
     // authority; only plain Google calendars follow Google's title.
     const renamed =
@@ -2101,12 +1971,12 @@ export async function pullSource(
 
     const initials = await initialsFor(admin, source.family_id);
     const window = syncWindow(new Date(), initial);
-    let res = await google.listEvents(conn.connectionKey, source.external_calendar_id!, {
+    let res = await google.listEvents(conn.connectionKey, source['external_calendar_id']!, {
       syncToken: initial ? null : source.google_sync_token,
       ...window,
     });
     if (res.invalidSyncToken) {
-      res = await google.listEvents(conn.connectionKey, source.external_calendar_id!, window);
+      res = await google.listEvents(conn.connectionKey, source['external_calendar_id']!, window);
     }
 
     for (const item of res.items) {
@@ -2236,6 +2106,9 @@ export async function reconcileHousehold(
   const result = await guard(admin, familyId, async () => {
     const conn = await getConnection(admin, familyId);
     if (!conn) return { skipped: "not_connected" };
+    // Drain durable operations before the ordinary candidate pass, including deleted rows.
+    const replay = await outbox.replayOutbox(admin, familyId);
+    if (replay.attention || replay.skipped) failed += 1;
     const sources = await googleSources(admin, familyId);
     if (sources.length === 0) return { skipped: "no_google_calendar" };
 
@@ -2481,7 +2354,7 @@ export async function ensureWatchChannels(
       const channelId = `ofc-${source.id}-${Date.now()}`;
       const watch = await google.watchCalendar(
         conn.connectionKey,
-        source.external_calendar_id!,
+        source['external_calendar_id']!,
         channelId,
         webhookAddress(origin),
         token,
@@ -2617,7 +2490,7 @@ export async function repairGoogleRecurrenceRules(
       // only links pointing at a currently active/eligible Google calendar
       const usable = links
         .map((l) => ({ link: l, source: sources.find((s) => s.id === l.calendar_source_id) }))
-        .filter((x) => Boolean(x.source?.external_calendar_id));
+        .filter((x) => Boolean(x.source?.['external_calendar_id']));
       if (usable.length === 0) {
         skip(event.id, "no_active_google_calendar_for_links");
         continue;
@@ -2637,7 +2510,7 @@ export async function repairGoogleRecurrenceRules(
       try {
         const master = await google.getEvent(
           conn.connectionKey,
-          chosen.source!.external_calendar_id!,
+          chosen.source!['external_calendar_id']!,
           masterId,
         );
         if (!master.recurrence || master.recurrence.length === 0) {
@@ -2801,7 +2674,7 @@ export async function diagnoseDstRepair(
 
   base.link_id = link.id;
   base.local_event_id = link.event_id;
-  base.branch_key = link.branch_key;
+  base['branch_key'] = link['branch_key'];
   base.calendar_source_id = link.calendar_source_id;
   base.last_attempt = {
     link_last_source: link.last_source ?? null,
@@ -2821,7 +2694,7 @@ export async function diagnoseDstRepair(
   if (!conn) return { ...base, reason: "not_connected" };
   const sources = await googleSources(admin, familyId);
   const source = sources.find((s) => s.id === link.calendar_source_id);
-  if (!source?.external_calendar_id) return { ...base, reason: "no_active_google_calendar" };
+  if (!source?.['external_calendar_id']) return { ...base, reason: "no_active_google_calendar" };
   base.calendar_name = source.name;
 
   const event = await loadEvent(admin, link.event_id);
@@ -2838,8 +2711,8 @@ export async function diagnoseDstRepair(
     participants,
     member_ids: participants.map((p) => p.member_id),
   });
-  const branch = branches.find((b) => b.key === link.branch_key);
-  if (!branch) return { ...base, reason: `no_desired_branch_for_key("${link.branch_key}")` };
+  const branch = branches.find((b) => b.key === link['branch_key']);
+  if (!branch) return { ...base, reason: `no_desired_branch_for_key("${link['branch_key']}")` };
 
   const timeZone = await householdTimeZone(admin, familyId);
   base.time_zone = timeZone;
@@ -2865,7 +2738,7 @@ export async function diagnoseDstRepair(
   try {
     remote = await google.getEvent(
       conn.connectionKey,
-      source.external_calendar_id,
+      source['external_calendar_id'],
       link.google_event_id,
     );
   } catch (error) {
@@ -2902,7 +2775,7 @@ export async function diagnoseDstRepair(
   try {
     const instances = await google.listInstances(
       conn.connectionKey,
-      source.external_calendar_id,
+      source['external_calendar_id'],
       link.google_event_id,
       probeMin,
       probeMax,

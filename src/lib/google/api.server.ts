@@ -158,11 +158,12 @@ export async function patchEvent(
   calendarId: string,
   eventId: string,
   body: Record<string, unknown>,
+  etag?: string,
 ): Promise<GoogleEvent> {
   return call<GoogleEvent>(
     connectionAPIKey,
     `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
-    { method: "PATCH", ...json(body) },
+    { method: "PATCH", ...json(body), headers: { "Content-Type": "application/json", ...(etag ? { "If-Match": etag } : {}) } },
   );
 }
 
@@ -254,7 +255,9 @@ export async function findEventsByPrivateProperties(
   });
   const text = await res.text();
   if (!res.ok) throw googleFailure(res.status, text, "Google event search failed");
-  const body = JSON.parse(text || "{}") as { items?: GoogleEvent[] };
+  const body = JSON.parse(text || "{}") as { items?: GoogleEvent[]; nextPageToken?: string };
+  // An incomplete search cannot prove uniqueness or absence.
+  if (body.nextPageToken) throw new Error("Google identity search is incomplete; creation withheld");
   return (body.items ?? []).filter((item) => item.status !== "cancelled");
 }
 
