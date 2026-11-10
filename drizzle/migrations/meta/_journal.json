@@ -274,6 +274,13 @@
       "when": 1794287636103,
       "tag": "0038_google_delivery_version_fencing",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794289449061,
+      "tag": "0039_google_branch_deletion_fencing",
+      "breakpoints": true
     }
   ]
 }

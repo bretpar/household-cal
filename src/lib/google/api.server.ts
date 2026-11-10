@@ -255,9 +255,11 @@ export async function findEventsByPrivateProperties(
   });
   const text = await res.text();
   if (!res.ok) throw googleFailure(res.status, text, "Google event search failed");
-  const body = JSON.parse(text || "{}") as { items?: GoogleEvent[]; nextPageToken?: string };
+  const body = JSON.parse(text || "{}") as { items?: GoogleEvent[]; nextPageToken?: string; kind?: string };
   // An incomplete search cannot prove uniqueness or absence.
   if (body.nextPageToken) throw new Error("Google identity search is incomplete; creation withheld");
+  if (body.kind !== "calendar#events" || (body.items !== undefined && !Array.isArray(body.items))) throw new Error("Google identity search response is ambiguous; creation withheld");
+  if ((body.items ?? []).some((item) => !item.id || Object.entries(props).some(([key, value]) => item.extendedProperties?.private?.[key] !== value))) throw new Error("Google identity search returned an unverifiable match; creation withheld");
   return (body.items ?? []).filter((item) => item.status !== "cancelled");
 }
 

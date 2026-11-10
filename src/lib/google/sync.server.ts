@@ -64,7 +64,7 @@ import {
   type AnyDb,
 } from "@/lib/timesheets.server";
 
-import { remoteMatchesDelivery, deliveryRemoteId } from "@/lib/google/delivery";
+import { remoteMatchesDelivery, deliveryRemoteId, legacyMatchesBranch, uniqueLegacyBranch } from "@/lib/google/delivery";
 import * as outbox from "@/lib/google/outbox.server";
 
 type Admin = { from: (table: string) => any };
@@ -991,12 +991,15 @@ export async function pushEvent(
         calendarSourceId: source.id, googleEventId: stale.google_event_id,
         payload: { external_calendar_id: source['external_calendar_id'], branch_key: stale['branch_key'], committed: true, obsolete: true },
       });
-      const current = await loadEvent(admin, eventId);
-      if (!current || current.updated_at !== event.updated_at || JSON.stringify(current.event_members) !== JSON.stringify(event.event_members)) throw new Error("Local branch selection changed; obsolete deletion withheld");
-      await google.deleteEvent(conn.connectionKey, source['external_calendar_id'], stale.google_event_id);
-      if (await google.getEventState(conn.connectionKey, source['external_calendar_id'], stale.google_event_id) === "live") throw new Error("Obsolete branch deletion not verified");
-      await admin.from("event_sync_links").delete().eq("id", stale.id).eq("family_id", familyId).throwOnError();
-      await outbox.setOutboxStatusByKey(admin, familyId, `delete:${source.id}:${stale.google_event_id}`, "synced", null);
+      const { data: deletion, error: deletionError } = await admin.from("google_sync_outbox").select("*")
+        .eq("family_id", familyId).eq("op_key", `delete:${source.id}:${stale.google_event_id}`).single();
+      if (deletionError) throw deletionError;
+      const deleted = await pushEventDeletionResolved(admin, familyId, [{
+        google_event_id: stale.google_event_id, external_calendar_id: source['external_calendar_id'],
+        calendar_source_id: source.id, event_id: eventId, local_delete: false, branch_key: stale.branch_key,
+      }]);
+      if (!deleted.ok) throw new Error(deleted.skipped ?? "Obsolete deletion unconfirmed");
+      await outbox.acknowledgeVersion(admin, deletion);
     }
     const obsoleteIds = new Set(obsolete.map((l) => l.id));
     const links = allLinks.filter((l) => !obsoleteIds.has(l.id));
@@ -1022,6 +1025,7 @@ export async function pushEvent(
       try {
       let saved: GoogleEvent;
       let remoteId: string | null = link?.google_event_id ?? null;
+      let legacyAdoption = false;
       if (link && link.calendar_source_id !== target.id) {
         const from = sources.find((source) => source.id === link.calendar_source_id);
         if (!from?.['external_calendar_id']) throw new Error("Move origin destination is unknown");
@@ -1047,12 +1051,23 @@ export async function pushEvent(
           if (sourceMarker && sourceMarker !== target.id) throw new Error("Remote source marker mismatch");
           remoteId = match.id;
         } else {
+          const legacyMatches = (await google.findEventsByPrivateProperties(conn.connectionKey, calendarId, {
+            ofc_event_id: event.id, ofc_family_id: familyId,
+          })).filter((candidate) => candidate.extendedProperties?.private?.['ofc_branch_key'] === undefined);
+          const legacyId = uniqueLegacyBranch(legacyMatches, body);
+          if (legacyId) {
+            remoteId = legacyId;
+            legacyAdoption = true;
+          } else {
           const { data: legacyIntent, error: legacyReadError } = await admin.from("google_sync_outbox").select("status")
             .eq("family_id", familyId).eq("op_key", outbox.createIntentKey(eventId, branch.key)).maybeSingle();
           if (legacyReadError) throw legacyReadError;
           if (legacyIntent && legacyIntent.status !== "synced") throw new Error("Legacy uncertain create has no verified remote match; insertion withheld for review");
           // A deterministic generation id also fences expired workers and delayed insert responses.
-          const id = await deliveryRemoteId(`${familyId}:${deliveryKey}:${link?.google_event_id ?? "first"}`);
+          const { data: priorDelivery, error: priorError } = await admin.from("google_sync_outbox").select("google_event_id")
+            .eq("family_id", familyId).eq("op_key", deliveryKey).single();
+          if (priorError) throw priorError;
+          const id = await deliveryRemoteId(`${familyId}:${deliveryKey}:${link?.google_event_id ?? priorDelivery?.google_event_id ?? "first"}`);
           const state = await google.getEventState(conn.connectionKey, calendarId, id);
           if (state === "cancelled") throw new Error("Create generation is cancelled; manual review required");
           if (state === "live") remoteId = id;
@@ -1066,13 +1081,15 @@ export async function pushEvent(
               remoteId = id;
             }
           }
+          }
         }
       }
       if (!remoteId) throw new Error("Google create identity was not confirmed");
       const remoteBefore = await google.getEvent(conn.connectionKey, calendarId, remoteId);
       const marker = remoteBefore.extendedProperties?.private;
       if (remoteBefore.status === "cancelled" || (marker?.['ofc_event_id'] && marker['ofc_event_id'] !== eventId) || (marker?.['ofc_family_id'] && marker['ofc_family_id'] !== familyId) || (marker?.['ofc_branch_key'] !== undefined && marker['ofc_branch_key'] !== branch.key) || (marker?.['ofc_source_id'] && marker['ofc_source_id'] !== target.id)) throw new Error("Remote identity is not the intended live branch");
-      if (!link && (!marker || marker['ofc_event_id'] !== eventId || marker['ofc_family_id'] !== familyId || marker['ofc_branch_key'] !== branch.key)) throw new Error("Unlinked remote adoption lacks exact identity");
+      if (legacyAdoption && !legacyMatchesBranch(remoteBefore, body)) throw new Error("Legacy branch identity changed before adoption");
+      if (!link && !legacyAdoption && (!marker || marker['ofc_event_id'] !== eventId || marker['ofc_family_id'] !== familyId || marker['ofc_branch_key'] !== branch.key)) throw new Error("Unlinked remote adoption lacks exact identity");
       const patchBody = link && (isExceptionLink(link) || isInstanceEventId(link.google_event_id))
         ? Object.fromEntries(Object.entries(body).filter(([key]) => key !== "recurrence")) : body;
       // Adopted creates are updated to the latest desired body, not merely linked.
@@ -1184,7 +1201,7 @@ export async function pushEventDeletion(
 export async function pushEventDeletionResolved(
   admin: Admin,
   familyId: string,
-  ops: { google_event_id: string; external_calendar_id: string; calendar_source_id: string; event_id: string | null; local_delete: boolean }[],
+  ops: { google_event_id: string; external_calendar_id: string; calendar_source_id: string; event_id: string | null; local_delete: boolean; branch_key?: string }[],
 ): Promise<{ ok?: true; skipped?: string }> {
   if (ops.length === 0) return { skipped: "not_linked" };
   return guard(admin, familyId, async () => {
@@ -1202,14 +1219,45 @@ export async function pushEventDeletionResolved(
         if (live) throw new Error("Local deletion has not committed");
       } else {
         if (!op.event_id) throw new Error("Obsolete branch local identity missing");
+        if (op.branch_key === undefined) throw new Error("Obsolete branch key missing; deletion withheld");
+        const claim = await outbox.claimCreateIntent(admin, familyId, {
+          eventId: op.event_id, branchKey: op.branch_key, calendarSourceId: op.calendar_source_id,
+          externalCalendarId: op.external_calendar_id, body: {}, deleting: true,
+        });
+        if (claim.state === "held") throw new Error("Branch restoration or deletion is already in flight");
+        const key = outbox.createIntentKey(op.event_id, op.branch_key, op.calendar_source_id);
+        let deletionFinished = false;
+        try {
         const local = await loadEvent(admin, op.event_id);
         if (!local || local.family_id !== familyId) throw new Error("Obsolete branch cannot be verified against local event");
-        const { data: linked, error: linkError } = await admin.from("event_sync_links").select("branch_key")
-          .eq("family_id", familyId).eq("event_id", op.event_id).eq("google_event_id", op.google_event_id).maybeSingle();
-        if (linkError) throw linkError;
         const members = (local.event_members ?? []).map((member) => ({ member_id: member.family_member_id, weekdays: member.weekdays }));
         const desired = computeBranches({ recurrence_rule: local.recurrence_rule, participants: members, member_ids: members.map((member) => member.member_id) });
-        if (linked && desired.some((branch) => branch.key === linked.branch_key)) throw new Error("Branch is desired again; obsolete deletion withheld");
+        if (desired.some((branch) => branch.key === op.branch_key)) {
+          // Cancel only after this branch's current remote delivery was verified.
+          const { data: link, error: linkError } = await admin.from("event_sync_links").select("google_event_id, last_source, sync_error")
+            .eq("family_id", familyId).eq("event_id", op.event_id).eq("calendar_source_id", op.calendar_source_id).eq("branch_key", op.branch_key).maybeSingle();
+          if (linkError) throw linkError;
+          if (!link || link.last_source !== "app" || link.sync_error) throw new Error("Desired branch requires restoration before deletion intent can retire");
+          const branch = desired.find((candidate) => candidate.key === op.branch_key);
+          if (!branch) throw new Error("Desired branch disappeared");
+          const body = branchBody(local, branch, await initialsFor(admin, familyId), await householdTimeZone(admin, familyId), await householdIncludesGoogleEventInitials(admin, familyId));
+          (body['extendedProperties'] as { private: Record<string, string> }).private['ofc_source_id'] = op.calendar_source_id;
+          if (!remoteMatchesDelivery(await google.getEvent(conn.connectionKey, op.external_calendar_id, link.google_event_id), body, link.google_event_id)) throw new Error("Desired branch requires verified restoration before deletion intent can retire");
+          await outbox.finishDelivery(admin, familyId, key, claim, link.google_event_id, null);
+          continue;
+        }
+        await outbox.assertDeliveryLease(admin, familyId, key, claim);
+        await google.deleteEvent(conn.connectionKey, op.external_calendar_id, op.google_event_id);
+        if (await google.getEventState(conn.connectionKey, op.external_calendar_id, op.google_event_id) === "live") throw new Error("Google deletion was not verified");
+        // Completion atomically checks the event/member operation version. Any
+        // reversal stays unsynced and queues the normal idempotent restoration.
+        deletionFinished = true;
+        await outbox.finishBranchDeletion(admin, familyId, key, claim, op.google_event_id);
+        continue;
+        } catch (error) {
+          if (!deletionFinished) await outbox.finishDelivery(admin, familyId, key, claim, null, (error instanceof Error ? error.message : "Deletion uncertain").slice(0, 500));
+          throw error;
+        }
       }
       await google.deleteEvent(conn.connectionKey, op['external_calendar_id'], op.google_event_id);
       if (await google.getEventState(conn.connectionKey, op['external_calendar_id'], op.google_event_id) === "live") throw new Error("Google deletion was not verified");

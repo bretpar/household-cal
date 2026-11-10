@@ -2271,6 +2271,16 @@ export type Database = {
         Args: { _family_id: string }
         Returns: Database["public"]["Enums"]["family_role"]
       }
+      finish_google_branch_deletion: {
+        Args: {
+          _family: string
+          _key: string
+          _remote: string
+          _token: string
+          _version: string
+        }
+        Returns: boolean
+      }
       finish_google_delivery: {
         Args: {
           _error?: string

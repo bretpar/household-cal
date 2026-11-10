@@ -1,5 +1,9 @@
 # Roadmap
 
+## Google Sync Repair 3
+- [x] Coordinate obsolete deletion/restoration through the existing branch lease; migration 0039 fences completion against committed edits and queues normal restoration after reversals.
+- [x] Adopt only uniquely verified legacy-marker branches; incomplete, malformed and ambiguous lookups fail closed. Focused delivery tests only; no live Google/event writes or publishing. Codex owns targeted race verification.
+
 ## Google Sync Repair 2
 - [x] Add exclusive database leases, transactional delivery/deletion intents, deterministic create generations and exact verified operation acknowledgments in migrations 0037–0038; monthly publishing stays disabled and live events untouched.
 - [x] Prepare executable changes and diff evidence; 13 narrow delivery/branch tests pass. Codex still owns real concurrency/Google verification; legacy uncertain creates and incomplete deletion identities fail closed for review. No deployment or publishing.

@@ -89,12 +89,12 @@ export type DeliveryClaim = { state: "claimed" | "recover"; id: string; version:
 export async function claimCreateIntent(
   admin: Admin,
   familyId: string,
-  op: { eventId: string; branchKey: string; calendarSourceId: string; externalCalendarId: string; body: Record<string, unknown> },
+  op: { eventId: string; branchKey: string; calendarSourceId: string; externalCalendarId: string; body: Record<string, unknown>; deleting?: boolean },
 ): Promise<DeliveryClaim | { state: "held" }> {
   const { data, error } = await (admin as Admin & { rpc: (name: string, args: unknown) => Promise<any> }).rpc("claim_google_delivery", {
     _family: familyId, _key: createIntentKey(op.eventId, op.branchKey, op.calendarSourceId),
     _event: op.eventId, _source: op.calendarSourceId, _token: crypto.randomUUID(),
-    _payload: { branch_key: op.branchKey, external_calendar_id: op.externalCalendarId, body: op.body },
+    _payload: { branch_key: op.branchKey, external_calendar_id: op.externalCalendarId, body: op.body, deleting: op.deleting ?? false },
   });
   if (error) throw error;
   if (!data || !["held", "claimed", "recover"].includes(data.state)) throw new Error("Google delivery claim was not confirmed");
@@ -107,6 +107,14 @@ export async function finishDelivery(admin: Admin, familyId: string, key: string
   });
   if (error) throw error;
   if (data !== true) throw new Error("Google delivery lease or operation version changed; acknowledgment withheld");
+}
+
+export async function finishBranchDeletion(admin: Admin, familyId: string, key: string, claim: DeliveryClaim, remoteId: string): Promise<void> {
+  const { data, error } = await (admin as Admin & { rpc: (name: string, args: unknown) => Promise<any> }).rpc("finish_google_branch_deletion", {
+    _family: familyId, _key: key, _token: claim.token, _version: claim.version, _remote: remoteId,
+  });
+  if (error) throw error;
+  if (data !== true) throw new Error("Branch changed during deletion; restoration queued, acknowledgment withheld");
 }
 
 /** Version fencing: an older request may not clear a newer committed local edit. */
@@ -146,6 +154,7 @@ export async function replayOutbox(admin: Admin, familyId: string): Promise<{ sy
           google_event_id: row.google_event_id, external_calendar_id: calendarId,
           calendar_source_id: row.calendar_source_id, event_id: row.event_id,
           local_delete: row.payload['local_delete'] === true,
+          ...(typeof row.payload['branch_key'] === "string" ? { branch_key: row.payload['branch_key'] } : {}),
         }]);
         if (!outcome.ok) throw new Error(outcome.skipped ?? "Deletion was not confirmed");
         await acknowledgeVersion(admin, row);

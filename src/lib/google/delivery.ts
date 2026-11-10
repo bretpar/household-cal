@@ -18,6 +18,24 @@ export function remoteMatchesDelivery(remote: Record<string, any>, body: Record<
   return true;
 }
 
+/** Legacy identity is acceptable only with an unambiguous master/branch relationship. */
+export function legacyMatchesBranch(remote: Record<string, any>, body: Record<string, any>): boolean {
+  const expected = body['extendedProperties']?.private;
+  const actual = remote['extendedProperties']?.private;
+  if (!remote['id'] || remote['status'] === 'cancelled' || remote['recurringEventId'] || !actual || !expected) return false;
+  if (actual['ofc_branch_key'] !== undefined || actual['ofc_event_id'] !== expected['ofc_event_id'] || actual['ofc_family_id'] !== expected['ofc_family_id']) return false;
+  if (actual['ofc_source_id'] && actual['ofc_source_id'] !== expected['ofc_source_id']) return false;
+  // Identity markers establish ownership; exact recurrence establishes branch,
+  // never title/time similarity. Changed recurrence remains manual-review only.
+  return JSON.stringify([...(remote['recurrence'] ?? [])].sort()) === JSON.stringify([...(body['recurrence'] ?? [])].sort());
+}
+
+export function uniqueLegacyBranch(matches: Record<string, any>[], body: Record<string, any>): string | null {
+  const valid = matches.filter((remote) => legacyMatchesBranch(remote, body));
+  if (valid.length > 1 || (matches.length > 0 && valid.length === 0)) throw new Error('Ambiguous legacy Google branch identity; insertion withheld');
+  return valid[0]?.['id'] ?? null;
+}
+
 /** Google permits lowercase base32hex ids; hex SHA-256 is a valid subset. */
 export async function deliveryRemoteId(key: string): Promise<string> {
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
