@@ -288,6 +288,13 @@
       "when": 1794328375692,
       "tag": "0040_babysitter_assignment_advances_event_version",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794329426068,
+      "tag": "0041_schedule_publish_qa_gate",
+      "breakpoints": true
     }
   ]
 }

@@ -1748,6 +1748,38 @@ export type Database = {
         }
         Relationships: []
       }
+      schedule_publish_qa_gates: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          family_id: string
+          note: string | null
+          owner_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          family_id: string
+          note?: string | null
+          owner_user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          family_id?: string
+          note?: string | null
+          owner_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_publish_qa_gates_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scheduler_credentials: {
         Row: {
           name: string

@@ -5,10 +5,9 @@
  * apply_schedule_publish_op RPC, so event, participants, caregiver assignment
  * and journal mapping commit or roll back together.
  *
- * Publishing is disabled for everyone while Phase 3A is under review: the
- * execution gate below rejects all mutation, including direct server-function
- * calls. Planning/preview stays available. Google delivery is deliberately
- * deferred — no Google writes happen here.
+ * Publishing is off for everyone except households allowlisted in the
+ * service-only QA gate (publishGateOpen). Google delivery goes through the
+ * durable outbox queued transactionally by event triggers.
  */
 import {
   loadFamilyBundle,
@@ -24,8 +23,21 @@ import { draftSchema, monthDates, type ProposedShift } from "@/lib/schedule-buil
 import { planPublish, type PublishPlan } from "@/lib/schedule-publish";
 import type { Assignment } from "@/lib/schedule-builder";
 
-/** Phase 3A execution lock: no user or direct caller can publish yet. */
-export const PUBLISH_EXECUTION_ENABLED = false;
+/**
+ * Controlled QA gate (default off). Publishing is allowed only when the
+ * service-only schedule_publish_qa_gates table has an enabled row for this
+ * exact household AND verified owner user id. No env, client flag or email
+ * can enable it; every other household is rejected server-side.
+ */
+export async function publishGateOpen(familyId: string, userId: string): Promise<boolean> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("schedule_publish_qa_gates").select("enabled")
+    .eq("family_id", familyId).eq("owner_user_id", userId).maybeSingle();
+  return !error && data?.enabled === true;
+}
+
+export type GoogleDeliveryStatus = "not_applicable" | "pending" | "synced" | "needs_attention";
 
 export interface PublishExecutionResult {
   runId: string;
@@ -34,6 +46,8 @@ export interface PublishExecutionResult {
   needsAttention: number;
   conflicts: { shiftId: string; reason: string }[];
   timesheetReconcile: "ok" | "pending";
+  /** Local OFC save is complete; Google delivery is reported separately. */
+  google: { status: GoogleDeliveryStatus; pending: number; synced: number; needsAttention: number };
 }
 
 /**
@@ -191,6 +205,7 @@ export async function executePublish(
     needsAttention: 0,
     conflicts: [],
     timesheetReconcile: "ok",
+    google: { status: "not_applicable", pending: 0, synced: 0, needsAttention: 0 },
   };
   const touchedEventIds: string[] = [];
   const jobId = await openReconcile(familyId, priorMembers);
@@ -316,6 +331,7 @@ export async function executePublish(
         completed_at: new Date().toISOString(),
       })
       .eq("id", runId);
+    result.google = await googleDeliveryStatus(familyId, touchedEventIds);
     return result;
   } catch (e) {
     await releaseReconcile(jobId);
@@ -325,6 +341,31 @@ export async function executePublish(
       .eq("id", runId);
     throw e;
   }
+}
+
+/**
+ * Drains the household's durable outbox once (intents were queued
+ * transactionally by the event triggers) and reports delivery for the
+ * published events. Never throws: the local save already committed.
+ */
+async function googleDeliveryStatus(familyId: string, eventIds: string[]): Promise<PublishExecutionResult["google"]> {
+  const out: PublishExecutionResult["google"] = { status: "not_applicable", pending: 0, synced: 0, needsAttention: 0 };
+  if (eventIds.length === 0) return out;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  try {
+    const { replayOutbox } = await import("@/lib/google/outbox.server");
+    await replayOutbox(supabaseAdmin, familyId);
+  } catch { /* stays pending; hourly replay retries */ }
+  const { data, error } = await supabaseAdmin.from("google_sync_outbox").select("status")
+    .eq("family_id", familyId).in("event_id", [...new Set(eventIds)]);
+  if (error) return { ...out, status: "pending", pending: eventIds.length };
+  for (const r of data ?? []) {
+    if (r.status === "synced") out.synced += 1;
+    else if (r.status === "needs_attention") out.needsAttention += 1;
+    else out.pending += 1;
+  }
+  out.status = out.needsAttention > 0 ? "needs_attention" : out.pending > 0 ? "pending" : out.synced > 0 ? "synced" : "not_applicable";
+  return out;
 }
 
 export type { Assignment, ProposedShift };

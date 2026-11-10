@@ -54,6 +54,16 @@ export const planSchedulePublish = createServerFn({ method: "GET" })
     return { revision: draft.revision, plan, eventVersions, previewId: preview.id };
   });
 
+/** Whether the verified Owner may publish for this household (QA gate). */
+export const getSchedulePublishGate = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ familyId: z.uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    await owner(context.supabase, context.userId, data.familyId);
+    const { publishGateOpen } = await import("@/lib/schedule-publish.server");
+    return { enabled: await publishGateOpen(data.familyId, context.userId) };
+  });
+
 /**
  * Applies a reviewed draft. Idempotent per draft shift and revision; stale
  * revisions are rejected before anything is written. Not reachable from the
@@ -76,11 +86,11 @@ export const executeSchedulePublish = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const db = context.supabase;
     await owner(db, context.userId, data.familyId);
-    const { executePublish, PUBLISH_EXECUTION_ENABLED } = await import("@/lib/schedule-publish.server");
-    // Phase 3A execution lock: publishing stays disabled for everyone,
-    // including direct server-function callers, until Review & Publish ships.
-    if (!PUBLISH_EXECUTION_ENABLED) {
-      throw new Error("Schedule publishing is turned off while the publish foundation is under review.");
+    const { executePublish, publishGateOpen } = await import("@/lib/schedule-publish.server");
+    // Server-enforced QA gate: rejects every non-allowlisted household/owner,
+    // including direct server-function callers.
+    if (!(await publishGateOpen(data.familyId, context.userId))) {
+      throw new Error("Schedule publishing is not available for this household yet.");
     }
     return executePublish(
       db as unknown as Db,

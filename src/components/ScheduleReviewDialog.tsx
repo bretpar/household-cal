@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 import type { Assignment, ExistingShift, ScheduleDraft } from "@/lib/schedule-builder";
 import type { PublishPlan, PublishPlanOp } from "@/lib/schedule-publish";
 import { groupPlanOps, originalVerified, plannedHours, reviewReadiness } from "@/lib/schedule-review";
-import { planSchedulePublish } from "@/lib/schedule-publish.functions";
+import { executeSchedulePublish, getSchedulePublishGate, planSchedulePublish } from "@/lib/schedule-publish.functions";
+import type { PublishExecutionResult } from "@/lib/schedule-publish.server";
 import type { FamilyMember } from "@/lib/family-data";
 
 type Preview = {
@@ -48,11 +49,20 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
   const [error, setError] = useState("");
   const [confirmed, setConfirmed] = useState<ReadonlySet<string>>(new Set());
   const [showKept, setShowKept] = useState(false);
+  const gateFn = useServerFn(getSchedulePublishGate);
+  const publishFn = useServerFn(executeSchedulePublish);
+  const [gateOpen, setGateOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [result, setResult] = useState<PublishExecutionResult | null>(null);
+  useEffect(() => {
+    gateFn({ data: { familyId } }).then((g) => setGateOpen(g.enabled)).catch(() => setGateOpen(false));
+  }, [familyId, gateFn]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError("");
     setConfirmed(new Set());
+    setResult(null);
     try {
       setPreview(await loadRef.current({ data: { familyId, month } }));
     } catch (e) {
@@ -78,6 +88,28 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
         ? a.name
         : "Unassigned";
   const hours = preview ? plannedHours(preview.plan, draft) : 0;
+
+  const publish = async () => {
+    if (!preview || !readiness?.ready || stale) return;
+    setPublishing(true);
+    setError("");
+    try {
+      setResult(await publishFn({ data: {
+        familyId, month, revision: preview.revision, previewId: preview.previewId,
+        reviewedShiftIds: [...confirmed], reviewedEventVersions: preview.eventVersions,
+      } }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Publishing failed. Nothing new was confirmed.");
+    } finally {
+      setPublishing(false);
+    }
+  };
+  const googleLabel: Record<PublishExecutionResult["google"]["status"], string> = {
+    not_applicable: "Google: not connected for these shifts",
+    pending: "Google sync pending — it will finish in the background",
+    synced: "Google Calendar synced",
+    needs_attention: "Google sync needs attention",
+  };
 
   const toggleConfirmed = (shiftId: string, checked: boolean) =>
     setConfirmed((prev) => {
@@ -279,15 +311,32 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
             </div>
           )}
         </div>
+        {result && (
+          <div className="space-y-1 rounded-md border border-border p-3 text-sm" role="status">
+            <p className="font-medium">
+              {result.needsAttention === 0
+                ? `Saved to your family calendar: ${result.applied} applied, ${result.skipped} unchanged.`
+                : `Saved with issues: ${result.applied} applied, ${result.needsAttention} need attention.`}
+            </p>
+            {result.timesheetReconcile === "pending" && <p className="text-xs">Timesheet update is pending and will retry.</p>}
+            <p className="text-xs text-muted-foreground">{googleLabel[result.google.status]}</p>
+          </div>
+        )}
         <div className="flex flex-wrap justify-between gap-2 border-t border-border pt-3">
           <Button variant="outline" onClick={onClose}>Return to builder</Button>
           <div className="flex gap-2">
             <Button variant="outline" disabled={loading} onClick={() => void refresh()}>
               <RefreshCw className="h-4 w-4" />Refresh preview
             </Button>
-            <Button disabled title="Publishing is coming soon">
-              <LockKeyhole className="h-4 w-4" />Publish Schedule — Coming Soon
-            </Button>
+            {gateOpen ? (
+              <Button disabled={loading || publishing || !!result || stale || !readiness?.ready} onClick={() => void publish()}>
+                {publishing ? "Publishing…" : "Publish Schedule (QA)"}
+              </Button>
+            ) : (
+              <Button disabled title="Publishing is coming soon">
+                <LockKeyhole className="h-4 w-4" />Publish Schedule — Coming Soon
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>
