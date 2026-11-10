@@ -316,6 +316,9 @@ export async function loadFamilyBundle(
     excluded_dates: e.excluded_dates ?? [],
     needs_family_assignment: e.needs_family_assignment ?? false,
     created_at: e.created_at ?? null,
+    updated_at: e.updated_at ?? null,
+    split_from_event_id: e.split_from_event_id ?? null,
+    split_from_date: e.split_from_date ?? null,
     external_event_id: e.external_event_id,
     external_recurring_event_id: e.external_recurring_event_id,
 

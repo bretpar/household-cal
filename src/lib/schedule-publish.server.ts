@@ -91,20 +91,15 @@ export async function loadPublishPlan(
   }
   const plan = planPublish(content, existing, mappedEvents);
 
-  // Record the reviewed calendar version for every referenced event.
-  const referencedIds = [...new Set(plan.ops.flatMap((op) => (op.eventId ? [op.eventId] : [])))];
-  const eventVersions: Record<string, string> = {};
-  if (referencedIds.length > 0) {
-    const { data: versions, error: versionError } = await db
-      .from("events")
-      .select("id, updated_at")
-      .eq("family_id", familyId)
-      .in("id", referencedIds);
-    if (versionError) throw new Error("Couldn't confirm calendar versions. Reload the preview.");
-    for (const row of versions ?? []) {
-      eventVersions[row.id as string] = row.updated_at as string;
-    }
-  }
+  // Reviewed versions come from the SAME row read that produced the details,
+  // participants and shift assignment: the bundle loads each event with its
+  // embedded event_members/babysitter_shifts in one PostgREST statement, i.e.
+  // one Postgres snapshot. No separate, unfenced version read.
+  const eventVersions = snapshotEventVersions(
+    plan,
+    sitterEvents,
+    lineage.data ?? [],
+  );
   // Bind each reviewed original to the exact version used for concurrency checks.
   for (const op of plan.ops) {
     if (op.original) op.original = { ...op.original, eventVersion: eventVersions[op.original.eventId] ?? null };
@@ -333,3 +328,43 @@ export async function executePublish(
 }
 
 export type { Assignment, ProposedShift };
+
+type LineageRow = { id: string; split_from_event_id: string | null; split_from_date: string | null };
+
+/**
+ * Returns the reviewed version of every event a plan op references, taken from
+ * the same event rows the plan was classified from. Fails closed (requiring a
+ * refreshed review) when a referenced event is absent from that snapshot, has
+ * no version, or its split lineage disagrees with the separately read lineage
+ * map used for recurring-occurrence identity.
+ */
+export function snapshotEventVersions(
+  plan: PublishPlan,
+  snapshotEvents: { id: string; updated_at?: string | null; split_from_event_id?: string | null; split_from_date?: string | null }[],
+  lineageRows: LineageRow[],
+): Record<string, string> {
+  const stale = "The calendar changed while this review was loading. Refresh the review.";
+  const rows = new Map(snapshotEvents.map((e) => [e.id, e]));
+  const lineage = new Map(lineageRows.map((r) => [r.id, r]));
+  const versions: Record<string, string> = {};
+  const ids = new Set<string>();
+  for (const op of plan.ops) {
+    // Conflicts already block readiness and never execute; orphaned
+    // references must stay conflicts rather than fail the whole review.
+    if (op.kind === "conflict") continue;
+    if (op.eventId) ids.add(op.eventId);
+    if (op.original?.eventId) ids.add(op.original.eventId);
+  }
+  for (const id of ids) {
+    const row = rows.get(id);
+    if (!row || !row.updated_at) throw new Error(stale);
+    const lin = lineage.get(id);
+    const rowFrom = row.split_from_event_id ?? null;
+    const rowDate = row.split_from_date ?? null;
+    if ((lin?.split_from_event_id ?? null) !== rowFrom || (lin?.split_from_date ?? null) !== rowDate) {
+      throw new Error(stale);
+    }
+    versions[id] = row.updated_at;
+  }
+  return versions;
+}

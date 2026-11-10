@@ -169,6 +169,11 @@ export interface CalendarEvent {
   needs_family_assignment: boolean;
   /** ISO timestamp the row was created — powers "recently added" ordering */
   created_at?: string | null;
+  /** Row version read in the same statement as details, members and shift. */
+  updated_at?: string | null;
+  /** Recurring-split lineage, read in the same statement as the row. */
+  split_from_event_id?: string | null;
+  split_from_date?: string | null;
   /** Babysitter-calendar shift assignment (visible to editors; caregivers see only their own). */
   shift_assignment?:
     | { kind: "caregiver"; family_member_id: string }
