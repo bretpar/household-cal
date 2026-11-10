@@ -1,0 +1,1 @@
+- Smart Coverage logic stays UI-free; work-calendar picks live in babysitter_coverage_settings, skip decisions in the draft. Why: reusable on iPhone.
