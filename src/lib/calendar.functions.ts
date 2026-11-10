@@ -250,6 +250,16 @@ export const deleteEventFn = createServerFn({ method: "POST" })
 
     const wholeEventGone = data.scope === "series";
     const links = wholeEventGone ? await sync.linksForEvent(supabaseAdmin, data.event_id) : [];
+    // Persist the exact remote deletion intent (destination calendar, Google
+    // event id, source identity) before the local rows disappear, so an
+    // interrupted deletion stays retryable from the durable outbox.
+    if (wholeEventGone && links.length > 0) {
+      try {
+        await sync.recordDeletionIntent(supabaseAdmin, familyId, links);
+      } catch (e) {
+        console.error("[google-sync] could not persist deletion intent", e);
+      }
+    }
 
     // Capture assigned caregivers before the delete removes the shift rows.
     const shiftMembers = await shiftMembersOrNull(familyId, [data.event_id]);

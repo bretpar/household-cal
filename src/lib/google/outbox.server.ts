@@ -74,6 +74,80 @@ async function markOutbox(
     .throwOnError();
 }
 
+/** Sets the status of one operation by its stable key. */
+export async function setOutboxStatusByKey(
+  admin: Admin,
+  familyId: string,
+  opKey: string,
+  status: "synced" | "needs_attention",
+  lastError: string | null,
+): Promise<void> {
+  await admin
+    .from("google_sync_outbox")
+    .update({ status, last_error: lastError, updated_at: new Date().toISOString() })
+    .eq("family_id", familyId)
+    .eq("op_key", opKey)
+    .throwOnError();
+}
+
+/** Stable key of the durable first-create intent for one event branch. */
+export function createIntentKey(eventId: string, branchKey: string): string {
+  return `create:${eventId}:${branchKey}`;
+}
+
+/** A fresh intent row is treated as owned by an in-flight request. */
+const CREATE_INTENT_HOLD_MS = 5 * 60 * 1000;
+
+/**
+ * Database-backed claim on the first Google create of one event branch,
+ * coordinating concurrent requests through the unique (family_id, op_key)
+ * outbox key:
+ * - "claimed": this request recorded the intent and may insert.
+ * - "adopt":   an earlier attempt went stale mid-create; recover by looking up
+ *   and adopting the remote event it may already have created.
+ * - "held":    another in-flight request owns the intent; fail safe and do
+ *   not insert.
+ * A persistence failure throws before any Google insert can happen.
+ */
+export async function claimCreateIntent(
+  admin: Admin,
+  familyId: string,
+  op: {
+    eventId: string;
+    branchKey: string;
+    calendarSourceId: string;
+    externalCalendarId: string | null;
+  },
+): Promise<"claimed" | "adopt" | "held"> {
+  const opKey = createIntentKey(op.eventId, op.branchKey);
+  const { data: existing } = await admin
+    .from("google_sync_outbox")
+    .select("id, status, updated_at")
+    .eq("family_id", familyId)
+    .eq("op_key", opKey)
+    .maybeSingle();
+  if (!existing) {
+    const { error } = await admin.from("google_sync_outbox").insert({
+      family_id: familyId,
+      op_key: opKey,
+      kind: "create",
+      event_id: op.eventId,
+      calendar_source_id: op.calendarSourceId,
+      payload: { branch_key: op.branchKey, external_calendar_id: op.externalCalendarId },
+      status: "pending",
+    });
+    if (error) {
+      // Unique-key conflict: a concurrent request won the claim.
+      if ((error as { code?: string }).code === "23505") return "held";
+      throw error;
+    }
+    return "claimed";
+  }
+  if (existing.status === "synced") return "claimed";
+  const ageMs = Date.now() - new Date(existing.updated_at as string).getTime();
+  return ageMs < CREATE_INTENT_HOLD_MS ? "held" : "adopt";
+}
+
 /**
  * Replays pending and needs-attention operations for one household.
  *
@@ -118,8 +192,12 @@ export async function replayOutbox(
           continue;
         }
         const sync = await import("@/lib/google/sync.server");
-        const outcome = await sync.pushEventDeletion(admin, familyId, [
-          { google_event_id: row.google_event_id, calendar_source_id: row.calendar_source_id ?? "" },
+        // Retry against the explicitly recorded destination identity, not the
+        // currently eligible source list: a source that fell out of eligibility
+        // must not strand the deletion, and not_connected/timeout/unknown
+        // outcomes come back as not-ok so the operation stays retryable.
+        const outcome = await sync.pushEventDeletionResolved(admin, familyId, [
+          { google_event_id: row.google_event_id, external_calendar_id: calendarId },
         ]);
         if (outcome.ok) {
           await markOutbox(admin, row.id, { status: "synced", last_error: null });
@@ -159,9 +237,39 @@ export async function replayOutbox(
         continue;
       }
       if (row.kind === "create" && row.google_event_id) {
-        // Uncertain create that actually landed: adopt the identity, do not insert again.
-        await markOutbox(admin, row.id, { status: "synced", last_error: null });
-        synced += 1;
+        // A stored remote id is never trusted on faith: verify the exact
+        // destination/event identity with Google and durably adopt it into the
+        // event's sync links before this operation may count as synced.
+        const calendarId = (row.payload as { external_calendar_id?: string }).external_calendar_id;
+        const branchKey = (row.payload as { branch_key?: string }).branch_key ?? "";
+        if (!calendarId || !row.calendar_source_id) {
+          await markOutbox(admin, row.id, {
+            status: "needs_attention",
+            last_error: "Create payload is incomplete; kept for manual review.",
+          });
+          attention += 1;
+          continue;
+        }
+        const sync = await import("@/lib/google/sync.server");
+        const adopted = await sync.verifyAndAdoptRemoteEvent(
+          admin,
+          familyId,
+          row.event_id,
+          row.calendar_source_id,
+          calendarId,
+          row.google_event_id,
+          branchKey,
+        );
+        if (adopted.ok) {
+          await markOutbox(admin, row.id, { status: "synced", last_error: null });
+          synced += 1;
+        } else {
+          await markOutbox(admin, row.id, {
+            status: "needs_attention",
+            last_error: adopted.skipped ?? "Remote create could not be verified.",
+          });
+          attention += 1;
+        }
         continue;
       }
       const sync = await import("@/lib/google/sync.server");

@@ -232,6 +232,32 @@ export async function getEventState(
   return parsed.status === "cancelled" ? "cancelled" : "live";
 }
 
+/**
+ * Finds live Google events carrying the given private extended properties
+ * (ANDed), used to adopt an event a previous uncertain insert already created
+ * instead of inserting a duplicate.
+ */
+export async function findEventsByPrivateProperties(
+  connectionAPIKey: string,
+  calendarId: string,
+  props: Record<string, string>,
+): Promise<GoogleEvent[]> {
+  const params = new URLSearchParams({ showDeleted: "false", singleEvents: "false", maxResults: "10" });
+  for (const [key, value] of Object.entries(props)) {
+    params.append("privateExtendedProperty", `${key}=${value}`);
+  }
+  const res = await callAsAppUser({
+    gatewayBaseUrl: GATEWAY_BASE_URL,
+    connectionAPIKey,
+    connectorId: CONNECTOR_ID,
+    path: `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params.toString()}`,
+  });
+  const text = await res.text();
+  if (!res.ok) throw googleFailure(res.status, text, "Google event search failed");
+  const body = JSON.parse(text || "{}") as { items?: GoogleEvent[] };
+  return (body.items ?? []).filter((item) => item.status !== "cancelled");
+}
+
 export async function deleteEvent(
   connectionAPIKey: string,
   calendarId: string,
