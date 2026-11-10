@@ -57,6 +57,7 @@ export interface ExistingShift {
   key: string; eventId: string; date: string; title: string; start: string; end: string;
   allDay: boolean; assignment: Assignment; startAt: string; endDate: string;
   splitFromEventId: string | null; splitFromDate: string | null;
+  recurring?: boolean;
 }
 export type Lineage = Record<string, { split_from_event_id: string | null; split_from_date: string | null }>;
 
@@ -84,6 +85,7 @@ export function existingMonthShifts(events: CalendarEvent[], month: string, time
       end: e.all_day ? "23:59" : formatInTimeZone(end, timeZone, "HH:mm"), allDay: e.all_day,
       assignment: e.shift_assignment ?? { kind: "none" as const }, startAt: start.toISOString(), endDate,
       splitFromEventId: link?.split_from_event_id ?? null, splitFromDate: link?.split_from_date ?? null,
+      recurring: !!e.recurrence_rule || !!link?.split_from_event_id,
     }];
   });
 }
@@ -122,4 +124,38 @@ export function appendProposals(draft: ScheduleDraft, shifts: ProposedShift[], e
     result.push(shift);
   }
   return draftSchema.parse({ shifts: result });
+}
+
+/** All editor commands affect proposals only, retaining original occurrence references. */
+export type ScheduleCommand =
+  | { kind: "keep"; shift: ProposedShift }
+  | { kind: "move"; id: string; date: string }
+  | { kind: "assign"; ids: string[]; assignment: Assignment }
+  | { kind: "remove"; ids: string[] };
+
+export function editSchedule(draft: ScheduleDraft, month: string, command: ScheduleCommand): ScheduleDraft {
+  monthSchema.parse(month);
+  let shifts = draft.shifts;
+  switch (command.kind) {
+    case "keep": shifts = [...shifts.filter(s => s.id !== command.shift.id), command.shift]; break;
+    case "move": shifts = shifts.map(s => s.id === command.id ? { ...s, date: command.date } : s); break;
+    case "assign": {
+      const assignment = assignmentSchema.parse(command.assignment);
+      shifts = shifts.map(s => command.ids.includes(s.id) ? { ...s, assignment } : s); break;
+    }
+    case "remove": shifts = shifts.filter(s => !command.ids.includes(s.id)); break;
+  }
+  const next = draftSchema.parse({ shifts });
+  if (next.shifts.some(s => !s.date.startsWith(`${month}-`))) throw new Error("Proposals must stay in the selected month.");
+  return next;
+}
+
+export function scheduleSummary(draft: ScheduleDraft, existing: ExistingShift[]) {
+  const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+  return {
+    proposals: draft.shifts.length,
+    hours: draft.shifts.reduce((sum, s) => sum + minutes(s.end) - minutes(s.start), 0) / 60,
+    existing: new Set(existing.map(s => s.key)).size,
+    conflicts: draft.shifts.filter(s => proposalNeedsReview(s, existing)).length,
+  };
 }

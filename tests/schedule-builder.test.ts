@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendProposals, buildTemplate, draftSchema, proposalNeedsReview, type ExistingShift, type ProposedShift, type ScheduleTemplate } from "@/lib/schedule-builder";
+import { appendProposals, buildTemplate, draftSchema, editSchedule, scheduleSummary, proposalNeedsReview, type ExistingShift, type ProposedShift, type ScheduleTemplate } from "@/lib/schedule-builder";
 
 const template: ScheduleTemplate = { assignment: { kind: "none" }, weekdays: [{ day: 1, start: "09:00", end: "17:00" }] };
 let counter = 0;
@@ -64,5 +64,35 @@ describe("private monthly schedule proposals", () => {
   it("rejects nonpositive same-day proposed shift times", () => {
     const shift = buildTemplate("2026-11", template, id)[0];
     expect(draftSchema.safeParse({ shifts: [{ ...shift, start: "17:00", end: "09:00" }] }).success).toBe(false);
+  });
+  it("moves only the proposal while preserving its original occurrence reference", () => {
+    const shift = buildTemplate("2026-11", template, id)[0];
+    if (!shift) throw new Error("Expected shift");
+    const original = existingShift(shift);
+    const proposal = { ...shift, existing: { eventId: original.eventId, occurrenceKey: original.key, startAt: original.startAt, splitFromEventId: null, splitFromDate: null } };
+    const draft = { shifts: [proposal] };
+    const moved = editSchedule(draft, "2026-11", { kind: "move", id: proposal.id, date: "2026-11-03" });
+    expect(moved.shifts[0]).toEqual({ ...proposal, date: "2026-11-03" });
+    expect(draft.shifts[0]?.date).toBe("2026-11-02");
+    expect(original.date).toBe("2026-11-02");
+  });
+  it("rejects moving a proposal outside its private draft month", () => {
+    const shifts = buildTemplate("2026-11", template, id);
+    const first = shifts[0]; if (!first) throw new Error("Expected shift");
+    expect(() => editSchedule({ shifts }, "2026-11", { kind: "move", id: first.id, date: "2026-12-01" })).toThrow("selected month");
+  });
+  it("bulk assigns and removes only selected proposals", () => {
+    const shifts = buildTemplate("2026-11", template, id);
+    const first = shifts[0]; if (!first) throw new Error("Expected shift");
+    const assigned = editSchedule({ shifts }, "2026-11", { kind: "assign", ids: [first.id], assignment: { kind: "other", name: "Alex" } });
+    expect(assigned.shifts[0]?.assignment).toEqual({ kind: "other", name: "Alex" });
+    expect(assigned.shifts.slice(1)).toEqual(shifts.slice(1));
+    expect(editSchedule(assigned, "2026-11", { kind: "remove", ids: [first.id] }).shifts).toEqual(shifts.slice(1));
+  });
+  it("summarizes proposal hours, distinct existing occurrences and review conflicts", () => {
+    const shifts = buildTemplate("2026-11", template, id);
+    const first = shifts[0]; if (!first) throw new Error("Expected shift");
+    const existing = { ...existingShift(first), start: "08:00" };
+    expect(scheduleSummary({ shifts }, [existing, existing])).toEqual({ proposals: 5, hours: 40, existing: 1, conflicts: 1 });
   });
 });

@@ -1,5 +1,9 @@
 # Roadmap
 
+## Desktop Babysitter Schedule Editor — Phase 2
+- [x] Add compact monthly grid, private proposal editing/moving and bulk assignment/removal using shared commands; preserve saved-draft protections and read-only calendar occurrences.
+- [x] Add monthly totals and recurring indicators; keep publishing disabled. No browser QA or live event changes; final targeted verification remains with Codex.
+
 ## Desktop Babysitter Schedule Builder — Phase 1
 - [x] Reconcile template identities/slots and flag existing-shift mismatches; retain newer edits after saves and keep dirty month editors mounted during refetches. Eight engine tests and automatic compilation pass; no live writes or publication, final focused verification with Codex.
 - [x] Add owner-only private monthly drafts and reusable templates with revision conflicts in migration 0031.
