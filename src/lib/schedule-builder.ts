@@ -88,7 +88,38 @@ export function existingMonthShifts(events: CalendarEvent[], month: string, time
   });
 }
 
-/** Adding a template never reconciles away existing shifts or previous draft proposals. */
-export function appendProposals(draft: ScheduleDraft, shifts: ProposedShift[]): ScheduleDraft {
-  return draftSchema.parse({ shifts: [...draft.shifts, ...shifts] });
+function sameAssignment(a: Assignment, b: Assignment): boolean {
+  return a.kind === b.kind && (a.kind === "caregiver" ? b.kind === "caregiver" && a.family_member_id === b.family_member_id
+    : a.kind === "other" ? b.kind === "other" && a.name.trim() === b.name.trim() : true);
+}
+function sameSlot(a: ProposedShift, b: ProposedShift | ExistingShift): boolean {
+  return a.date === b.date && a.start === b.start && a.end === b.end && sameAssignment(a.assignment, b.assignment)
+    && (!("allDay" in b) || (!b.allDay && b.endDate === b.date));
+}
+function sameIdentity(a: ProposedShift, b: ProposedShift | ExistingShift): boolean {
+  const ref = a.existing;
+  if (!ref) return false;
+  const other = "key" in b ? { eventId: b.eventId, occurrenceKey: b.key, startAt: b.startAt,
+    splitFromEventId: b.splitFromEventId, splitFromDate: b.splitFromDate } : b.existing;
+  if (!other) return false;
+  if (ref.occurrenceKey === other.occurrenceKey || (ref.eventId === other.eventId && Date.parse(ref.startAt) === Date.parse(other.startAt))) return true;
+  const origin = ref.splitFromEventId ?? ref.eventId;
+  const otherOrigin = other.splitFromEventId ?? other.eventId;
+  return origin === otherOrigin && (ref.splitFromDate ?? a.date) === (other.splitFromDate ?? b.date);
+}
+
+/** Keep mismatches visible for review; never remove or overwrite a calendar occurrence. */
+export function proposalNeedsReview(shift: ProposedShift, existing: ExistingShift[]): boolean {
+  return !shift.existing && existing.some(e => e.date <= shift.date && e.endDate >= shift.date && !sameSlot(shift, e));
+}
+
+/** Reconcile identities first, then intended household date/time/caregiver slots. */
+export function appendProposals(draft: ScheduleDraft, shifts: ProposedShift[], existing: ExistingShift[] = []): ScheduleDraft {
+  const result = [...draft.shifts];
+  for (const shift of shifts) {
+    if (existing.some(e => sameIdentity(shift, e) || (!shift.existing && sameSlot(shift, e)))
+      || result.some(p => p.id === shift.id || sameIdentity(shift, p) || (!shift.existing && sameSlot(shift, p)))) continue;
+    result.push(shift);
+  }
+  return draftSchema.parse({ shifts: result });
 }

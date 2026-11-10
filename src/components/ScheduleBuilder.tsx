@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronLeft, ChevronRight, Plus, Save, Trash2, Pencil, LockKeyhole } from "lucide-react";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useCalendar } from "@/lib/calendar-store";
 import { getVerifiedMembership } from "@/lib/auth-guard";
 import { cn } from "@/lib/utils";
-import { monthDates, shiftMonth, buildTemplate, appendProposals, existingMonthShifts, draftSchema, templateSchema,
+import { monthDates, shiftMonth, buildTemplate, appendProposals, proposalNeedsReview, existingMonthShifts, draftSchema, templateSchema,
   type Assignment, type ProposedShift, type ScheduleDraft, type ScheduleTemplate, type ExistingShift } from "@/lib/schedule-builder";
 import { loadScheduleWorkspace, saveScheduleDraft, saveScheduleTemplate } from "@/lib/schedule-builder.functions";
 import type { FamilyMember } from "@/lib/family-data";
@@ -37,34 +37,63 @@ function ScheduleWorkspace({ familyId }: { familyId: string }) {
     const parts = new Intl.DateTimeFormat("en-CA", { timeZone: query.data.timeZone, year: "numeric", month: "2-digit" }).formatToParts(new Date());
     setMonth(`${parts.find(p => p.type === "year")?.value}-${parts.find(p => p.type === "month")?.value}`);
   } }, [query.data, month]);
-  if (query.isError) return <div role="alert" className="space-y-3"><p>Schedule could not be loaded.</p><Button variant="outline" onClick={() => void query.refetch()}>Retry</Button></div>;
-  if (!query.data || !month || query.isFetching) return <p className="py-10 text-muted-foreground">Loading schedule…</p>;
-  return <MonthWorkspace key={`${familyId}:${month}`} familyId={familyId} month={month} data={query.data}
-    changeMonth={setMonth} reload={() => void query.refetch()} />;
+  if (query.isError && !query.data) return <div role="alert" className="space-y-3"><p>Schedule could not be loaded.</p><Button variant="outline" onClick={() => void query.refetch()}>Retry</Button></div>;
+  if (!query.data || !month) return <p className="py-10 text-muted-foreground">Loading schedule…</p>;
+  return <>{query.isError && <div role="alert"><p>Schedule refresh failed. Your local changes are preserved.</p><Button variant="outline" onClick={() => void query.refetch()}>Retry</Button></div>}
+    <MonthWorkspace key={`${familyId}:${month}`} familyId={familyId} month={month} data={query.data}
+      changeMonth={setMonth} reload={async () => { const result = await query.refetch(); if (result.error) throw result.error; if (!result.data) throw new Error("Schedule could not be loaded."); return result.data; }} /></>;
 }
 type WorkspaceData = Awaited<ReturnType<typeof loadScheduleWorkspace>>;
 
-function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { familyId: string; month: string; data: WorkspaceData; changeMonth: (m: string) => void; reload: () => void }) {
+function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { familyId: string; month: string; data: WorkspaceData; changeMonth: (m: string) => void; reload: () => Promise<WorkspaceData> }) {
   const save = useServerFn(saveScheduleDraft); const saveTemplate = useServerFn(saveScheduleTemplate);
   const [draft, setDraft] = useState<ScheduleDraft>(data.draft?.content ?? { shifts: [] });
   const [revision, setRevision] = useState(data.draft?.revision ?? 0);
   const [dirty, setDirty] = useState(false); const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(""); const [conflict, setConflict] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false); const [editing, setEditing] = useState<ProposedShift | null>(null);
+  const draftRef = useRef(draft); const dirtyRef = useRef(false); const savingRef = useRef(false);
+  const acceptSaved = (saved: WorkspaceData) => {
+    const content = saved.draft?.content ?? { shifts: [] };
+    draftRef.current = content; dirtyRef.current = false;
+    setDraft(content); setRevision(saved.draft?.revision ?? 0); setDirty(false); setConflict(false); setMessage("");
+  };
+  useEffect(() => {
+    if (savingRef.current) return;
+    if (!dirtyRef.current) acceptSaved(data);
+    else if ((data.draft?.revision ?? 0) !== revision) {
+      setConflict(true); setMessage("Another Owner saved this month. Your local changes are preserved. Reload the saved draft to discard them.");
+    }
+  }, [data]);
   const caregivers = data.bundle.members.filter(m => m.active && !m.removed_at && m.role === "caregiver");
   const dates = monthDates(month);
   const existing = useMemo(() => existingMonthShifts(data.bundle.events.filter(e => e.calendar_source_id === data.bundle.family?.babysitter_calendar_source_id), month, data.timeZone, data.lineage), [data, month]);
   const assignmentLabel = (a: Assignment) => a.kind === "caregiver" ? data.bundle.members.find(m => m.id === a.family_member_id)?.name ?? "Former caregiver" : a.kind === "other" ? a.name : "Unassigned";
-  const modify = (next: ScheduleDraft) => { setDraft(next); setDirty(true); setMessage(""); };
-  const leave = (action: () => void) => { if (!dirty || window.confirm("Discard unsaved draft changes?")) action(); };
+  const modify = (next: ScheduleDraft) => { draftRef.current = next; dirtyRef.current = true; setDraft(next); setDirty(true); setMessage(""); };
+  const leave = (action: () => void) => { if (!savingRef.current && (!dirtyRef.current || window.confirm("Discard unsaved draft changes?"))) action(); };
   useEffect(() => { const guard = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault(); }; window.addEventListener("beforeunload", guard); return () => window.removeEventListener("beforeunload", guard); }, [dirty]);
   async function saveDraft() {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    const submitted = draftRef.current;
     setBusy(true); setMessage("");
-    try { const result = await save({ data: { familyId, month, revision, content: draft } });
+    try { const result = await save({ data: { familyId, month, revision, content: submitted } });
       if (result.conflict) { setConflict(true); setMessage("Another Owner saved this month. Your changes have not been overwritten. Reload the saved draft or keep your local changes."); }
-      else { setRevision(result.revision); setDirty(false); setConflict(false); setMessage("Private draft saved."); }
+      else { setRevision(result.revision); setConflict(false);
+        const unchanged = draftRef.current === submitted;
+        dirtyRef.current = !unchanged; setDirty(!unchanged);
+        setMessage(unchanged ? "Private draft saved." : "Earlier changes saved. Newer edits remain unsaved.");
+      }
     } catch (e) { setMessage(e instanceof Error ? e.message : "Draft could not be saved."); }
-    finally { setBusy(false); }
+    finally { savingRef.current = false; setBusy(false); }
+  }
+  async function reloadSaved() {
+    if (savingRef.current || (dirtyRef.current && !window.confirm("Discard unsaved draft changes?"))) return;
+    savingRef.current = true; setBusy(true);
+    const snapshot = draftRef.current;
+    try { const saved = await reload(); if (draftRef.current === snapshot) { acceptSaved(saved); setEditing(null); } }
+    catch (e) { setMessage(e instanceof Error ? e.message : "Draft could not be loaded."); }
+    finally { savingRef.current = false; setBusy(false); }
   }
   const newShift = (date: string): ProposedShift => ({ id: crypto.randomUUID(), date, start: "09:00", end: "17:00", title: "Babysitter", assignment: { kind: "none" } });
   const editExisting = (s: ExistingShift) => setEditing({ ...newShift(s.date), start: s.start, end: s.end, title: s.title, assignment: s.assignment,
@@ -79,7 +108,7 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
         <Button disabled={busy || conflict || (!dirty && revision > 0)} onClick={() => void saveDraft()}><Save className="h-4 w-4" />Save Draft</Button></div>
     </div>
     <div className="flex flex-wrap items-center justify-between gap-3 text-xs"><div className="flex gap-4"><span className="text-member-sky-ink">● Existing</span><span className="text-member-sage-ink">● Proposed</span><span className="text-member-amber-ink">● Modified proposal</span></div><Button variant="outline" disabled><LockKeyhole className="h-4 w-4" />Publish Schedule — Coming Soon</Button></div>
-    {message && <div role="status" className="flex items-center gap-3 text-sm"><p>{message}</p>{conflict && <Button variant="outline" onClick={() => leave(reload)}>Reload saved draft</Button>}</div>}
+    {message && <div role="status" className="flex items-center gap-3 text-sm"><p>{message}</p>{conflict && <Button variant="outline" disabled={busy} onClick={() => void reloadSaved()}>Reload saved draft</Button>}</div>}
     {!data.bundle.family?.babysitter_calendar_source_id && <p className="text-sm text-muted-foreground">No Babysitter calendar is selected. Drafts can still be saved.</p>}
     <div className="grid grid-cols-7 border-l border-t border-border">
       {weekdays.map(d => <div key={d} className="border-b border-r border-border bg-surface-muted px-2 py-2 text-xs font-semibold">{d}</div>)}
@@ -87,15 +116,15 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
       {dates.map(date => <div key={date} className="min-h-40 min-w-0 space-y-2 border-b border-r border-border p-2">
         <div className="flex items-center justify-between"><span className="text-sm font-semibold">{Number(date.slice(8))}</span><Button variant="ghost" size="icon" className="h-6 w-6" aria-label={`Add proposed shift on ${date}`} onClick={() => setEditing(newShift(date))}><Plus className="h-3 w-3" /></Button></div>
         {existing.filter(s => s.date <= date && s.endDate >= date).map(s => <article key={s.key} className="rounded-md border border-member-sky bg-member-sky-soft p-2 text-member-sky-ink"><div className="flex items-start justify-between gap-1"><p className="break-words text-xs font-semibold">{s.title}</p>{!s.allDay && s.date === s.endDate && s.date === date && s.start < s.end && !draft.shifts.some(p => p.existing?.occurrenceKey === s.key) && <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" aria-label={`Propose changes to ${s.title} on ${date}`} onClick={() => editExisting(s)}><Pencil className="h-3 w-3" /></Button>}</div><p className="text-xs">{s.allDay ? "All day" : s.date !== s.endDate ? `${s.date.slice(5)} ${s.start} – ${s.endDate.slice(5)} ${s.end}` : `${s.start}–${s.end}`}</p><p className="break-words text-xs">{assignmentLabel(s.assignment)}</p></article>)}
-        {draft.shifts.filter(s => s.date === date).map(s => <article key={s.id} className={cn("rounded-md border p-2", s.existing ? "border-member-amber bg-member-amber-soft text-member-amber-ink" : "border-member-sage bg-member-sage-soft text-member-sage-ink")}><div className="flex items-start justify-between gap-1"><p className="break-words text-xs font-semibold">{s.title}</p><Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" aria-label={`Edit proposal on ${date}`} onClick={() => setEditing(s)}><Pencil className="h-3 w-3" /></Button></div><p className="text-xs">{s.start}–{s.end}</p><p className="break-words text-xs">{assignmentLabel(s.assignment)}</p>{s.existing && <p className="text-xs">Change proposed</p>}</article>)}
+        {draft.shifts.filter(s => s.date === date).map(s => <article key={s.id} className={cn("rounded-md border p-2", s.existing || proposalNeedsReview(s, existing) ? "border-member-amber bg-member-amber-soft text-member-amber-ink" : "border-member-sage bg-member-sage-soft text-member-sage-ink")}><div className="flex items-start justify-between gap-1"><p className="break-words text-xs font-semibold">{s.title}</p><Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" aria-label={`Edit proposal on ${date}`} onClick={() => setEditing(s)}><Pencil className="h-3 w-3" /></Button></div><p className="text-xs">{s.start}–{s.end}</p><p className="break-words text-xs">{assignmentLabel(s.assignment)}</p>{s.existing && <p className="text-xs">Change proposed</p>}{proposalNeedsReview(s, existing) && <p className="text-xs">Review: existing shift differs</p>}</article>)}
       </div>)}
     </div>
     <TemplateDialog open={templateOpen} onOpenChange={setTemplateOpen} caregivers={caregivers} templates={data.templates}
-      onBuild={(t) => { modify(appendProposals(draft, buildTemplate(month, t, () => crypto.randomUUID()))); setTemplateOpen(false); }}
+      onBuild={(t) => { modify(appendProposals(draftRef.current, buildTemplate(month, t, () => crypto.randomUUID()), existing)); setTemplateOpen(false); }}
       onSave={async (name, content) => { await saveTemplate({ data: { familyId, name, content } }); }} />
     {editing && <ShiftDialog shift={editing} month={month} caregivers={caregivers} onClose={() => setEditing(null)}
-      onSave={s => { modify({ shifts: [...draft.shifts.filter(p => p.id !== s.id), s] }); setEditing(null); }}
-      onRemove={draft.shifts.some(s => s.id === editing.id) ? () => { modify({ shifts: draft.shifts.filter(s => s.id !== editing.id) }); setEditing(null); } : undefined} />}
+      onSave={s => { modify({ shifts: [...draftRef.current.shifts.filter(p => p.id !== s.id), s] }); setEditing(null); }}
+      onRemove={draft.shifts.some(s => s.id === editing.id) ? () => { modify({ shifts: draftRef.current.shifts.filter(s => s.id !== editing.id) }); setEditing(null); } : undefined} />}
   </div>;
 }
 

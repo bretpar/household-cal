@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Desktop Babysitter Schedule Builder — Phase 1
+- [x] Reconcile template identities/slots and flag existing-shift mismatches; retain newer edits after saves and keep dirty month editors mounted during refetches. Eight engine tests and automatic compilation pass; no live writes or publication, final focused verification with Codex.
 - [x] Add owner-only private monthly drafts and reusable templates with revision conflicts in migration 0031.
 - [x] Add a desktop month workspace with preserved existing occurrences, editable proposals, and disabled publishing; same-day proposals only, overnight/all-day existing shifts remain read-only.
 - [x] Prepare scoped implementation for commit; three small engine-rule tests and automatic compilation pass. No browser QA or publication; end-to-end, timezone and concurrency verification remain with Codex.
