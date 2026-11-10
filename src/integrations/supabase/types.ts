@@ -2111,6 +2111,7 @@ export type Database = {
       account_deletion_blocked: { Args: { _user_id: string }; Returns: boolean }
       apply_schedule_publish_op: {
         Args: {
+          _caller: string
           _draft: string
           _family: string
           _op: Json

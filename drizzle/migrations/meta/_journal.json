@@ -239,6 +239,20 @@
       "when": 1794279500015,
       "tag": "0033_schedule_publish_atomic_ops",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794280745620,
+      "tag": "0034_schedule_publish_repair_2",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1794280794494,
+      "tag": "0035_drop_old_publish_op_overload",
+      "breakpoints": true
     }
   ]
 }

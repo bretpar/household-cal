@@ -36,13 +36,15 @@ export const planSchedulePublish = createServerFn({ method: "GET" })
     const db = context.supabase;
     await owner(db, context.userId, data.familyId);
     const { loadPublishPlan } = await import("@/lib/schedule-publish.server");
-    const { draft, plan } = await loadPublishPlan(
+    const { draft, plan, eventVersions } = await loadPublishPlan(
       db as unknown as Db,
       context.userId,
       data.familyId,
       data.month,
     );
-    return { revision: draft.revision, plan };
+    // The reviewed calendar versions are part of the preview: execution later
+    // binds to exactly these, never to freshly loaded substitutes.
+    return { revision: draft.revision, plan, eventVersions };
   });
 
 /**
@@ -57,6 +59,9 @@ export const executeSchedulePublish = createServerFn({ method: "POST" })
       .extend({
         revision: z.number().int().positive(),
         reviewedShiftIds: z.array(z.uuid()).max(500),
+        // Immutable reviewed calendar versions echoed back from the preview;
+        // execution rejects any update op whose version is missing or stale.
+        reviewedEventVersions: z.record(z.uuid(), z.string()),
       })
       .parse(data),
   )
@@ -76,6 +81,7 @@ export const executeSchedulePublish = createServerFn({ method: "POST" })
       data.month,
       data.revision,
       data.reviewedShiftIds,
+      data.reviewedEventVersions,
     );
   });
 

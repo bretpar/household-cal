@@ -103,7 +103,11 @@ export async function loadPublishPlan(
 /**
  * Applies a reviewed draft through the atomic publish RPC. `reviewedShiftIds`
  * is the explicit reviewed intent: operations that modify an existing
- * occurrence run only when their shift id is present. Creates never touch
+ * occurrence run only when their shift id is present. `reviewedEventVersions`
+ * is the immutable calendar snapshot from the reviewed preview: every update
+ * operation must carry the exact event version the Owner saw, and that
+ * version — never a freshly loaded substitute — is revalidated
+ * transactionally under a row lock inside the RPC. Creates never touch
  * existing occurrences and need no review. Unreviewed and conflicting
  * operations are left pending in the journal for a later run.
  */
@@ -114,8 +118,9 @@ export async function executePublish(
   month: string,
   expectedRevision: number,
   reviewedShiftIds: string[],
+  reviewedEventVersions: Record<string, string>,
 ): Promise<PublishExecutionResult> {
-  const { draft, plan, timeZone, babysitterSourceId, eventVersions } = await loadPublishPlan(
+  const { draft, plan, timeZone, babysitterSourceId } = await loadPublishPlan(
     db,
     userId,
     familyId,
@@ -123,6 +128,17 @@ export async function executePublish(
   );
   if (draft.revision !== expectedRevision) {
     throw new Error("This draft changed since you reviewed it. Reload the preview before publishing.");
+  }
+
+  const updateEventIds = plan.ops.flatMap((op) =>
+    op.kind === "update" && op.eventId ? [op.eventId] : [],
+  );
+  // Capture previous caregivers before any change so an unassigned caregiver's
+  // sheet is reconciled too. A failed lookup is not an empty set: abort before
+  // anything is written so no change ever goes unreconciled.
+  const priorMembers = updateEventIds.length > 0 ? await shiftMembersOrNull(familyId, updateEventIds) : [];
+  if (priorMembers === null) {
+    throw new Error("Couldn't confirm the current caregiver assignments. Nothing was published — please try again.");
   }
 
   const { data: run, error: runError } = await db
@@ -151,13 +167,7 @@ export async function executePublish(
     timesheetReconcile: "ok",
   };
   const touchedEventIds: string[] = [];
-  const updateEventIds = plan.ops.flatMap((op) =>
-    op.kind === "update" && op.eventId ? [op.eventId] : [],
-  );
-  // Capture previous caregivers before any change so an unassigned caregiver's
-  // sheet is reconciled too.
-  const priorMembers = updateEventIds.length > 0 ? await shiftMembersOrNull(familyId, updateEventIds) : [];
-  const jobId = await openReconcile(familyId, priorMembers ?? []);
+  const jobId = await openReconcile(familyId, priorMembers);
 
   try {
     for (const op of plan.ops) {
@@ -176,22 +186,40 @@ export async function executePublish(
         continue;
       }
 
+      // Bind execution to the exact reviewed calendar version. A missing
+      // version means the preview predates this op — reject, never substitute
+      // a freshly loaded version.
+      if (op.kind === "update" && op.eventId && !reviewedEventVersions[op.eventId]) {
+        result.conflicts.push({
+          shiftId: op.shiftId,
+          reason: "This change was not part of the reviewed preview. Reload the preview before publishing.",
+        });
+        result.needsAttention += 1;
+        continue;
+      }
+
       const opPayload = {
         kind: op.kind,
         eventId: op.eventId,
         occurrenceDate: op.occurrenceDate,
-        expectedUpdatedAt: op.eventId ? (eventVersions[op.eventId] ?? null) : null,
+        expectedUpdatedAt: op.eventId ? (reviewedEventVersions[op.eventId] ?? null) : null,
       };
+      const opKey = `${draft.id}:${op.shiftId}:${draft.revision}`;
       try {
-        if (!db.rpc) throw new Error("Atomic publish operations are unavailable");
-        const { data: rpcResult, error: rpcError } = await db.rpc("apply_schedule_publish_op", {
+        // The atomic RPC is executable only by the service role, so it runs
+        // through the privileged server client — never the caller's session.
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc("apply_schedule_publish_op", {
+          _caller: userId,
           _family: familyId,
           _draft: draft.id,
           _revision: draft.revision,
           _run: runId,
           _shift: JSON.parse(JSON.stringify(shift)),
           _op: opPayload,
-          _source: babysitterSourceId,
+          // Null is valid here (no Babysitter calendar yet): the RPC then
+          // skips caregiver assignment. The generated types only allow string.
+          _source: babysitterSourceId as string,
           _timezone: timeZone,
         });
         if (rpcError) throw rpcError;
@@ -200,14 +228,31 @@ export async function executePublish(
         if (outcome?.outcome === "already_applied") result.skipped += 1;
         else result.applied += 1;
       } catch (e) {
-        // The RPC rolled back atomically; record the failure for review/retry.
-        await db.from("babysitter_schedule_publish_ops").upsert(
+        // The outcome is uncertain: the RPC may have committed while the
+        // response was lost. Re-read the durable journal before recording
+        // anything — an already-applied operation keeps its applied state and
+        // mapped event, and is never downgraded to needs_attention.
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: existingOp } = await supabaseAdmin
+          .from("babysitter_schedule_publish_ops")
+          .select("status, event_id")
+          .eq("family_id", familyId)
+          .eq("op_key", opKey)
+          .maybeSingle();
+        if (existingOp?.status === "applied") {
+          if (existingOp.event_id) touchedEventIds.push(existingOp.event_id as string);
+          result.applied += 1;
+          continue;
+        }
+        // No applied row: fail closed. Insert a recoverable failure marker
+        // without overwriting any existing journal row.
+        await supabaseAdmin.from("babysitter_schedule_publish_ops").upsert(
           {
             family_id: familyId,
             run_id: runId,
             draft_id: draft.id,
             draft_revision: draft.revision,
-            op_key: `${draft.id}:${op.shiftId}:${draft.revision}`,
+            op_key: opKey,
             draft_shift_id: op.shiftId,
             kind: op.kind,
             status: "needs_attention",
@@ -215,19 +260,26 @@ export async function executePublish(
             payload: JSON.parse(JSON.stringify({ shift, op: opPayload })),
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "family_id,op_key" },
+          { onConflict: "family_id,op_key", ignoreDuplicates: true },
         );
         result.needsAttention += 1;
       }
     }
 
+    // Reconcile both previous and new caregivers. A failed post-change lookup
+    // is not an empty set: keep the reconciliation hold pending (drained by
+    // the hourly retry) and report a recoverable failure instead of releasing
+    // or finishing it.
     const afterMembers = await shiftMembersOrNull(familyId, touchedEventIds);
-    const reconcileMembers = [
-      ...new Set([...(priorMembers ?? []), ...(afterMembers ?? [])]),
-    ];
-    result.timesheetReconcile = reconcileMembers.length === 0
-      ? await releaseReconcile(jobId)
-      : await finishReconcile(familyId, jobId, reconcileMembers);
+    if (afterMembers === null) {
+      result.timesheetReconcile = "pending";
+      result.needsAttention += 1;
+    } else {
+      const reconcileMembers = [...new Set([...priorMembers, ...afterMembers])];
+      result.timesheetReconcile = reconcileMembers.length === 0
+        ? await releaseReconcile(jobId)
+        : await finishReconcile(familyId, jobId, reconcileMembers);
+    }
 
     await db
       .from("babysitter_schedule_publish_runs")
