@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { cn } from "@/lib/utils";
 import type { Assignment, ExistingShift, ScheduleDraft } from "@/lib/schedule-builder";
 import type { PublishPlan, PublishPlanOp } from "@/lib/schedule-publish";
-import { groupPlanOps, plannedHours, reviewReadiness } from "@/lib/schedule-review";
+import { groupPlanOps, originalVerified, plannedHours, reviewReadiness } from "@/lib/schedule-review";
 import { planSchedulePublish } from "@/lib/schedule-publish.functions";
 import type { FamilyMember } from "@/lib/family-data";
 
@@ -71,7 +71,6 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
   const readiness = preview ? reviewReadiness(preview.plan, confirmed, stale) : null;
 
   const shiftById = useMemo(() => new Map(draft.shifts.map((s) => [s.id, s])), [draft]);
-  const existingByKey = useMemo(() => new Map(existing.map((e) => [e.key, e])), [existing]);
   const assignmentLabel = (a: Assignment) =>
     a.kind === "caregiver"
       ? members.find((m) => m.id === a.family_member_id)?.name ?? "Former caregiver"
@@ -90,8 +89,8 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
 
   const updateRow = (op: PublishPlanOp) => {
     const after = shiftById.get(op.shiftId);
-    const before = (op.occurrenceKey ? existingByKey.get(op.occurrenceKey) : undefined)
-      ?? (op.eventId ? existing.find((e) => e.eventId === op.eventId && (!op.occurrenceDate || e.date === op.occurrenceDate)) : undefined);
+    // Server-reviewed, version-bound original only; never builder-cached data.
+    const before = originalVerified(op) ? op.original! : undefined;
     const isConfirmed = confirmed.has(op.shiftId);
     return (
       <article key={op.shiftId} className="rounded-md border border-member-amber bg-member-amber-soft p-3 text-member-amber-ink">

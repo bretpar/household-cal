@@ -12,6 +12,7 @@
  */
 import {
   existingMonthShifts,
+  proposalNeedsReview,
   sameIdentity,
   type ExistingShift,
   type Lineage,
@@ -33,6 +34,31 @@ export interface PublishPlanOp {
   /** True when the op changes or removes an existing occurrence and must be explicitly reviewed. */
   requiresReview: boolean;
   reason: string | null;
+  /**
+   * Authoritative original occurrence for reviewed modifications, taken from
+   * the server's calendar state. `eventVersion` is bound server-side to the
+   * same version used for concurrency protection; null means unverified.
+   */
+  original?: OriginalShift | null;
+}
+
+export interface OriginalShift {
+  eventId: string;
+  occurrenceKey: string;
+  date: string;
+  endDate: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  title: string;
+  assignment: ExistingShift["assignment"];
+  recurring: boolean;
+  eventVersion: string | null;
+}
+
+function originalOf(e: ExistingShift): OriginalShift {
+  return { eventId: e.eventId, occurrenceKey: e.key, date: e.date, endDate: e.endDate, start: e.start, end: e.end,
+    allDay: e.allDay, title: e.title, assignment: e.assignment, recurring: !!e.recurring, eventVersion: null };
 }
 
 export interface PublishPlan {
@@ -85,10 +111,30 @@ export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], map
         occurrenceDate: match?.date ?? null,
         requiresReview: true,
         reason: match ? "This proposal updates its previously published event." : "The previously published event is no longer available in this month.",
+        original: match ? originalOf(match) : null,
       });
       continue;
     }
     if (!ref) {
+      // Unresolved template mismatch against current calendar occurrences, or a
+      // duplicate of an earlier draft shift: never an ordinary publishable create.
+      const duplicate = draft.shifts.slice(0, draft.shifts.indexOf(shift)).some((o) =>
+        o.date === shift.date && o.start === shift.start && o.end === shift.end &&
+        JSON.stringify(o.assignment) === JSON.stringify(shift.assignment));
+      if (duplicate || proposalNeedsReview(shift, existing)) {
+        ops.push({
+          shiftId: shift.id,
+          kind: "conflict",
+          eventId: null,
+          occurrenceKey: null,
+          occurrenceDate: shift.date,
+          requiresReview: true,
+          reason: duplicate
+            ? "This proposal duplicates another proposed shift."
+            : "This proposal conflicts with an existing calendar shift on this day. Resolve it in the builder.",
+        });
+        continue;
+      }
       ops.push({
         shiftId: shift.id,
         kind: "create",
@@ -135,6 +181,7 @@ export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], map
         occurrenceDate: match.date,
         requiresReview: true,
         reason: "This proposal changes an existing calendar occurrence.",
+        original: originalOf(match),
       });
     }
   }

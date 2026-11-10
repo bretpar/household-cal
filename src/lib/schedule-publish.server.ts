@@ -105,6 +105,10 @@ export async function loadPublishPlan(
       eventVersions[row.id as string] = row.updated_at as string;
     }
   }
+  // Bind each reviewed original to the exact version used for concurrency checks.
+  for (const op of plan.ops) {
+    if (op.original) op.original = { ...op.original, eventVersion: eventVersions[op.original.eventId] ?? null };
+  }
 
   return {
     draft: { id: draft.data.id as string, revision: draft.data.revision as number, content },

@@ -70,7 +70,9 @@ describe("reviewReadiness", () => {
   });
 
   it("blocks readiness while a modification to an existing shift is unconfirmed", () => {
-    const plan = planWith([op({ kind: "update", requiresReview: true })]);
+    const plan = planWith([op({ kind: "update", requiresReview: true, eventId: shiftC, occurrenceKey: "k",
+      original: { eventId: shiftC, occurrenceKey: "k", date: "2026-11-10", endDate: "2026-11-10", start: "09:00", end: "13:00",
+        allDay: false, title: "B", assignment: { kind: "none" }, recurring: false, eventVersion: "v1" } })]);
     const unconfirmed = reviewReadiness(plan, new Set(), false);
     expect(unconfirmed.ready).toBe(false);
     expect(unconfirmed.unreviewed.map((o) => o.shiftId)).toEqual([shiftA]);

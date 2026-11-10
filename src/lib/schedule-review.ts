@@ -63,6 +63,12 @@ export interface ReviewReadiness {
   ready: boolean;
 }
 
+/** True when the server returned a consistent, version-bound original for an update. */
+export function originalVerified(op: PublishPlanOp): boolean {
+  const o = op.original;
+  return !!o && !!o.eventVersion && o.eventId === op.eventId && o.occurrenceKey === op.occurrenceKey;
+}
+
 /**
  * Decides whether a reviewed preview is ready to publish. Ready requires a
  * fresh (non-stale) preview, zero unresolved conflicts, zero unsupported
@@ -77,7 +83,11 @@ export function reviewReadiness(
 ): ReviewReadiness {
   const { updates, conflicts, excludes } = groupPlanOps(plan);
   const unreviewed = updates.filter((op) => !confirmed.has(op.shiftId));
+  const unverified = updates.filter((op) => !originalVerified(op));
   const blockers: string[] = [];
+  if (unverified.length > 0) {
+    blockers.push("Original details for some changed shifts couldn't be verified. Refresh the preview.");
+  }
   if (stale) blockers.push("The draft changed since this preview. Save the draft and refresh the preview.");
   if (conflicts.length > 0) {
     blockers.push(`${conflicts.length} ${conflicts.length === 1 ? "conflict needs" : "conflicts need"} attention in the builder.`);
