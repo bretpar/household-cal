@@ -225,6 +225,13 @@
       "when": 1794273864926,
       "tag": "0031_babysitter_schedule_private_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794278759296,
+      "tag": "0032_schedule_publish_foundation",
+      "breakpoints": true
     }
   ]
 }

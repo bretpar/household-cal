@@ -279,6 +279,143 @@ export type Database = {
           },
         ]
       }
+      babysitter_schedule_publish_ops: {
+        Row: {
+          attempts: number
+          created_at: string
+          draft_id: string
+          draft_revision: number
+          draft_shift_id: string
+          event_id: string | null
+          family_id: string
+          google_status: string
+          id: string
+          kind: string
+          last_error: string | null
+          op_key: string
+          payload: Json
+          run_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          draft_id: string
+          draft_revision: number
+          draft_shift_id: string
+          event_id?: string | null
+          family_id: string
+          google_status?: string
+          id?: string
+          kind: string
+          last_error?: string | null
+          op_key: string
+          payload: Json
+          run_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          draft_id?: string
+          draft_revision?: number
+          draft_shift_id?: string
+          event_id?: string | null
+          family_id?: string
+          google_status?: string
+          id?: string
+          kind?: string
+          last_error?: string | null
+          op_key?: string
+          payload?: Json
+          run_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "babysitter_schedule_publish_ops_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "babysitter_schedule_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "babysitter_schedule_publish_ops_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "babysitter_schedule_publish_ops_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "babysitter_schedule_publish_ops_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "babysitter_schedule_publish_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      babysitter_schedule_publish_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          draft_id: string
+          draft_revision: number
+          family_id: string
+          id: string
+          month: string
+          started_by: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          draft_id: string
+          draft_revision: number
+          family_id: string
+          id?: string
+          month: string
+          started_by?: string | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          draft_id?: string
+          draft_revision?: number
+          family_id?: string
+          id?: string
+          month?: string
+          started_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "babysitter_schedule_publish_runs_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "babysitter_schedule_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "babysitter_schedule_publish_runs_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       babysitter_schedule_templates: {
         Row: {
           content: Json
@@ -1356,6 +1493,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "google_connections_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      google_sync_outbox: {
+        Row: {
+          attempts: number
+          calendar_source_id: string | null
+          created_at: string
+          event_id: string | null
+          family_id: string
+          google_event_id: string | null
+          id: string
+          kind: string
+          last_error: string | null
+          op_key: string
+          payload: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          calendar_source_id?: string | null
+          created_at?: string
+          event_id?: string | null
+          family_id: string
+          google_event_id?: string | null
+          id?: string
+          kind: string
+          last_error?: string | null
+          op_key: string
+          payload: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          calendar_source_id?: string | null
+          created_at?: string
+          event_id?: string | null
+          family_id?: string
+          google_event_id?: string | null
+          id?: string
+          kind?: string
+          last_error?: string | null
+          op_key?: string
+          payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_sync_outbox_family_id_fkey"
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"

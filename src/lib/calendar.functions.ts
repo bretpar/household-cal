@@ -123,7 +123,7 @@ export const createEvent = createServerFn({ method: "POST" })
 
 
 /** Caregivers assigned to these events; null when the lookup failed (caller must then treat the whole household as affected). */
-async function shiftMembersOrNull(familyId: string, eventIds: string[]): Promise<string[] | null> {
+export async function shiftMembersOrNull(familyId: string, eventIds: string[]): Promise<string[] | null> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const ts = await import("@/lib/timesheets.server");
@@ -135,7 +135,7 @@ async function shiftMembersOrNull(familyId: string, eventIds: string[]): Promise
 }
 
 /** Drops a hold that turned out to affect no caregiver. Left in place (and drained hourly) if this fails. */
-async function releaseReconcile(jobId: string | null): Promise<"ok" | "pending"> {
+export async function releaseReconcile(jobId: string | null): Promise<"ok" | "pending"> {
   if (!jobId) return "ok";
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -149,7 +149,7 @@ async function releaseReconcile(jobId: string | null): Promise<"ok" | "pending">
 }
 
 /** Records a durable reconciliation intent before a shift-affecting change. */
-async function openReconcile(familyId: string, memberIds: string[]): Promise<string | null> {
+export async function openReconcile(familyId: string, memberIds: string[]): Promise<string | null> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const ts = await import("@/lib/timesheets.server");
@@ -166,7 +166,7 @@ async function openReconcile(familyId: string, memberIds: string[]): Promise<str
  * one transaction. On failure the job stays pending (retried hourly) and the
  * caller reports "pending" instead of silent success.
  */
-async function finishReconcile(familyId: string, jobId: string | null, memberIds: string[]): Promise<"ok" | "pending"> {
+export async function finishReconcile(familyId: string, jobId: string | null, memberIds: string[]): Promise<"ok" | "pending"> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const ts = await import("@/lib/timesheets.server");

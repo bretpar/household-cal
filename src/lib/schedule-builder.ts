@@ -98,7 +98,7 @@ function sameSlot(a: ProposedShift, b: ProposedShift | ExistingShift): boolean {
   return a.date === b.date && a.start === b.start && a.end === b.end && sameAssignment(a.assignment, b.assignment)
     && (!("allDay" in b) || (!b.allDay && b.endDate === b.date));
 }
-function sameIdentity(a: ProposedShift, b: ProposedShift | ExistingShift): boolean {
+export function sameIdentity(a: ProposedShift, b: ProposedShift | ExistingShift): boolean {
   const ref = a.existing;
   if (!ref) return false;
   const other = "key" in b ? { eventId: b.eventId, occurrenceKey: b.key, startAt: b.startAt,

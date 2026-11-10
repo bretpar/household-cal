@@ -1122,6 +1122,27 @@ export async function pushEventDeletion(
     return { ok: true as const };
   });
   if ("skipped" in outcome && outcome.skipped !== "not_connected") {
+    // Durable per-link deletion payloads survive the local event's removal, so
+    // the failure can be replayed later instead of being silently discarded.
+    try {
+      const { enqueueOutbox } = await import("@/lib/google/outbox.server");
+      const sources = await googleSources(admin, familyId);
+      for (const link of links) {
+        const source = sources.find((s) => s.id === link.calendar_source_id);
+        await enqueueOutbox(admin, familyId, {
+          opKey: `delete:${link.calendar_source_id}:${link.google_event_id}`,
+          kind: "delete",
+          calendarSourceId: link.calendar_source_id,
+          googleEventId: link.google_event_id,
+          payload: { external_calendar_id: source?.external_calendar_id ?? null },
+          status: "needs_attention",
+          lastError: outcome.skipped,
+        });
+      }
+    } catch (e) {
+      // The source-level diagnostic below still records the failure.
+      console.error("[google-sync] could not persist deletion outbox", e);
+    }
     // The local event/link may be gone already; retain the failure on its
     // sources rather than swallowing guard()'s incomplete result.
     await admin.from("calendar_sources").update({

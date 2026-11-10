@@ -225,3 +225,8 @@
 - [x] google_apply_exception_atomic (migration 0023): atomic parent exclusion + lineage replacement + participants + inherited caregiver assignment; idempotent on re-sync; no assignment restored when the parent has none.
 - [x] withShiftReconcile wraps Google inbound deletes, occurrence exclusions, exception creation and linked updates with the durable reconciliation job used by in-app edits.
 - [x] Manual Google pulls now invalidate Timesheet queries alongside the family bundle in the three sync components.
+
+## Desktop Babysitter Schedule Editor — Phase 3A
+- [x] Owner-gated publish planning classifies draft shifts (unchanged/create/update/conflict) by stored identity only; unreferenced occurrences preserved, updates require explicit reviewed intent.
+- [x] Idempotent execution service and journal/outbox (migration 0032): per-shift op keys, durable payloads, run records, Timesheet reconcile holds and bounded Google pushes; no UI wired, no live writes.
+- [x] Durable Google deletion outbox with owner-gated replay; failed deletions keep retry metadata and uncertain creates are never re-inserted. Codex handles targeted verification; no publishing.
