@@ -70,3 +70,17 @@ t2("floating body matches Google's offset dateTime in household zone", () => {
   e2(rmd(ok, body, "x")).toBe(true);
   e2(rmd({ ...ok, start: { dateTime: "2026-12-09T09:00:00-08:00", timeZone: "America/Los_Angeles" } }, body, "x")).toBe(false);
 });
+
+import { canonicalRecurrence as canon } from "@/lib/google/delivery";
+describe("recurrence normalization", () => {
+  it("treats split/reordered EXDATEs and RRULE parts as equal", () => {
+    const a = ["RRULE:FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20270625T235959Z", "EXDATE;TZID=America/Los_Angeles:20261007T073000,20261014T073000"];
+    const b = ["EXDATE;TZID=America/Los_Angeles:20261014T073000", "EXDATE;TZID=America/Los_Angeles:20261007T073000", "RRULE:UNTIL=20270625T235959Z;FREQ=WEEKLY;BYDAY=MO,WE"];
+    expect(canon(a)).toEqual(canon(b));
+  });
+  it("still detects a missing exception date", () => {
+    const a = ["RRULE:FREQ=WEEKLY", "EXDATE;TZID=America/Los_Angeles:20261007T073000,20261014T073000"];
+    const b = ["RRULE:FREQ=WEEKLY", "EXDATE;TZID=America/Los_Angeles:20261007T073000"];
+    expect(canon(a)).not.toEqual(canon(b));
+  });
+});
