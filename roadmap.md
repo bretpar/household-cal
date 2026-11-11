@@ -1,5 +1,8 @@
 # Roadmap
 
+## Smart Coverage suggestion review correction
+- [x] Share interval/identity-based conflict rules across draft reconciliation and authoritative review; allow Dec 9 08:00–08:30 beside 08:30–16:30, retain duplicate/overlap blockers and existing occurrence protections. No live writes or publication; Codex owns focused end-to-end verification.
+
 ## Google Sync Repair 3
 - [x] Coordinate obsolete deletion/restoration through the existing branch lease; migration 0039 fences completion against committed edits and queues normal restoration after reversals.
 - [x] Adopt only uniquely verified legacy-marker branches; incomplete, malformed and ambiguous lookups fail closed. Focused delivery tests only; no live Google/event writes or publishing. Codex owns targeted race verification.

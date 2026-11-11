@@ -96,7 +96,7 @@ function sameAssignment(a: Assignment, b: Assignment): boolean {
   return a.kind === b.kind && (a.kind === "caregiver" ? b.kind === "caregiver" && a.family_member_id === b.family_member_id
     : a.kind === "other" ? b.kind === "other" && a.name.trim() === b.name.trim() : true);
 }
-function sameSlot(a: ProposedShift, b: ProposedShift | ExistingShift): boolean {
+export function sameSlot(a: ProposedShift, b: ProposedShift | ExistingShift): boolean {
   return a.date === b.date && a.start === b.start && a.end === b.end && sameAssignment(a.assignment, b.assignment)
     && (!("allDay" in b) || (!b.allDay && b.endDate === b.date));
 }
@@ -112,9 +112,46 @@ export function sameIdentity(a: ProposedShift, b: ProposedShift | ExistingShift)
   return origin === otherOrigin && (ref.splitFromDate ?? a.date) === (other.splitFromDate ?? b.date);
 }
 
-/** Keep mismatches visible for review; never remove or overwrite a calendar occurrence. */
-export function proposalNeedsReview(shift: ProposedShift, existing: ExistingShift[]): boolean {
-  return !shift.existing && existing.some(e => e.date <= shift.date && e.endDate >= shift.date && !sameSlot(shift, e));
+/** Household wall-time intervals are half-open: adjacent shifts never overlap.
+ * Existing endDate is the last occupied date (midnight ends belong to the previous day).
+ * Date/time tuples avoid device-timezone conversion and retain overnight/all-day boundaries. */
+function shiftInterval(s: ProposedShift | ExistingShift): [string, string] {
+  const existing = "key" in s;
+  const start = `${s.date}T${existing && s.allDay ? "00:00" : s.start}`;
+  const lastDate = existing ? s.endDate : s.date;
+  const end = existing && (s.allDay || s.end === "00:00")
+    ? `${addDaysKey(lastDate, 1)}T00:00` : `${lastDate}T${s.end}`;
+  return [start, end];
+}
+
+export function shiftsOverlap(a: ProposedShift, b: ProposedShift | ExistingShift): boolean {
+  const [aStart, aEnd] = shiftInterval(a);
+  const [bStart, bEnd] = shiftInterval(b);
+  return aStart < bEnd && bStart < aEnd;
+}
+
+/** Shared by the desktop builder and authoritative review. Resolve references by
+ * stable identity, then compare the effective proposed intervals, not date alone.
+ * Overlaps remain review blockers regardless of caregiver; assignment differences
+ * never make simultaneous, incompatible coverage silently publishable. */
+export function proposalConflictReason(shift: ProposedShift, existing: ExistingShift[], proposals: ProposedShift[] = [],
+  mappedEvents: Record<string, string> = {}): string | null {
+  const targets = (p: ProposedShift, e: ExistingShift) => sameIdentity(p, e)
+    || (!p.existing && mappedEvents[p.id] === e.eventId);
+  const others = proposals.filter(p => p !== shift);
+  if (others.some(p => p.id === shift.id || sameIdentity(shift, p) || sameSlot(shift, p))) {
+    return "This proposal duplicates another proposed shift.";
+  }
+  const kept = existing.filter(e => !targets(shift, e) && !others.some(p => targets(p, e)));
+  if (kept.some(e => sameSlot(shift, e))) return "This proposal duplicates an existing calendar shift.";
+  if (kept.some(e => shiftsOverlap(shift, e))) return "This proposal overlaps an existing calendar shift. Resolve it in the builder.";
+  if (others.some(p => shiftsOverlap(shift, p))) return "This proposal overlaps another proposed shift. Resolve it in the builder.";
+  return null;
+}
+
+/** Keep conflicts visible for review; never remove or overwrite a calendar occurrence. */
+export function proposalNeedsReview(shift: ProposedShift, existing: ExistingShift[], proposals: ProposedShift[] = []): boolean {
+  return proposalConflictReason(shift, existing, proposals) !== null;
 }
 
 /** A change proposal whose referenced calendar occurrence is no longer present in the month. */
@@ -158,7 +195,8 @@ export function convertOrphanToNew(draft: ScheduleDraft, id: string, existing: E
 export function appendProposals(draft: ScheduleDraft, shifts: ProposedShift[], existing: ExistingShift[] = []): ScheduleDraft {
   const result = [...draft.shifts];
   for (const shift of shifts) {
-    if (existing.some(e => sameIdentity(shift, e) || (!shift.existing && sameSlot(shift, e)))
+    const kept = existing.filter(e => !result.some(p => sameIdentity(p, e)));
+    if (kept.some(e => sameIdentity(shift, e) || (!shift.existing && sameSlot(shift, e)))
       || result.some(p => p.id === shift.id || sameIdentity(shift, p) || (!shift.existing && sameSlot(shift, p)))) continue;
     result.push(shift);
   }
@@ -195,6 +233,6 @@ export function scheduleSummary(draft: ScheduleDraft, existing: ExistingShift[])
     proposals: draft.shifts.length,
     hours: draft.shifts.reduce((sum, s) => sum + minutes(s.end) - minutes(s.start), 0) / 60,
     existing: new Set(existing.map(s => s.key)).size,
-    conflicts: draft.shifts.filter(s => proposalNeedsReview(s, existing) || proposalOrphaned(s, existing)).length,
+    conflicts: draft.shifts.filter(s => proposalNeedsReview(s, existing, draft.shifts) || proposalOrphaned(s, existing)).length,
   };
 }

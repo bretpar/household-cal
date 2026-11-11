@@ -12,7 +12,8 @@
  */
 import {
   existingMonthShifts,
-  proposalNeedsReview,
+  proposalConflictReason,
+  sameSlot,
   sameIdentity,
   type ExistingShift,
   type Lineage,
@@ -68,26 +69,6 @@ export interface PublishPlan {
   counts: Record<PublishOpKind, number> & { preserved: number };
 }
 
-function sameSlotAsDraft(shift: ProposedShift, e: ExistingShift): boolean {
-  const a = shift.assignment;
-  const b = e.assignment;
-  const sameAssignment =
-    a.kind === b.kind &&
-    (a.kind === "caregiver"
-      ? b.kind === "caregiver" && a.family_member_id === b.family_member_id
-      : a.kind === "other"
-        ? b.kind === "other" && a.name.trim() === b.name.trim()
-        : true);
-  return (
-    shift.date === e.date &&
-    shift.start === e.start &&
-    shift.end === e.end &&
-    sameAssignment &&
-    !e.allDay &&
-    e.endDate === e.date
-  );
-}
-
 /**
  * Classifies one saved draft against the current calendar. `existing` must be
  * the authoritative current month occurrences (expanded recurring masters and
@@ -116,25 +97,6 @@ export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], map
       continue;
     }
     if (!ref) {
-      // Unresolved template mismatch against current calendar occurrences, or a
-      // duplicate of an earlier draft shift: never an ordinary publishable create.
-      const duplicate = draft.shifts.slice(0, draft.shifts.indexOf(shift)).some((o) =>
-        o.date === shift.date && o.start === shift.start && o.end === shift.end &&
-        JSON.stringify(o.assignment) === JSON.stringify(shift.assignment));
-      if (duplicate || proposalNeedsReview(shift, existing)) {
-        ops.push({
-          shiftId: shift.id,
-          kind: "conflict",
-          eventId: null,
-          occurrenceKey: null,
-          occurrenceDate: shift.date,
-          requiresReview: true,
-          reason: duplicate
-            ? "This proposal duplicates another proposed shift."
-            : "This proposal conflicts with an existing calendar shift on this day. Resolve it in the builder.",
-        });
-        continue;
-      }
       ops.push({
         shiftId: shift.id,
         kind: "create",
@@ -162,7 +124,7 @@ export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], map
       continue;
     }
     referenced.add(match.key);
-    if (sameSlotAsDraft(shift, match)) {
+    if (sameSlot(shift, match)) {
       ops.push({
         shiftId: shift.id,
         kind: "unchanged",
@@ -183,6 +145,21 @@ export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], map
         reason: "This proposal changes an existing calendar occurrence.",
         original: originalOf(match),
       });
+    }
+  }
+
+  // Use the same effective-interval rules as manual/template/coverage proposals.
+  // Orphans remain conflicts; unchanged recurring occurrences are preserved.
+  for (const op of ops) {
+    if (op.kind !== "create" && op.kind !== "update") continue;
+    const shift = draft.shifts.find(s => s.id === op.shiftId);
+    if (!shift) continue;
+    const reason = proposalConflictReason(shift, existing, draft.shifts, mappedEvents);
+    if (reason) {
+      op.kind = "conflict";
+      op.requiresReview = true;
+      op.reason = reason;
+      op.occurrenceDate ??= shift.date;
     }
   }
 

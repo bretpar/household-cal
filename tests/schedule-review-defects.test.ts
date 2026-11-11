@@ -12,10 +12,11 @@ const existing: ExistingShift = { key: `${EV}:k`, eventId: EV, date: "2026-11-10
 const modified: ProposedShift = { id: A, date: "2026-11-10", start: "10:00", end: "14:00", title: "Sitter", assignment: none,
   existing: { eventId: EV, occurrenceKey: existing.key, startAt: existing.startAt, splitFromEventId: null, splitFromDate: null } } as ProposedShift;
 const templateConflict: ProposedShift = { id: B, date: "2026-11-10", start: "15:00", end: "18:00", title: "Sitter", assignment: none } as ProposedShift;
+const afternoon: ExistingShift = { ...existing, key: "afternoon", eventId: B, start: "16:00", end: "17:00" };
 
 describe("template conflicts block readiness", () => {
   const draft = { shifts: [modified, templateConflict] };
-  const plan = planPublish(draft, [existing]);
+  const plan = planPublish(draft, [existing, afternoon]);
   it("classifies an unreferenced mismatching proposal as a conflict, not a create", () => {
     expect(plan.ops.find((o) => o.shiftId === B)?.kind).toBe("conflict");
     expect(plan.counts.create).toBe(0);
@@ -25,7 +26,7 @@ describe("template conflicts block readiness", () => {
     const r = reviewReadiness(plan, new Set([A]), false);
     expect(r.ready).toBe(false);
     expect(r.conflictCount).toBe(1);
-    expect(plannedHours(plan, draft)).toBe(4);
+    expect(plannedHours(plan, draft)).toBe(5);
   });
 });
 
