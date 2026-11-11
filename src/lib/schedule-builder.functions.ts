@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadFamilyBundle, type Db } from "@/lib/calendar-ops";
 import { type ReferencedEvent, draftSchema, monthSchema, templateSchema, monthDates, type Assignment, type ScheduleDraft, type ScheduleTemplate } from "@/lib/schedule-builder";
-import { importRange, sourceHealth, type CoverageSettings, type ParentCalendar } from "@/lib/smart-coverage";
+import { importRange, sourceHealth, visibilityHealth, type CoverageSettings, type ParentCalendar } from "@/lib/smart-coverage";
 import type { supabase } from "@/integrations/supabase/client";
 type Client = typeof supabase;
 const scope = z.object({ familyId: z.uuid(), month: monthSchema });
@@ -42,6 +42,7 @@ export const loadScheduleWorkspace = createServerFn({ method: "GET" }).middlewar
         month: formatInTimeZone(new Date(r.start_at), family.data.timezone, "yyyy-MM"), recurring: !!r.recurrence_rule };
     }
     const coverage = await loadCoverageSettings(db, data.familyId, bundle.family?.babysitter_calendar_source_id ?? null);
+    await checkWorkVisibility(data.familyId, data.month, coverage.settings, bundle);
     return { coverage, regularCaregiverId: family.data.default_babysitter_member_id ?? null, referenced, checkedEventIds: refIds, bundle, timeZone: family.data.timezone, draft: draft.data ? { revision: draft.data.revision, content: draftSchema.parse(draft.data.content) } : null,
       templates: (templates.data ?? []).map(t => ({ id: t.id, name: t.name, revision: t.revision, content: templateSchema.parse(t.content) })),
       lineage: Object.fromEntries((lineage.data ?? []).map(e => [e.id, { split_from_event_id: e.split_from_event_id, split_from_date: e.split_from_date }])),
@@ -71,6 +72,27 @@ export const saveScheduleTemplate = createServerFn({ method: "POST" }).middlewar
     if (error || !row) throw new Error("Template could not be saved.");
     return { id: row.id };
   });
+/**
+ * Owner already verified. Compares every work-calendar event that overlaps the
+ * month (same window as the bundle) with what the bundle delivered to this
+ * Owner; any hidden/inaccessible calendar or event marks the parent "hidden".
+ * Fails closed: a lookup error also marks it hidden.
+ */
+async function checkWorkVisibility(familyId: string, month: string, settings: CoverageSettings, bundle: Awaited<ReturnType<typeof loadFamilyBundle>>) {
+  const picked = settings.parents.filter(p => p.sourceId && p.health !== "missing" && p.health !== "unavailable");
+  if (!picked.length) return;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const dates = monthDates(month);
+  const shift = (d: string, n: number) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+  const fromIso = `${shift(dates[0]!, -1)}T00:00:00Z`, toIso = `${shift(dates.at(-1)!, 2)}T00:00:00Z`;
+  const delivered = new Set(bundle.events.map(e => e.id));
+  const sourceIds = new Set(bundle.sources.map(s => s.id));
+  for (const p of picked) {
+    const { data, error } = await supabaseAdmin.from("events").select("id").eq("family_id", familyId).eq("calendar_source_id", p.sourceId!)
+      .or(`and(start_at.lt.${toIso},end_at.gt.${fromIso}),recurrence_rule.not.is.null`);
+    p.health = error ? "hidden" : visibilityHealth(p.health, sourceIds.has(p.sourceId!), (data ?? []).map(r => r.id), delivered);
+  }
+}
 /** Work-calendar choices and their current health; read-only for the calendars themselves. */
 async function loadCoverageSettings(db: Client, familyId: string, sitterSourceId: string | null) {
   const [settings, sources] = await Promise.all([

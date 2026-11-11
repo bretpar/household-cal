@@ -7,7 +7,7 @@
 import type { CalendarEvent } from "@/lib/family-data";
 import { existingMonthShifts, monthDates, sameIdentity, type ExistingShift, type Lineage, type ProposedShift, type ScheduleDraft } from "@/lib/schedule-builder";
 
-export type SourceHealth = "ok" | "missing" | "unavailable" | "stale" | "incomplete";
+export type SourceHealth = "ok" | "missing" | "unavailable" | "stale" | "incomplete" | "hidden";
 /** Dates (YYYY-MM-DD, inclusive) the source's imported events are verified to cover; null = no verified range. */
 export interface ImportRange { from: string; to: string }
 export interface ParentCalendar { label: string; sourceId: string | null; sourceName: string | null; health: SourceHealth; range?: ImportRange | null | undefined }
@@ -66,6 +66,7 @@ export function computeCoverage(input: CoverageInput): CoverageResult {
     else if (p.health === "unavailable") problems.push(`${p.label}'s work calendar (${p.sourceName ?? "removed"}) is unavailable.`);
     else if (p.health === "stale") problems.push(`${p.label}'s work calendar (${p.sourceName}) hasn't synced recently.`);
     else if (p.health === "incomplete") problems.push(`${p.label}'s work calendar (${p.sourceName}) has a sync problem and may be incomplete.`);
+    else if (p.health === "hidden") problems.push(`${p.label}'s work calendar (${p.sourceName ?? "selected calendar"}) has events you can't see here, so coverage can't be confirmed.`);
     if (p.health === "ok" && !monthInRange(month, p.range)) problems.push(`${p.label}'s work calendar (${p.sourceName}) hasn't imported events for this month, so coverage can't be confirmed.`);
   });
   const work = input.workEvents.map(events => existingMonthShifts(events, month, timeZone, input.lineage));
@@ -114,6 +115,16 @@ export function ignoreSuggestion(draft: ScheduleDraft, key: string): ScheduleDra
 export function setNoCare(draft: ScheduleDraft, date: string, on: boolean): ScheduleDraft {
   const c = draft.coverage ?? { ignored: [], noCare: [] };
   return { ...draft, coverage: { ...c, noCare: on ? [...new Set([...c.noCare, date])] : c.noCare.filter(d => d !== date) } };
+}
+
+/**
+ * Downgrade a parent's health when the calendar or some of its events in the
+ * window aren't in what the checker actually received. Missing ≠ free time.
+ */
+export function visibilityHealth(health: SourceHealth, inBundle: boolean, expectedIds: string[], deliveredIds: Set<string>): SourceHealth {
+  if (health === "missing" || health === "unavailable") return health;
+  if (!inBundle || expectedIds.some(id => !deliveredIds.has(id))) return "hidden";
+  return health;
 }
 
 /** True only when the whole month lies inside the verified import range. */

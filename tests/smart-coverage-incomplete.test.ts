@@ -37,3 +37,20 @@ describe("all-day work events", () => {
     expect(r.problems.some(p => /all-day work events/.test(p))).toBe(true);
   });
 });
+
+import { visibilityHealth } from "@/lib/smart-coverage";
+describe("hidden or inaccessible work calendars", () => {
+  it("calendar missing from what the Owner received is hidden", () => {
+    expect(visibilityHealth("ok", false, [], new Set())).toBe("hidden");
+  });
+  it("any event the Owner can't see marks it hidden", () => {
+    expect(visibilityHealth("ok", true, ["e1", "e2"], new Set(["e1"]))).toBe("hidden");
+    expect(visibilityHealth("ok", true, ["e1"], new Set(["e1"]))).toBe("ok");
+  });
+  it("hidden calendar makes coverage incomplete instead of empty", () => {
+    const s = settings(undefined); s.parents[0].health = "hidden";
+    const r = run(s);
+    expect(r.complete).toBe(false);
+    expect(r.problems[0]).toMatch(/can't see/);
+  });
+});
