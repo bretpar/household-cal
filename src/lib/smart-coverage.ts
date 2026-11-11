@@ -10,7 +10,7 @@ import { existingMonthShifts, monthDates, sameIdentity, type ExistingShift, type
 export type SourceHealth = "ok" | "missing" | "unavailable" | "stale" | "incomplete";
 /** Dates (YYYY-MM-DD, inclusive) the source's imported events are verified to cover; null = no verified range. */
 export interface ImportRange { from: string; to: string }
-export interface ParentCalendar { label: string; sourceId: string | null; sourceName: string | null; health: SourceHealth; range?: ImportRange | null }
+export interface ParentCalendar { label: string; sourceId: string | null; sourceName: string | null; health: SourceHealth; range?: ImportRange | null | undefined }
 export interface CoverageSettings { parents: [ParentCalendar, ParentCalendar]; bufferBefore: number; bufferAfter: number }
 export type Interval = [number, number]; // minutes from household midnight, [start, end)
 export type DayStatus = "not-needed" | "covered" | "partial" | "missing" | "no-care" | "review";
