@@ -137,7 +137,7 @@ export function shiftsOverlap(a: ProposedShift, b: ProposedShift | ExistingShift
 export function proposalConflictReason(shift: ProposedShift, existing: ExistingShift[], proposals: ProposedShift[] = [],
   mappedEvents: Record<string, string> = {}): string | null {
   const targets = (p: ProposedShift, e: ExistingShift) => sameIdentity(p, e)
-    || (!p.existing && mappedEvents[p.id] === e.eventId);
+    || mappedEvents[p.id] === e.eventId;
   const others = proposals.filter(p => p !== shift);
   if (others.some(p => p.id === shift.id || sameIdentity(shift, p) || sameSlot(shift, p))) {
     return "This proposal duplicates another proposed shift.";

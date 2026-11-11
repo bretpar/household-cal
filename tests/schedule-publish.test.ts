@@ -90,3 +90,22 @@ describe("planPublish", () => {
     expect(plan.counts.preserved).toBe(2);
   });
 });
+
+describe("planPublish after a published recurring move", () => {
+  it("recognizes the detached replacement instead of reporting the excluded parent occurrence as orphaned", () => {
+    const parentRef = { eventId: "44444444-4444-4444-8444-444444444444", occurrenceKey: "parent-2026-11-11", startAt: "2026-11-11T17:00:00.000Z", splitFromEventId: null, splitFromDate: null };
+    const replacement = existing({ splitFromEventId: parentRef.eventId, splitFromDate: "2026-11-11" });
+    const shift = { ...baseShift, existing: parentRef };
+    const plan = planPublish(draftWith([shift]), [replacement], { [shift.id]: replacement.eventId });
+    expect(plan.ops[0]).toMatchObject({ kind: "update", eventId: replacement.eventId });
+    expect(plan.counts.conflict).toBe(0);
+    expect(plan.counts.create).toBe(0);
+    expect(plan.preserved).toHaveLength(0);
+  });
+
+  it("still reports a genuine orphan when neither the reference nor a published mapping exists", () => {
+    const parentRef = { eventId: "44444444-4444-4444-8444-444444444444", occurrenceKey: "parent-2026-11-11", startAt: "2026-11-11T17:00:00.000Z", splitFromEventId: null, splitFromDate: null };
+    const plan = planPublish(draftWith([{ ...baseShift, existing: parentRef }]), []);
+    expect(plan.ops[0].kind).toBe("conflict");
+  });
+});

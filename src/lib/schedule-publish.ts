@@ -80,7 +80,10 @@ export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], map
 
   for (const shift of draft.shifts) {
     const ref = shift.existing;
-    const mappedEventId = !ref ? mappedEvents[shift.id] : undefined;
+    // A previously applied proposal is identified by the event it was applied
+    // to. For a moved recurring occurrence that is the detached replacement,
+    // while shift.existing still names the (now excluded) parent occurrence.
+    const mappedEventId = mappedEvents[shift.id];
     if (mappedEventId) {
       const match = existing.find((e) => e.eventId === mappedEventId);
       if (match) referenced.add(match.key);
