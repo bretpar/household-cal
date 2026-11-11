@@ -13,8 +13,8 @@ import { computeCoverage, toTime, type CoverageSettings, type Suggestion, type D
 import type { Assignment, ExistingShift, Lineage, ScheduleDraft } from "@/lib/schedule-builder";
 import type { CalendarEvent, FamilyMember } from "@/lib/family-data";
 
-const statusLabel: Record<DayStatus, string> = { "not-needed": "No overlap", covered: "Fully covered", partial: "Partially covered", missing: "Missing coverage", "no-care": "No childcare needed" };
-const statusClass: Record<DayStatus, string> = { "not-needed": "text-muted-foreground", covered: "text-member-sky-ink", partial: "text-member-amber-ink", missing: "text-destructive", "no-care": "text-muted-foreground" };
+const statusLabel: Record<DayStatus, string> = { "not-needed": "No overlap", covered: "Fully covered", partial: "Partially covered", missing: "Missing coverage", "no-care": "No childcare needed", review: "Needs manual review" };
+const statusClass: Record<DayStatus, string> = { "not-needed": "text-muted-foreground", covered: "text-member-sky-ink", partial: "text-member-amber-ink", missing: "text-destructive", "no-care": "text-muted-foreground", review: "text-member-amber-ink" };
 const range = ([a, b]: [number, number]) => `${toTime(a)}–${toTime(b)}`;
 const dayLabel = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 
@@ -69,11 +69,11 @@ export function SmartCoverageDialog({ familyId, month, timeZone, coverage, event
     </dl>
     <div className="flex flex-wrap items-end gap-3"><div className="w-64"><CaregiverSelect value={assignment} onChange={setAssignment} caregivers={caregivers} /></div>
       <p className="pb-2 text-xs text-muted-foreground">Used for shifts you add below. Unassigned shifts don't count as confirmed coverage.</p></div>
-    {attention.length === 0 ? <p className="py-4 text-sm text-muted-foreground">{result.complete ? "No coverage gaps found this month." : "No gaps found in the calendars that are available."}</p> :
+    {attention.length === 0 ? <p className="py-4 text-sm text-muted-foreground">{result.complete ? "No coverage gaps found this month." : "Coverage can't be confirmed for this month — see the warning above."}</p> :
     <ul className="divide-y divide-border">{attention.map(d => <li key={d.date} className="space-y-1.5 py-3">
       <div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold">{dayLabel(d.date)} <span className={cn("ml-2 text-xs font-medium", statusClass[d.status])}>{statusLabel[d.status]}</span></p>
         <label className="flex items-center gap-2 text-xs"><Checkbox checked={d.status === "no-care"} onCheckedChange={c => onDraft(c === true ? "noCare" : "care", d.date)} />No childcare needed</label></div>
-      {d.status !== "no-care" && <>
+      {d.status !== "no-care" && d.needed.length > 0 && <>
         <p className="text-xs text-muted-foreground">Both working (incl. buffers): {d.needed.map(range).join(", ")} · Uncovered: {d.uncovered.map(range).join(", ")}</p>
         {d.unassignedOnly.length > 0 && <p className="text-xs text-member-amber-ink">Unassigned shift during {d.unassignedOnly.map(range).join(", ")} — assign a caregiver to confirm.</p>}
         {d.suggestions.map(sg => <div key={sg.key} className="flex items-center gap-2 rounded-md border border-member-sage bg-member-sage-soft px-2 py-1 text-member-sage-ink">
@@ -81,7 +81,7 @@ export function SmartCoverageDialog({ familyId, month, timeZone, coverage, event
           <Button size="sm" variant="outline" className="h-7" disabled={!assignmentValid} onClick={() => onAdd(sg, assignment)}><Plus className="h-3 w-3" />Add to draft</Button>
           <Button size="sm" variant="ghost" className="h-7" onClick={() => onDraft("ignore", sg.key)}><EyeOff className="h-3 w-3" />Ignore</Button></div>)}
       </>}
-      {d.ignoredAllDay && <p className="text-xs text-muted-foreground">All-day work events on this day aren't counted — check them yourself.</p>}
+      {d.ignoredAllDay && <p className="text-xs text-member-amber-ink">All-day work events on this day aren't counted — check them yourself.</p>}
     </li>)}</ul>}
     <p className="text-xs text-muted-foreground">Added shifts stay in your private draft until you save, review and publish.</p>
   </DialogContent></Dialog>;

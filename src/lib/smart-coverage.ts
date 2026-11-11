@@ -8,10 +8,12 @@ import type { CalendarEvent } from "@/lib/family-data";
 import { existingMonthShifts, monthDates, sameIdentity, type ExistingShift, type Lineage, type ProposedShift, type ScheduleDraft } from "@/lib/schedule-builder";
 
 export type SourceHealth = "ok" | "missing" | "unavailable" | "stale" | "incomplete";
-export interface ParentCalendar { label: string; sourceId: string | null; sourceName: string | null; health: SourceHealth }
+/** Dates (YYYY-MM-DD, inclusive) the source's imported events are verified to cover; null = no verified range. */
+export interface ImportRange { from: string; to: string }
+export interface ParentCalendar { label: string; sourceId: string | null; sourceName: string | null; health: SourceHealth; range?: ImportRange | null }
 export interface CoverageSettings { parents: [ParentCalendar, ParentCalendar]; bufferBefore: number; bufferAfter: number }
 export type Interval = [number, number]; // minutes from household midnight, [start, end)
-export type DayStatus = "not-needed" | "covered" | "partial" | "missing" | "no-care";
+export type DayStatus = "not-needed" | "covered" | "partial" | "missing" | "no-care" | "review";
 export interface Suggestion { key: string; date: string; start: string; end: string }
 export interface DayCoverage {
   date: string; status: DayStatus;
@@ -64,6 +66,7 @@ export function computeCoverage(input: CoverageInput): CoverageResult {
     else if (p.health === "unavailable") problems.push(`${p.label}'s work calendar (${p.sourceName ?? "removed"}) is unavailable.`);
     else if (p.health === "stale") problems.push(`${p.label}'s work calendar (${p.sourceName}) hasn't synced recently.`);
     else if (p.health === "incomplete") problems.push(`${p.label}'s work calendar (${p.sourceName}) has a sync problem and may be incomplete.`);
+    if (p.health === "ok" && !monthInRange(month, p.range)) problems.push(`${p.label}'s work calendar (${p.sourceName}) hasn't imported events for this month, so coverage can't be confirmed.`);
   });
   const work = input.workEvents.map(events => existingMonthShifts(events, month, timeZone, input.lineage));
   const decisions = draft.coverage ?? { ignored: [], noCare: [] };
@@ -84,7 +87,10 @@ export function computeCoverage(input: CoverageInput): CoverageResult {
     const unassignedOnly = intersect(uncovered, mergeIntervals(tentative));
     const gaps = subtract(uncovered, tentative); // never suggest on top of an existing Unassigned shift
     const noCare = decisions.noCare.includes(date);
-    const status: DayStatus = !needed.length ? "not-needed" : noCare ? "no-care" : !uncovered.length ? "covered"
+    // An excluded all-day work event means the day can't be confirmed covered or not needed.
+    const status: DayStatus = noCare && (needed.length || ignoredAllDay) ? "no-care"
+      : ignoredAllDay && (!needed.length || !uncovered.length) ? "review"
+      : !needed.length ? "not-needed" : !uncovered.length ? "covered"
       : uncovered.reduce((n, [a, b]) => n + b - a, 0) < needed.reduce((n, [a, b]) => n + b - a, 0) ? "partial" : "missing";
     const suggestions = noCare ? [] : gaps.map(([a, b]) => {
       const start = toTime(Math.floor(a / 15) * 15), end = toTime(Math.min(MAX_DAY, Math.ceil(b / 15) * 15));
@@ -92,6 +98,8 @@ export function computeCoverage(input: CoverageInput): CoverageResult {
     }).filter(s => s.start < s.end && !decisions.ignored.includes(s.key));
     return { date, status, needed, uncovered, unassignedOnly, suggestions, ignoredAllDay };
   });
+  const review = days.filter(d => d.ignoredAllDay).length;
+  if (review) problems.push(`${review} ${review === 1 ? "day has" : "days have"} all-day work events that aren't counted — review ${review === 1 ? "it" : "them"} manually.`);
   return { complete: problems.length === 0, problems, days };
 }
 
@@ -106,6 +114,33 @@ export function ignoreSuggestion(draft: ScheduleDraft, key: string): ScheduleDra
 export function setNoCare(draft: ScheduleDraft, date: string, on: boolean): ScheduleDraft {
   const c = draft.coverage ?? { ignored: [], noCare: [] };
   return { ...draft, coverage: { ...c, noCare: on ? [...new Set([...c.noCare, date])] : c.noCare.filter(d => d !== date) } };
+}
+
+/** True only when the whole month lies inside the verified import range. */
+export function monthInRange(month: string, range: ImportRange | null | undefined): boolean {
+  if (range === undefined) return true; // range not tracked for this source (local calendars)
+  if (!range) return false;
+  const dates = monthDates(month);
+  return range.from <= dates[0]! && range.to >= dates.at(-1)!;
+}
+
+/**
+ * Narrowest window an external source's import is guaranteed to cover, anchored
+ * at its last successful sync (Google ongoing: −1/+3 months; Apple/ICS: −30 days/+12 months).
+ * Local calendars return undefined (no import); unknown providers or never-synced return null.
+ */
+export function importRange(row: { provider: string; last_synced_at: string | null } | undefined): ImportRange | null | undefined {
+  if (!row) return null;
+  if (row.provider === "local") return undefined;
+  if (!row.last_synced_at) return null;
+  const at = new Date(row.last_synced_at); if (Number.isNaN(at.getTime())) return null;
+  const from = new Date(at), to = new Date(at);
+  if (row.provider === "google") { from.setUTCMonth(from.getUTCMonth() - 1); to.setUTCMonth(to.getUTCMonth() + 3); }
+  else if (row.provider === "ics") { from.setUTCDate(from.getUTCDate() - 30); to.setUTCMonth(to.getUTCMonth() + 12); }
+  else return null;
+  // Shrink by a day on each side so household-timezone offsets never overstate coverage.
+  from.setUTCDate(from.getUTCDate() + 1); to.setUTCDate(to.getUTCDate() - 1);
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
 }
 
 /** Classify a calendar source for coverage. Never treats missing data as availability. */

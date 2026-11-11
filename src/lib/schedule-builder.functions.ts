@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadFamilyBundle, type Db } from "@/lib/calendar-ops";
 import { type ReferencedEvent, draftSchema, monthSchema, templateSchema, monthDates, type Assignment, type ScheduleDraft, type ScheduleTemplate } from "@/lib/schedule-builder";
-import { sourceHealth, type CoverageSettings, type ParentCalendar } from "@/lib/smart-coverage";
+import { importRange, sourceHealth, type CoverageSettings, type ParentCalendar } from "@/lib/smart-coverage";
 import type { supabase } from "@/integrations/supabase/client";
 type Client = typeof supabase;
 const scope = z.object({ familyId: z.uuid(), month: monthSchema });
@@ -81,7 +81,7 @@ async function loadCoverageSettings(db: Client, familyId: string, sitterSourceId
   const s = settings.data;
   const parent = (label: string, id: string | null): ParentCalendar => {
     const row = id ? rows.find(r => r.id === id) : undefined;
-    return { label, sourceId: id, sourceName: row?.name ?? null, health: !id ? "missing" : sourceHealth(row) };
+    return { label, sourceId: id, sourceName: row?.name ?? null, health: !id ? "missing" : sourceHealth(row), range: id ? importRange(row) : null };
   };
   return {
     settings: { parents: [parent(s?.parent_one_label ?? "Dad", s?.parent_one_source_id ?? null), parent(s?.parent_two_label ?? "Mom", s?.parent_two_source_id ?? null)] as [ParentCalendar, ParentCalendar],
