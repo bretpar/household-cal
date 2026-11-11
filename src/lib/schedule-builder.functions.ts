@@ -79,9 +79,15 @@ export const saveScheduleTemplate = createServerFn({ method: "POST" }).middlewar
  * Fails closed: a lookup error also marks it hidden.
  */
 async function checkWorkVisibility(familyId: string, month: string, settings: CoverageSettings, bundle: Awaited<ReturnType<typeof loadFamilyBundle>>) {
-  const picked = settings.parents.filter(p => p.sourceId && p.health !== "missing" && p.health !== "unavailable");
-  if (!picked.length) return;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  // A selected calendar the Owner can't read looks "unavailable"; if it still
+  // exists and is active it is hidden, not removed. Fails closed to hidden.
+  for (const p of settings.parents.filter(p => p.sourceId && p.health === "unavailable")) {
+    const { data, error } = await supabaseAdmin.from("calendar_sources").select("name,active").eq("family_id", familyId).eq("id", p.sourceId!).maybeSingle();
+    if (error || data?.active) { p.health = "hidden"; p.sourceName = data?.name ?? p.sourceName; }
+  }
+  const picked = settings.parents.filter(p => p.sourceId && p.health !== "missing" && p.health !== "unavailable" && p.health !== "hidden");
+  if (!picked.length) return;
   const dates = monthDates(month);
   const shift = (d: string, n: number) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
   const fromIso = `${shift(dates[0]!, -1)}T00:00:00Z`, toIso = `${shift(dates.at(-1)!, 2)}T00:00:00Z`;
