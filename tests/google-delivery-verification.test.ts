@@ -62,3 +62,11 @@ describe("exact Google delivery acknowledgment", () => {
     expect(await deliveryRemoteId("family:event:other-source:branch:first")).not.toBe(first);
   });
 });
+import { remoteMatchesDelivery as rmd } from "../src/lib/google/delivery";
+import { test as t2, expect as e2 } from "vitest";
+t2("floating body matches Google's offset dateTime in household zone", () => {
+  const body = { start: { dateTime: "2026-12-09T08:00:00", timeZone: "America/Los_Angeles" }, end: { dateTime: "2026-12-09T08:30:00", timeZone: "America/Los_Angeles" } };
+  const ok = { id: "x", start: { dateTime: "2026-12-09T08:00:00-08:00", timeZone: "America/Los_Angeles" }, end: { dateTime: "2026-12-09T08:30:00-08:00", timeZone: "America/Los_Angeles" } };
+  e2(rmd(ok, body, "x")).toBe(true);
+  e2(rmd({ ...ok, start: { dateTime: "2026-12-09T09:00:00-08:00", timeZone: "America/Los_Angeles" } }, body, "x")).toBe(false);
+});
