@@ -13,6 +13,18 @@
 /** Minimal admin-client surface; structurally compatible with supabaseAdmin. */
 type Admin = { from: (table: string) => any };
 
+/** Contention is retryable pending work, not a Google API failure. */
+export class GoogleDeliveryPending extends Error {}
+
+/** Early deferral avoids link bookkeeping; the database guards final writes. */
+export async function assertInboundIdle(admin: Admin, familyId: string, eventId: string): Promise<void> {
+  const { data, error } = await admin.from("google_sync_outbox").select("id")
+    .eq("family_id", familyId).eq("event_id", eventId)
+    .or("status.in.(pending,needs_attention),lease_token.not.is.null").limit(1);
+  if (error) throw error;
+  if (data?.length) throw Object.assign(new Error("Inbound Google change deferred: outbound delivery outstanding"), { code: "PGC01" });
+}
+
 export type OutboxKind = "create" | "update" | "delete" | "exclusion";
 
 export interface OutboxRow {
@@ -134,12 +146,12 @@ export async function assertDeliveryLease(admin: Admin, familyId: string, key: s
 }
 
 /** Replay never touches lease clocks; pushEvent itself acknowledges exact operations. */
-export async function replayOutbox(admin: Admin, familyId: string): Promise<{ synced: number; attention: number; skipped: number }> {
+export async function replayOutbox(admin: Admin, familyId: string): Promise<{ synced: number; attention: number; skipped: number; pending: number }> {
   const { data: rows, error } = await admin.from("google_sync_outbox").select("*")
     .eq("family_id", familyId).in("status", ["pending", "needs_attention"])
     .order("created_at", { ascending: true }).limit(50);
   if (error) throw error;
-  let synced = 0, attention = 0, skipped = 0;
+  let synced = 0, attention = 0, skipped = 0, pending = 0;
   const sync = await import("@/lib/google/sync.server");
   for (const row of (rows ?? []) as OutboxRow[]) {
     try {
@@ -156,16 +168,20 @@ export async function replayOutbox(admin: Admin, familyId: string): Promise<{ sy
           local_delete: row.payload['local_delete'] === true,
           ...(typeof row.payload['branch_key'] === "string" ? { branch_key: row.payload['branch_key'] } : {}),
         }]);
+        if (outcome.skipped === "delivery_pending") { pending += 1; continue; }
         if (!outcome.ok) throw new Error(outcome.skipped ?? "Deletion was not confirmed");
         await acknowledgeVersion(admin, row);
       } else {
         if (!row.event_id) throw new Error("Operation has no local event");
-        await sync.pushEvent(admin, familyId, row.event_id, row);
+        const outcome = await sync.pushEvent(admin, familyId, row.event_id, row);
+        if (outcome.pending) { pending += 1; continue; }
+        if (outcome.skipped && !sync.BENIGN_PUSH_SKIPS.has(outcome.skipped)) throw new Error(outcome.skipped);
       }
       const { data: current, error: readError } = await admin.from("google_sync_outbox").select("status")
         .eq("id", row.id).eq("family_id", familyId).single();
       if (readError) throw readError;
       if (current?.status === "synced") synced += 1;
+      else if (current?.status === "pending") pending += 1;
       else attention += 1;
     } catch (e) {
       // Do not modify a lease or overwrite a newer local edit's diagnostic.
@@ -174,5 +190,5 @@ export async function replayOutbox(admin: Admin, familyId: string): Promise<{ sy
       attention += 1;
     }
   }
-  return { synced, attention, skipped };
+  return { synced, attention, skipped, pending };
 }

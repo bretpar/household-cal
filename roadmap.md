@@ -1,5 +1,8 @@
 # Roadmap
 
+## Google inbound/outbound edit race
+- [x] Atomically defer inbound mutations under event locks while outbound intents are pending, leased, or retryable; participant saves share the lock, occurrence/branch mutations are guarded, deferred pulls retain their token, and held leases report pending. Migration 0043 changes future-write guards only; no live event writes, QA, or publishing. Codex owns concurrency verification.
+
 ## Smart Coverage suggestion review correction
 - [x] Share interval/identity-based conflict rules across draft reconciliation and authoritative review; allow Dec 9 08:00–08:30 beside 08:30–16:30, retain duplicate/overlap blockers and existing occurrence protections. No live writes or publication; Codex owns focused end-to-end verification.
 

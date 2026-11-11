@@ -747,6 +747,7 @@ async function guard<T>(
       await markDisconnected(admin, familyId, error.message);
       return { skipped: "google_disconnected" };
     }
+    if (error instanceof outbox.GoogleDeliveryPending) return { skipped: "delivery_pending" };
     console.error("[google-sync] failed", error);
     return { skipped: error instanceof Error ? error.message : "unknown_error" };
   }
@@ -884,7 +885,7 @@ export async function pushEvent(
   familyId: string,
   eventId: string,
   operation?: outbox.OutboxRow,
-): Promise<{ pushed?: number; skipped?: string }> {
+): Promise<{ pushed?: number; skipped?: string; pending?: true }> {
   const result = await guard(admin, familyId, async () => {
     const { data: pending, error: pendingError } = await admin.from("google_sync_outbox").select("*")
       .eq("family_id", familyId).eq("op_key", `push:${eventId}`).maybeSingle();
@@ -998,6 +999,7 @@ export async function pushEvent(
         google_event_id: stale.google_event_id, external_calendar_id: source['external_calendar_id'],
         calendar_source_id: source.id, event_id: eventId, local_delete: false, branch_key: stale.branch_key,
       }]);
+      if (deleted.skipped === "delivery_pending") throw new outbox.GoogleDeliveryPending("Obsolete deletion is pending");
       if (!deleted.ok) throw new Error(deleted.skipped ?? "Obsolete deletion unconfirmed");
       await outbox.acknowledgeVersion(admin, deletion);
     }
@@ -1020,7 +1022,7 @@ export async function pushEvent(
       const claim = await outbox.claimCreateIntent(admin, familyId, {
         eventId, branchKey: branch.key, calendarSourceId: target.id, externalCalendarId: calendarId, body,
       });
-      if (claim.state === "held") throw new Error("Google branch delivery is already in flight");
+      if (claim.state === "held") throw new outbox.GoogleDeliveryPending("Google branch delivery is already in flight");
       const deliveryKey = outbox.createIntentKey(eventId, branch.key, target.id);
       try {
       let saved: GoogleEvent;
@@ -1149,6 +1151,7 @@ export async function pushEvent(
     return { pushed };
   });
   const outcome = result as { pushed?: number; skipped?: string };
+  if (outcome.skipped === "delivery_pending") return { pending: true };
   // Benign skips ("nothing to mirror") are not failures: recording them would
   // flag a perfectly healthy calendar as needing attention.
   if (outcome.skipped && !BENIGN_PUSH_SKIPS.has(outcome.skipped)) {
@@ -1224,7 +1227,7 @@ export async function pushEventDeletionResolved(
           eventId: op.event_id, branchKey: op.branch_key, calendarSourceId: op.calendar_source_id,
           externalCalendarId: op.external_calendar_id, body: {}, deleting: true,
         });
-        if (claim.state === "held") throw new Error("Branch restoration or deletion is already in flight");
+        if (claim.state === "held") throw new outbox.GoogleDeliveryPending("Branch restoration or deletion is already in flight");
         const key = outbox.createIntentKey(op.event_id, op.branch_key, op.calendar_source_id);
         let deletionFinished = false;
         try {
@@ -1326,6 +1329,7 @@ export async function applyGoogleEvent(
     .limit(1).throwOnError();
   let link = ((linkRows ?? [])[0] as LinkRow | undefined) ?? null;
 
+  if (link) await outbox.assertInboundIdle(admin, familyId, link.event_id);
 
   /* ---------- cancellations ---------- */
   if (g.status === "cancelled") {
@@ -1378,8 +1382,7 @@ export async function applyGoogleEvent(
         .eq("event_id", link.event_id).throwOnError();
       // deleting one Google branch removes only that branch of the logical event
       if ((siblings ?? []).length > 1) {
-        await removeBranchParticipation(admin, link);
-        await admin.from("event_sync_links").delete().eq("id", link.id).throwOnError();
+        await removeBranchParticipation(admin, familyId, link);
       } else {
         const removedEventId = link.event_id;
         await withShiftReconcile(admin, familyId, [removedEventId], async () => {
@@ -1578,6 +1581,7 @@ export async function applyGoogleEvent(
       (existingLocal?.id as string | undefined) ??
       originId;
 
+    if (recovered) await outbox.assertInboundIdle(admin, familyId, recovered);
     const newId = recovered ?? (await createLocalEvent(admin, source, g, initials, null));
     await admin.from("event_sync_links").upsert(
       {
@@ -1720,31 +1724,12 @@ function branchForLink(
  * One Google branch was deleted externally: drop the weekdays it covered from
  * the members that only attended on those days, leaving other branches intact.
  */
-async function removeBranchParticipation(admin: Admin, link: LinkRow): Promise<void> {
-  if (!link['branch_key']) return;
-  const removed = link['branch_key'].split(",") as WeekdayCode[];
-  const { data: rows } = await admin
-    .from("event_members")
-    .select("family_member_id, weekdays")
-    .eq("event_id", link.event_id).throwOnError();
-  for (const row of (rows ?? []) as { family_member_id: string; weekdays: string[] | null }[]) {
-    if (!row.weekdays) continue;
-    const next = row.weekdays.filter((d) => !removed.includes(d as WeekdayCode));
-    if (next.length === row.weekdays.length) continue;
-    if (next.length === 0) {
-      await admin
-        .from("event_members")
-        .delete()
-        .eq("event_id", link.event_id)
-        .eq("family_member_id", row.family_member_id).throwOnError();
-    } else {
-      await admin
-        .from("event_members")
-        .update({ weekdays: next })
-        .eq("event_id", link.event_id)
-        .eq("family_member_id", row.family_member_id).throwOnError();
-    }
-  }
+async function removeBranchParticipation(admin: Admin, familyId: string, link: LinkRow): Promise<void> {
+  const { error } = await (admin as unknown as AnyDb).rpc("remove_google_inbound_branch", {
+    _family: familyId,
+    _event: link.event_id, _link: link.id,
+  });
+  if (error) throw error;
 }
 
 
@@ -1817,7 +1802,7 @@ async function adoptOccurrenceIdentity(
   link: LinkRow,
   g: GoogleEvent,
 ): Promise<void> {
-  await admin.from("events").update({ external_event_id: g.id }).eq("id", link.event_id).throwOnError();
+  await admin.from("events").update({ external_event_id: g.id, last_change_source: "google" }).eq("id", link.event_id).throwOnError();
   await admin
     .from("event_sync_links")
     .update({ google_event_id: g.id, google_etag: g.etag ?? null, google_updated_at: g.updated ?? null })
@@ -2027,11 +2012,21 @@ export async function pullSource(
       res = await google.listEvents(conn.connectionKey, source['external_calendar_id']!, window);
     }
 
+    let deferred = false;
     for (const item of res.items) {
       // A failing item may already have committed writes; refresh conservatively.
       applied += 1;
-      await applyGoogleEvent(admin, conn, source, item, initials);
+      try {
+        await applyGoogleEvent(admin, conn, source, item, initials);
+      } catch (error) {
+        if ((error as { code?: string } | null)?.code !== "PGC01") throw error;
+        deferred = true;
+      }
     }
+
+    // Keep the old token and diagnostics: replay these changes after outbound
+    // work finishes, without reporting lease contention as an API failure.
+    if (deferred) return { applied, ok: true };
 
     await admin
       .from("calendar_sources")
@@ -2237,6 +2232,7 @@ export async function reconcileHousehold(
       // while the event is still missing from Google.
       try {
         const outcome = await pushEvent(admin, familyId, candidate.id);
+        if (outcome.pending) continue;
         if (outcome.skipped) {
           if (!BENIGN_PUSH_SKIPS.has(outcome.skipped)) {
             unsynced += 1;

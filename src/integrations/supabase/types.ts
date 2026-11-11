@@ -2267,6 +2267,10 @@ export type Database = {
         }
         Returns: Json
       }
+      assert_google_inbound_idle: {
+        Args: { _event: string; _family: string }
+        Returns: undefined
+      }
       babysitter_membership: { Args: { _family_id: string }; Returns: string }
       can_edit_family: { Args: { _family_id: string }; Returns: boolean }
       can_read_calendar_source: {
@@ -2469,6 +2473,10 @@ export type Database = {
       remove_caregiver_app_access: {
         Args: { _member_id: string }
         Returns: number
+      }
+      remove_google_inbound_branch: {
+        Args: { _event: string; _family: string; _link: string }
+        Returns: undefined
       }
       resolve_timesheet_conflict_atomic: {
         Args: {

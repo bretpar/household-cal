@@ -7,6 +7,7 @@
  */
 export type PushOutcome =
   | { ok: true }
+  | { ok: false; pending: true; reason: string }
   /** Nothing to push (no Google calendar, read-only subscription, ...). */
   | { ok: false; unlinked: true; reason: string }
   /** A genuine outbound failure; a durable diagnostic has been recorded. */
@@ -17,6 +18,7 @@ export async function pushToGoogle(familyId: string, eventId: string): Promise<P
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { pushEvent, BENIGN_PUSH_SKIPS } = await import("@/lib/google/sync.server");
     const outcome = await pushEvent(supabaseAdmin, familyId, eventId);
+    if (outcome.pending) return { ok: false, pending: true, reason: "delivery_pending" };
     if (outcome.skipped) {
       // pushEvent already recorded the reason on the event's sync links, or on
       // the event's calendar source when no link row exists at all.
@@ -63,7 +65,8 @@ export async function pushWithDeadline(
   if (eventIds.length === 0) return "unlinked";
   const finished = Promise.all(eventIds.map((id) => pushToGoogle(familyId, id))).then(
     (outcomes): ForegroundSyncState => {
-      if (outcomes.some((o) => !o.ok && !(o as { unlinked?: boolean }).unlinked)) return "failed";
+      if (outcomes.some((o) => !o.ok && !("unlinked" in o && o.unlinked) && !("pending" in o && o.pending))) return "failed";
+      if (outcomes.some((o) => "pending" in o && o.pending)) return "pending";
       if (outcomes.every((o) => !o.ok)) return "unlinked";
       return "synced";
     },

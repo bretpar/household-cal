@@ -9,6 +9,7 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 - Schedule-builder engine stays UI-free; private drafts never write live events.
+- Lock inbound/outbox checks to prevent stale echoes.
 - Subdirectories have their own AGENTS.md (src/components for calendar view layout, src/routes for public marketing pages); read them before changing files there.
 - calendar_sources.calendar_kind (household_default | custom | legacy_internal) distinguishes the Family calendar, user-created OFC calendars and hidden legacy rows; destinations are validated server-side via assertWritableDestination. Why: never rely on calendar names.
 - CalendarAppearanceSettings owns My Calendars/onboarding adds; GoogleCalendarMaintenance owns diagnostics; onboarding saves member invitation intent and finishes before per-member invitation actions, while HouseholdAccess manages invitations later. Why: reuse secure acceptance/email flows without premature sends.
