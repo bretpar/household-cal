@@ -127,7 +127,6 @@ export function EventComposerContent({
         // reported separately so a slow Google call never looks like a failure.
         reportEventSaved(
           `${state.title.trim()} added to the family calendar`,
-          result?.event_id ?? null,
           result?.google_sync,
         );
         onClose();

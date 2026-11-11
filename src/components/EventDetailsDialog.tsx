@@ -195,7 +195,7 @@ export function EventDetailsDialog() {
       onSuccess: (result) => {
         // Local persistence already succeeded; Google sync progress is shown
         // separately rather than blocking the edit.
-        reportEventSaved(`${state.title.trim()} updated`, result?.event_id ?? null, result?.google_sync);
+        reportEventSaved(`${state.title.trim()} updated`, result?.google_sync);
         closeOccurrence();
       },
       onError: toast.error,
