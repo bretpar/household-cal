@@ -10,15 +10,24 @@ const run = (s: CoverageSettings, work: [CalendarEvent[], CalendarEvent[]] = [[]
   computeCoverage({ month: "2026-12", timeZone: "UTC", settings: s, workEvents: work, existing: [], draft, lineage: new Map() as never });
 
 describe("import range completeness", () => {
-  it("Google synced Nov 10 covers Oct 11–Feb 9 only", () => {
-    expect(importRange({ provider: "google", last_synced_at: "2026-11-10T12:00:00Z" })).toEqual({ from: "2026-10-11", to: "2027-02-09" });
+  it("checks the whole selected month against explicit import bounds", () => {
     expect(monthInRange("2026-12", { from: "2026-10-11", to: "2027-02-09" })).toBe(true);
     expect(monthInRange("2027-03", { from: "2026-10-11", to: "2027-02-09" })).toBe(false);
   });
   it("month outside the imported range is incomplete even when freshly synced", () => {
     const r = run(settings({ from: "2027-01-01", to: "2027-06-01" }));
     expect(r.complete).toBe(false);
-    expect(r.problems[0]).toMatch(/hasn't imported events for this month/);
+    expect(r.problems.length).toBeGreaterThan(0);
+  });
+  it.each(["google", "ics"])("a recent %s sync without verified bounds cannot confirm December coverage", provider => {
+    const range = importRange({ provider, last_synced_at: "2026-11-11T00:53:00Z" });
+    expect(range).toBeNull();
+    expect(run(settings(range)).complete).toBe(false);
+  });
+  it("local calendars do not require import bounds", () => {
+    const range = importRange({ provider: "local", last_synced_at: null });
+    expect(range).toBeUndefined();
+    expect(run(settings(range)).complete).toBe(true);
   });
   it("never-synced external source has no verified range", () => {
     expect(importRange({ provider: "ics", last_synced_at: null })).toBeNull();

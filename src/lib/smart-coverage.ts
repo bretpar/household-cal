@@ -67,7 +67,7 @@ export function computeCoverage(input: CoverageInput): CoverageResult {
     else if (p.health === "stale") problems.push(`${p.label}'s work calendar (${p.sourceName}) hasn't synced recently.`);
     else if (p.health === "incomplete") problems.push(`${p.label}'s work calendar (${p.sourceName}) has a sync problem and may be incomplete.`);
     else if (p.health === "hidden") problems.push(`${p.label}'s work calendar (${p.sourceName ?? "selected calendar"}) has events you can't see here, so coverage can't be confirmed.`);
-    if (p.health === "ok" && !monthInRange(month, p.range)) problems.push(`${p.label}'s work calendar (${p.sourceName}) hasn't imported events for this month, so coverage can't be confirmed.`);
+    if (p.health === "ok" && !monthInRange(month, p.range)) problems.push(`${p.label}'s work calendar (${p.sourceName}) has no verified import coverage for this month, so coverage can't be confirmed.`);
   });
   const work = input.workEvents.map(events => existingMonthShifts(events, month, timeZone, input.lineage));
   const decisions = draft.coverage ?? { ignored: [], noCare: [] };
@@ -136,22 +136,12 @@ export function monthInRange(month: string, range: ImportRange | null | undefine
 }
 
 /**
- * Narrowest window an external source's import is guaranteed to cover, anchored
- * at its last successful sync (Google ongoing: −1/+3 months; Apple/ICS: −30 days/+12 months).
- * Local calendars return undefined (no import); unknown providers or never-synced return null.
+ * Local calendars don't need an import range. External sources currently store
+ * no verified import boundaries: a recent sync alone cannot establish them,
+ * especially after an incremental Google sync. Fail closed until bounds exist.
  */
 export function importRange(row: { provider: string; last_synced_at: string | null } | undefined): ImportRange | null | undefined {
-  if (!row) return null;
-  if (row.provider === "local") return undefined;
-  if (!row.last_synced_at) return null;
-  const at = new Date(row.last_synced_at); if (Number.isNaN(at.getTime())) return null;
-  const from = new Date(at), to = new Date(at);
-  if (row.provider === "google") { from.setUTCMonth(from.getUTCMonth() - 1); to.setUTCMonth(to.getUTCMonth() + 3); }
-  else if (row.provider === "ics") { from.setUTCDate(from.getUTCDate() - 30); to.setUTCMonth(to.getUTCMonth() + 12); }
-  else return null;
-  // Shrink by a day on each side so household-timezone offsets never overstate coverage.
-  from.setUTCDate(from.getUTCDate() + 1); to.setUTCDate(to.getUTCDate() - 1);
-  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  return row?.provider === "local" ? undefined : null;
 }
 
 /** Classify a calendar source for coverage. Never treats missing data as availability. */
