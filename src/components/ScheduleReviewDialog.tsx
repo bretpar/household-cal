@@ -330,7 +330,7 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
             </Button>
             {gateOpen ? (
               <Button disabled={loading || publishing || !!result || stale || !readiness?.ready} onClick={() => void publish()}>
-                {publishing ? "Publishing…" : "Publish Schedule (QA)"}
+                {publishing ? "Publishing…" : "Publish Schedule"}
               </Button>
             ) : (
               <Button disabled title="Publishing is coming soon">

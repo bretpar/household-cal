@@ -23,18 +23,11 @@ import { draftSchema, monthDates, type ProposedShift } from "@/lib/schedule-buil
 import { planPublish, type PublishPlan } from "@/lib/schedule-publish";
 import type { Assignment } from "@/lib/schedule-builder";
 
-/**
- * Controlled QA gate (default off). Publishing is allowed only when the
- * service-only schedule_publish_qa_gates table has an enabled row for this
- * exact household AND verified owner user id. No env, client flag or email
- * can enable it; every other household is rejected server-side.
- */
-export async function publishGateOpen(familyId: string, userId: string): Promise<boolean> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin
-    .from("schedule_publish_qa_gates").select("enabled")
-    .eq("family_id", familyId).eq("owner_user_id", userId).maybeSingle();
-  return !error && data?.enabled === true;
+/** Publishing is available to verified household Owners (checked by the caller). */
+export async function publishGateOpen(_familyId: string, _userId: string): Promise<boolean> {
+  // General release: every caller has already passed the server-side owner()
+  // check for this household. The legacy QA allowlist table is no longer read.
+  return true;
 }
 
 export type GoogleDeliveryStatus = "not_applicable" | "pending" | "synced" | "needs_attention";
