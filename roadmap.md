@@ -1,5 +1,9 @@
 # Roadmap
 
+## Single logical shift cards
+- [x] Render referenced originals only through their proposed final card; preserve separate recurrence dates with original occurrence identity matching.
+- [x] Remove grid selection/bulk controls and per-shift acceptance labels/actions; retain private editing, save-before-Review and final confirmation. No broad QA or deployment.
+
 ## Schedule cards and direct Review
 - [x] Show keyboard-accessible underlined titles above times and italic caregivers; remove repeat/edit icons, retain drag and occurrence protections.
 - [x] Review saves the latest private draft before opening; serializes repeated clicks, preserves failed edits, and keeps optional Save Draft. No QA or publishing; Codex owns interaction verification.

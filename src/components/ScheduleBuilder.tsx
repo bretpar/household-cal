@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronLeft, ChevronRight, Plus, Save, Trash2, LockKeyhole, ShieldCheck, Check, X } from "lucide-react";
+import { formatInTimeZone } from "date-fns-tz";
+import { ChevronLeft, ChevronRight, Plus, Save, Trash2, LockKeyhole, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,7 +16,7 @@ import { suggestionToShift, ignoreSuggestion, setNoCare, parentWorkDays } from "
 import { cn } from "@/lib/utils";
 import { useScheduleDrag } from "@/hooks/use-schedule-drag";
 import { monthDates, shiftMonth, buildTemplate, appendProposals, proposalNeedsReview, proposalOrphaned, convertOrphanToNew, orphanStatus, orphanLabel, existingMonthShifts, draftSchema, templateSchema,
-  editSchedule, scheduleSummary, existingToProposal, acceptShiftChange, shiftConfirmed, sameIdentity, type ScheduleCommand, type Assignment, type ProposedShift, type ScheduleDraft, type ScheduleTemplate, type ExistingShift } from "@/lib/schedule-builder";
+  editSchedule, scheduleSummary, existingToProposal, sameSlot, type ScheduleCommand, type Assignment, type ProposedShift, type ScheduleDraft, type ScheduleTemplate, type ExistingShift } from "@/lib/schedule-builder";
 import { loadScheduleWorkspace, saveScheduleDraft, saveScheduleTemplate } from "@/lib/schedule-builder.functions";
 import type { FamilyMember } from "@/lib/family-data";
 
@@ -60,8 +61,6 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
   const [dirty, setDirty] = useState(false); const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(""); const [conflict, setConflict] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false); const [editing, setEditing] = useState<ProposedShift | null>(null);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [bulkOpen, setBulkOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [coverageOpen, setCoverageOpen] = useState(false);
   const draftRef = useRef(draft); const dirtyRef = useRef(false); const savingRef = useRef(false);
@@ -83,6 +82,15 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
   const caregivers = data.bundle.members.filter(m => m.active && !m.removed_at && m.role === "caregiver");
   const dates = monthDates(month);
   const existing = useMemo(() => existingMonthShifts(data.bundle.events.filter(e => e.calendar_source_id === data.bundle.family?.babysitter_calendar_source_id), month, data.timeZone, data.lineage), [data, month]);
+  // Use the original occurrence date for lineage, never the moved proposal's
+  // destination: another date of the same series remains a separate card.
+  const represents = (p: ProposedShift, e: ExistingShift) => {
+    const ref = p.existing;
+    if (!ref) return false;
+    if (ref.occurrenceKey === e.key || (ref.eventId === e.eventId && Date.parse(ref.startAt) === Date.parse(e.startAt))) return true;
+    return (ref.splitFromEventId ?? ref.eventId) === (e.splitFromEventId ?? e.eventId)
+      && (ref.splitFromDate ?? formatInTimeZone(ref.startAt, data.timeZone, "yyyy-MM-dd")) === (e.splitFromDate ?? e.date);
+  };
   const assignmentLabel = (a: Assignment) => a.kind === "caregiver" ? data.bundle.members.find(m => m.id === a.family_member_id)?.name ?? "Former caregiver" : a.kind === "other" ? a.name : "Unassigned";
   const modify = (next: ScheduleDraft) => { draftRef.current = next; dirtyRef.current = true; setDraft(next); setDirty(true); setMessage(""); };
   const command = (action: ScheduleCommand) => {
@@ -94,23 +102,14 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
     const proposal = current.shifts.find(s => s.id === id);
     if (proposal) { command({ kind: "move", id, date }); return; }
     const original = existing.find(s => s.key === id);
-    if (!original || original.date === date || current.shifts.some(p => sameIdentity(p, original))) return;
+    if (!original || original.date === date || current.shifts.some(p => represents(p, original))) return;
     try { const shift = existingToProposal(original, crypto.randomUUID());
       modify(editSchedule(current, month, { kind: "keep", shift: { ...shift, date } }));
     } catch (e) { setMessage(e instanceof Error ? e.message : "Shift could not be moved."); }
   };
   const drag = useScheduleDrag(moveProposal);
-  const selection = selected.filter(id => draft.shifts.some(s => s.id === id));
   const summary = scheduleSummary(draft, existing);
   const workDays = useMemo(() => parentWorkDays(month, data.timeZone, data.coverage.settings, data.bundle.events, data.lineage), [data, month]);
-  const versionFor = (s: ProposedShift) => data.bundle.events.find(e => e.id === existing.find(e => sameIdentity(s, e))?.eventId)?.updated_at;
-  const acceptChange = (id: string) => {
-    const shift = draftRef.current.shifts.find(s => s.id === id);
-    if (!shift) return;
-    try { modify(acceptShiftChange(draftRef.current, id, existing, versionFor(shift))); }
-    catch (e) { setMessage(e instanceof Error ? e.message : "Change could not be accepted."); }
-  };
-  const toggleSelected = (id: string, checked: boolean) => setSelected(ids => checked ? [...new Set([...ids, id])] : ids.filter(s => s !== id));
   const leave = (action: () => void) => { if (!savingRef.current && (!dirtyRef.current || window.confirm("Discard unsaved draft changes?"))) action(); };
   useEffect(() => { const guard = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault(); }; window.addEventListener("beforeunload", guard); return () => window.removeEventListener("beforeunload", guard); }, [dirty]);
   async function saveDraft(forReview = false): Promise<boolean> {
@@ -154,7 +153,7 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
     if (savingRef.current || (dirtyRef.current && !window.confirm("Discard unsaved draft changes?"))) return;
     savingRef.current = true; setBusy(true);
     const snapshot = draftRef.current;
-    try { const saved = await reload(); if (draftRef.current === snapshot) { acceptSaved(saved); setEditing(null); setSelected([]); } }
+    try { const saved = await reload(); if (draftRef.current === snapshot) { acceptSaved(saved); setEditing(null); } }
     catch (e) { setMessage(e instanceof Error ? e.message : "Draft could not be loaded."); }
     finally { savingRef.current = false; setBusy(false); }
   }
@@ -173,10 +172,6 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
     <dl className="grid grid-cols-4 divide-x divide-border border-y border-border py-3">
       {[["Proposed shifts", summary.proposals], ["Proposed hours", Number(summary.hours.toFixed(2))], ["Existing calendar shifts", summary.existing], ["Template conflicts", summary.conflicts]].map(([label, value]) => <div key={label} className="px-4 first:pl-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="text-xl font-semibold tabular-nums">{value}</dd></div>)}
     </dl>
-    <div className="flex flex-wrap items-center gap-2">
-      <label className="mr-2 flex items-center gap-2 text-sm"><Checkbox aria-label="Select all proposed shifts" checked={selection.length === draft.shifts.length && selection.length > 0 ? true : selection.length > 0 ? "indeterminate" : false} disabled={!draft.shifts.length} onCheckedChange={checked => setSelected(checked === true ? draft.shifts.map(s => s.id) : [])} />{selection.length ? `${selection.length} selected` : "Select proposals"}</label>
-      {selection.length > 0 && <><Button size="sm" variant="outline" onClick={() => setBulkOpen(true)}>Change caregiver</Button><Button size="sm" variant="outline" onClick={() => { command({ kind: "remove", ids: selection }); setSelected([]); }}><Trash2 className="h-4 w-4" />Remove selected</Button><Button variant="ghost" size="icon" aria-label="Clear selection" onClick={() => setSelected([])}><X className="h-4 w-4" /></Button></>}
-    </div>
     {message && <div role="status" className="flex items-center gap-3 text-sm"><p>{message}</p>{conflict && <Button variant="outline" disabled={busy} onClick={() => void reloadSaved()}>Reload saved draft</Button>}</div>}
     {!data.bundle.family?.babysitter_calendar_source_id && <p className="text-sm text-muted-foreground">No Babysitter calendar is selected. Drafts can still be saved.</p>}
     <div className="grid grid-cols-7 border-l border-t border-border">
@@ -184,21 +179,18 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
       {Array.from({ length: new Date(`${month}-01T12:00:00Z`).getUTCDay() }, (_, i) => <div key={`empty-${i}`} className="border-b border-r border-border bg-surface-muted/50" />)}
       {dates.map(date => <div key={date} onDragOver={event => drag.over(event, date)} onDrop={event => drag.drop(event, date)} className={cn("flex min-h-40 min-w-0 flex-col gap-1.5 border-b border-r border-border p-2", drag.dropDate === date && "bg-accent ring-2 ring-inset ring-ring")}>
         <div className="flex items-center justify-between"><Button variant="ghost" size="sm" className="h-7 px-2" aria-label={`Add proposed shift on ${date}`} onClick={() => setEditing(newShift(date))}>{Number(date.slice(8))}</Button><Button variant="ghost" size="icon" className="h-6 w-6" aria-label={`New shift on ${date}`} onClick={() => setEditing(newShift(date))}><Plus className="h-3 w-3" /></Button></div>
-        {existing.filter(s => s.date <= date && s.endDate >= date).map(s => <article key={s.key} draggable={!s.allDay && s.date === s.endDate && s.start < s.end && !draft.shifts.some(p => sameIdentity(p, s))} onDragStart={event => { dragClickUntil.current = Infinity; drag.start(event, s.key); }} onDragEnd={() => { drag.end(); dragClickUntil.current = Date.now() + 250; }} className="rounded-md border border-member-sky bg-member-sky-soft p-2 text-member-sky-ink"><Button variant="ghost" draggable={false} disabled={s.allDay || s.date !== s.endDate || s.date !== date || s.start >= s.end || draft.shifts.some(p => p.existing?.occurrenceKey === s.key)}
+        {existing.filter(s => s.date <= date && s.endDate >= date && !draft.shifts.some(p => represents(p, s))).map(s => <article key={s.key} draggable={!s.allDay && s.date === s.endDate && s.start < s.end && !draft.shifts.some(p => represents(p, s))} onDragStart={event => { dragClickUntil.current = Infinity; drag.start(event, s.key); }} onDragEnd={() => { drag.end(); dragClickUntil.current = Date.now() + 250; }} className="rounded-md border border-member-sky bg-member-sky-soft p-2 text-member-sky-ink"><Button variant="ghost" draggable={false} disabled={s.allDay || s.date !== s.endDate || s.date !== date || s.start >= s.end || draft.shifts.some(p => p.existing?.occurrenceKey === s.key)}
           className="h-auto w-full min-w-0 justify-start whitespace-normal p-0 text-left text-xs font-bold underline disabled:opacity-100" title={s.title} aria-label={`Edit ${s.title} on ${date}`}
           onClick={() => { if (Date.now() >= dragClickUntil.current) editExisting(s); }}><span className="line-clamp-2 min-w-0 break-words [overflow-wrap:anywhere]">{s.title}</span></Button>
           <p className="mt-1 break-words text-xs tabular-nums">{s.allDay ? "All day" : s.date !== s.endDate ? `${s.date.slice(5)} ${s.start} – ${s.endDate.slice(5)} ${s.end}` : `${s.start}–${s.end}`}</p>
           <p className="mt-0.5 break-words text-[11px] italic">{assignmentLabel(s.assignment)}</p></article>)}
-        {draft.shifts.filter(s => s.date === date).sort((a, b) => a.start.localeCompare(b.start)).map(s => <article key={s.id} draggable onDragStart={event => { dragClickUntil.current = Infinity; drag.start(event, s.id); }} onDragEnd={() => { drag.end(); dragClickUntil.current = Date.now() + 250; }} className={cn("rounded-md border p-1.5", proposalOrphaned(s, existing) ? "border-destructive bg-destructive/10 text-destructive" : s.existing || proposalNeedsReview(s, existing, draft.shifts) ? "border-member-amber bg-member-amber-soft text-member-amber-ink" : "border-member-sage bg-member-sage-soft text-member-sage-ink", selection.includes(s.id) && "ring-2 ring-ring")}>
-          <div className="flex items-start gap-1"><Checkbox className="mt-0.5 shrink-0" aria-label={`Select proposal ${s.start} on ${date}`} checked={selection.includes(s.id)} onCheckedChange={checked => toggleSelected(s.id, checked === true)} />
+        {draft.shifts.filter(s => s.date === date).sort((a, b) => a.start.localeCompare(b.start)).map(s => <article key={s.id} draggable onDragStart={event => { dragClickUntil.current = Infinity; drag.start(event, s.id); }} onDragEnd={() => { drag.end(); dragClickUntil.current = Date.now() + 250; }} className={cn("rounded-md border p-1.5", proposalOrphaned(s, existing) ? "border-destructive bg-destructive/10 text-destructive" : s.existing ? existing.some(e => represents(s, e) && sameSlot(s, e) && s.title === e.title) && !proposalNeedsReview(s, existing, draft.shifts) ? "border-member-sky bg-member-sky-soft text-member-sky-ink" : "border-member-amber bg-member-amber-soft text-member-amber-ink" : "border-member-sage bg-member-sage-soft text-member-sage-ink")}>
+          <div className="flex items-start gap-1">
             <Button variant="ghost" draggable={false} className="h-auto min-w-0 flex-1 items-start justify-start whitespace-normal px-1 py-0 text-left text-xs font-bold underline" title={s.title} aria-label={`Edit proposal ${s.title} on ${date}`} onClick={() => { if (Date.now() >= dragClickUntil.current) setEditing(s); }}><span className="line-clamp-2 min-w-0 break-words [overflow-wrap:anywhere]">{s.title}</span></Button>
           </div>
           <p className="mt-1 break-words text-xs tabular-nums">{s.start}–{s.end}</p>
           <p className="mt-0.5 break-words text-[11px] italic">{assignmentLabel(s.assignment)}</p>
-          {proposalOrphaned(s, existing) ? <div className="mt-1 space-y-1"><p className="text-xs font-semibold">{orphanLabel[orphanStatus(s, existing, data.referenced, data.checkedEventIds, month) ?? "unresolved"]}</p><div className="flex flex-wrap gap-1"><Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => { command({ kind: "remove", ids: [s.id] }); setSelected(sel => sel.filter(x => x !== s.id)); }}>Discard</Button>{orphanStatus(s, existing, data.referenced, data.checkedEventIds, month) === "deleted" && <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => { const r = convertOrphanToNew(draftRef.current, s.id, existing, () => crypto.randomUUID()); modify(r.draft); setSelected(sel => sel.filter(x => x !== s.id)); setMessage(r.added ? "Converted to a new proposed shift. Save and refresh the review." : "Not added: it duplicates an existing shift or proposal."); }}>Convert to new</Button>}</div></div> : s.existing && <p className="mt-1 text-xs">Change proposed</p>}{proposalNeedsReview(s, existing, draft.shifts) && <p className="mt-1 text-xs">Review: duplicate or overlapping shift</p>}
-          {s.existing && !proposalOrphaned(s, existing) && (shiftConfirmed(s, versionFor(s)) && !proposalNeedsReview(s, existing, draft.shifts)
-            ? <p className="mt-1 flex items-center gap-1 text-xs"><Check className="h-3 w-3" />Accepted · unpublished</p>
-            : <Button variant="ghost" size="sm" className="mt-1 h-auto max-w-full whitespace-normal px-1 py-1 text-xs" disabled={proposalNeedsReview(s, existing, draft.shifts) || !versionFor(s)} onClick={() => acceptChange(s.id)}>Accept Change</Button>)}
+          {proposalOrphaned(s, existing) ? <div className="mt-1 space-y-1"><p className="text-xs font-semibold">{orphanLabel[orphanStatus(s, existing, data.referenced, data.checkedEventIds, month) ?? "unresolved"]}</p><div className="flex flex-wrap gap-1"><Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => { command({ kind: "remove", ids: [s.id] }); }}>Discard</Button>{orphanStatus(s, existing, data.referenced, data.checkedEventIds, month) === "deleted" && <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => { const r = convertOrphanToNew(draftRef.current, s.id, existing, () => crypto.randomUUID()); modify(r.draft); setMessage(r.added ? "Converted to a new proposed shift. Save and refresh the review." : "Not added: it duplicates an existing shift or proposal."); }}>Convert to new</Button>}</div></div> : null}{proposalNeedsReview(s, existing, draft.shifts) && <p className="mt-1 text-xs">Review: duplicate or overlapping shift</p>}
         </article>)}
         <div className="mt-auto space-y-0.5 pt-2 text-[10px] leading-snug text-muted-foreground">
           {(workDays[date] ?? []).map((p, i) => <div key={i} className="min-w-0 break-words">
@@ -215,7 +207,6 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
     {editing && <ShiftDialog key={editing.id} shift={editing} month={month} caregivers={caregivers} onClose={() => setEditing(null)}
       onSave={s => { command({ kind: "keep", shift: s }); setEditing(null); }}
       onRemove={draft.shifts.some(s => s.id === editing.id) ? () => { command({ kind: "remove", ids: [editing.id] }); setEditing(null); } : undefined} />}
-    {bulkOpen && <BulkCaregiverDialog count={selection.length} caregivers={caregivers} onClose={() => setBulkOpen(false)} onApply={assignment => { command({ kind: "assign", ids: selection, assignment }); setBulkOpen(false); }} />}
     {coverageOpen && <SmartCoverageDialog familyId={familyId} month={month} timeZone={data.timeZone} coverage={data.coverage} events={data.bundle.events} existing={existing}
       draft={draft} lineage={data.lineage} caregivers={caregivers} regularCaregiverId={data.regularCaregiverId} onClose={() => setCoverageOpen(false)}
       onAdd={(sg, a) => { const shift = suggestionToShift(sg, a, crypto.randomUUID()); const next = appendProposals(draftRef.current, [shift], existing);
@@ -228,11 +219,6 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
 
 export function CaregiverSelect({ value, onChange, caregivers }: { value: Assignment; onChange: (a: Assignment) => void; caregivers: FamilyMember[] }) {
   return <div className={fieldClass}><label>Caregiver</label><Select value={value.kind === "caregiver" ? value.family_member_id : value.kind} onValueChange={v => onChange(v === "none" ? { kind: "none" } : v === "other" ? { kind: "other", name: "" } : { kind: "caregiver", family_member_id: v })}><SelectTrigger aria-label="Caregiver"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Unassigned</SelectItem>{caregivers.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}<SelectItem value="other">Other</SelectItem></SelectContent></Select>{value.kind === "other" && <Input aria-label="Other caregiver name" placeholder="Caregiver name" maxLength={100} value={value.name} onChange={e => onChange({ kind: "other", name: e.target.value })} />}</div>;
-}
-function BulkCaregiverDialog({ count, caregivers, onClose, onApply }: { count: number; caregivers: FamilyMember[]; onClose: () => void; onApply: (a: Assignment) => void }) {
-  const [assignment, setAssignment] = useState<Assignment>({ kind: "none" });
-  const [error, setError] = useState("");
-  return <Dialog open onOpenChange={open => { if (!open) onClose(); }}><DialogContent className="max-w-sm"><DialogHeader><DialogTitle>Change caregiver · {count} shifts</DialogTitle></DialogHeader><form className="space-y-4" onSubmit={event => { event.preventDefault(); const result = templateSchema.shape.assignment.safeParse(assignment); if (result.success) onApply(result.data); else setError("Enter a caregiver name for Other."); }}><CaregiverSelect value={assignment} onChange={setAssignment} caregivers={caregivers} />{error && <p role="alert" className="text-sm text-destructive">{error}</p>}<div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="submit" disabled={!count}>Apply</Button></div></form></DialogContent></Dialog>;
 }
 function ShiftDialog({ shift, month, caregivers, onClose, onSave, onRemove }: { shift: ProposedShift; month: string; caregivers: FamilyMember[]; onClose: () => void; onSave: (s: ProposedShift) => void; onRemove: (() => void) | undefined }) {
   const [value, setValue] = useState(shift); const [error, setError] = useState("");
