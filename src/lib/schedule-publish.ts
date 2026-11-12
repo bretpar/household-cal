@@ -74,9 +74,26 @@ export interface PublishPlan {
  * the authoritative current month occurrences (expanded recurring masters and
  * detached exceptions included), projected into household wall time.
  */
-export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], mappedEvents: Record<string, string> = {}): PublishPlan {
+export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], mappedEvents: Record<string, string> = {}, appliedRemovals: string[] = []): PublishPlan {
   const ops: PublishPlanOp[] = [];
   const referenced = new Set<string>();
+  for (const shift of draft.removals ?? []) {
+    if (appliedRemovals.includes(shift.id)) {
+      ops.push({ shiftId: shift.id, kind: "unchanged", eventId: null, occurrenceKey: null, occurrenceDate: null, requiresReview: false, reason: "Removal already published." });
+      continue;
+    }
+    const ref = shift.existing;
+    const mapped = mappedEvents[shift.id];
+    // Never resolve a moved recurring proposal by its destination date.
+    const match = existing.find(e => mapped ? e.eventId === mapped : !!ref &&
+      (e.key === ref.occurrenceKey || (e.eventId === ref.eventId && Date.parse(e.startAt) === Date.parse(ref.startAt))
+        || (e.splitFromEventId === (ref.splitFromEventId ?? ref.eventId) && e.splitFromDate === (ref.splitFromDate ?? ref.startAt.slice(0, 10)))));
+    if (match) referenced.add(match.key);
+    ops.push({ shiftId: shift.id, kind: match ? "exclude" : "conflict", eventId: match?.eventId ?? ref?.eventId ?? mapped ?? null,
+      occurrenceKey: match?.key ?? ref?.occurrenceKey ?? null, occurrenceDate: match?.date ?? null, requiresReview: true,
+      reason: match ? null : "The shift selected for removal could not be verified. Refresh or undo this deletion.",
+      original: match ? originalOf(match) : null });
+  }
 
   for (const shift of draft.shifts) {
     const ref = shift.existing;
@@ -157,7 +174,7 @@ export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], map
     if (op.kind !== "create" && op.kind !== "update") continue;
     const shift = draft.shifts.find(s => s.id === op.shiftId);
     if (!shift) continue;
-    const reason = proposalConflictReason(shift, existing, draft.shifts, mappedEvents);
+    const reason = proposalConflictReason(shift, existing.filter(e => !ops.some(o => o.kind === "exclude" && o.occurrenceKey === e.key)), draft.shifts, mappedEvents);
     if (reason) {
       op.kind = "conflict";
       op.requiresReview = true;

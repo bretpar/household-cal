@@ -87,16 +87,17 @@ export async function loadPublishPlan(
   ));
   const { data: mappings, error: mappingError } = await db
     .from("babysitter_schedule_publish_ops")
-    .select("draft_shift_id,event_id,draft_revision")
+    .select("draft_shift_id,event_id,draft_revision,kind")
     .eq("family_id", familyId).eq("draft_id", draft.data.id)
-    .eq("status", "applied").not("event_id", "is", null)
+    .eq("status", "applied")
     .order("draft_revision", { ascending: false });
   if (mappingError) throw new Error("Couldn't confirm previously published proposals. Reload the preview.");
   const mappedEvents: Record<string, string> = {};
   for (const row of mappings ?? []) {
     if (row.event_id && !mappedEvents[row.draft_shift_id]) mappedEvents[row.draft_shift_id] = row.event_id;
   }
-  const plan = planPublish(content, existing, mappedEvents);
+  const appliedRemovals = (mappings ?? []).filter(row => row.kind === "exclude").map(row => row.draft_shift_id);
+  const plan = planPublish(content, existing, mappedEvents, appliedRemovals);
 
   // Reviewed versions come from the SAME row read that produced the details,
   // participants and shift assignment: the bundle loads each event with its
@@ -164,7 +165,7 @@ export async function executePublish(
   const immutableVersions = preview.event_versions as Record<string, string>;
 
   const updateEventIds = plan.ops.flatMap((op) =>
-    op.kind === "update" && op.eventId ? [op.eventId] : [],
+    (op.kind === "update" || op.kind === "exclude") && op.eventId ? [op.eventId] : [],
   );
   // Capture previous caregivers before any change so an unassigned caregiver's
   // sheet is reconciled too. A failed lookup is not an empty set: abort before
@@ -190,7 +191,7 @@ export async function executePublish(
   const runId = run.id as string;
 
   const reviewed = new Set(reviewedShiftIds);
-  const shiftById = new Map(draft.content.shifts.map((s) => [s.id, s]));
+  const shiftById = new Map([...draft.content.shifts, ...(draft.content.removals ?? [])].map((s) => [s.id, s]));
   const result: PublishExecutionResult = {
     runId,
     applied: 0,
@@ -223,7 +224,7 @@ export async function executePublish(
       // Bind execution to the exact reviewed calendar version. A missing
       // version means the preview predates this op — reject, never substitute
       // a freshly loaded version.
-      if (op.kind === "update" && (!op.eventId || !immutableVersions[op.eventId]
+      if ((op.kind === "update" || op.kind === "exclude") && (!op.eventId || !immutableVersions[op.eventId]
         || reviewedEventVersions[op.eventId] !== immutableVersions[op.eventId])) {
         result.conflicts.push({
           shiftId: op.shiftId,

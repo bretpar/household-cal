@@ -45,14 +45,28 @@ export function acceptShiftChange(draft: ScheduleDraft, id: string, existing: Ex
 }
 /** Smart Coverage decisions, private to the monthly draft; never published. */
 export const coverageDecisionsSchema = z.object({ ignored: z.array(z.string().max(40)).max(500), noCare: z.array(dateSchema).max(31) });
-export const draftSchema = z.object({ shifts: z.array(shiftSchema).max(500), coverage: coverageDecisionsSchema.optional() }).superRefine((d, ctx) => {
+export const draftSchema = z.object({ shifts: z.array(shiftSchema).max(500), removals: z.array(shiftSchema).max(500).optional(), coverage: coverageDecisionsSchema.optional() }).superRefine((d, ctx) => {
   const ids = new Set<string>(); const refs = new Set<string>();
   for (const s of d.shifts) {
     if (ids.has(s.id) || (s.existing && refs.has(s.existing.occurrenceKey))) ctx.addIssue({ code: "custom", message: "Duplicate draft shift identity." });
     ids.add(s.id); if (s.existing) refs.add(s.existing.occurrenceKey);
   }
+  for (const s of d.removals ?? []) {
+    if (ids.has(s.id) || (s.existing && refs.has(s.existing.occurrenceKey))) ctx.addIssue({ code: "custom", message: "Duplicate draft removal identity." });
+    ids.add(s.id); if (s.existing) refs.add(s.existing.occurrenceKey);
+  }
 });
 export type ScheduleDraft = z.infer<typeof draftSchema>;
+/** Deletion intent only; published identity stays intact and undo restores any proposal. */
+export function deleteDraftShift(draft: ScheduleDraft, shift: ProposedShift, published = !!shift.existing): ScheduleDraft {
+  return draftSchema.parse({ ...draft, shifts: draft.shifts.filter(s => s.id !== shift.id),
+    removals: published ? [...(draft.removals ?? []).filter(s => s.id !== shift.id), shift] : draft.removals });
+}
+export function undoDraftRemoval(draft: ScheduleDraft, id: string): ScheduleDraft {
+  const shift = draft.removals?.find(s => s.id === id);
+  if (!shift) return draft;
+  return draftSchema.parse({ ...draft, shifts: [...draft.shifts, shift], removals: draft.removals?.filter(s => s.id !== id) });
+}
 export const templateSchema = z.object({
   assignment: assignmentSchema,
   weekdays: z.array(z.object({ day: z.number().int().min(0).max(6), start: timeSchema, end: timeSchema })

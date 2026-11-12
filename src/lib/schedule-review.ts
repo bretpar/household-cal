@@ -82,8 +82,8 @@ export function reviewReadiness(
   stale: boolean,
 ): ReviewReadiness {
   const { updates, conflicts, excludes } = groupPlanOps(plan);
-  const unreviewed = updates.filter((op) => !confirmed.has(op.shiftId));
-  const unverified = updates.filter((op) => !originalVerified(op));
+  const unreviewed = [...updates, ...excludes].filter((op) => !confirmed.has(op.shiftId));
+  const unverified = [...updates, ...excludes].filter((op) => !originalVerified(op));
   const blockers: string[] = [];
   if (unverified.length > 0) {
     blockers.push("Original details for some changed shifts couldn't be verified. Refresh the preview.");
@@ -91,9 +91,6 @@ export function reviewReadiness(
   if (stale) blockers.push("The draft changed since this preview. Save the draft and refresh the preview.");
   if (conflicts.length > 0) {
     blockers.push(`${conflicts.length} ${conflicts.length === 1 ? "conflict needs" : "conflicts need"} attention in the builder.`);
-  }
-  if (excludes.length > 0) {
-    blockers.push("Removing existing calendar occurrences is not supported; those shifts stay unchanged.");
   }
   if (unreviewed.length > 0) {
     blockers.push(`${unreviewed.length} ${unreviewed.length === 1 ? "change" : "changes"} to existing shifts still ${unreviewed.length === 1 ? "needs" : "need"} confirmation.`);
