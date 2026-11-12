@@ -54,7 +54,7 @@ function ActivitiesPageRoute() {
 }
 
 function ActivitiesPage() {
-  const { isOwner, family } = useCalendar();
+  const { isOwner, canEdit, family } = useCalendar();
   const [desktop, setDesktop] = useState(false);
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
@@ -68,7 +68,7 @@ function ActivitiesPage() {
   const showTimesheets = isOwner && hasFeature("timesheets", { familyId: family?.id }) && (ts.active || ts.history);
   const historyOnly = showTimesheets && !ts.active;
   const pending = usePendingTimesheetCount(showTimesheets && ts.active);
-  const tab: "hub" | "timesheets" | "recurring" = !showTimesheets && !(isOwner && desktop)
+  const tab: "hub" | "timesheets" | "recurring" = !showTimesheets && !(canEdit && desktop)
     ? "recurring"
     : search.tab === "timesheets" || search.timesheet
       ? "timesheets"
@@ -81,7 +81,7 @@ function ActivitiesPage() {
     <AppShell>
       <div className="space-y-5">
         <header className="flex items-center gap-2">
-          {tab !== "hub" && (showTimesheets || isOwner) ? (
+          {tab !== "hub" && (showTimesheets || canEdit) ? (
             <button
               type="button"
               aria-label="Back to Activities"
@@ -145,7 +145,7 @@ function ActivitiesPage() {
                     <span className="block text-xs text-muted-foreground">Manage schedules</span>
                   </span>
                 </Button>
-                {isOwner && <Button type="button" variant="ghost" onClick={() => void navigate({ to: "/babysitter-schedule" })}
+                {canEdit && <Button type="button" variant="ghost" onClick={() => void navigate({ to: "/babysitter-schedule" })}
                   className="hidden h-auto min-h-28 min-w-0 flex-col items-start justify-start gap-2 whitespace-normal rounded-xl border border-border-soft bg-card p-3.5 text-left lg:flex">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted"><CalendarDays className="h-4 w-4" aria-hidden /></span>
                   <span className="min-w-0"><span className="block text-sm font-bold">Babysitter Schedule</span><span className="block text-xs text-muted-foreground">Build monthly shifts</span></span>

@@ -1,0 +1,38 @@
+DROP POLICY IF EXISTS "Owners read private schedule drafts" ON public.babysitter_schedule_drafts;
+DROP POLICY IF EXISTS "Owners create private schedule drafts" ON public.babysitter_schedule_drafts;
+DROP POLICY IF EXISTS "Owners edit private schedule drafts" ON public.babysitter_schedule_drafts;
+CREATE POLICY "Editors read private schedule drafts" ON public.babysitter_schedule_drafts FOR SELECT TO authenticated USING (public.can_edit_family(family_id));
+CREATE POLICY "Editors create private schedule drafts" ON public.babysitter_schedule_drafts FOR INSERT TO authenticated WITH CHECK (public.can_edit_family(family_id));
+CREATE POLICY "Editors edit private schedule drafts" ON public.babysitter_schedule_drafts FOR UPDATE TO authenticated USING (public.can_edit_family(family_id)) WITH CHECK (public.can_edit_family(family_id));
+DROP POLICY IF EXISTS "Owners read schedule templates" ON public.babysitter_schedule_templates;
+DROP POLICY IF EXISTS "Owners create schedule templates" ON public.babysitter_schedule_templates;
+DROP POLICY IF EXISTS "Owners edit schedule templates" ON public.babysitter_schedule_templates;
+CREATE POLICY "Editors read schedule templates" ON public.babysitter_schedule_templates FOR SELECT TO authenticated USING (public.can_edit_family(family_id));
+CREATE POLICY "Editors create schedule templates" ON public.babysitter_schedule_templates FOR INSERT TO authenticated WITH CHECK (public.can_edit_family(family_id));
+CREATE POLICY "Editors edit schedule templates" ON public.babysitter_schedule_templates FOR UPDATE TO authenticated USING (public.can_edit_family(family_id)) WITH CHECK (public.can_edit_family(family_id));
+DROP POLICY IF EXISTS "Owners read coverage settings" ON public.babysitter_coverage_settings;
+DROP POLICY IF EXISTS "Owners create coverage settings" ON public.babysitter_coverage_settings;
+DROP POLICY IF EXISTS "Owners edit coverage settings" ON public.babysitter_coverage_settings;
+CREATE POLICY "Editors read coverage settings" ON public.babysitter_coverage_settings FOR SELECT TO authenticated USING (public.can_edit_family(family_id));
+CREATE POLICY "Editors create coverage settings" ON public.babysitter_coverage_settings FOR INSERT TO authenticated WITH CHECK (public.can_edit_family(family_id));
+CREATE POLICY "Editors edit coverage settings" ON public.babysitter_coverage_settings FOR UPDATE TO authenticated USING (public.can_edit_family(family_id)) WITH CHECK (public.can_edit_family(family_id));
+DROP POLICY IF EXISTS "Owners read publish runs" ON public.babysitter_schedule_publish_runs;
+DROP POLICY IF EXISTS "Owners create publish runs" ON public.babysitter_schedule_publish_runs;
+DROP POLICY IF EXISTS "Owners update publish runs" ON public.babysitter_schedule_publish_runs;
+CREATE POLICY "Editors read publish runs" ON public.babysitter_schedule_publish_runs FOR SELECT TO authenticated USING (public.can_edit_family(family_id));
+CREATE POLICY "Editors create publish runs" ON public.babysitter_schedule_publish_runs FOR INSERT TO authenticated WITH CHECK (public.can_edit_family(family_id));
+CREATE POLICY "Editors update publish runs" ON public.babysitter_schedule_publish_runs FOR UPDATE TO authenticated USING (public.can_edit_family(family_id)) WITH CHECK (public.can_edit_family(family_id));
+DROP POLICY IF EXISTS "Owners read publish ops" ON public.babysitter_schedule_publish_ops;
+DROP POLICY IF EXISTS "Owners create publish ops" ON public.babysitter_schedule_publish_ops;
+DROP POLICY IF EXISTS "Owners update publish ops" ON public.babysitter_schedule_publish_ops;
+CREATE POLICY "Editors read publish ops" ON public.babysitter_schedule_publish_ops FOR SELECT TO authenticated USING (public.can_edit_family(family_id));
+CREATE POLICY "Editors create publish ops" ON public.babysitter_schedule_publish_ops FOR INSERT TO authenticated WITH CHECK (public.can_edit_family(family_id));
+CREATE POLICY "Editors update publish ops" ON public.babysitter_schedule_publish_ops FOR UPDATE TO authenticated USING (public.can_edit_family(family_id)) WITH CHECK (public.can_edit_family(family_id));
+DO $r$
+DECLARE d text; o text := $o$WHERE family_id = _family AND user_id = _caller AND role = 'owner'$o$;
+BEGIN
+  SELECT pg_get_functiondef('public.apply_schedule_publish_op(uuid,uuid,uuid,integer,uuid,jsonb,jsonb,uuid,text)'::regprocedure) INTO d;
+  IF strpos(d, o) = 0 THEN RAISE EXCEPTION 'Unexpected publish RPC owner check'; END IF;
+  d := replace(d, o, $n$WHERE family_id = _family AND user_id = _caller AND role IN ('owner','editor')$n$);
+  EXECUTE d;
+END $r$;

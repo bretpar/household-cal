@@ -323,6 +323,13 @@
       "when": 1794463391422,
       "tag": "0045_schedule_publish_draft_removals",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1794524952568,
+      "tag": "0046_schedule_builder_editors",
+      "breakpoints": true
     }
   ]
 }

@@ -10,7 +10,7 @@ const scope = z.object({ familyId: z.uuid(), month: monthSchema });
 
 async function owner(db: Client, userId: string, familyId: string) {
   const { data, error } = await db.from("family_users").select("role").eq("family_id", familyId).eq("user_id", userId).single();
-  if (error || data?.role !== "owner") throw new Error("Only a current household Owner can use schedule drafts.");
+  if (error || (data?.role !== "owner" && data?.role !== "editor")) throw new Error("Only a household Owner or Editor can use schedule drafts.");
 }
 async function validateAssignments(db: Client, familyId: string, assignments: Assignment[]) {
   const ids = [...new Set(assignments.flatMap(a => a.kind === "caregiver" ? [a.family_member_id] : []))];

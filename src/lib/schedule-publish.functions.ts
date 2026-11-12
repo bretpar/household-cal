@@ -21,8 +21,8 @@ async function owner(db: Client, userId: string, familyId: string) {
     .eq("family_id", familyId)
     .eq("user_id", userId)
     .single();
-  if (error || data?.role !== "owner") {
-    throw new Error("Only a current household Owner can publish schedule drafts.");
+  if (error || (data?.role !== "owner" && data?.role !== "editor")) {
+    throw new Error("Only a household Owner or Editor can publish schedule drafts.");
   }
 }
 
