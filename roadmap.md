@@ -1,5 +1,9 @@
 # Roadmap
 
+## Schedule cards and direct Review
+- [x] Show keyboard-accessible underlined titles above times and italic caregivers; remove repeat/edit icons, retain drag and occurrence protections.
+- [x] Review saves the latest private draft before opening; serializes repeated clicks, preserves failed edits, and keeps optional Save Draft. No QA or publishing; Codex owns interaction verification.
+
 ## Schedule Builder desktop UX
 - [x] Move Babysitter Schedule into matching desktop Family Tools card; preserve phone Activities behavior.
 - [x] Show permission-safe parent work intervals and incomplete-data indicators.
