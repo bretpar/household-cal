@@ -33,7 +33,7 @@ export const loadScheduleWorkspace = createServerFn({ method: "GET" }).middlewar
     // Locate every event a saved proposal references, in any month, so a missing
     // occurrence can be told apart from a deleted one. Fails closed on error.
     const savedDraft = draft.data ? draftSchema.parse(draft.data.content) : null;
-    const refIds = [...new Set((savedDraft?.shifts ?? []).flatMap(s => s.existing ? [s.existing.eventId] : []))];
+    const refIds = [...new Set([...(savedDraft?.shifts ?? []), ...(savedDraft?.removals ?? [])].flatMap(s => s.existing ? [s.existing.eventId] : []))];
     const referenced: Record<string, ReferencedEvent> = {};
     if (refIds.length) {
       const { formatInTimeZone } = await import("date-fns-tz");
@@ -41,9 +41,18 @@ export const loadScheduleWorkspace = createServerFn({ method: "GET" }).middlewar
       for (const r of rows.data ?? []) referenced[r.id] = { onSitterCalendar: r.calendar_source_id === bundle.family?.babysitter_calendar_source_id,
         month: formatInTimeZone(new Date(r.start_at), family.data.timezone, "yyyy-MM"), recurring: !!r.recurrence_rule };
     }
+    const mappings = await db.from("babysitter_schedule_publish_ops").select("draft_shift_id,event_id,kind,draft_revision")
+      .eq("family_id", data.familyId).eq("draft_id", draft.data?.id ?? "00000000-0000-0000-0000-000000000000")
+      .eq("status", "applied").order("draft_revision", { ascending: false }).throwOnError();
+    const publishedEvents: Record<string, string> = {};
+    const appliedRemovals: string[] = [];
+    for (const row of mappings.data ?? []) {
+      if (row.kind === "exclude") appliedRemovals.push(row.draft_shift_id);
+      else if (row.event_id && !publishedEvents[row.draft_shift_id]) publishedEvents[row.draft_shift_id] = row.event_id;
+    }
     const coverage = await loadCoverageSettings(db, data.familyId, bundle.family?.babysitter_calendar_source_id ?? null);
     await checkWorkVisibility(data.familyId, data.month, coverage.settings, bundle);
-    return { coverage, regularCaregiverId: family.data.default_babysitter_member_id ?? null, referenced, checkedEventIds: refIds, bundle, timeZone: family.data.timezone, draft: draft.data ? { revision: draft.data.revision, content: draftSchema.parse(draft.data.content) } : null,
+    return { publishedEvents, appliedRemovals, coverage, regularCaregiverId: family.data.default_babysitter_member_id ?? null, referenced, checkedEventIds: refIds, bundle, timeZone: family.data.timezone, draft: draft.data ? { revision: draft.data.revision, content: draftSchema.parse(draft.data.content) } : null,
       templates: (templates.data ?? []).map(t => ({ id: t.id, name: t.name, revision: t.revision, content: templateSchema.parse(t.content) })),
       lineage: Object.fromEntries((lineage.data ?? []).map(e => [e.id, { split_from_event_id: e.split_from_event_id, split_from_date: e.split_from_date }])),
     };
@@ -52,7 +61,7 @@ export const saveScheduleDraft = createServerFn({ method: "POST" }).middleware([
   .inputValidator(data => scope.extend({ revision: z.number().int().nonnegative(), content: draftSchema }).parse(data))
   .handler(async ({ data, context }) => {
     const db = context.supabase; await owner(db, context.userId, data.familyId);
-    if (data.content.shifts.some(s => !s.date.startsWith(`${data.month}-`))) throw new Error("Every proposal must be inside the selected month.");
+    if ([...data.content.shifts, ...(data.content.removals ?? [])].some(s => !s.date.startsWith(`${data.month}-`))) throw new Error("Every proposal must be inside the selected month.");
     await validateAssignments(db, data.familyId, data.content.shifts.map(s => s.assignment));
     const content = JSON.parse(JSON.stringify(data.content)) as { shifts: ScheduleDraft["shifts"] };
     const result = data.revision === 0

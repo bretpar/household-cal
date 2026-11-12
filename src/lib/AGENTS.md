@@ -1,2 +1,3 @@
 - Smart Coverage logic stays UI-free; work-calendar picks live in babysitter_coverage_settings, skip decisions in the draft. Why: reusable on iPhone.
 - Draft shift confirmation binds exact proposal fields to the original event version; authoritative Review accepts it only for a matching verified original. Why: edits and concurrent calendar changes cannot inherit stale acceptance.
+- Pending shift removals live in draft.removals with original identity; publication uses version-bound exclude ops in the existing atomic RPC and applied journal records prevent replay. Why: draft deletion never writes live events or removes an entire series implicitly.

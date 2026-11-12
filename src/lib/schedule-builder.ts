@@ -16,6 +16,7 @@ export const shiftSchema = z.object({
   id: z.uuid(), date: dateSchema, start: timeSchema, end: timeSchema,
   title: z.string().trim().min(1).max(200), assignment: assignmentSchema,
   confirmation: z.object({ signature: z.string().max(2000), eventVersion: z.string() }).optional(),
+  restoreProposal: z.boolean().optional(),
   existing: z.object({ eventId: z.uuid(), occurrenceKey: z.string().max(200),
     startAt: z.iso.datetime({ offset: true }), splitFromEventId: z.uuid().nullable(), splitFromDate: dateSchema.nullable(),
   }).optional(),
@@ -60,12 +61,13 @@ export type ScheduleDraft = z.infer<typeof draftSchema>;
 /** Deletion intent only; published identity stays intact and undo restores any proposal. */
 export function deleteDraftShift(draft: ScheduleDraft, shift: ProposedShift, published = !!shift.existing): ScheduleDraft {
   return draftSchema.parse({ ...draft, shifts: draft.shifts.filter(s => s.id !== shift.id),
-    removals: published ? [...(draft.removals ?? []).filter(s => s.id !== shift.id), shift] : draft.removals });
+    removals: published ? [...(draft.removals ?? []).filter(s => s.id !== shift.id), { ...shift, restoreProposal: draft.shifts.some(s => s.id === shift.id) }] : draft.removals });
 }
 export function undoDraftRemoval(draft: ScheduleDraft, id: string): ScheduleDraft {
   const shift = draft.removals?.find(s => s.id === id);
   if (!shift) return draft;
-  return draftSchema.parse({ ...draft, shifts: [...draft.shifts, shift], removals: draft.removals?.filter(s => s.id !== id) });
+  const { restoreProposal, ...proposal } = shift;
+  return draftSchema.parse({ ...draft, shifts: restoreProposal ? [...draft.shifts, proposal] : draft.shifts, removals: draft.removals?.filter(s => s.id !== id) });
 }
 export const templateSchema = z.object({
   assignment: assignmentSchema,

@@ -30,7 +30,7 @@ const shortDate = (date: string) => labelDate(date, { weekday: "short", month: "
  * Publishing itself stays disabled — no calendar, Google, or Timesheet
  * writes happen here.
  */
-export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, existing, members, timeZone, onClose }: {
+export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, existing, members, timeZone, onClose, onUndoRemoval, onPublished }: {
   familyId: string;
   month: string;
   draft: ScheduleDraft;
@@ -40,6 +40,8 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
   members: FamilyMember[];
   timeZone: string;
   onClose: () => void;
+  onUndoRemoval: (id: string) => Promise<void>;
+  onPublished: () => Promise<void>;
 }) {
   const loadPreview = useServerFn(planSchedulePublish);
   const draftRef = useRef(draft);
@@ -87,7 +89,7 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
   const groups = preview ? groupPlanOps(preview.plan) : null;
   const readiness = preview ? reviewReadiness(preview.plan, confirmed, stale) : null;
 
-  const shiftById = useMemo(() => new Map(draft.shifts.map((s) => [s.id, s])), [draft]);
+  const shiftById = useMemo(() => new Map([...draft.shifts, ...(draft.removals ?? [])].map((s) => [s.id, s])), [draft]);
   const assignmentLabel = (a: Assignment) =>
     a.kind === "caregiver"
       ? members.find((m) => m.id === a.family_member_id)?.name ?? "Former caregiver"
@@ -105,6 +107,7 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
         familyId, month, revision: preview.revision, previewId: preview.previewId,
         reviewedShiftIds: [...confirmed], reviewedEventVersions: preview.eventVersions,
       } }));
+      await onPublished();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Publishing failed. Nothing new was confirmed.");
     } finally {
@@ -177,15 +180,24 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
     );
   };
 
-  const excludeRow = (op: PublishPlanOp) => (
-    <article key={op.shiftId} className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs">
-      <p className="flex items-center gap-1 font-semibold">
-        <AlertTriangle className="h-3 w-3 shrink-0" />
-        Removing an existing calendar occurrence is not supported.
-      </p>
-      <p>The existing shift{op.occurrenceDate ? ` on ${shortDate(op.occurrenceDate)}` : ""} stays unchanged. Return to the builder to revise this proposal.</p>
-    </article>
-  );
+  const undoRemoval = async (id: string) => {
+    if (loading || publishing) return;
+    setLoading(true); setError("");
+    try { await onUndoRemoval(id); await refresh(); }
+    catch (e) { setPreview(null); setError(e instanceof Error ? e.message : "Undo could not be saved."); setLoading(false); }
+  };
+  const excludeRow = (op: PublishPlanOp) => {
+    const before = op.original;
+    return <article key={op.shiftId} className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs">
+      <p className="font-semibold">{before ? `${shortDate(before.date)} · ${before.title}` : "Shift to remove"}</p>
+      <p>{before?.allDay ? "All day" : `${before?.start ?? "—"}–${before?.end ?? "—"}`} · {before ? assignmentLabel(before.assignment) : "—"}</p>
+      {before?.recurring && <p>Only this occurrence is removed; the rest of the series stays unchanged.</p>}
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <label className="flex items-center gap-2"><Checkbox checked={confirmed.has(op.shiftId)} aria-label={`Confirm removal of ${before?.title ?? "shift"}`} onCheckedChange={v => toggleConfirmed(op.shiftId, v === true)} />Confirm removal</label>
+        <Button variant="outline" size="sm" disabled={publishing || !!result} onClick={() => void undoRemoval(op.shiftId)}>Undo deletion</Button>
+      </div>
+    </article>;
+  };
 
   const createRow = (op: PublishPlanOp) => {
     const shift = shiftById.get(op.shiftId);
@@ -236,7 +248,7 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
                   ["Changes", groups.updates.length, "text-member-amber-ink"],
                   ["Unchanged", groups.unchanged.length, "text-member-sky-ink"],
                   ["Kept existing", preview.plan.counts.preserved, "text-member-sky-ink"],
-                  ["Conflicts", groups.conflicts.length + groups.excludes.length, groups.conflicts.length + groups.excludes.length > 0 ? "text-destructive" : ""],
+                  ["Conflicts", groups.conflicts.length, groups.conflicts.length > 0 ? "text-destructive" : ""],
                   ["Planned hours", Number(hours.toFixed(2)), ""],
                 ] as const).map(([label, value, tone]) => (
                   <div key={label}>
@@ -246,14 +258,15 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
                 ))}
               </dl>
 
-              {(groups.conflicts.length > 0 || groups.excludes.length > 0) && (
+              {groups.conflicts.length > 0 && (
                 <section className="space-y-2">
                   <h3 className="text-sm font-semibold">Needs attention</h3>
                   {groups.conflicts.map(conflictRow)}
-                  {groups.excludes.map(excludeRow)}
+
                 </section>
               )}
 
+              {groups.excludes.length > 0 && <section className="space-y-2"><h3 className="text-sm font-semibold">Shifts to Remove</h3>{groups.excludes.map(excludeRow)}</section>}
               {groups.updates.length > 0 && (
                 <section className="space-y-2">
                   <h3 className="text-sm font-semibold">Changes to existing shifts — confirm each one</h3>
@@ -274,8 +287,7 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
                   Existing shifts kept unchanged ({preview.plan.counts.preserved + groups.unchanged.length})
                 </button>
                 <p className="text-xs text-muted-foreground">
-                  Existing shifts are always kept by default. Removing a calendar occurrence — including a single
-                  occurrence of a recurring series — isn’t supported by the schedule builder.
+                  Existing shifts are kept unless explicitly selected and confirmed for removal.
                 </p>
                 {showKept && (
                   <div className="space-y-2">

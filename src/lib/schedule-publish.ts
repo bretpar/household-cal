@@ -21,6 +21,7 @@ import {
   type ScheduleDraft,
 } from "@/lib/schedule-builder";
 import type { CalendarEvent } from "@/lib/family-data";
+import { formatInTimeZone } from "date-fns-tz";
 
 export type PublishOpKind = "unchanged" | "create" | "update" | "exclude" | "conflict";
 
@@ -74,7 +75,7 @@ export interface PublishPlan {
  * the authoritative current month occurrences (expanded recurring masters and
  * detached exceptions included), projected into household wall time.
  */
-export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], mappedEvents: Record<string, string> = {}, appliedRemovals: string[] = []): PublishPlan {
+export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], mappedEvents: Record<string, string> = {}, appliedRemovals: string[] = [], timeZone = "UTC"): PublishPlan {
   const ops: PublishPlanOp[] = [];
   const referenced = new Set<string>();
   for (const shift of draft.removals ?? []) {
@@ -87,7 +88,7 @@ export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], map
     // Never resolve a moved recurring proposal by its destination date.
     const match = existing.find(e => mapped ? e.eventId === mapped : !!ref &&
       (e.key === ref.occurrenceKey || (e.eventId === ref.eventId && Date.parse(e.startAt) === Date.parse(ref.startAt))
-        || (e.splitFromEventId === (ref.splitFromEventId ?? ref.eventId) && e.splitFromDate === (ref.splitFromDate ?? ref.startAt.slice(0, 10)))));
+        || (e.splitFromEventId === (ref.splitFromEventId ?? ref.eventId) && e.splitFromDate === (ref.splitFromDate ?? formatInTimeZone(ref.startAt, timeZone, "yyyy-MM-dd")))));
     if (match) referenced.add(match.key);
     ops.push({ shiftId: shift.id, kind: match ? "exclude" : "conflict", eventId: match?.eventId ?? ref?.eventId ?? mapped ?? null,
       occurrenceKey: match?.key ?? ref?.occurrenceKey ?? null, occurrenceDate: match?.date ?? null, requiresReview: true,

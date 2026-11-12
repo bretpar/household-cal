@@ -96,8 +96,8 @@ export async function loadPublishPlan(
   for (const row of mappings ?? []) {
     if (row.event_id && !mappedEvents[row.draft_shift_id]) mappedEvents[row.draft_shift_id] = row.event_id;
   }
-  const appliedRemovals = (mappings ?? []).filter(row => row.kind === "exclude").map(row => row.draft_shift_id);
-  const plan = planPublish(content, existing, mappedEvents, appliedRemovals);
+  const appliedRemovals = (mappings ?? []).filter((row: { kind: string }) => row.kind === "exclude").map((row: { draft_shift_id: string }) => row.draft_shift_id);
+  const plan = planPublish(content, existing, mappedEvents, appliedRemovals, family.data.timezone);
 
   // Reviewed versions come from the SAME row read that produced the details,
   // participants and shift assignment: the bundle loads each event with its
@@ -262,6 +262,7 @@ export async function executePublish(
         if (rpcError) throw rpcError;
         const outcome = rpcResult as { outcome?: string; event_id?: string } | null;
         if (outcome?.event_id) touchedEventIds.push(outcome.event_id);
+        else if (op.kind === "exclude" && op.eventId) touchedEventIds.push(op.eventId);
         if (outcome?.outcome === "already_applied") result.skipped += 1;
         else result.applied += 1;
       } catch (e) {
@@ -278,6 +279,7 @@ export async function executePublish(
           .maybeSingle();
         if (existingOp?.status === "applied") {
           if (existingOp.event_id) touchedEventIds.push(existingOp.event_id as string);
+          else if (op.kind === "exclude" && op.eventId) touchedEventIds.push(op.eventId);
           result.applied += 1;
           continue;
         }

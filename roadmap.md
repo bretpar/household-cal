@@ -1,5 +1,9 @@
 # Roadmap
 
+## Draft-only shift deletion
+- [x] Add Delete Shift and persistent undoable removals with identity-preserving grid hiding and authoritative Shifts to Remove confirmation.
+- [x] Extend existing atomic publish RPC in migration 0045 for one-off deletion and single recurring-date exclusion; retain owner/version/lock/journal/reconciliation safeguards. No live event writes or deployment; Codex owns focused publication verification.
+
 ## Single logical shift cards
 - [x] Render referenced originals only through their proposed final card; preserve separate recurrence dates with original occurrence identity matching.
 - [x] Remove grid selection/bulk controls and per-shift acceptance labels/actions; retain private editing, save-before-Review and final confirmation. No broad QA or deployment.
