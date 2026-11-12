@@ -203,7 +203,7 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
         <div className="mt-auto space-y-0.5 pt-2 text-[10px] leading-snug text-muted-foreground">
           {(workDays[date] ?? []).map((p, i) => <div key={i} className="min-w-0 break-words">
             {p.intervals.length > 0 && <p>{p.label} · {p.intervals.map(([a, b]) => `${compactWorkTime(a)}–${compactWorkTime(b)}`).join(", ")}</p>}
-            {(p.unavailable || p.manualReview) && <p>{p.label} · {p.unavailable ? "Work hours unavailable" : "Work hours need review"}</p>}
+            {((p.unavailable && p.intervals.length === 0) || p.manualReview) && <p>{p.label} · {p.manualReview ? "Work hours need review" : "Work hours unavailable"}</p>}
           </div>)}
         </div>
       </div>)}
