@@ -1,5 +1,10 @@
 # Roadmap
 
+## Schedule Builder desktop UX
+- [x] Move Babysitter Schedule into matching desktop Family Tools card; preserve phone Activities behavior.
+- [x] Show permission-safe parent work intervals and incomplete-data indicators.
+- [x] Support direct existing/proposed shift dragging and version-bound private confirmation; retain final review safeguards. 64 focused rule tests pass; authenticated preview unavailable without an injected session. No live data changes or publishing.
+
 ## Google inbound/outbound edit race
 - [x] Atomically defer inbound mutations under event locks while outbound intents are pending, leased, or retryable; participant saves share the lock, occurrence/branch mutations are guarded, deferred pulls retain their token, and held leases report pending. Migration 0043 changes future-write guards only; no live event writes, QA, or publishing. Codex owns concurrency verification.
 

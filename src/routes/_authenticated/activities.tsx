@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { OwnerTimesheets, usePendingTimesheetCount } from "@/components/TimesheetSettings";
 import { hasFeature } from "@/lib/features";
 import { useTimesheetsStatus } from "@/lib/use-timesheets-status";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { addDays, format } from "date-fns";
 import { CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, Info, Pencil, Repeat, Search } from "lucide-react";
 
@@ -55,13 +55,20 @@ function ActivitiesPageRoute() {
 
 function ActivitiesPage() {
   const { isOwner, family } = useCalendar();
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const update = () => setDesktop(media.matches);
+    update(); media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/activities" });
   const ts = useTimesheetsStatus();
   const showTimesheets = isOwner && hasFeature("timesheets", { familyId: family?.id }) && (ts.active || ts.history);
   const historyOnly = showTimesheets && !ts.active;
   const pending = usePendingTimesheetCount(showTimesheets && ts.active);
-  const tab: "hub" | "timesheets" | "recurring" = !showTimesheets
+  const tab: "hub" | "timesheets" | "recurring" = !showTimesheets && !(isOwner && desktop)
     ? "recurring"
     : search.tab === "timesheets" || search.timesheet
       ? "timesheets"
@@ -74,7 +81,7 @@ function ActivitiesPage() {
     <AppShell>
       <div className="space-y-5">
         <header className="flex items-center gap-2">
-          {tab !== "hub" && showTimesheets ? (
+          {tab !== "hub" && (showTimesheets || isOwner) ? (
             <button
               type="button"
               aria-label="Back to Activities"
@@ -97,14 +104,9 @@ function ActivitiesPage() {
             </p>
           </div>
         </header>
-        {isOwner && (
-          <Button variant="outline" className="hidden w-fit gap-2 lg:flex" onClick={() => void navigate({ to: "/babysitter-schedule" })}>
-            <CalendarDays className="h-4 w-4" />Build Babysitter Schedule
-          </Button>
-        )}
         {tab === "hub" ? (
           <div className="space-y-5">
-            <Button
+            {showTimesheets && <Button
               type="button"
               variant="secondary"
               data-tour-target="activities-timesheets"
@@ -124,7 +126,7 @@ function ActivitiesPage() {
                 <span className="block text-sm text-muted-foreground">{historyOnly ? "View past caregiver hours" : "Caregiver hours & approvals"}</span>
               </span>
               <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
-            </Button>
+            </Button>}
             <section aria-labelledby="family-tools-heading" className="space-y-2">
               <h2 id="family-tools-heading" className="text-sm font-bold text-muted-foreground">Family Tools</h2>
               <div className="grid grid-cols-2 gap-3">
@@ -143,6 +145,11 @@ function ActivitiesPage() {
                     <span className="block text-xs text-muted-foreground">Manage schedules</span>
                   </span>
                 </Button>
+                {isOwner && <Button type="button" variant="ghost" onClick={() => void navigate({ to: "/babysitter-schedule" })}
+                  className="hidden h-auto min-h-28 min-w-0 flex-col items-start justify-start gap-2 whitespace-normal rounded-xl border border-border-soft bg-card p-3.5 text-left lg:flex">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted"><CalendarDays className="h-4 w-4" aria-hidden /></span>
+                  <span className="min-w-0"><span className="block text-sm font-bold">Babysitter Schedule</span><span className="block text-xs text-muted-foreground">Build monthly shifts</span></span>
+                </Button>}
               </div>
             </section>
           </div>

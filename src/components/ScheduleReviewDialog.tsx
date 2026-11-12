@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import type { Assignment, ExistingShift, ScheduleDraft } from "@/lib/schedule-builder";
+import { shiftConfirmed, type Assignment, type ExistingShift, type ScheduleDraft } from "@/lib/schedule-builder";
 import type { PublishPlan, PublishPlanOp } from "@/lib/schedule-publish";
 import { groupPlanOps, originalVerified, plannedHours, reviewReadiness } from "@/lib/schedule-review";
 import { executeSchedulePublish, getSchedulePublishGate, planSchedulePublish } from "@/lib/schedule-publish.functions";
@@ -42,6 +42,8 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
   onClose: () => void;
 }) {
   const loadPreview = useServerFn(planSchedulePublish);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
   const loadRef = useRef(loadPreview);
   loadRef.current = loadPreview;
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -64,7 +66,12 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
     setConfirmed(new Set());
     setResult(null);
     try {
-      setPreview(await loadRef.current({ data: { familyId, month } }));
+      const next = await loadRef.current({ data: { familyId, month } });
+      setPreview(next);
+      setConfirmed(new Set(next.plan.ops.filter(op => {
+        const shift = draftRef.current.shifts.find(s => s.id === op.shiftId);
+        return op.kind === "update" && originalVerified(op) && !!shift && shiftConfirmed(shift, op.original?.eventVersion);
+      }).map(op => op.shiftId)));
     } catch (e) {
       setPreview(null);
       setError(e instanceof Error ? e.message : "The review preview could not be loaded.");

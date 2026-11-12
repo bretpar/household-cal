@@ -22,6 +22,19 @@ export interface DayCoverage {
 }
 export interface CoverageResult { complete: boolean; problems: string[]; days: DayCoverage[] }
 
+export interface ParentWorkDay { label: string; intervals: Interval[]; unavailable: boolean; manualReview: boolean }
+/** Uses only caller-visible selected calendar events; never returns titles. */
+export function parentWorkDays(month: string, timeZone: string, settings: CoverageSettings, events: CalendarEvent[], lineage: Lineage): Record<string, ParentWorkDay[]> {
+  const work = settings.parents.map(p => p.sourceId && p.health !== "hidden" && p.health !== "unavailable"
+    ? existingMonthShifts(events.filter(e => e.calendar_source_id === p.sourceId), month, timeZone, lineage) : []);
+  return Object.fromEntries(monthDates(month).map(date => [date, settings.parents.map((p, i) => {
+    const spans = work[i] ?? [];
+    return { label: p.label, unavailable: p.health !== "ok" || !monthInRange(month, p.range),
+      manualReview: spans.some(s => s.allDay && s.date <= date && s.endDate >= date),
+      intervals: mergeIntervals(spans.flatMap(s => { const interval = onDate(s, date); return interval ? [interval] : []; })) };
+  })]));
+}
+
 const MIN_DAY = 0, MAX_DAY = 24 * 60;
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 export const toTime = (m: number) => m >= MAX_DAY ? "23:59" : `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;

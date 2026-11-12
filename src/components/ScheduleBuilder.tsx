@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronLeft, ChevronRight, Plus, Save, Trash2, Pencil, LockKeyhole, ShieldCheck, Repeat2, Move, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Save, Trash2, Pencil, LockKeyhole, ShieldCheck, Repeat2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,15 +11,19 @@ import { useCalendar } from "@/lib/calendar-store";
 import { getVerifiedMembership } from "@/lib/auth-guard";
 import { ScheduleReviewDialog } from "@/components/ScheduleReviewDialog";
 import { SmartCoverageDialog } from "@/components/SmartCoverageDialog";
-import { suggestionToShift, ignoreSuggestion, setNoCare } from "@/lib/smart-coverage";
+import { suggestionToShift, ignoreSuggestion, setNoCare, parentWorkDays } from "@/lib/smart-coverage";
 import { cn } from "@/lib/utils";
 import { useScheduleDrag } from "@/hooks/use-schedule-drag";
 import { monthDates, shiftMonth, buildTemplate, appendProposals, proposalNeedsReview, proposalOrphaned, convertOrphanToNew, orphanStatus, orphanLabel, existingMonthShifts, draftSchema, templateSchema,
-  editSchedule, scheduleSummary, type ScheduleCommand, type Assignment, type ProposedShift, type ScheduleDraft, type ScheduleTemplate, type ExistingShift } from "@/lib/schedule-builder";
+  editSchedule, scheduleSummary, existingToProposal, acceptShiftChange, shiftConfirmed, sameIdentity, type ScheduleCommand, type Assignment, type ProposedShift, type ScheduleDraft, type ScheduleTemplate, type ExistingShift } from "@/lib/schedule-builder";
 import { loadScheduleWorkspace, saveScheduleDraft, saveScheduleTemplate } from "@/lib/schedule-builder.functions";
 import type { FamilyMember } from "@/lib/family-data";
 
 const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const compactWorkTime = (minutes: number) => {
+  const hour = Math.floor(minutes / 60) % 24, minute = minutes % 60;
+  return `${hour % 12 || 12}${minute ? `:${String(minute).padStart(2, "0")}` : ""}${hour < 12 ? "a" : "p"}`;
+};
 const fieldClass = "space-y-1 text-sm font-medium";
 const labelDate = (date: string, options: Intl.DateTimeFormatOptions) => new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { ...options, timeZone: "UTC" });
 
@@ -57,7 +61,6 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
   const [message, setMessage] = useState(""); const [conflict, setConflict] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false); const [editing, setEditing] = useState<ProposedShift | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
-  const [moving, setMoving] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [coverageOpen, setCoverageOpen] = useState(false);
@@ -83,10 +86,27 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
     try { modify(editSchedule(draftRef.current, month, action)); }
     catch (e) { setMessage(e instanceof Error ? e.message : "Proposal could not be changed."); }
   };
-  const moveProposal = (id: string, date: string) => { command({ kind: "move", id, date }); setMoving(null); };
+  const moveProposal = (id: string, date: string) => {
+    const current = draftRef.current;
+    const proposal = current.shifts.find(s => s.id === id);
+    if (proposal) { command({ kind: "move", id, date }); return; }
+    const original = existing.find(s => s.key === id);
+    if (!original || original.date === date || current.shifts.some(p => sameIdentity(p, original))) return;
+    try { const shift = existingToProposal(original, crypto.randomUUID());
+      modify(editSchedule(current, month, { kind: "keep", shift: { ...shift, date } }));
+    } catch (e) { setMessage(e instanceof Error ? e.message : "Shift could not be moved."); }
+  };
   const drag = useScheduleDrag(moveProposal);
   const selection = selected.filter(id => draft.shifts.some(s => s.id === id));
   const summary = scheduleSummary(draft, existing);
+  const workDays = useMemo(() => parentWorkDays(month, data.timeZone, data.coverage.settings, data.bundle.events, data.lineage), [data, month]);
+  const versionFor = (s: ProposedShift) => data.bundle.events.find(e => e.id === existing.find(e => sameIdentity(s, e))?.eventId)?.updated_at;
+  const acceptChange = (id: string) => {
+    const shift = draftRef.current.shifts.find(s => s.id === id);
+    if (!shift) return;
+    try { modify(acceptShiftChange(draftRef.current, id, existing, versionFor(shift))); }
+    catch (e) { setMessage(e instanceof Error ? e.message : "Change could not be accepted."); }
+  };
   const toggleSelected = (id: string, checked: boolean) => setSelected(ids => checked ? [...new Set([...ids, id])] : ids.filter(s => s !== id));
   const leave = (action: () => void) => { if (!savingRef.current && (!dirtyRef.current || window.confirm("Discard unsaved draft changes?"))) action(); };
   useEffect(() => { const guard = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault(); }; window.addEventListener("beforeunload", guard); return () => window.removeEventListener("beforeunload", guard); }, [dirty]);
@@ -109,13 +129,12 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
     if (savingRef.current || (dirtyRef.current && !window.confirm("Discard unsaved draft changes?"))) return;
     savingRef.current = true; setBusy(true);
     const snapshot = draftRef.current;
-    try { const saved = await reload(); if (draftRef.current === snapshot) { acceptSaved(saved); setEditing(null); setSelected([]); setMoving(null); } }
+    try { const saved = await reload(); if (draftRef.current === snapshot) { acceptSaved(saved); setEditing(null); setSelected([]); } }
     catch (e) { setMessage(e instanceof Error ? e.message : "Draft could not be loaded."); }
     finally { savingRef.current = false; setBusy(false); }
   }
   const newShift = (date: string): ProposedShift => ({ id: crypto.randomUUID(), date, start: "09:00", end: "17:00", title: "Babysitter", assignment: { kind: "none" } });
-  const editExisting = (s: ExistingShift) => setEditing({ ...newShift(s.date), start: s.start, end: s.end, title: s.title, assignment: s.assignment,
-    existing: { eventId: s.eventId, occurrenceKey: s.key, startAt: s.startAt, splitFromEventId: s.splitFromEventId, splitFromDate: s.splitFromDate } });
+  const editExisting = (s: ExistingShift) => setEditing(existingToProposal(s, crypto.randomUUID()));
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
       <div className="flex items-center gap-3"><Button variant="ghost" size="icon" aria-label="Previous month" onClick={() => leave(() => changeMonth(shiftMonth(month, -1)))}><ChevronLeft /></Button>
@@ -131,23 +150,31 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
     </dl>
     <div className="flex flex-wrap items-center gap-2">
       <label className="mr-2 flex items-center gap-2 text-sm"><Checkbox aria-label="Select all proposed shifts" checked={selection.length === draft.shifts.length && selection.length > 0 ? true : selection.length > 0 ? "indeterminate" : false} disabled={!draft.shifts.length} onCheckedChange={checked => setSelected(checked === true ? draft.shifts.map(s => s.id) : [])} />{selection.length ? `${selection.length} selected` : "Select proposals"}</label>
-      {selection.length > 0 && <><Button size="sm" variant="outline" onClick={() => setBulkOpen(true)}>Change caregiver</Button><Button size="sm" variant="outline" onClick={() => { command({ kind: "remove", ids: selection }); setSelected([]); setMoving(null); }}><Trash2 className="h-4 w-4" />Remove selected</Button><Button variant="ghost" size="icon" aria-label="Clear selection" onClick={() => setSelected([])}><X className="h-4 w-4" /></Button></>}
-      {moving && <Button size="sm" variant="outline" onClick={() => setMoving(null)}><X className="h-4 w-4" />Cancel move</Button>}
+      {selection.length > 0 && <><Button size="sm" variant="outline" onClick={() => setBulkOpen(true)}>Change caregiver</Button><Button size="sm" variant="outline" onClick={() => { command({ kind: "remove", ids: selection }); setSelected([]); }}><Trash2 className="h-4 w-4" />Remove selected</Button><Button variant="ghost" size="icon" aria-label="Clear selection" onClick={() => setSelected([])}><X className="h-4 w-4" /></Button></>}
     </div>
     {message && <div role="status" className="flex items-center gap-3 text-sm"><p>{message}</p>{conflict && <Button variant="outline" disabled={busy} onClick={() => void reloadSaved()}>Reload saved draft</Button>}</div>}
     {!data.bundle.family?.babysitter_calendar_source_id && <p className="text-sm text-muted-foreground">No Babysitter calendar is selected. Drafts can still be saved.</p>}
     <div className="grid grid-cols-7 border-l border-t border-border">
       {weekdays.map(d => <div key={d} className="border-b border-r border-border bg-surface-muted px-2 py-2 text-xs font-semibold">{d}</div>)}
       {Array.from({ length: new Date(`${month}-01T12:00:00Z`).getUTCDay() }, (_, i) => <div key={`empty-${i}`} className="border-b border-r border-border bg-surface-muted/50" />)}
-      {dates.map(date => <div key={date} onDragOver={event => drag.over(event, date)} onDrop={event => drag.drop(event, date)} className={cn("min-h-40 min-w-0 space-y-1.5 border-b border-r border-border p-2", drag.dropDate === date && "bg-accent ring-2 ring-inset ring-ring")}>
-        <div className="flex items-center justify-between"><Button variant="ghost" size="sm" className="h-7 px-2" aria-label={moving ? `Move proposal to ${date}` : `Add proposed shift on ${date}`} onClick={() => moving ? moveProposal(moving, date) : setEditing(newShift(date))}>{Number(date.slice(8))}{moving && <Move className="h-3 w-3" />}</Button><Button variant="ghost" size="icon" className="h-6 w-6" aria-label={`New shift on ${date}`} onClick={() => setEditing(newShift(date))}><Plus className="h-3 w-3" /></Button></div>
-        {existing.filter(s => s.date <= date && s.endDate >= date).map(s => <article key={s.key} className="rounded-md border border-member-sky bg-member-sky-soft p-2 text-member-sky-ink"><div className="flex items-start justify-between gap-1"><p className="min-w-0 break-words text-xs font-semibold">{s.allDay ? "All day" : s.date !== s.endDate ? `${s.date.slice(5)} ${s.start} – ${s.endDate.slice(5)} ${s.end}` : `${s.start}–${s.end}`}</p><div className="flex shrink-0 items-center gap-1">{s.recurring && <Repeat2 className="h-3 w-3" aria-label="Recurring shift" />}{!s.allDay && s.date === s.endDate && s.date === date && s.start < s.end && !draft.shifts.some(p => p.existing?.occurrenceKey === s.key) && <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" title="Create private change proposal" aria-label={`Propose changes to ${s.title} on ${date}`} onClick={() => editExisting(s)}><Pencil className="h-3 w-3" /></Button>}</div></div><p className="break-words text-xs">{assignmentLabel(s.assignment)}</p><p className="break-words text-xs opacity-80">{s.title}</p></article>)}
-        {draft.shifts.filter(s => s.date === date).sort((a, b) => a.start.localeCompare(b.start)).map(s => <article key={s.id} draggable onDragStart={event => drag.start(event, s.id)} onDragEnd={drag.end} className={cn("rounded-md border p-1.5", proposalOrphaned(s, existing) ? "border-destructive bg-destructive/10 text-destructive" : s.existing || proposalNeedsReview(s, existing, draft.shifts) ? "border-member-amber bg-member-amber-soft text-member-amber-ink" : "border-member-sage bg-member-sage-soft text-member-sage-ink", (selection.includes(s.id) || moving === s.id) && "ring-2 ring-ring")}>
+      {dates.map(date => <div key={date} onDragOver={event => drag.over(event, date)} onDrop={event => drag.drop(event, date)} className={cn("flex min-h-40 min-w-0 flex-col gap-1.5 border-b border-r border-border p-2", drag.dropDate === date && "bg-accent ring-2 ring-inset ring-ring")}>
+        <div className="flex items-center justify-between"><Button variant="ghost" size="sm" className="h-7 px-2" aria-label={`Add proposed shift on ${date}`} onClick={() => setEditing(newShift(date))}>{Number(date.slice(8))}</Button><Button variant="ghost" size="icon" className="h-6 w-6" aria-label={`New shift on ${date}`} onClick={() => setEditing(newShift(date))}><Plus className="h-3 w-3" /></Button></div>
+        {existing.filter(s => s.date <= date && s.endDate >= date).map(s => <article key={s.key} draggable={!s.allDay && s.date === s.endDate && s.start < s.end && !draft.shifts.some(p => sameIdentity(p, s))} onDragStart={event => drag.start(event, s.key)} onDragEnd={drag.end} className="rounded-md border border-member-sky bg-member-sky-soft p-2 text-member-sky-ink"><div className="flex items-start justify-between gap-1"><p className="min-w-0 break-words text-xs font-semibold">{s.allDay ? "All day" : s.date !== s.endDate ? `${s.date.slice(5)} ${s.start} – ${s.endDate.slice(5)} ${s.end}` : `${s.start}–${s.end}`}</p><div className="flex shrink-0 items-center gap-1">{s.recurring && <Repeat2 className="h-3 w-3" aria-label="Recurring shift" />}{!s.allDay && s.date === s.endDate && s.date === date && s.start < s.end && !draft.shifts.some(p => p.existing?.occurrenceKey === s.key) && <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" title="Create private change proposal" aria-label={`Propose changes to ${s.title} on ${date}`} onClick={() => editExisting(s)}><Pencil className="h-3 w-3" /></Button>}</div></div><p className="break-words text-xs">{assignmentLabel(s.assignment)}</p><p className="break-words text-xs opacity-80">{s.title}</p></article>)}
+        {draft.shifts.filter(s => s.date === date).sort((a, b) => a.start.localeCompare(b.start)).map(s => <article key={s.id} draggable onDragStart={event => drag.start(event, s.id)} onDragEnd={drag.end} className={cn("rounded-md border p-1.5", proposalOrphaned(s, existing) ? "border-destructive bg-destructive/10 text-destructive" : s.existing || proposalNeedsReview(s, existing, draft.shifts) ? "border-member-amber bg-member-amber-soft text-member-amber-ink" : "border-member-sage bg-member-sage-soft text-member-sage-ink", selection.includes(s.id) && "ring-2 ring-ring")}>
           <div className="flex items-start gap-1"><Checkbox className="mt-1 shrink-0" aria-label={`Select proposal ${s.start} on ${date}`} checked={selection.includes(s.id)} onCheckedChange={checked => toggleSelected(s.id, checked === true)} />
             <Button variant="ghost" className="h-auto min-w-0 flex-1 items-start justify-start whitespace-normal px-1 py-0 text-left" aria-label={`Edit proposal ${s.start} on ${date}`} onClick={() => setEditing(s)}><span className="min-w-0"><span className="block text-xs font-semibold tabular-nums">{s.start}–{s.end}</span><span className="block break-words text-xs font-normal">{assignmentLabel(s.assignment)}</span></span></Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" title="Move proposal to another date" aria-label={`Move proposal ${s.start} on ${date}`} onClick={() => setMoving(s.id)}><Move className="h-3 w-3" /></Button></div>
+          </div>
           {proposalOrphaned(s, existing) ? <div className="mt-1 space-y-1"><p className="text-xs font-semibold">{orphanLabel[orphanStatus(s, existing, data.referenced, data.checkedEventIds, month) ?? "unresolved"]}</p><div className="flex flex-wrap gap-1"><Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => { command({ kind: "remove", ids: [s.id] }); setSelected(sel => sel.filter(x => x !== s.id)); }}>Discard</Button>{orphanStatus(s, existing, data.referenced, data.checkedEventIds, month) === "deleted" && <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => { const r = convertOrphanToNew(draftRef.current, s.id, existing, () => crypto.randomUUID()); modify(r.draft); setSelected(sel => sel.filter(x => x !== s.id)); setMessage(r.added ? "Converted to a new proposed shift. Save and refresh the review." : "Not added: it duplicates an existing shift or proposal."); }}>Convert to new</Button>}</div></div> : s.existing && <p className="mt-1 text-xs">Change proposed</p>}{proposalNeedsReview(s, existing, draft.shifts) && <p className="mt-1 text-xs">Review: duplicate or overlapping shift</p>}
+          {s.existing && !proposalOrphaned(s, existing) && (shiftConfirmed(s, versionFor(s)) && !proposalNeedsReview(s, existing, draft.shifts)
+            ? <p className="mt-1 flex items-center gap-1 text-xs"><Check className="h-3 w-3" />Accepted · unpublished</p>
+            : <Button variant="ghost" size="sm" className="mt-1 h-auto max-w-full whitespace-normal px-1 py-1 text-xs" disabled={proposalNeedsReview(s, existing, draft.shifts) || !versionFor(s)} onClick={() => acceptChange(s.id)}>Accept Change</Button>)}
         </article>)}
+        <div className="mt-auto space-y-0.5 pt-2 text-[10px] leading-snug text-muted-foreground">
+          {(workDays[date] ?? []).map((p, i) => <div key={i} className="min-w-0 break-words">
+            {p.intervals.length > 0 && <p>{p.label} · {p.intervals.map(([a, b]) => `${compactWorkTime(a)}–${compactWorkTime(b)}`).join(", ")}</p>}
+            {(p.unavailable || p.manualReview) && <p>{p.label} · {p.unavailable ? "Work hours unavailable" : "Work hours need review"}</p>}
+          </div>)}
+        </div>
       </div>)}
       {Array.from({ length: (7 - (new Date(`${month}-01T12:00:00Z`).getUTCDay() + dates.length) % 7) % 7 }, (_, i) => <div key={`trailing-${i}`} className="border-b border-r border-border bg-surface-muted/50" />)}
     </div>

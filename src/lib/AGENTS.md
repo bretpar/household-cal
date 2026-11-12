@@ -1,1 +1,2 @@
 - Smart Coverage logic stays UI-free; work-calendar picks live in babysitter_coverage_settings, skip decisions in the draft. Why: reusable on iPhone.
+- Draft shift confirmation binds exact proposal fields to the original event version; authoritative Review accepts it only for a matching verified original. Why: edits and concurrent calendar changes cannot inherit stale acceptance.

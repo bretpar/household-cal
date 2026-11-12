@@ -15,11 +15,34 @@ export type Assignment = z.infer<typeof assignmentSchema>;
 export const shiftSchema = z.object({
   id: z.uuid(), date: dateSchema, start: timeSchema, end: timeSchema,
   title: z.string().trim().min(1).max(200), assignment: assignmentSchema,
+  confirmation: z.object({ signature: z.string().max(2000), eventVersion: z.string() }).optional(),
   existing: z.object({ eventId: z.uuid(), occurrenceKey: z.string().max(200),
     startAt: z.iso.datetime({ offset: true }), splitFromEventId: z.uuid().nullable(), splitFromDate: dateSchema.nullable(),
   }).optional(),
 }).refine(s => s.start < s.end, { message: "End time must be after start time (same day)." });
 export type ProposedShift = z.infer<typeof shiftSchema>;
+/** Confirmation is valid only for this exact proposal and reviewed original version. */
+export function shiftConfirmationSignature(s: ProposedShift): string {
+  return JSON.stringify([s.id, s.date, s.start, s.end, s.title, s.assignment, s.existing ?? null]);
+}
+export function shiftConfirmed(s: ProposedShift, eventVersion: string | null | undefined): boolean {
+  return !!eventVersion && s.confirmation?.eventVersion === eventVersion
+    && s.confirmation.signature === shiftConfirmationSignature(s);
+}
+export function existingToProposal(s: ExistingShift, id: string): ProposedShift {
+  if (s.allDay || s.date !== s.endDate || s.start >= s.end) throw new Error("Only same-day timed shifts can be changed here.");
+  return { id, date: s.date, start: s.start, end: s.end, title: s.title, assignment: s.assignment,
+    existing: { eventId: s.eventId, occurrenceKey: s.key, startAt: s.startAt,
+      splitFromEventId: s.splitFromEventId, splitFromDate: s.splitFromDate } };
+}
+export function acceptShiftChange(draft: ScheduleDraft, id: string, existing: ExistingShift[], eventVersion: string | null | undefined): ScheduleDraft {
+  const s = draft.shifts.find(s => s.id === id);
+  if (!s?.existing || !eventVersion || proposalOrphaned(s, existing) || proposalNeedsReview(s, existing, draft.shifts)) {
+    throw new Error("Resolve the shift conflict and refresh the calendar before accepting this change.");
+  }
+  return draftSchema.parse({ ...draft, shifts: draft.shifts.map(p => p.id === id
+    ? { ...p, confirmation: { signature: shiftConfirmationSignature(p), eventVersion } } : p) });
+}
 /** Smart Coverage decisions, private to the monthly draft; never published. */
 export const coverageDecisionsSchema = z.object({ ignored: z.array(z.string().max(40)).max(500), noCare: z.array(dateSchema).max(31) });
 export const draftSchema = z.object({ shifts: z.array(shiftSchema).max(500), coverage: coverageDecisionsSchema.optional() }).superRefine((d, ctx) => {
