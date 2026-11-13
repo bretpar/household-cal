@@ -422,6 +422,9 @@ function LandingPage() {
                 Explore the nanny schedule app
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
+              <Button asChild variant="ghost" className="h-auto min-h-11 whitespace-normal text-center font-bold text-primary">
+                <Link to="/babysitter-schedule-template">Plan childcare around rotating shifts<ArrowRight className="h-4 w-4 shrink-0" aria-hidden /></Link>
+              </Button>
             </div>
           </article>
         </section>

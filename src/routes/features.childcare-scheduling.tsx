@@ -86,7 +86,8 @@ function ChildcarePage() {
       related={
         <>
           Learn more about the{" "}
-          <Link to="/features/family-calendar" className={linkClass}>shared family calendar</Link>, or see how we{" "}
+          <Link to="/features/family-calendar" className={linkClass}>shared family calendar</Link>, plan changing work hours with a{" "}
+          <Link to="/babysitter-schedule-template" className={linkClass}>monthly babysitter schedule template</Link>, or see how we{" "}
           <Link to="/best-shared-calendar-app" className={linkClass}>compare to other shared calendar apps</Link>.
         </>
       }

@@ -1,5 +1,9 @@
 # Roadmap
 
+## Irregular babysitter schedule landing page
+- [x] Add the public monthly-template guide with existing marketing imagery, desktop-first workflow, coverage caveats, caregiver privacy, timesheets and visible FAQs.
+- [x] Add leaf metadata, canonical, sitemap entry and minimal homepage/childcare links; preserve authenticated logic. No QA or publishing requested.
+
 ## Draft-only shift deletion
 - [x] Add Delete Shift and persistent undoable removals with identity-preserving grid hiding and authoritative Shifts to Remove confirmation.
 - [x] Extend existing atomic publish RPC in migration 0045 for one-off deletion and single recurring-date exclusion; retain owner/version/lock/journal/reconciliation safeguards. No live event writes or deployment; Codex owns focused publication verification.

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BabysitterScheduleTemplateRouteImport } from './routes/babysitter-schedule-template'
 import { Route as BestSharedCalendarAppRouteImport } from './routes/best-shared-calendar-app'
 import { Route as CoziSkylightAlternativeRouteImport } from './routes/cozi-skylight-alternative'
 import { Route as McpRouteImport } from './routes/mcp'
@@ -61,6 +62,12 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BabysitterScheduleTemplateRoute =
+  BabysitterScheduleTemplateRouteImport.update({
+    id: '/babysitter-schedule-template',
+    path: '/babysitter-schedule-template',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const BestSharedCalendarAppRoute = BestSharedCalendarAppRouteImport.update({
   id: '/best-shared-calendar-app',
   path: '/best-shared-calendar-app',
@@ -248,6 +255,7 @@ const LovableEmailTransactionalPreviewRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/babysitter-schedule-template': typeof BabysitterScheduleTemplateRoute
   '/best-shared-calendar-app': typeof BestSharedCalendarAppRoute
   '/cozi-skylight-alternative': typeof CoziSkylightAlternativeRoute
   '/mcp': typeof McpRoute
@@ -286,6 +294,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/babysitter-schedule-template': typeof BabysitterScheduleTemplateRoute
   '/best-shared-calendar-app': typeof BestSharedCalendarAppRoute
   '/cozi-skylight-alternative': typeof CoziSkylightAlternativeRoute
   '/mcp': typeof McpRoute
@@ -326,6 +335,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/babysitter-schedule-template': typeof BabysitterScheduleTemplateRoute
   '/best-shared-calendar-app': typeof BestSharedCalendarAppRoute
   '/cozi-skylight-alternative': typeof CoziSkylightAlternativeRoute
   '/mcp': typeof McpRoute
@@ -366,6 +376,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/babysitter-schedule-template'
     | '/best-shared-calendar-app'
     | '/cozi-skylight-alternative'
     | '/mcp'
@@ -404,6 +415,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/babysitter-schedule-template'
     | '/best-shared-calendar-app'
     | '/cozi-skylight-alternative'
     | '/mcp'
@@ -443,6 +455,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/babysitter-schedule-template'
     | '/best-shared-calendar-app'
     | '/cozi-skylight-alternative'
     | '/mcp'
@@ -483,6 +496,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  BabysitterScheduleTemplateRoute: typeof BabysitterScheduleTemplateRoute
   BestSharedCalendarAppRoute: typeof BestSharedCalendarAppRoute
   CoziSkylightAlternativeRoute: typeof CoziSkylightAlternativeRoute
   McpRoute: typeof McpRoute
@@ -531,6 +545,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/babysitter-schedule-template': {
+      id: '/babysitter-schedule-template'
+      path: '/babysitter-schedule-template'
+      fullPath: '/babysitter-schedule-template'
+      preLoaderRoute: typeof BabysitterScheduleTemplateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/best-shared-calendar-app': {
@@ -805,6 +826,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  BabysitterScheduleTemplateRoute: BabysitterScheduleTemplateRoute,
   BestSharedCalendarAppRoute: BestSharedCalendarAppRoute,
   CoziSkylightAlternativeRoute: CoziSkylightAlternativeRoute,
   McpRoute: McpRoute,
