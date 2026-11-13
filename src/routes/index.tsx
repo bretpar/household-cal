@@ -371,6 +371,69 @@ function LandingPage() {
           </div>
         </section>
 
+        {/* Monthly planning for changing childcare needs */}
+        <section aria-labelledby="monthly-babysitter-heading" className="border-y border-border-soft bg-brand-teal-soft">
+          <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
+            <p className="text-sm font-bold uppercase tracking-wide text-primary">Monthly Babysitter Schedule Builder</p>
+            <h2 id="monthly-babysitter-heading" className="mt-3 max-w-3xl font-display text-3xl font-bold sm:text-4xl">
+              Your work schedule changes. Your babysitter schedule can too.
+            </h2>
+            <p className="mt-4 max-w-3xl text-base text-foreground sm:text-lg">
+              Perfect for families with rotating shifts, unpredictable work hours, or childcare needs that change every week. Build a monthly babysitter schedule, customize individual shifts, and see where you still need coverage.
+            </p>
+            <p className="mt-3 max-w-3xl text-sm text-muted-foreground">
+              From nurses and physicians to any household with changing plans, start with a familiar pattern without forcing every week to look the same.
+            </p>
+
+            <div className="mt-8 grid items-start gap-8 lg:grid-cols-2 lg:gap-10">
+              <div className="min-w-0">
+                <h3 className="font-display text-xl font-bold">One event at a time—or a month in view</h3>
+                <dl className="mt-4 space-y-4 border-l-2 border-brand-teal pl-5">
+                  <div>
+                    <dt className="font-bold">Individual shared-calendar events</dt>
+                    <dd className="mt-1 text-sm leading-relaxed text-muted-foreground">Add and edit babysitting events directly as plans come up.</dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold">OFC’s Monthly Schedule Builder</dt>
+                    <dd className="mt-1 text-sm leading-relaxed text-muted-foreground">Start from a reusable template, adjust shifts together in a private monthly draft, then review changes before publishing.</dd>
+                  </div>
+                </dl>
+                <ul className="mt-6 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                  {[
+                    "Reusable weekly templates",
+                    "Drag-and-drop shift adjustments",
+                    "Available parent work-hour summaries",
+                    "Check Coverage for potential gaps",
+                    "Regular and substitute caregivers",
+                    "Review & Publish your changes",
+                  ].map((point) => (
+                    <li key={point} className="flex min-w-0 items-start gap-2 text-sm font-semibold">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <figure className="min-w-0">
+                <img
+                  src={heroMonthAsset.url}
+                  alt="Our Family Calendar shared Month view with color-coded family events and childcare shifts"
+                  className="block h-auto w-full rounded-lg border border-border-soft shadow-lifted"
+                  loading="lazy"
+                />
+                <figcaption className="mt-3 text-sm text-muted-foreground">Published shifts join the shared family calendar. Shown: calendar Month view.</figcaption>
+              </figure>
+            </div>
+
+            <div className="mt-8 flex flex-col items-start gap-4">
+              <Button asChild size="lg" className="h-auto min-h-12 max-w-full whitespace-normal rounded-full px-6 py-3 text-center font-bold">
+                <Link to="/babysitter-schedule-template">Explore the Babysitter Schedule Builder<ArrowRight className="h-4 w-4 shrink-0" aria-hidden /></Link>
+              </Button>
+              <p className="max-w-3xl text-sm text-muted-foreground">Build and edit monthly schedules on desktop; view published shifts on phones and tablets. Check Coverage depends on available calendar information—review incomplete-data warnings and confirm caregiver availability.</p>
+            </div>
+          </div>
+        </section>
+
         {/* Childcare & caregiver timesheets (SEO differentiator) */}
         <section
           id="childcare"
@@ -422,9 +485,6 @@ function LandingPage() {
                 Explore the nanny schedule app
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
-              <Button asChild variant="ghost" className="h-auto min-h-11 whitespace-normal text-center font-bold text-primary">
-                <Link to="/babysitter-schedule-template">Plan childcare around rotating shifts<ArrowRight className="h-4 w-4 shrink-0" aria-hidden /></Link>
-              </Button>
             </div>
           </article>
         </section>
