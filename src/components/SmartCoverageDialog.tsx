@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Plus, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { CaregiverSelect } from "@/components/ScheduleBuilder";
 import { saveCoverageSettings } from "@/lib/schedule-builder.functions";
-import { computeCoverage, toTime, type CoverageSettings, type Suggestion, type DayStatus } from "@/lib/smart-coverage";
+import { toTime, type CoverageSettings, type Suggestion, type DayStatus } from "@/lib/smart-coverage";
+import { computeScheduleCoverage } from "@/lib/schedule-coverage";
 import type { Assignment, ExistingShift, Lineage, ScheduleDraft } from "@/lib/schedule-builder";
 import type { CalendarEvent, FamilyMember } from "@/lib/family-data";
 
@@ -21,12 +22,14 @@ const dayLabel = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("e
 export interface CoverageWorkspace {
   settings: CoverageSettings; sources: { id: string; name: string; provider: string }[];
 }
-export function SmartCoverageDialog({ familyId, month, timeZone, coverage, events, existing, draft, lineage, caregivers, regularCaregiverId, onClose, onAdd, onDraft, onSettingsSaved }: {
+export function SmartCoverageDialog({ familyId, month, timeZone, coverage, events, existing, draft, lineage, caregivers, regularCaregiverId, focusDate = null, publishedEvents = {}, appliedRemovals = [], onClose, onAdd, onDraft, onSettingsSaved }: {
   familyId: string; month: string; timeZone: string; coverage: CoverageWorkspace; events: CalendarEvent[]; existing: ExistingShift[];
   draft: ScheduleDraft; lineage: Lineage; caregivers: FamilyMember[]; regularCaregiverId: string | null;
+  focusDate?: string | null; publishedEvents?: Record<string, string>; appliedRemovals?: string[];
   onClose: () => void; onAdd: (s: Suggestion, a: Assignment) => void; onDraft: (d: "ignore" | "noCare" | "care", value: string) => void; onSettingsSaved: () => Promise<void>;
 }) {
   const save = useServerFn(saveCoverageSettings);
+  const focusedDay = useRef<HTMLLIElement>(null);
   const s = coverage.settings;
   const [parents, setParents] = useState(s.parents.map(p => ({ label: p.label, sourceId: p.sourceId })));
   const [before, setBefore] = useState(s.bufferBefore); const [after, setAfter] = useState(s.bufferAfter);
@@ -34,8 +37,8 @@ export function SmartCoverageDialog({ familyId, month, timeZone, coverage, event
   const regular = caregivers.find(c => c.id === regularCaregiverId);
   const [assignment, setAssignment] = useState<Assignment>(regular ? { kind: "caregiver", family_member_id: regular.id } : { kind: "none" });
   const settingsDirty = before !== s.bufferBefore || after !== s.bufferAfter || parents.some((p, i) => p.label !== s.parents[i]?.label || p.sourceId !== s.parents[i]?.sourceId);
-  const result = useMemo(() => computeCoverage({ month, timeZone, settings: s, draft, existing, lineage,
-    workEvents: s.parents.map(p => events.filter(e => !!p.sourceId && e.calendar_source_id === p.sourceId)) as [CalendarEvent[], CalendarEvent[]] }), [month, timeZone, s, draft, existing, lineage, events]);
+  const result = useMemo(() => computeScheduleCoverage({ month, timeZone, settings: s, draft, existing, lineage,
+    workEvents: s.parents.map(p => events.filter(e => !!p.sourceId && e.calendar_source_id === p.sourceId)) as [CalendarEvent[], CalendarEvent[]] }, publishedEvents, appliedRemovals), [month, timeZone, s, draft, existing, lineage, events, publishedEvents, appliedRemovals]);
   const count = (st: DayStatus) => result.days.filter(d => d.status === st).length;
   const attention = result.days.filter(d => d.status !== "not-needed" && d.status !== "covered");
   const assignmentValid = assignment.kind !== "other" || assignment.name.trim().length > 0;
@@ -45,7 +48,10 @@ export function SmartCoverageDialog({ familyId, month, timeZone, coverage, event
     catch (e) { setError(e instanceof Error ? e.message : "Settings could not be saved."); }
     finally { setSaving(false); }
   }
-  return <Dialog open onOpenChange={o => { if (!o) onClose(); }}><DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+  return <Dialog open onOpenChange={o => { if (!o) onClose(); }}><DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto" onOpenAutoFocus={event => {
+    if (!focusedDay.current) return;
+    event.preventDefault(); focusedDay.current.focus({ preventScroll: true }); focusedDay.current.scrollIntoView({ block: "center" });
+  }}>
     <DialogHeader><DialogTitle>Check Coverage</DialogTitle>
       <DialogDescription>Scheduling suggestions based on when both parents are working. They don't confirm a caregiver is available. Work calendars are only read, never changed.</DialogDescription></DialogHeader>
     <section className="space-y-3 border-b border-border pb-4">
@@ -70,7 +76,7 @@ export function SmartCoverageDialog({ familyId, month, timeZone, coverage, event
     <div className="flex flex-wrap items-end gap-3"><div className="w-64"><CaregiverSelect value={assignment} onChange={setAssignment} caregivers={caregivers} /></div>
       <p className="pb-2 text-xs text-muted-foreground">Used for shifts you add below. Unassigned shifts don't count as confirmed coverage.</p></div>
     {attention.length === 0 ? <p className="py-4 text-sm text-muted-foreground">{result.complete ? "No coverage gaps found this month." : "Coverage can't be confirmed for this month — see the warning above."}</p> :
-    <ul className="divide-y divide-border">{attention.map(d => <li key={d.date} className="space-y-1.5 py-3">
+    <ul className="divide-y divide-border">{attention.map(d => <li key={d.date} ref={d.date === focusDate ? focusedDay : undefined} tabIndex={d.date === focusDate ? -1 : undefined} className="space-y-1.5 py-3">
       <div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold">{dayLabel(d.date)} <span className={cn("ml-2 text-xs font-medium", statusClass[d.status])}>{statusLabel[d.status]}</span></p>
         <label className="flex items-center gap-2 text-xs"><Checkbox checked={d.status === "no-care"} onCheckedChange={c => onDraft(c === true ? "noCare" : "care", d.date)} />No childcare needed</label></div>
       {d.status !== "no-care" && d.needed.length > 0 && <>

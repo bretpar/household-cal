@@ -1,5 +1,10 @@
 # Roadmap
 
+## Minimal inline coverage gap indicator
+- [x] Reuse Smart Coverage with effective unpublished shifts; show only confirmed gaps in compact work-hour outlines/popovers, opening Check Coverage at the selected day.
+- [x] Verify 31 focused coverage rules and automatic compilation; commit without publishing or changing live data.
+- [ ] Authenticated preview interaction check — blocked because secure account sign-in could not be established; no live schedule data changed.
+
 ## Irregular babysitter schedule landing page
 - [x] Add the public monthly-template guide with existing marketing imagery, desktop-first workflow, coverage caveats, caregiver privacy, timesheets and visible FAQs.
 - [x] Add leaf metadata, canonical, sitemap entry and minimal homepage/childcare links; preserve authenticated logic. No QA or publishing requested.
