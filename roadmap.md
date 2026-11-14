@@ -289,3 +289,5 @@
 - [x] Executor: RPC runs via the privileged server client; uncertain RPC outcomes re-read the journal and never downgrade applied ops; execution binds to the reviewed preview's event versions (missing/stale rejected); failed caregiver lookups abort before writes or keep the reconciliation hold pending. Codex verifies; no publishing.
 
 - [x] Phase 3A Google sync reliability repair: durable deletion intent, duplicate-safe create adoption, retryable push ops (Codex verification pending)
+
+- [x] Monthly grid shows only real parent work hours (workHourLines); unavailable/need-review notices stay inside Check Coverage.

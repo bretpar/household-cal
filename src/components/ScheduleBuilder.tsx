@@ -14,7 +14,7 @@ import { getVerifiedMembership } from "@/lib/auth-guard";
 import { ScheduleReviewDialog } from "@/components/ScheduleReviewDialog";
 import { SmartCoverageDialog } from "@/components/SmartCoverageDialog";
 import { suggestionToShift, ignoreSuggestion, setNoCare, parentWorkDays } from "@/lib/smart-coverage";
-import { computeScheduleCoverage, confirmedCoverageGaps } from "@/lib/schedule-coverage";
+import { computeScheduleCoverage, confirmedCoverageGaps, compactWorkTime, workHourLines } from "@/lib/schedule-coverage";
 import { cn } from "@/lib/utils";
 import { useScheduleDrag } from "@/hooks/use-schedule-drag";
 import { monthDates, shiftMonth, buildTemplate, appendProposals, proposalNeedsReview, proposalOrphaned, convertOrphanToNew, orphanStatus, orphanLabel, existingMonthShifts, draftSchema, templateSchema, canBuildSchedule,
@@ -23,10 +23,6 @@ import { loadScheduleWorkspace, saveScheduleDraft, saveScheduleTemplate } from "
 import type { FamilyMember } from "@/lib/family-data";
 
 const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const compactWorkTime = (minutes: number) => {
-  const hour = Math.floor(minutes / 60) % 24, minute = minutes % 60;
-  return `${hour % 12 || 12}${minute ? `:${String(minute).padStart(2, "0")}` : ""}${hour < 12 ? "a" : "p"}`;
-};
 const fieldClass = "space-y-1 text-sm font-medium";
 const labelDate = (date: string, options: Intl.DateTimeFormatOptions) => new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { ...options, timeZone: "UTC" });
 
@@ -233,10 +229,7 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
               {coverageGaps[date].unassignedOnly.length > 0 && <p>Unassigned shifts don't count as confirmed coverage.</p>}
               <Button variant="outline" size="sm" className="h-7 text-xs" disabled={busy} onClick={() => { setGapPopoverDate(null); setCoverageDate(date); setCoverageOpen(true); }}><ShieldCheck className="h-3 w-3" />Check Coverage for this day</Button>
             </PopoverContent></Popover>}
-          {(workDays[date] ?? []).map((p, i) => <div key={i} className="min-w-0 break-words">
-            {p.intervals.length > 0 && <p>{p.label} · {p.intervals.map(([a, b]) => `${compactWorkTime(a)}–${compactWorkTime(b)}`).join(", ")}</p>}
-            {((p.unavailable && p.intervals.length === 0) || p.manualReview) && <p>{p.label} · {p.manualReview ? "Work hours need review" : "Work hours unavailable"}</p>}
-          </div>)}
+          {(workDays[date] ?? []).flatMap((p, i) => workHourLines(p).map((line, j) => <p key={`${i}-${j}`} className="min-w-0 break-words tabular-nums">{line}</p>))}
         </div>
       </div>)}
       {Array.from({ length: (7 - (new Date(`${month}-01T12:00:00Z`).getUTCDay() + dates.length) % 7) % 7 }, (_, i) => <div key={`trailing-${i}`} className="border-b border-r border-border bg-surface-muted/50" />)}
