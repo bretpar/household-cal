@@ -18,7 +18,7 @@ import { computeScheduleCoverage, confirmedCoverageGaps, compactWorkTime, workHo
 import { cn } from "@/lib/utils";
 import { useScheduleDrag } from "@/hooks/use-schedule-drag";
 import { monthDates, shiftMonth, buildTemplate, appendProposals, proposalNeedsReview, proposalOrphaned, convertOrphanToNew, orphanStatus, orphanLabel, existingMonthShifts, draftSchema, templateSchema, canBuildSchedule,
-  editSchedule, hoursByCaregiver, hoursSummaryLines, existingToProposal, deleteDraftShift, undoDraftRemoval, sameSlot, type ScheduleCommand, type Assignment, type ProposedShift, type ScheduleDraft, type ScheduleTemplate, type ExistingShift } from "@/lib/schedule-builder";
+  editSchedule, hoursByCaregiver, hoursSummaryLines, existingToProposal, deleteDraftShift, undoDraftRemoval, scheduleProposalTone, type ScheduleCommand, type Assignment, type ProposedShift, type ScheduleDraft, type ScheduleTemplate, type ExistingShift } from "@/lib/schedule-builder";
 import { loadScheduleWorkspace, saveScheduleDraft, saveScheduleTemplate } from "@/lib/schedule-builder.functions";
 import type { FamilyMember } from "@/lib/family-data";
 
@@ -100,6 +100,12 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
       && (ref.splitFromDate ?? formatInTimeZone(ref.startAt, data.timeZone, "yyyy-MM-dd")) === (e.splitFromDate ?? e.date);
   };
   const assignmentLabel = (a: Assignment) => a.kind === "caregiver" ? data.bundle.members.find(m => m.id === a.family_member_id)?.name ?? "Former caregiver" : a.kind === "other" ? a.name : "Unassigned";
+  const proposalClass = (s: ProposedShift) => ({
+    existing: "border-member-sky bg-member-sky-soft text-member-sky-ink",
+    modified: "border-member-amber bg-member-amber-soft text-member-amber-ink",
+    new: "border-member-sage bg-member-sage-soft text-member-sage-ink",
+    conflict: "border-destructive bg-destructive/10 text-destructive",
+  })[scheduleProposalTone(s, existing, draft.shifts, data.publishedEvents)];
   const modify = (next: ScheduleDraft) => { draftRef.current = next; dirtyRef.current = true; setDraft(next); setDirty(true); setMessage(""); };
   const command = (action: ScheduleCommand) => {
     try { modify(editSchedule(draftRef.current, month, action)); }
@@ -210,7 +216,7 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
           onClick={() => { if (Date.now() >= dragClickUntil.current) editExisting(s); }}><span className="line-clamp-2 min-w-0 break-words [overflow-wrap:anywhere]">{s.title}</span></Button>
           <p className="mt-1 break-words text-xs tabular-nums">{s.allDay ? "All day" : s.date !== s.endDate ? `${s.date.slice(5)} ${s.start} – ${s.endDate.slice(5)} ${s.end}` : `${s.start}–${s.end}`}</p>
           <p className="mt-0.5 break-words text-[11px] italic">{assignmentLabel(s.assignment)}</p></article>)}
-        {draft.shifts.filter(s => s.date === date && !historical).sort((a, b) => a.start.localeCompare(b.start)).map(s => <article key={s.id} draggable={!isPast(s.date)} onDragStart={event => { dragClickUntil.current = Infinity; drag.start(event, s.id); }} onDragEnd={() => { drag.end(); dragClickUntil.current = Date.now() + 250; }} className={cn("rounded-md border p-1.5", proposalOrphaned(s, existing, data.publishedEvents) ? "border-destructive bg-destructive/10 text-destructive" : s.existing ? existing.some(e => represents(s, e) && sameSlot(s, e) && s.title === e.title) && !proposalNeedsReview(s, existing, draft.shifts, data.publishedEvents) ? "border-member-sky bg-member-sky-soft text-member-sky-ink" : "border-member-amber bg-member-amber-soft text-member-amber-ink" : "border-member-sage bg-member-sage-soft text-member-sage-ink")}>
+        {draft.shifts.filter(s => s.date === date && !historical).sort((a, b) => a.start.localeCompare(b.start)).map(s => <article key={s.id} draggable={!isPast(s.date)} onDragStart={event => { dragClickUntil.current = Infinity; drag.start(event, s.id); }} onDragEnd={() => { drag.end(); dragClickUntil.current = Date.now() + 250; }} className={cn("rounded-md border p-1.5", proposalClass(s))}>
           <div className="flex items-start gap-1">
             <Button variant="ghost" draggable={false} className="h-auto min-w-0 flex-1 items-start justify-start whitespace-normal px-1 py-0 text-left text-xs font-bold underline" title={s.title} aria-label={`Edit proposal ${s.title} on ${date}`} onClick={() => { if (Date.now() >= dragClickUntil.current) setEditing(s); }}><span className="line-clamp-2 min-w-0 break-words [overflow-wrap:anywhere]">{s.title}</span></Button>
           </div>

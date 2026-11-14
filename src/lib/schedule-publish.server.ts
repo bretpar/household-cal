@@ -19,7 +19,7 @@ import {
   releaseReconcile,
   shiftMembersOrNull,
 } from "@/lib/calendar.functions";
-import { draftSchema, monthDates, type ProposedShift } from "@/lib/schedule-builder";
+import { draftSchema, monthDates, reconcilePublishedDraft, type ProposedShift } from "@/lib/schedule-builder";
 import { formatInTimeZone } from "date-fns-tz";
 import { historicalPlanViolations, planPublish, type PublishPlan } from "@/lib/schedule-publish";
 import type { Assignment } from "@/lib/schedule-builder";
@@ -38,6 +38,10 @@ export interface PublishExecutionResult {
   applied: number;
   skipped: number;
   needsAttention: number;
+  /** Operations confirmed applied (including an idempotent prior commit). */
+  appliedShiftIds: string[];
+  /** False when a concurrent draft revision or save error prevented cleanup. */
+  draftReconciled: boolean;
   conflicts: { shiftId: string; reason: string }[];
   timesheetReconcile: "ok" | "pending";
   /** Local OFC save is complete; Google delivery is reported separately. */
@@ -205,6 +209,8 @@ export async function executePublish(
     applied: 0,
     skipped: 0,
     needsAttention: 0,
+    appliedShiftIds: [],
+    draftReconciled: true,
     conflicts: [],
     timesheetReconcile: "ok",
     google: { status: "not_applicable", pending: 0, synced: 0, needsAttention: 0 },
@@ -279,6 +285,7 @@ export async function executePublish(
         else if (op.kind === "exclude" && op.eventId) touchedEventIds.push(op.eventId);
         if (outcome?.outcome === "already_applied") result.skipped += 1;
         else result.applied += 1;
+        result.appliedShiftIds.push(op.shiftId);
       } catch (e) {
         // The outcome is uncertain: the RPC may have committed while the
         // response was lost. Re-read the durable journal before recording
@@ -297,6 +304,7 @@ export async function executePublish(
           if (existingOp.event_id) touchedEventIds.push(existingOp.event_id as string);
           else if (op.kind === "exclude" && op.eventId) touchedEventIds.push(op.eventId);
           result.applied += 1;
+          result.appliedShiftIds.push(op.shiftId);
           continue;
         }
         const reason = publishErrorReason(e);
@@ -345,6 +353,21 @@ export async function executePublish(
         completed_at: new Date().toISOString(),
       })
       .eq("id", runId);
+
+    // Clear only confirmed successes from the active draft. The revision fence
+    // protects a concurrent edit: in that case the published cards still use
+    // their journal mappings, while the newer draft is left completely intact.
+    if (result.appliedShiftIds.length > 0) {
+      const content = reconcilePublishedDraft(draft.content, result.appliedShiftIds);
+      const { data: reconciled, error: reconcileError } = await db
+        .from("babysitter_schedule_drafts")
+        .update({ content: JSON.parse(JSON.stringify(content)), revision: draft.revision + 1 })
+        .eq("id", draft.id)
+        .eq("revision", draft.revision)
+        .select("revision")
+        .maybeSingle();
+      result.draftReconciled = !reconcileError && reconciled?.revision === draft.revision + 1;
+    }
     result.google = await googleDeliveryStatus(familyId, touchedEventIds);
     return result;
   } catch (e) {

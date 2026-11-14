@@ -205,6 +205,30 @@ export function proposalOrphaned(shift: ProposedShift, existing: ExistingShift[]
   return !!shift.existing && !existing.some(e => sameIdentity(shift, e) || mappedEvents[shift.id] === e.eventId);
 }
 
+/** Monthly-card color: a proposal matching its published event is already the
+ * blue calendar baseline, even while the refreshed draft is still loading. */
+export type ScheduleProposalTone = "existing" | "modified" | "new" | "conflict";
+export function scheduleProposalTone(shift: ProposedShift, existing: ExistingShift[], proposals: ProposedShift[] = [],
+  mappedEvents: Record<string, string> = {}): ScheduleProposalTone {
+  if (proposalOrphaned(shift, existing, mappedEvents)) return "conflict";
+  const matchesPublished = existing.some(e => (sameIdentity(shift, e) || mappedEvents[shift.id] === e.eventId)
+    && sameSlot(shift, e) && shift.title === e.title);
+  if (matchesPublished && !proposalNeedsReview(shift, existing, proposals, mappedEvents)) return "existing";
+  return shift.existing ? "modified" : "new";
+}
+
+/** Clear only operations the authoritative publisher confirmed as applied.
+ * Failed edits, additions and removals retain their exact draft identities. */
+export function reconcilePublishedDraft(draft: ScheduleDraft, appliedShiftIds: readonly string[]): ScheduleDraft {
+  const applied = new Set(appliedShiftIds);
+  if (applied.size === 0) return draft;
+  return draftSchema.parse({
+    ...draft,
+    shifts: draft.shifts.filter(s => !applied.has(s.id)),
+    removals: draft.removals?.filter(s => !applied.has(s.id)),
+  });
+}
+
 export interface ReferencedEvent { onSitterCalendar: boolean; month: string; recurring: boolean }
 /**
  * Why a referenced occurrence is missing from this month. "deleted" only when the

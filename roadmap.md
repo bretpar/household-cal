@@ -300,3 +300,7 @@
 
 - [x] Review dialog: compact grouped rows + one confirmation checkbox per category.
 - [x] Fix partial recurring-shift publishing and false Dec 8 grid warnings
+
+## Reset monthly schedule colors after publishing
+- [x] Reconcile only authoritatively applied additions, modifications and removals out of the active draft; retain failed operations and pending deletions.
+- [x] Render published proposals as the blue calendar baseline, including fallback presentation during refresh; complete/partial/repeated publication rules covered by 81 focused tests and a clean type check. No migration, live schedule writes or deployment.

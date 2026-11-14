@@ -86,7 +86,7 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
 
   // The preview classifies the saved draft. Unsaved local edits — or another
   // Owner saving a newer revision — make it stale until saved and refreshed.
-  const stale = dirty || (preview !== null && preview.revision !== revision);
+  const stale = !result && (dirty || (preview !== null && preview.revision !== revision));
   const groups = preview ? groupPlanOps(preview.plan) : null;
   const readiness = preview ? reviewReadiness(preview.plan, confirmed, stale) : null;
 
@@ -104,11 +104,13 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
     setPublishing(true);
     setError("");
     try {
-      setResult(await publishFn({ data: {
+      const published = await publishFn({ data: {
         familyId, month, revision: preview.revision, previewId: preview.previewId,
         reviewedShiftIds: [...confirmed], reviewedEventVersions: preview.eventVersions,
-      } }));
-      await onPublished();
+      } });
+      setResult(published);
+      try { await onPublished(); }
+      catch { setError("The schedule was published, but the builder couldn't refresh. Return to the builder and reload it."); }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Publishing failed. Nothing new was confirmed.");
     } finally {
@@ -387,6 +389,7 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
                 {[...new Set(result.conflicts.map((c) => c.reason))].map((r) => <li key={r}>{r}</li>)}
               </ul>
             )}
+            {!result.draftReconciled && <p className="text-xs">Published shifts are saved. Refresh the schedule to clear their old proposal entries.</p>}
             {result.timesheetReconcile === "pending" && <p className="text-xs">Timesheet update is pending and will retry.</p>}
             <p className="text-xs text-muted-foreground">{googleLabel[result.google.status]}</p>
           </div>
