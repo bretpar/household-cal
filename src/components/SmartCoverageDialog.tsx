@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Plus, EyeOff } from "lucide-react";
+import { AlertTriangle, ChevronDown, Plus, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ export function SmartCoverageDialog({ familyId, month, timeZone, coverage, event
   const [parents, setParents] = useState(s.parents.map(p => ({ label: p.label, sourceId: p.sourceId })));
   const [before, setBefore] = useState(s.bufferBefore); const [after, setAfter] = useState(s.bufferAfter);
   const [saving, setSaving] = useState(false); const [error, setError] = useState("");
+  const [problemsOpen, setProblemsOpen] = useState(false);
   const regular = caregivers.find(c => c.id === regularCaregiverId);
   const [assignment, setAssignment] = useState<Assignment>(regular ? { kind: "caregiver", family_member_id: regular.id } : { kind: "none" });
   const settingsDirty = before !== s.bufferBefore || after !== s.bufferAfter || parents.some((p, i) => p.label !== s.parents[i]?.label || p.sourceId !== s.parents[i]?.sourceId);
@@ -69,13 +71,19 @@ export function SmartCoverageDialog({ familyId, month, timeZone, coverage, event
       </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </section>
-    {result.problems.length > 0 && <div role="alert" className="flex gap-2 rounded-md border border-member-amber bg-member-amber-soft p-3 text-sm text-member-amber-ink"><AlertTriangle className="h-4 w-4 shrink-0" /><div><p className="font-semibold">Results are incomplete — missing work events don't mean a parent is free.</p>{result.problems.map(p => <p key={p}>{p}</p>)}</div></div>}
+    {result.problems.length > 0 && <Popover open={problemsOpen} onOpenChange={setProblemsOpen}>
+      <PopoverTrigger asChild><Button type="button" variant="ghost" size="sm" className="h-6 self-start gap-1.5 px-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"><AlertTriangle className="h-3.5 w-3.5" />Some calendar data may be incomplete<ChevronDown className={cn("h-3 w-3 transition-transform", problemsOpen && "rotate-180")} /></Button></PopoverTrigger>
+      <PopoverContent align="start" className="w-[min(24rem,calc(100vw-3rem))] space-y-2 p-3 text-xs">
+        <p className="font-semibold text-foreground">Results are incomplete — missing work events don't mean a parent is free.</p>
+        <p className="text-muted-foreground">If imported events are missing, coverage can look better or worse than it really is.</p>
+        <ul className="space-y-1 text-muted-foreground">{result.problems.map(p => <li key={p} className="flex gap-1.5"><span aria-hidden="true">•</span><span>{p}</span></li>)}</ul>
+      </PopoverContent></Popover>}
     <dl className="grid grid-cols-3 divide-x divide-border border-y border-border py-3">
       {([["Fully covered", count("covered")], ["Partial coverage", count("partial")], ["Missing coverage", count("missing")]] as const).map(([l, v]) => <div key={l} className="px-4 first:pl-0"><dt className="text-xs text-muted-foreground">{l}</dt><dd className="text-xl font-semibold tabular-nums">{v}</dd></div>)}
     </dl>
     <div className="flex flex-wrap items-end gap-3"><div className="w-64"><CaregiverSelect value={assignment} onChange={setAssignment} caregivers={caregivers} /></div>
       <p className="pb-2 text-xs text-muted-foreground">Used for shifts you add below. Unassigned shifts don't count as confirmed coverage.</p></div>
-    {attention.length === 0 ? <p className="py-4 text-sm text-muted-foreground">{result.complete ? "No coverage gaps found this month." : "Coverage can't be confirmed for this month — see the warning above."}</p> :
+    {attention.length === 0 ? <p className="py-4 text-sm text-muted-foreground">{result.complete ? "No coverage gaps found this month." : "Coverage can't be confirmed for this month — open “Some calendar data may be incomplete” above."}</p> :
     <ul className="divide-y divide-border">{attention.map(d => <li key={d.date} ref={d.date === focusDate ? focusedDay : undefined} tabIndex={d.date === focusDate ? -1 : undefined} className="space-y-1.5 py-3">
       <div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold">{dayLabel(d.date)} <span className={cn("ml-2 text-xs font-medium", statusClass[d.status])}>{statusLabel[d.status]}</span></p>
         <label className="flex items-center gap-2 text-xs"><Checkbox checked={d.status === "no-care"} onCheckedChange={c => onDraft(c === true ? "noCare" : "care", d.date)} />No childcare needed</label></div>

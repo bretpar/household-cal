@@ -295,3 +295,5 @@
 - [x] Phase 3A Google sync reliability repair: durable deletion intent, duplicate-safe create adoption, retryable push ops (Codex verification pending)
 
 - [x] Monthly grid shows only real parent work hours (workHourLines); unavailable/need-review notices stay inside Check Coverage.
+
+- [x] Check Coverage incomplete-data warning collapsed into a small expandable indicator.
