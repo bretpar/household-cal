@@ -275,3 +275,23 @@ export function scheduleSummary(draft: ScheduleDraft, existing: ExistingShift[])
     conflicts: draft.shifts.filter(s => proposalNeedsReview(s, existing, draft.shifts) || proposalOrphaned(s, existing)).length,
   };
 }
+/** Shift minutes clipped to the selected month (overnight-safe; all-day shifts carry no scheduled hours). */
+export function monthShiftMinutes(s: { date: string; endDate?: string; start: string; end: string; allDay?: boolean }, month: string): number {
+  if (s.allDay) return 0;
+  const at = (date: string, time: string) => Date.parse(`${date}T00:00:00Z`) / 60000 + Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+  const first = at(`${month}-01`, "00:00"), last = at(monthDates(month).at(-1) ?? `${month}-01`, "00:00") + 1440;
+  let start = at(s.date, s.start), end = at(s.endDate ?? s.date, s.end);
+  if (end <= start) end += 1440; // overnight shift stored with same-day dates
+  return Math.max(0, Math.min(end, last) - Math.max(start, first));
+}
+
+/** Scheduled hours by caregiver identity; "other" covers Other and unassigned shifts. */
+export function hoursByCaregiver(shifts: { date: string; endDate?: string; start: string; end: string; allDay?: boolean; assignment: Assignment }[], month: string) {
+  const byKey = new Map<string, number>(); let total = 0;
+  for (const s of shifts) {
+    const m = monthShiftMinutes(s, month); if (!m) continue;
+    const key = s.assignment.kind === "caregiver" ? s.assignment.family_member_id : "other";
+    byKey.set(key, (byKey.get(key) ?? 0) + m); total += m;
+  }
+  return { total: total / 60, rows: [...byKey].map(([key, m]) => ({ key, hours: m / 60 })) };
+}

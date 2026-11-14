@@ -20,6 +20,7 @@ import {
   shiftMembersOrNull,
 } from "@/lib/calendar.functions";
 import { draftSchema, monthDates, type ProposedShift } from "@/lib/schedule-builder";
+import { formatInTimeZone } from "date-fns-tz";
 import { planPublish, type PublishPlan } from "@/lib/schedule-publish";
 import type { Assignment } from "@/lib/schedule-builder";
 
@@ -97,7 +98,8 @@ export async function loadPublishPlan(
     if (row.event_id && !mappedEvents[row.draft_shift_id]) mappedEvents[row.draft_shift_id] = row.event_id;
   }
   const appliedRemovals = (mappings ?? []).filter((row: { kind: string }) => row.kind === "exclude").map((row: { draft_shift_id: string }) => row.draft_shift_id);
-  const plan = planPublish(content, existing, mappedEvents, appliedRemovals, family.data.timezone);
+  const plan = planPublish(content, existing, mappedEvents, appliedRemovals, family.data.timezone,
+    formatInTimeZone(new Date(), family.data.timezone as string, "yyyy-MM-dd"));
 
   // Reviewed versions come from the SAME row read that produced the details,
   // participants and shift assignment: the bundle loads each event with its

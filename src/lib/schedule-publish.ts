@@ -75,7 +75,7 @@ export interface PublishPlan {
  * the authoritative current month occurrences (expanded recurring masters and
  * detached exceptions included), projected into household wall time.
  */
-export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], mappedEvents: Record<string, string> = {}, appliedRemovals: string[] = [], timeZone = "UTC"): PublishPlan {
+export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], mappedEvents: Record<string, string> = {}, appliedRemovals: string[] = [], timeZone = "UTC", today?: string): PublishPlan {
   const ops: PublishPlanOp[] = [];
   const referenced = new Set<string>();
   for (const shift of draft.removals ?? []) {
@@ -182,6 +182,20 @@ export function planPublish(draft: ScheduleDraft, existing: ExistingShift[], map
       op.reason = reason;
       op.occurrenceDate ??= shift.date;
     }
+  }
+
+  // Dates before the household's today are read-only. Unchanged published
+  // shifts are preserved; any change touching a past date is blocked.
+  if (today) for (const op of ops) {
+    if (op.kind === "unchanged" || op.kind === "conflict") continue;
+    const shift = draft.shifts.find(s => s.id === op.shiftId);
+    if (!((op.occurrenceDate && op.occurrenceDate < today) || (op.original && op.original.date < today) || (op.kind !== "exclude" && shift && shift.date < today))) continue;
+    const o = op.original;
+    if (op.kind === "update" && shift && o && shift.date === o.date && shift.start === o.start && shift.end === o.end && shift.title === o.title && JSON.stringify(shift.assignment) === JSON.stringify(o.assignment)) {
+      op.kind = "unchanged"; op.requiresReview = false; op.reason = "Past date — read-only."; continue;
+    }
+    op.kind = "conflict"; op.requiresReview = true;
+    op.reason = "Past dates are read-only. Correct historical hours through Timesheets.";
   }
 
   const preserved = existing.filter((e) => !referenced.has(e.key));

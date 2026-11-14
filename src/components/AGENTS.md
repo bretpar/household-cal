@@ -5,3 +5,4 @@
 - Nonrecurring timed occurrences retain original timestamps and keys; phone Month buckets them with occurrenceOccursOnDay using end-exclusive overlap. Why: show overnight continuations without inventing duplicate occurrences or shifting recurrence dates.
 - Schedule Builder Review waits for serialized successful draft saves until the latest local snapshot is clean; card-title clicks are suppressed during drag gestures. Why: prevent stale previews and accidental editor opening after drops.
 - Schedule grid hides originals represented by a draft using occurrence key/start or original-date split lineage, never destination date; confirmation stays in final Review. Why: one final card without hiding separate recurring shifts.
+- Schedule Builder dates before the household's today are view-only in the grid, and planPublish(today) blocks changes touching them server-side; unchanged published past shifts stay unchanged. Why: historical corrections belong to Timesheets.
