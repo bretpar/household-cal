@@ -6,3 +6,4 @@
 - Schedule Builder Review waits for serialized successful draft saves until the latest local snapshot is clean; card-title clicks are suppressed during drag gestures. Why: prevent stale previews and accidental editor opening after drops.
 - Schedule grid hides originals represented by a draft using occurrence key/start or original-date split lineage, never destination date; confirmation stays in final Review. Why: one final card without hiding separate recurring shifts.
 - Schedule Builder dates before the household's today are view-only in the grid, and planPublish(today) blocks changes touching them server-side; unchanged published past shifts stay unchanged. Why: historical corrections belong to Timesheets.
+- Schedule Builder workspace renders for household roles canBuildSchedule accepts (Owner, Editor), never an owner-only check. Why: Activities, the server functions and the database policies all admit Editors, so an owner-only gate left them an empty page.

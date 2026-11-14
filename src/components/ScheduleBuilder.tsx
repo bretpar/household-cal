@@ -17,7 +17,7 @@ import { suggestionToShift, ignoreSuggestion, setNoCare, parentWorkDays } from "
 import { computeScheduleCoverage, confirmedCoverageGaps } from "@/lib/schedule-coverage";
 import { cn } from "@/lib/utils";
 import { useScheduleDrag } from "@/hooks/use-schedule-drag";
-import { monthDates, shiftMonth, buildTemplate, appendProposals, proposalNeedsReview, proposalOrphaned, convertOrphanToNew, orphanStatus, orphanLabel, existingMonthShifts, draftSchema, templateSchema,
+import { monthDates, shiftMonth, buildTemplate, appendProposals, proposalNeedsReview, proposalOrphaned, convertOrphanToNew, orphanStatus, orphanLabel, existingMonthShifts, draftSchema, templateSchema, canBuildSchedule,
   editSchedule, scheduleSummary, hoursByCaregiver, existingToProposal, deleteDraftShift, undoDraftRemoval, sameSlot, type ScheduleCommand, type Assignment, type ProposedShift, type ScheduleDraft, type ScheduleTemplate, type ExistingShift } from "@/lib/schedule-builder";
 import { loadScheduleWorkspace, saveScheduleDraft, saveScheduleTemplate } from "@/lib/schedule-builder.functions";
 import type { FamilyMember } from "@/lib/family-data";
@@ -31,10 +31,10 @@ const fieldClass = "space-y-1 text-sm font-medium";
 const labelDate = (date: string, options: Intl.DateTimeFormatOptions) => new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { ...options, timeZone: "UTC" });
 
 export function ScheduleBuilder() {
-  const { family, isOwner } = useCalendar();
+  const { family, role } = useCalendar();
   const [desktop, setDesktop] = useState(false);
   useEffect(() => { const q = window.matchMedia("(min-width: 1024px)"); const update = () => setDesktop(q.matches); update(); q.addEventListener("change", update); return () => q.removeEventListener("change", update); }, []);
-  if (!desktop || !isOwner || !family) return null;
+  if (!desktop || !canBuildSchedule(role) || !family) return null;
   return <ScheduleWorkspace key={`${getVerifiedMembership()?.userId}:${family.id}`} familyId={family.id} />;
 }
 

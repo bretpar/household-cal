@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { fromZonedTime, toZonedTime, formatInTimeZone } from "date-fns-tz";
-import { expandOccurrences, type CalendarEvent } from "@/lib/family-data";
+import { expandOccurrences, type CalendarEvent, type FamilyRole } from "@/lib/family-data";
 import { addDaysKey } from "@/lib/timesheet-periods";
+
+/** Household roles allowed to open and edit the monthly Babysitter schedule. */
+export function canBuildSchedule(role: FamilyRole | null | undefined): boolean {
+  return role === "owner" || role === "editor";
+}
 
 export const monthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 const dateSchema = z.iso.date();

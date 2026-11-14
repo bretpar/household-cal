@@ -1,5 +1,9 @@
 # Roadmap
 
+## Editor access to the Babysitter Schedule workspace
+- [x] Render the builder for Owners and Editors through one shared rule; keep Viewers and caregivers out.
+- [x] Cover the rule with focused tests and confirm automatic compilation; commit without publishing or changing live data.
+
 ## Minimal inline coverage gap indicator
 - [x] Reuse Smart Coverage with effective unpublished shifts; show only confirmed gaps in compact work-hour outlines/popovers, opening Check Coverage at the selected day.
 - [x] Verify 31 focused coverage rules and automatic compilation; commit without publishing or changing live data.
