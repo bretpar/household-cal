@@ -330,6 +330,13 @@
       "when": 1794524952568,
       "tag": "0046_schedule_builder_editors",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794689742119,
+      "tag": "0047_schedule_publish_historical_guard",
+      "breakpoints": true
     }
   ]
 }

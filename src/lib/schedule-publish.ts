@@ -220,3 +220,18 @@ export function currentMonthOccurrences(
 ): ExistingShift[] {
   return existingMonthShifts(events, month, timeZone, lineage);
 }
+
+/**
+ * Final-boundary historical-date check for a stored/reviewed plan. Returns the
+ * shift ids of every mutating op whose original occurrence or target date is
+ * before the household's `today`. Re-run immediately before execution so a
+ * plan reviewed yesterday can never change a date that has since passed.
+ */
+export function historicalPlanViolations(plan: PublishPlan, shifts: { id: string; date: string }[], today: string): string[] {
+  const byId = new Map(shifts.map((s) => [s.id, s]));
+  return plan.ops.filter((op) => {
+    if (op.kind !== "create" && op.kind !== "update" && op.kind !== "exclude") return false;
+    const target = op.kind === "exclude" ? null : byId.get(op.shiftId)?.date;
+    return [op.occurrenceDate, op.original?.date, target].some((d) => !!d && d < today);
+  }).map((op) => op.shiftId);
+}

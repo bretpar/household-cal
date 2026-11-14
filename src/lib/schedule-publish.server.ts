@@ -21,7 +21,7 @@ import {
 } from "@/lib/calendar.functions";
 import { draftSchema, monthDates, type ProposedShift } from "@/lib/schedule-builder";
 import { formatInTimeZone } from "date-fns-tz";
-import { planPublish, type PublishPlan } from "@/lib/schedule-publish";
+import { historicalPlanViolations, planPublish, type PublishPlan } from "@/lib/schedule-publish";
 import type { Assignment } from "@/lib/schedule-builder";
 
 /** Publishing is available to verified household Owners (checked by the caller). */
@@ -165,6 +165,12 @@ export async function executePublish(
   if (previewError || !preview) throw new Error("Reload the publish preview before publishing.");
   const plan = preview.plan as unknown as PublishPlan;
   const immutableVersions = preview.event_versions as Record<string, string>;
+  // Authoritative historical-date boundary: revalidate the stored plan against
+  // the household's current local date before anything is written.
+  const today = formatInTimeZone(new Date(), timeZone, "yyyy-MM-dd");
+  if (historicalPlanViolations(plan, [...draft.content.shifts, ...(draft.content.removals ?? [])], today).length > 0) {
+    throw new Error("Some reviewed changes now fall on past dates, which are read-only. Nothing was published — please refresh Review.");
+  }
 
   const updateEventIds = plan.ops.flatMap((op) =>
     (op.kind === "update" || op.kind === "exclude") && op.eventId ? [op.eventId] : [],
