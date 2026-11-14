@@ -1,5 +1,9 @@
 # Roadmap
 
+## Simplified monthly Schedule Builder summary
+- [x] Remove the four-column statistics area; keep one parent-friendly monthly hours summary (after changes vs currently published, difference, caregiver rows) with the color legend and Check Coverage/Review Schedule action row.
+- [x] Cover the summary lines with focused tests and confirm automatic compilation; commit without publishing or changing live data.
+
 ## Editor access to the Babysitter Schedule workspace
 - [x] Render the builder for Owners and Editors through one shared rule; keep Viewers and caregivers out.
 - [x] Cover the rule with focused tests and confirm automatic compilation; commit without publishing or changing live data.

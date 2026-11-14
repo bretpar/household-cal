@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hoursByCaregiver, type ExistingShift } from "@/lib/schedule-builder";
+import { hoursByCaregiver, hoursSummaryLines, type ExistingShift } from "@/lib/schedule-builder";
 import { planPublish } from "@/lib/schedule-publish";
 
 const ex = (date: string): ExistingShift => ({ key: `e1-${date}`, eventId: "e1", date, endDate: date, title: "Babysitter", start: "09:00", end: "17:00", allDay: false,
@@ -29,5 +29,22 @@ describe("monthly hours by caregiver", () => {
   });
   it("counts only the in-month part of an overnight shift", () => {
     expect(hoursByCaregiver([{ date: "2026-12-31", endDate: "2027-01-01", start: "20:00", end: "02:00", assignment: { kind: "none" } }], "2026-12").total).toBe(4);
+  });
+});
+
+describe("monthly hours summary lines", () => {
+  it("shows only the total when the month has no draft changes", () => {
+    expect(hoursSummaryLines(126, 126, false)).toEqual({ total: "126 hours scheduled", published: "", change: "" });
+  });
+  it("compares proposed with published when draft changes exist", () => {
+    expect(hoursSummaryLines(126, 133, true)).toEqual({
+      total: "126 hours after changes",
+      published: "133 hours currently published",
+      change: "7 fewer hours",
+    });
+  });
+  it("says more hours when the draft adds time, and no change when totals match", () => {
+    expect(hoursSummaryLines(140, 133, true).change).toBe("7 more hours");
+    expect(hoursSummaryLines(133, 133, true).change).toBe("No change in total hours");
   });
 });

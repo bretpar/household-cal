@@ -300,3 +300,14 @@ export function hoursByCaregiver(shifts: { date: string; endDate?: string; start
   }
   return { total: total / 60, rows: [...byKey].map(([key, m]) => ({ key, hours: m / 60 })) };
 }
+
+/** Plain-language monthly hours summary lines. Totals come from hoursByCaregiver; nothing is recomputed here. */
+export function hoursSummaryLines(shown: number, published: number, hasChanges: boolean) {
+  const fmt = (h: number) => String(Number(h.toFixed(2)));
+  const delta = Number((shown - published).toFixed(2));
+  return {
+    total: `${fmt(shown)} hours${hasChanges ? " after changes" : " scheduled"}`,
+    published: hasChanges ? `${fmt(published)} hours currently published` : "",
+    change: hasChanges ? (delta === 0 ? "No change in total hours" : `${fmt(Math.abs(delta))} ${delta < 0 ? "fewer" : "more"} hours`) : "",
+  };
+}

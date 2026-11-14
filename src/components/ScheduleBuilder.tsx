@@ -18,7 +18,7 @@ import { computeScheduleCoverage, confirmedCoverageGaps, compactWorkTime, workHo
 import { cn } from "@/lib/utils";
 import { useScheduleDrag } from "@/hooks/use-schedule-drag";
 import { monthDates, shiftMonth, buildTemplate, appendProposals, proposalNeedsReview, proposalOrphaned, convertOrphanToNew, orphanStatus, orphanLabel, existingMonthShifts, draftSchema, templateSchema, canBuildSchedule,
-  editSchedule, scheduleSummary, hoursByCaregiver, existingToProposal, deleteDraftShift, undoDraftRemoval, sameSlot, type ScheduleCommand, type Assignment, type ProposedShift, type ScheduleDraft, type ScheduleTemplate, type ExistingShift } from "@/lib/schedule-builder";
+  editSchedule, hoursByCaregiver, hoursSummaryLines, existingToProposal, deleteDraftShift, undoDraftRemoval, sameSlot, type ScheduleCommand, type Assignment, type ProposedShift, type ScheduleDraft, type ScheduleTemplate, type ExistingShift } from "@/lib/schedule-builder";
 import { loadScheduleWorkspace, saveScheduleDraft, saveScheduleTemplate } from "@/lib/schedule-builder.functions";
 import type { FamilyMember } from "@/lib/family-data";
 
@@ -121,7 +121,6 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
     } catch (e) { setMessage(e instanceof Error ? e.message : "Shift could not be moved."); }
   };
   const drag = useScheduleDrag(moveProposal);
-  const summary = scheduleSummary(draft, existing);
   const nameOf = (key: string) => key === "other" ? "Other" : data.bundle.members.find(m => m.id === key)?.name ?? "Former caregiver";
   const publishedHours = hoursByCaregiver(existing, month);
   const shownHours = historical ? publishedHours : hoursByCaregiver([...existing.filter(s => !draft.shifts.some(p => represents(p, s)) && !(draft.removals ?? []).filter(x => !data.appliedRemovals.includes(x.id)).some(p => represents(p, s))), ...draft.shifts], month);
@@ -152,7 +151,7 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
         setRevision(result.revision); setConflict(false);
         const unchanged = draftRef.current === submitted;
         dirtyRef.current = !unchanged; setDirty(!unchanged);
-        setMessage(unchanged ? "Private draft saved." : "Earlier changes saved. Newer edits remain unsaved.");
+        setMessage(unchanged ? "" : "Earlier changes saved. Newer edits remain unsaved.");
         // Editing can continue during a save. Review waits for the latest
         // snapshot, using the revision confirmed by the preceding save.
       } while (forReview && dirtyRef.current);
@@ -186,6 +185,8 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
         existing: { eventId: s.eventId, occurrenceKey: s.key, startAt: s.startAt, splitFromEventId: s.splitFromEventId, splitFromDate: s.splitFromDate } }
     : existingToProposal(s, crypto.randomUUID()));
   const pendingRemovals = (draft.removals ?? []).filter(s => !data.appliedRemovals.includes(s.id));
+  const draftChanged = !historical && (draft.shifts.length > 0 || pendingRemovals.length > 0);
+  const hoursLines = hoursSummaryLines(shownHours.total, publishedHours.total, draftChanged);
   const deleteShift = (s: ProposedShift) => { modify(deleteDraftShift(draftRef.current, s, !!s.existing || !!data.publishedEvents[s.id])); setEditing(null); };
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
@@ -196,10 +197,7 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
         <Button variant="outline" disabled={busy} onClick={() => setTemplateOpen(true)}>Build from Template</Button>
         <Button disabled={busy || conflict || (!dirty && revision > 0)} onClick={() => void saveDraft()}><Save className="h-4 w-4" />Save Draft</Button></div>
     </div>
-    <div className="flex flex-wrap items-center justify-between gap-3 text-xs"><div className="flex gap-4"><span className="text-member-sky-ink">● Existing</span><span className="text-member-sage-ink">● Proposed</span><span className="text-member-amber-ink">● Modified proposal</span></div><div className="flex gap-2"><Button variant="outline" disabled={busy} onClick={() => { setCoverageDate(null); setCoverageOpen(true); }}><ShieldCheck className="h-4 w-4" />Check Coverage</Button><Button variant="outline" disabled={busy} onClick={() => void openReview()}><LockKeyhole className="h-4 w-4" />Review Schedule</Button></div></div>
-    <dl className="grid grid-cols-4 divide-x divide-border border-y border-border py-3">
-      {[["Proposed shifts", summary.proposals], ["Proposed hours", Number(summary.hours.toFixed(2))], ["Existing calendar shifts", summary.existing], ["Template conflicts", summary.conflicts]].map(([label, value]) => <div key={label} className="px-4 first:pl-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="text-xl font-semibold tabular-nums">{value}</dd></div>)}
-    </dl>
+    <div className="flex flex-wrap items-center justify-between gap-3 text-xs"><div className="flex gap-4"><span className="text-member-sky-ink">● Existing</span><span className="text-member-sage-ink">● New</span><span className="text-member-amber-ink">● Modified</span></div><div className="flex gap-2"><Button variant="outline" disabled={busy} onClick={() => { setCoverageDate(null); setCoverageOpen(true); }}><ShieldCheck className="h-4 w-4" />Check Coverage</Button><Button variant="outline" disabled={busy} onClick={() => void openReview()}><LockKeyhole className="h-4 w-4" />Review Schedule</Button></div></div>
     {message && <div role="status" className="flex items-center gap-3 text-sm"><p>{message}</p>{conflict && <Button variant="outline" disabled={busy} onClick={() => void reloadSaved()}>Reload saved draft</Button>}</div>}
     {!data.bundle.family?.babysitter_calendar_source_id && <p className="text-sm text-muted-foreground">No Babysitter calendar is selected. Drafts can still be saved.</p>}
     <div className="grid grid-cols-7 border-l border-t border-border">
@@ -234,12 +232,16 @@ function MonthWorkspace({ familyId, month, data, changeMonth, reload }: { family
       </div>)}
       {Array.from({ length: (7 - (new Date(`${month}-01T12:00:00Z`).getUTCDay() + dates.length) % 7) % 7 }, (_, i) => <div key={`trailing-${i}`} className="border-b border-r border-border bg-surface-muted/50" />)}
     </div>
-    <section aria-label="Scheduled hours" className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-y border-border py-3 text-sm">
+    <section aria-label="Scheduled hours" className="space-y-1.5 border-y border-border py-3 text-sm">
       <h3 className="font-semibold">{labelDate(`${month}-01`, { month: "long", year: "numeric" })} — Scheduled Hours</h3>
-      <p className="text-xl font-semibold tabular-nums">{fmtHours(shownHours.total)} <span className="text-xs font-normal text-muted-foreground">total{!historical && shownHours.total !== publishedHours.total ? ` · ${fmtHours(publishedHours.total)} published` : ""}</span></p>
-      {shownHours.rows.sort((a, b) => (a.key === "other" ? 1 : 0) - (b.key === "other" ? 1 : 0) || b.hours - a.hours).map(r => { const pub = publishedHours.rows.find(x => x.key === r.key)?.hours ?? 0;
-        return <span key={r.key} className="tabular-nums">{nameOf(r.key)} <strong>{fmtHours(r.hours)}</strong>{!historical && pub !== r.hours ? <span className="text-xs text-muted-foreground"> ({fmtHours(pub)} published)</span> : null}</span>; })}
-      {historical && <span className="text-xs text-muted-foreground">Past month · view only. Correct hours through Timesheets.</span>}
+      <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1 tabular-nums">
+        <span className="text-xl font-semibold">{hoursLines.total}</span>
+        {draftChanged && <span className="text-muted-foreground">{hoursLines.published}</span>}
+        {draftChanged && <span className="text-muted-foreground">{hoursLines.change}</span>}
+      </p>
+      <p className="flex flex-wrap gap-x-4 gap-y-1">{shownHours.rows.sort((a, b) => (a.key === "other" ? 1 : 0) - (b.key === "other" ? 1 : 0) || b.hours - a.hours).map(r => { const pub = publishedHours.rows.find(x => x.key === r.key)?.hours ?? 0;
+        return <span key={r.key} className="tabular-nums">{nameOf(r.key)} <strong>{fmtHours(r.hours)}</strong>{draftChanged && pub !== r.hours ? <span className="text-xs text-muted-foreground">({fmtHours(pub)} published)</span> : null}</span>; })}</p>
+      {historical && <p className="text-xs text-muted-foreground">Past month · view only. Correct hours through Timesheets.</p>}
     </section>
     {pendingRemovals.length > 0 && <section className="space-y-2 border-t border-border pt-3"><h3 className="text-sm font-semibold">Shifts to Remove</h3>
       {pendingRemovals.map(s => <div key={s.id} className="flex items-center justify-between gap-2 text-xs"><span>{s.title} · {s.date} · {s.start}–{s.end}</span><Button variant="outline" size="sm" onClick={() => modify(undoDraftRemoval(draftRef.current, s.id))}>Undo deletion</Button></div>)}
