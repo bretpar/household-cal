@@ -217,7 +217,7 @@ export function MonthView({
                 }
               }}
               className={cn(
-                "relative cursor-pointer border-t border-l border-border-soft text-left align-top transition-colors first:border-l-0 hover:bg-secondary/60",
+                "relative cursor-pointer border-t border-l border-border-soft text-left align-top first:border-l-0 hover:bg-secondary/60",
                 compact
                   ? "h-9 min-w-0 overflow-hidden px-0.5 py-0"
                   : fill
