@@ -35,9 +35,9 @@ describe("confirmed inline schedule coverage gaps", () => {
   it.each(["hidden", "unavailable", "stale", "incomplete", "missing"] as const)("%s calendars cannot produce confirmed red gaps", health => {
     const i = input(); i.settings.parents[0].health = health; expect(gaps(i)).toEqual({});
   });
-  it("an unverified external import month cannot produce red gaps", () => {
-    const i = input(); i.settings.parents[0].range = null; expect(gaps(i)).toEqual({});
-    i.settings.parents[0].range = { from: "2026-11-01", to: "2026-11-15" }; expect(gaps(i)).toEqual({});
+  it("an unverified import range still shows a specific visible gap", () => {
+    const i = input(); i.settings.parents[0].range = null; expect(Object.keys(gaps(i)).length).toBeGreaterThan(0);
+    i.settings.parents[0].range = { from: "2026-11-01", to: "2026-11-15" }; expect(Object.keys(gaps(i)).length).toBeGreaterThan(0);
   });
   it("all-day ambiguity suppresses a red gap on that date", () => {
     const i = input(); i.workEvents[0].push(event("all-day", "dad", "00:00", "23:59", true)); expect(gaps(i)).toEqual({});

@@ -1,5 +1,5 @@
 import { sameIdentity, type ExistingShift } from "@/lib/schedule-builder";
-import { computeCoverage, monthInRange, type CoverageInput, type CoverageResult, type CoverageSettings, type DayCoverage, type ParentWorkDay } from "@/lib/smart-coverage";
+import { computeCoverage, type CoverageInput, type CoverageResult, type CoverageSettings, type DayCoverage, type ParentWorkDay } from "@/lib/smart-coverage";
 
 /** Adapt the displayed private schedule to the existing coverage engine. */
 export function computeScheduleCoverage(input: CoverageInput, publishedEvents: Record<string, string> = {}, appliedRemovals: string[] = []): CoverageResult {
@@ -11,8 +11,8 @@ export function computeScheduleCoverage(input: CoverageInput, publishedEvents: R
 }
 
 /** Inline red warnings require complete work data for this particular day. */
-export function confirmedCoverageGaps(result: CoverageResult, settings: CoverageSettings, month: string): Record<string, DayCoverage> {
-  if (settings.parents.some(p => !p.sourceId || p.health !== "ok" || !monthInRange(month, p.range))) return {};
+export function confirmedCoverageGaps(result: CoverageResult, settings: CoverageSettings, _month?: string): Record<string, DayCoverage> {
+  if (settings.parents.some(p => !p.sourceId || p.health !== "ok")) return {};
   return Object.fromEntries(result.days.filter(d => !d.ignoredAllDay && (d.status === "missing" || d.status === "partial") && d.uncovered.length > 0).map(d => [d.date, d]));
 }
 
