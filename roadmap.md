@@ -299,3 +299,4 @@
 - [x] Check Coverage incomplete-data warning collapsed into a small expandable indicator.
 
 - [x] Review dialog: compact grouped rows + one confirmation checkbox per category.
+- [x] Fix partial recurring-shift publishing and false Dec 8 grid warnings

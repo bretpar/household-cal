@@ -382,6 +382,11 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
                 ? `Saved to your family calendar: ${result.applied} applied, ${result.skipped} unchanged.`
                 : `Saved with issues: ${result.applied} applied, ${result.needsAttention} need attention.`}
             </p>
+            {result.conflicts.length > 0 && (
+              <ul className="list-disc space-y-0.5 pl-4 text-xs text-destructive">
+                {[...new Set(result.conflicts.map((c) => c.reason))].map((r) => <li key={r}>{r}</li>)}
+              </ul>
+            )}
             {result.timesheetReconcile === "pending" && <p className="text-xs">Timesheet update is pending and will retry.</p>}
             <p className="text-xs text-muted-foreground">{googleLabel[result.google.status]}</p>
           </div>

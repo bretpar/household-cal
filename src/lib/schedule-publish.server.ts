@@ -210,6 +210,11 @@ export async function executePublish(
     google: { status: "not_applicable", pending: 0, synced: 0, needsAttention: 0 },
   };
   const touchedEventIds: string[] = [];
+  // Version chain per calendar event within this run: starts at the reviewed
+  // version and advances only to versions this run's own committed steps
+  // produced, so several changes to one recurring series can apply in order
+  // while any external change still fails the transactional check.
+  const runVersions = createVersionChain(immutableVersions);
   const jobId = await openReconcile(familyId, priorMembers);
 
   try {
@@ -247,7 +252,7 @@ export async function executePublish(
         kind: op.kind,
         eventId: op.eventId,
         occurrenceDate: op.occurrenceDate,
-        expectedUpdatedAt: op.eventId ? (immutableVersions[op.eventId] ?? null) : null,
+        expectedUpdatedAt: op.eventId ? (runVersions.expected(op.eventId)) : null,
       };
       const opKey = `${draft.id}:${op.shiftId}:${draft.revision}`;
       try {
@@ -268,7 +273,8 @@ export async function executePublish(
           _timezone: timeZone,
         });
         if (rpcError) throw rpcError;
-        const outcome = rpcResult as { outcome?: string; event_id?: string } | null;
+        const outcome = rpcResult as { outcome?: string; event_id?: string; series_version?: string } | null;
+        if (op.eventId && outcome?.series_version) runVersions.advance(op.eventId, outcome.series_version);
         if (outcome?.event_id) touchedEventIds.push(outcome.event_id);
         else if (op.kind === "exclude" && op.eventId) touchedEventIds.push(op.eventId);
         if (outcome?.outcome === "already_applied") result.skipped += 1;
@@ -281,16 +287,20 @@ export async function executePublish(
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: existingOp } = await supabaseAdmin
           .from("babysitter_schedule_publish_ops")
-          .select("status, event_id")
+          .select("status, event_id, payload")
           .eq("family_id", familyId)
           .eq("op_key", opKey)
           .maybeSingle();
         if (existingOp?.status === "applied") {
+          const version = (existingOp.payload as { series_version?: string } | null)?.series_version;
+          if (op.eventId && version) runVersions.advance(op.eventId, version);
           if (existingOp.event_id) touchedEventIds.push(existingOp.event_id as string);
           else if (op.kind === "exclude" && op.eventId) touchedEventIds.push(op.eventId);
           result.applied += 1;
           continue;
         }
+        const reason = publishErrorReason(e);
+        result.conflicts.push({ shiftId: op.shiftId, reason });
         // No applied row: fail closed. Insert a recoverable failure marker
         // without overwriting any existing journal row.
         await supabaseAdmin.from("babysitter_schedule_publish_ops").upsert(
@@ -303,7 +313,7 @@ export async function executePublish(
             draft_shift_id: op.shiftId,
             kind: op.kind,
             status: "needs_attention",
-            last_error: (e instanceof Error ? e.message : "Publish step failed").slice(0, 500),
+            last_error: reason,
             payload: JSON.parse(JSON.stringify({ shift, op: opPayload })),
             updated_at: new Date().toISOString(),
           },
@@ -345,6 +355,29 @@ export async function executePublish(
       .eq("id", runId);
     throw e;
   }
+}
+
+/** Per-run event version chain: starts at the reviewed versions and advances
+ * only on this run's own committed steps. */
+export function createVersionChain(reviewed: Record<string, string>) {
+  const versions = new Map(Object.entries(reviewed));
+  return {
+    expected: (eventId: string) => versions.get(eventId) ?? null,
+    advance: (eventId: string, version: string) => { if (versions.has(eventId)) versions.set(eventId, version); },
+  };
+}
+
+/**
+ * Safe, actionable reason for a failed publish step. Messages the publish RPC
+ * raises on purpose (SQLSTATE P0001) are written for owners; any other
+ * database error is replaced so internal details never reach the UI.
+ */
+export function publishErrorReason(e: unknown): string {
+  const err = (e && typeof e === "object" ? e : {}) as { code?: unknown; message?: unknown };
+  const message = typeof err.message === "string" ? err.message.trim() : "";
+  if (err.code === "P0001" && message) return message.slice(0, 500);
+  if (e instanceof Error && !("code" in e) && message) return message.slice(0, 500);
+  return "This change couldn't be saved because a calendar check failed. Refresh Review and try again.";
 }
 
 /**

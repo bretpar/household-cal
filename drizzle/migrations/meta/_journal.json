@@ -337,6 +337,13 @@
       "when": 1794689742119,
       "tag": "0047_schedule_publish_historical_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1794692763459,
+      "tag": "0048_chain_publish_series_versions",
+      "breakpoints": true
     }
   ]
 }

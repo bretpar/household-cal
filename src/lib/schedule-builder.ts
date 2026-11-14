@@ -194,13 +194,15 @@ export function proposalConflictReason(shift: ProposedShift, existing: ExistingS
 }
 
 /** Keep conflicts visible for review; never remove or overwrite a calendar occurrence. */
-export function proposalNeedsReview(shift: ProposedShift, existing: ExistingShift[], proposals: ProposedShift[] = []): boolean {
-  return proposalConflictReason(shift, existing, proposals) !== null;
+export function proposalNeedsReview(shift: ProposedShift, existing: ExistingShift[], proposals: ProposedShift[] = [],
+  mappedEvents: Record<string, string> = {}): boolean {
+  return proposalConflictReason(shift, existing, proposals, mappedEvents) !== null;
 }
 
-/** A change proposal whose referenced calendar occurrence is no longer present in the month. */
-export function proposalOrphaned(shift: ProposedShift, existing: ExistingShift[]): boolean {
-  return !!shift.existing && !existing.some(e => sameIdentity(shift, e));
+/** A change proposal whose referenced calendar occurrence is no longer present in the month.
+ * An already-published proposal is represented by its mapped replacement event instead. */
+export function proposalOrphaned(shift: ProposedShift, existing: ExistingShift[], mappedEvents: Record<string, string> = {}): boolean {
+  return !!shift.existing && !existing.some(e => sameIdentity(shift, e) || mappedEvents[shift.id] === e.eventId);
 }
 
 export interface ReferencedEvent { onSitterCalendar: boolean; month: string; recurring: boolean }
@@ -211,8 +213,8 @@ export interface ReferencedEvent { onSitterCalendar: boolean; month: string; rec
  */
 export type OrphanStatus = "deleted" | "moved" | "unresolved";
 export function orphanStatus(shift: ProposedShift, existing: ExistingShift[], referenced: Record<string, ReferencedEvent>,
-  checkedEventIds: readonly string[], month: string): OrphanStatus | null {
-  if (!proposalOrphaned(shift, existing)) return null;
+  checkedEventIds: readonly string[], month: string, mappedEvents: Record<string, string> = {}): OrphanStatus | null {
+  if (!proposalOrphaned(shift, existing, mappedEvents)) return null;
   const id = shift.existing!.eventId; const row = referenced[id];
   if (!row) return checkedEventIds.includes(id) ? "deleted" : "unresolved";
   if (row.onSitterCalendar && !row.recurring && row.month !== month) return "moved";
