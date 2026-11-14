@@ -19,7 +19,7 @@ describe("shared schedule interval conflicts", () => {
     const plan = planPublish(draft, [live]);
     expect(plan.ops[0]?.kind).toBe("create");
     expect(plan.preserved).toEqual([live]);
-    expect(reviewReadiness(plan, new Set(), false).ready).toBe(true);
+    expect(reviewReadiness(plan, new Set([id]), false).ready).toBe(true);
   });
   it.each([["06:00", "07:00"], ["16:30", "17:30"]])("allows separate or adjacent %s–%s manual shifts", (start, end) => {
     expect(proposalNeedsReview(shift(start, end), [live])).toBe(false);

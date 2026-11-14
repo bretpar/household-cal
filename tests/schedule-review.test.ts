@@ -63,10 +63,15 @@ describe("modified shift plus conflict", () => {
 });
 
 describe("reviewReadiness", () => {
-  it("is ready when a fresh preview has only creates and unchanged ops", () => {
-    const result = reviewReadiness(planWith([op({ kind: "create" }), op({ shiftId: shiftB, kind: "unchanged" })]), new Set(), false);
-    expect(result.ready).toBe(true);
-    expect(result.blockers).toEqual([]);
+  it("requires additions confirmation when a fresh preview has creates", () => {
+    const plan = planWith([op({ kind: "create" }), op({ shiftId: shiftB, kind: "unchanged" })]);
+    const unconfirmed = reviewReadiness(plan, new Set(), false);
+    expect(unconfirmed.ready).toBe(false);
+    expect(unconfirmed.unconfirmedAdds.map((o) => o.shiftId)).toEqual([shiftA]);
+    expect(unconfirmed.blockers).toEqual(["Confirm additions — 1 new shift needs confirmation."]);
+    const confirmed = reviewReadiness(plan, new Set([shiftA]), false);
+    expect(confirmed.ready).toBe(true);
+    expect(confirmed.blockers).toEqual([]);
   });
 
   it("blocks readiness while a modification to an existing shift is unconfirmed", () => {

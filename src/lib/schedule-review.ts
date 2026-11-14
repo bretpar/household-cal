@@ -55,6 +55,8 @@ export function plannedHours(plan: PublishPlan, draft: ScheduleDraft): number {
 export interface ReviewReadiness {
   /** Update ops the Owner has not explicitly confirmed yet. */
   unreviewed: PublishPlanOp[];
+  /** New-shift ops still outside the "Confirm additions" group approval. */
+  unconfirmedAdds: PublishPlanOp[];
   conflictCount: number;
   exclusionCount: number;
   stale: boolean;
@@ -71,32 +73,49 @@ export function originalVerified(op: PublishPlanOp): boolean {
 
 /**
  * Decides whether a reviewed preview is ready to publish. Ready requires a
- * fresh (non-stale) preview, zero unresolved conflicts, zero unsupported
- * occurrence removals, and explicit confirmation of every modification to an
- * existing occurrence. Existing occurrences are preserved by default and
- * never need confirmation.
+ * fresh (non-stale) preview, zero unresolved conflicts, and explicit group
+ * confirmation of every nonempty category: modifications ("Confirm all
+ * changes"), additions ("Confirm additions") and removals ("Confirm removals").
+ * Existing occurrences are preserved by default and never need confirmation.
+ * Group approval only supplies per-operation confirmation ids — it can never
+ * clear a conflict, a missing/unverified original, a stale preview or an
+ * authorization failure.
  */
 export function reviewReadiness(
   plan: PublishPlan,
   confirmed: ReadonlySet<string>,
   stale: boolean,
 ): ReviewReadiness {
-  const { updates, conflicts, excludes } = groupPlanOps(plan);
+  const { updates, creates, conflicts, excludes } = groupPlanOps(plan);
   const unreviewed = [...updates, ...excludes].filter((op) => !confirmed.has(op.shiftId));
+  const unconfirmedChanges = updates.filter((op) => !confirmed.has(op.shiftId));
+  const unconfirmedAdds = creates.filter((op) => !confirmed.has(op.shiftId));
+  const unconfirmedRemovals = excludes.filter((op) => !confirmed.has(op.shiftId));
   const unverified = [...updates, ...excludes].filter((op) => !originalVerified(op));
+  const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
   const blockers: string[] = [];
   if (unverified.length > 0) {
     blockers.push("Original details for some changed shifts couldn't be verified. Refresh the preview.");
   }
   if (stale) blockers.push("The draft changed since this preview. Save the draft and refresh the preview.");
   if (conflicts.length > 0) {
-    blockers.push(`${conflicts.length} ${conflicts.length === 1 ? "conflict needs" : "conflicts need"} attention in the builder.`);
+    blockers.push(`${conflicts.length} ${plural(conflicts.length, "conflict needs", "conflicts need")} attention in the builder.`);
   }
-  if (unreviewed.length > 0) {
-    blockers.push(`${unreviewed.length} ${unreviewed.length === 1 ? "change" : "changes"} to existing shifts still ${unreviewed.length === 1 ? "needs" : "need"} confirmation.`);
+  if (unconfirmedChanges.length > 0) {
+    const n = unconfirmedChanges.length;
+    blockers.push(`Confirm all changes — ${n} ${plural(n, "modification", "modifications")} to existing shifts ${plural(n, "needs", "need")} confirmation.`);
+  }
+  if (unconfirmedAdds.length > 0) {
+    const n = unconfirmedAdds.length;
+    blockers.push(`Confirm additions — ${n} new ${plural(n, "shift", "shifts")} ${plural(n, "needs", "need")} confirmation.`);
+  }
+  if (unconfirmedRemovals.length > 0) {
+    const n = unconfirmedRemovals.length;
+    blockers.push(`Confirm removals — ${n} ${plural(n, "removal", "removals")} ${plural(n, "needs", "need")} confirmation.`);
   }
   return {
     unreviewed,
+    unconfirmedAdds,
     conflictCount: conflicts.length,
     exclusionCount: excludes.length,
     stale,

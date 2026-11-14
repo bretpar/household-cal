@@ -297,3 +297,5 @@
 - [x] Monthly grid shows only real parent work hours (workHourLines); unavailable/need-review notices stay inside Check Coverage.
 
 - [x] Check Coverage incomplete-data warning collapsed into a small expandable indicator.
+
+- [x] Review dialog: compact grouped rows + one confirmation checkbox per category.

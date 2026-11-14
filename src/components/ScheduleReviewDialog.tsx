@@ -22,13 +22,14 @@ type Preview = {
 const labelDate = (date: string, options: Intl.DateTimeFormatOptions) =>
   new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { ...options, timeZone: "UTC" });
 const shortDate = (date: string) => labelDate(date, { weekday: "short", month: "short", day: "numeric" });
+const sameAssignment = (a: Assignment, b: Assignment) => JSON.stringify(a) === JSON.stringify(b);
 
 /**
  * Desktop Review & Publish dialog for the Babysitter Schedule Builder.
  * Read-only: it classifies the saved draft through the owner-authorized
- * server preview and collects explicit confirmation for modifications.
- * Publishing itself stays disabled — no calendar, Google, or Timesheet
- * writes happen here.
+ * server preview and collects explicit confirmation per category (changes,
+ * additions, removals). Publishing itself stays a separate explicit action —
+ * no calendar, Google, or Timesheet writes happen here.
  */
 export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, existing, members, timeZone, onClose, onUndoRemoval, onPublished }: {
   familyId: string;
@@ -121,62 +122,89 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
     needs_attention: "Google sync needs attention",
   };
 
-  const toggleConfirmed = (shiftId: string, checked: boolean) =>
+  // Group approval translates into the same per-operation confirmation ids the
+  // server already requires; it never bypasses conflicts, stale previews or
+  // unverified originals.
+  const confirmGroup = (ops: PublishPlanOp[], checked: boolean) =>
     setConfirmed((prev) => {
       const next = new Set(prev);
-      if (checked) next.add(shiftId);
-      else next.delete(shiftId);
+      for (const op of ops) {
+        if (checked) next.add(op.shiftId);
+        else next.delete(op.shiftId);
+      }
       return next;
     });
+  const groupState = (ops: PublishPlanOp[]): boolean | "indeterminate" => {
+    const done = ops.filter((op) => confirmed.has(op.shiftId)).length;
+    if (ops.length === 0 || done === 0) return false;
+    return done === ops.length ? true : "indeterminate";
+  };
+  const controlsLocked = loading || publishing || !!result || stale;
+
+  const groupHeader = (title: string, ops: PublishPlanOp[], label: string, tone: string) => (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <h3 className={cn("text-sm font-semibold", tone)}>{title} ({ops.length})</h3>
+      <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs font-medium">
+        <Checkbox
+          checked={groupState(ops)}
+          disabled={controlsLocked}
+          aria-label={label}
+          onCheckedChange={(v) => confirmGroup(ops, v === true)}
+        />
+        {label}
+      </label>
+    </div>
+  );
 
   const updateRow = (op: PublishPlanOp) => {
     const after = shiftById.get(op.shiftId);
     // Server-reviewed, version-bound original only; never builder-cached data.
     const before = originalVerified(op) ? op.original! : undefined;
-    const isConfirmed = confirmed.has(op.shiftId);
+    if (!after || !before) {
+      return <li key={op.shiftId} className="px-3 py-1.5 text-xs text-muted-foreground">Shift detail could not be verified — refresh the preview.</li>;
+    }
+    const timeChanged = before.start !== after.start || before.end !== after.end;
+    const dateChanged = before.date !== after.date;
+    const caregiverChanged = !sameAssignment(before.assignment, after.assignment);
+    const titleChanged = before.title !== after.title;
     return (
-      <article key={op.shiftId} className="rounded-md border border-member-amber bg-member-amber-soft p-3 text-member-amber-ink">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1 text-xs">
-            <p className="font-semibold">
-              {shortDate(after?.date ?? op.occurrenceDate ?? `${month}-01`)} · {after?.title ?? before?.title ?? "Shift"}
-            </p>
-            {before?.recurring && (
-              <p className="flex items-center gap-1">
-                <Repeat2 className="h-3 w-3 shrink-0" aria-label="Recurring shift" />
-                Only this occurrence ({shortDate(op.occurrenceDate ?? before.date)}) changes — the rest of the series stays unchanged.
-              </p>
-            )}
-            <p className="tabular-nums">
-              Time: {before ? `${before.start}–${before.end}` : "—"} → {after ? `${after.start}–${after.end}` : "—"}
-              {before && after && before.date !== after.date && ` (moved from ${shortDate(before.date)})`}
-            </p>
-            <p>Caregiver: {before ? assignmentLabel(before.assignment) : "—"} → {after ? assignmentLabel(after.assignment) : "—"}</p>
-          </div>
-          <label className="flex shrink-0 items-center gap-2 text-xs font-medium">
-            <Checkbox
-              aria-label={`Confirm change to ${after?.title ?? "shift"} on ${op.occurrenceDate ?? after?.date ?? ""}`}
-              checked={isConfirmed}
-              onCheckedChange={(c) => toggleConfirmed(op.shiftId, c === true)}
-            />
-            Confirm change
-          </label>
-        </div>
-      </article>
+      <li key={op.shiftId} className="space-y-0.5 px-3 py-1.5 text-xs">
+        <p className="flex flex-wrap items-center gap-x-1.5 font-semibold">
+          <span className="tabular-nums">{shortDate(after.date)}</span>
+          <span className="min-w-0 truncate">{after.title}</span>
+          {before.recurring && (
+            <span className="inline-flex items-center gap-0.5 font-normal text-muted-foreground">
+              <Repeat2 className="h-3 w-3" aria-label="Recurring shift" />
+              this occurrence only
+            </span>
+          )}
+        </p>
+        {(timeChanged || dateChanged || caregiverChanged || titleChanged) && (
+          <p className="flex flex-wrap gap-x-3 text-muted-foreground tabular-nums">
+            {timeChanged && <span>Time: {before.start}–{before.end} → {after.start}–{after.end}</span>}
+            {dateChanged && <span>Moved from {shortDate(before.date)}</span>}
+            {caregiverChanged && <span>Caregiver: {assignmentLabel(before.assignment)} → {assignmentLabel(after.assignment)}</span>}
+            {titleChanged && <span>Name: {before.title} → {after.title}</span>}
+          </p>
+        )}
+      </li>
     );
   };
 
   const conflictRow = (op: PublishPlanOp) => {
     const shift = shiftById.get(op.shiftId);
     return (
-      <article key={op.shiftId} className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs">
-        <p className="flex items-center gap-1 font-semibold">
+      <li key={op.shiftId} className="space-y-0.5 px-3 py-1.5 text-xs">
+        <p className="flex flex-wrap items-center gap-x-1.5 font-semibold text-destructive">
           <AlertTriangle className="h-3 w-3 shrink-0" />
-          {shift ? `${shortDate(shift.date)} · ${shift.title} · ${shift.start}–${shift.end}` : "Proposal"}
+          <span className="tabular-nums">{shift ? shortDate(shift.date) : "Proposal"}</span>
+          <span className="min-w-0 truncate">{shift ? shift.title : "Shift"}</span>
+          {shift && <span className="font-normal tabular-nums">{shift.start}–{shift.end}</span>}
         </p>
-        <p>{op.reason ?? "This proposal conflicts with the current calendar."}</p>
-        <p>Return to the builder to revise or remove this proposal. The existing calendar shift stays unchanged.</p>
-      </article>
+        <p className="text-muted-foreground">
+          {op.reason ?? "This proposal conflicts with the current calendar."} Return to the builder to revise or remove it; the existing calendar shift stays unchanged.
+        </p>
+      </li>
     );
   };
 
@@ -186,29 +214,40 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
     try { await onUndoRemoval(id); await refresh(); }
     catch (e) { setPreview(null); setError(e instanceof Error ? e.message : "Undo could not be saved."); setLoading(false); }
   };
+
   const excludeRow = (op: PublishPlanOp) => {
     const before = op.original;
-    return <article key={op.shiftId} className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs">
-      <p className="font-semibold">{before ? `${shortDate(before.date)} · ${before.title}` : "Shift to remove"}</p>
-      <p>{before?.allDay ? "All day" : `${before?.start ?? "—"}–${before?.end ?? "—"}`} · {before ? assignmentLabel(before.assignment) : "—"}</p>
-      {before?.recurring && <p>Only this occurrence is removed; the rest of the series stays unchanged.</p>}
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-        <label className="flex items-center gap-2"><Checkbox checked={confirmed.has(op.shiftId)} aria-label={`Confirm removal of ${before?.title ?? "shift"}`} onCheckedChange={v => toggleConfirmed(op.shiftId, v === true)} />Confirm removal</label>
-        <Button variant="outline" size="sm" disabled={publishing || !!result} onClick={() => void undoRemoval(op.shiftId)}>Undo deletion</Button>
-      </div>
-    </article>;
+    return (
+      <li key={op.shiftId} className="flex items-center justify-between gap-3 px-3 py-1.5 text-xs">
+        <p className="flex min-w-0 flex-wrap items-center gap-x-1.5">
+          <span className="font-semibold tabular-nums">{before ? shortDate(before.date) : "Shift to remove"}</span>
+          <span className="min-w-0 truncate">{before?.title ?? "Shift"}</span>
+          <span className="font-normal tabular-nums text-muted-foreground">
+            {before ? (before.allDay ? "All day" : `${before.start}–${before.end}`) : ""}
+            {before ? ` · ${assignmentLabel(before.assignment)}` : ""}
+          </span>
+          {before?.recurring && <span className="font-normal text-muted-foreground">this occurrence only</span>}
+        </p>
+        <Button variant="outline" size="sm" className="h-6 shrink-0 px-2 text-xs" disabled={publishing || !!result} onClick={() => void undoRemoval(op.shiftId)}>
+          Undo
+        </Button>
+      </li>
+    );
   };
 
   const createRow = (op: PublishPlanOp) => {
     const shift = shiftById.get(op.shiftId);
     if (!shift) return null;
     return (
-      <article key={op.shiftId} className="rounded-md border border-member-sage bg-member-sage-soft p-3 text-xs text-member-sage-ink">
-        <p className="font-semibold">{shortDate(shift.date)} · {shift.title}</p>
-        <p className="tabular-nums">{shift.start}–{shift.end} · {assignmentLabel(shift.assignment)}</p>
-      </article>
+      <li key={op.shiftId} className="px-3 py-1.5 text-xs">
+        <span className="font-semibold tabular-nums">{shortDate(shift.date)}</span>
+        <span className="mx-1.5 min-w-0 truncate">{shift.title}</span>
+        <span className="tabular-nums text-muted-foreground">{shift.start}–{shift.end} · {assignmentLabel(shift.assignment)}</span>
+      </li>
     );
   };
+
+  const listClass = "divide-y divide-border rounded-md border border-border";
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -241,7 +280,7 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
           )}
 
           {preview && groups && readiness && !loading && (
-            <div className={cn("space-y-4", stale && "opacity-60")}>
+            <div className={cn("space-y-3", stale && "opacity-60")}>
               <dl className="grid grid-cols-3 gap-3 sm:grid-cols-6">
                 {([
                   ["New", groups.creates.length, "text-member-sage-ink"],
@@ -259,29 +298,34 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
               </dl>
 
               {groups.conflicts.length > 0 && (
-                <section className="space-y-2">
-                  <h3 className="text-sm font-semibold">Needs attention</h3>
-                  {groups.conflicts.map(conflictRow)}
-
+                <section className="space-y-1.5">
+                  <h3 className="text-sm font-semibold text-destructive">Needs attention ({groups.conflicts.length})</h3>
+                  <ul className={listClass}>{groups.conflicts.map(conflictRow)}</ul>
                 </section>
               )}
 
-              {groups.excludes.length > 0 && <section className="space-y-2"><h3 className="text-sm font-semibold">Shifts to Remove</h3>{groups.excludes.map(excludeRow)}</section>}
               {groups.updates.length > 0 && (
-                <section className="space-y-2">
-                  <h3 className="text-sm font-semibold">Changes to existing shifts — confirm each one</h3>
-                  {groups.updates.map(updateRow)}
+                <section className="space-y-1.5">
+                  {groupHeader("Modified shifts", groups.updates, "Confirm all changes", "text-member-amber-ink")}
+                  <ul className={listClass}>{groups.updates.map(updateRow)}</ul>
                 </section>
               )}
 
               {groups.creates.length > 0 && (
-                <section className="space-y-2">
-                  <h3 className="text-sm font-semibold">New shifts</h3>
-                  {groups.creates.map(createRow)}
+                <section className="space-y-1.5">
+                  {groupHeader("New shifts", groups.creates, "Confirm additions", "text-member-sage-ink")}
+                  <ul className={listClass}>{groups.creates.map(createRow)}</ul>
                 </section>
               )}
 
-              <section className="space-y-2">
+              {groups.excludes.length > 0 && (
+                <section className="space-y-1.5">
+                  {groupHeader("Removed shifts", groups.excludes, "Confirm removals", "text-destructive")}
+                  <ul className={listClass}>{groups.excludes.map(excludeRow)}</ul>
+                </section>
+              )}
+
+              <section className="space-y-1.5">
                 <button type="button" className="flex items-center gap-1 text-sm font-semibold" onClick={() => setShowKept((v) => !v)}>
                   {showKept ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   Existing shifts kept unchanged ({preview.plan.counts.preserved + groups.unchanged.length})
@@ -290,20 +334,21 @@ export function ScheduleReviewDialog({ familyId, month, draft, revision, dirty, 
                   Existing shifts are kept unless explicitly selected and confirmed for removal.
                 </p>
                 {showKept && (
-                  <div className="space-y-2">
+                  <ul className={cn(listClass, "text-xs")}>
                     {preview.plan.preserved.map((s) => (
-                      <article key={s.key} className="rounded-md border border-member-sky bg-member-sky-soft p-3 text-xs text-member-sky-ink">
-                        <p className="flex items-center gap-1 font-semibold">
-                          {shortDate(s.date)} · {s.title}
-                          {s.recurring && <Repeat2 className="h-3 w-3" aria-label="Recurring shift" />}
-                        </p>
-                        <p className="tabular-nums">{s.allDay ? "All day" : `${s.start}–${s.end}`} · {assignmentLabel(s.assignment)}</p>
-                      </article>
+                      <li key={s.key} className="flex flex-wrap items-center gap-x-1.5 px-3 py-1.5">
+                        <span className="font-semibold tabular-nums">{shortDate(s.date)}</span>
+                        <span className="min-w-0 truncate">{s.title}</span>
+                        {s.recurring && <Repeat2 className="h-3 w-3" aria-label="Recurring shift" />}
+                        <span className="font-normal tabular-nums text-muted-foreground">
+                          {s.allDay ? "All day" : `${s.start}–${s.end}`} · {assignmentLabel(s.assignment)}
+                        </span>
+                      </li>
                     ))}
                     {preview.plan.preserved.length === 0 && groups.unchanged.length === 0 && (
-                      <p className="text-xs text-muted-foreground">No other existing shifts this month.</p>
+                      <li className="px-3 py-1.5 text-muted-foreground">No other existing shifts this month.</li>
                     )}
-                  </div>
+                  </ul>
                 )}
               </section>
 
