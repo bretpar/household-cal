@@ -32,7 +32,9 @@ export function workInputInstant(value: string, timezone: string, original?: str
   if (!candidates.length) {
     throw new Error("Choose a valid time in your work time zone. This time may not exist during a daylight-saving change.");
   }
-  if (selected && candidates.includes(selected)) return selected;
+  const selectedTime = selected ? Date.parse(selected) : NaN;
+  const canonicalSelection = Number.isFinite(selectedTime) ? new Date(selectedTime).toISOString() : undefined;
+  if (canonicalSelection && candidates.includes(canonicalSelection)) return canonicalSelection;
   if (candidates.length > 1) throw new Error("Choose the first or second occurrence of the repeated time.");
   const only = candidates[0];
   if (!only) throw new Error("Choose a valid time in your work time zone.");

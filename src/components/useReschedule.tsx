@@ -16,6 +16,7 @@ import { useCalendar, type RecurrenceScope } from "@/lib/calendar-store";
 
 import { isRecurring, rescheduleDraft } from "@/lib/reschedule";
 import { formatTimeRange, type Occurrence } from "@/lib/family-data";
+import { workDate, workInput, workInputInstants, workOffset } from "@/lib/caregiver-timezone";
 
 const SCOPES: { id: RecurrenceScope; label: string; hint: string }[] = [
   {
@@ -38,6 +39,7 @@ const SCOPES: { id: RecurrenceScope; label: string; hint: string }[] = [
 interface Pending {
   occurrence: Occurrence;
   start: Date;
+  repeatedInstants?: string[];
 }
 
 /**
@@ -72,6 +74,16 @@ export function useReschedule() {
   /** Commit a new start time from a touch drag (recurring events ask scope first). */
   const requestMove = (occurrence: Occurrence, start: Date) => {
     if (!movable(occurrence)) return;
+    const timezone = occurrence.event.work_timezone;
+    if (timezone) {
+      const wallTime = workInput(new Date(start.getTime()).toISOString(), timezone);
+      if (wallTime === workInput(new Date(occurrence.start.getTime()).toISOString(), timezone)) return;
+      const repeatedInstants = workInputInstants(wallTime, timezone);
+      if (repeatedInstants.length > 1) {
+        setPending({ occurrence, start, repeatedInstants });
+        return;
+      }
+    }
     if (start.getTime() === occurrence.start.getTime()) return;
     if (isRecurring(occurrence)) setPending({ occurrence, start });
     else void apply(occurrence, start, "series");
@@ -113,9 +125,7 @@ export function useReschedule() {
             dragged.current = null;
             setDraggingKey(null);
             const start = resolveStart(e, occurrence);
-            if (!start || start.getTime() === occurrence.start.getTime()) return;
-            if (isRecurring(occurrence)) setPending({ occurrence, start });
-            else void apply(occurrence, start, "series");
+            if (start) requestMove(occurrence, start);
           },
         }
       : {};
@@ -135,12 +145,23 @@ export function useReschedule() {
               ),
               pending.occurrence.event.all_day,
             )}
-            . This event repeats — choose what to move.
+            {pending.repeatedInstants ? ". Choose which occurrence of the repeated time to use." : ". This event repeats — choose what to move."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-2">
-          {SCOPES.map((option) => (
+          {pending.repeatedInstants && pending.occurrence.event.work_timezone ? pending.repeatedInstants.map((instant, index) => (
+            <Button key={instant} type="button" variant="outline" disabled={moving} onClick={() => {
+              const timezone = pending.occurrence.event.work_timezone;
+              if (!timezone) return;
+              const start = workDate(instant, timezone);
+              if (isRecurring(pending.occurrence)) setPending({ occurrence: pending.occurrence, start });
+              else {
+                void apply(pending.occurrence, start, "series");
+                setPending(null);
+              }
+            }}>{index === 0 ? "First" : "Second"} occurrence · UTC{workOffset(instant, pending.occurrence.event.work_timezone ?? "UTC")}</Button>
+          )) : SCOPES.map((option) => (
             <button
               key={option.id}
               type="button"

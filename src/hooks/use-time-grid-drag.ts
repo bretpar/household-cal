@@ -373,6 +373,12 @@ export function useTimeGridDrag({
     reset();
     if (!active) return;
     const day = active.kind === "move" && active.occurrence ? active.occurrence.start : (start?.day ?? active.day);
+    if (active.kind === "move" && active.occurrence?.event.work_timezone &&
+      active.startMinutes === active.occurrence.start.getHours() * 60 + active.occurrence.start.getMinutes()) {
+      // The same displayed slot must retain its original repeated-hour instant.
+      onMove(active.occurrence, active.occurrence.start);
+      return;
+    }
     const startAt = copyCalendarDate(day);
     startAt.setHours(Math.floor(active.startMinutes / 60), active.startMinutes % 60, 0, 0);
     if (active.kind === "move" && active.occurrence) {

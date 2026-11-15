@@ -10,7 +10,7 @@
 <!-- LOVABLE:END -->
 - Schedule-builder engine stays UI-free; private drafts never write live events.
 - Independent caregivers use owner-scoped caregiver_workspaces/clients/work_shifts, never synthetic households; CalendarStoreAdapter reuses existing calendar renderers without household queries. Why: preserve household roles and isolate client identities.
-- Caregiver timed day checks use workspace-local end-exclusive boundaries; editor inputs retain unchanged UTC instants and require an explicit repeated-hour occurrence for ambiguous changes. Why: device zones and DST folds must not duplicate dates or shorten shifts.
+- Caregiver day checks use workspace-local end-exclusive boundaries; editors and drags preserve unchanged instants and explicitly resolve changed repeated hours using canonical UTC selections. Why: DST folds must not duplicate dates or shorten shifts.
 - Personal Google delivery reuses the existing API, encryption and remote verification with separate durable leased intents/version acknowledgments; personal and household grants cannot overwrite each other. Why: stable per-user ownership, safe retries and no household sync changes.
 - Caregiver Google reconnect atomically requeues current shifts with a reconciliation fence; web/native consent uses server-stored single-use attempts and app-held proof, with native callbacks routed by the root listener. Why: disconnected edits and cold-launch returns must not lose work or cross user identities.
 - Lock inbound/outbox checks to prevent stale echoes.
