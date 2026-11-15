@@ -542,6 +542,12 @@ function occursOn(event: CalendarEvent, day: Date): boolean {
       const key = dayKey(day);
       return key >= dayKey(start) && key <= dayKey(eventEndDay(event));
     }
+    if (event.work_timezone) {
+      // The displayed calendar date belongs to the workspace, not the device.
+      const dayStart = new TZDate(day.getFullYear(), day.getMonth(), day.getDate(), event.work_timezone);
+      return Date.parse(event.start_at) < addDays(dayStart, 1).getTime() &&
+        Date.parse(event.end_at) > dayStart.getTime();
+    }
     const dayStart = startOfDay(day);
     const eventStart = new Date(event.start_at);
     const eventEnd = new Date(event.end_at);

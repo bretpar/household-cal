@@ -1,5 +1,9 @@
 # Roadmap
 
+## Codex caregiver time-zone corrections
+- [x] Scope nonrecurring caregiver day bucketing to workspace-local, end-exclusive day boundaries without changing household behavior.
+- [x] Preserve unchanged repeated-hour instants; require explicit occurrence selection for edited ambiguous inputs and valid endpoint ordering. No QA, browser tests, migration or deployment; Codex owns verification.
+
 ## Caregiver focused release hardening
 - [x] Read signup zone initialization, Today/Month/Week/Day entry/display/dragging, scheduled-hour totals, client changes, web/native OAuth and root callbacks, manual/scheduled sync, account deletion/retries, and database enqueue/claim/finish/select/isolation/delete guards. Fixed cleanup preparation resetting verified deliveries on every retry: additive 0056 now retains same-version progress. No settled-record rewrites, QA or deployment.
 - [x] Block hard deletion until current-version remote deletions finish; account removal queues durable soft deletions, verifies delivery completion and revokes personal credentials before removing the login. Disconnected/unavailable Google blocks account deletion rather than abandoning remote events.

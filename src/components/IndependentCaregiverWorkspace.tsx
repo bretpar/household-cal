@@ -24,7 +24,7 @@ import { scheduledHours, workEvents, type CaregiverClient, type WorkShift } from
 import { MEMBER_COLORS, expandOccurrences, styleForColor } from "@/lib/family-data";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { workDate, workInput, workInputInstant, workDateInput } from "@/lib/caregiver-timezone";
+import { workDate, workInput, workInputInstant, workInputInstants, workDateInput, workOffset } from "@/lib/caregiver-timezone";
 
 const NAV = [
   { to: "/caregiver/today", label: "Today", icon: Home },
@@ -33,7 +33,7 @@ const NAV = [
   { to: "/caregiver/settings", label: "Settings", icon: Settings },
 ] as const;
 export type CaregiverTab = "today" | "calendar" | "timesheets" | "settings";
-type ShiftForm = { original: WorkShift | null; client_id: string; start: string; end: string; notes: string };
+type ShiftForm = { original: WorkShift | null; client_id: string; start: string; end: string; notes: string; startOccurrence?: string; endOccurrence?: string };
 
 
 export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
@@ -91,6 +91,20 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
   const total = scheduledHours(shifts, monthStart, monthEnd);
   const upcoming = expandOccurrences(events, today, to).filter(o => o.end > new Date());
   const formatHours = (hours: number) => `${Number(hours.toFixed(2))} hours`;
+  const repeatedTimeControl = (field: "start" | "end") => {
+    if (!shiftForm || !timezone) return null;
+    const candidates = workInputInstants(shiftForm[field], timezone);
+    if (candidates.length < 2) return null;
+    const selection = field === "start" ? shiftForm.startOccurrence : shiftForm.endOccurrence;
+    const original = field === "start" ? shiftForm.original?.start_at : shiftForm.original?.end_at;
+    const preserved = original && workInput(original, timezone) === shiftForm[field]
+      ? candidates.find(candidate => Date.parse(candidate) === Math.floor(Date.parse(original) / 60000) * 60000)
+      : undefined;
+    return <Select value={selection ?? preserved ?? ""} onValueChange={occurrence => setShiftForm({ ...shiftForm, [field === "start" ? "startOccurrence" : "endOccurrence"]: occurrence })}>
+      <SelectTrigger aria-label={`${field === "start" ? "Start" : "End"} repeated time occurrence`}><SelectValue placeholder="Choose repeated time occurrence" /></SelectTrigger>
+      <SelectContent>{candidates.map((candidate, index) => <SelectItem key={candidate} value={candidate}>{index === 0 ? "First" : "Second"} occurrence · UTC{workOffset(candidate, timezone)}</SelectItem>)}</SelectContent>
+    </Select>;
+  };
   return <div className="app-shell min-h-dvh bg-background">
     <header className="app-shell-header sticky top-0 z-30 border-b border-border-soft bg-surface">
       <div className="app-shell-header-inner mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
@@ -138,11 +152,17 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
     </main>
     <nav aria-label="Work navigation" className="app-shell-bottom-nav fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-30 mx-auto grid max-w-lg grid-cols-4 rounded-3xl border border-border-soft bg-surface p-1.5 shadow-lifted md:hidden">{NAV.map(n => <Button key={n.to} variant={tab === n.to.split("/").at(-1) ? "secondary" : "ghost"} className="h-14 min-w-0 flex-col gap-1 px-1 text-[11px]" asChild><Link to={n.to}><n.icon className="size-5" />{n.label}</Link></Button>)}</nav>
     <Dialog open={Boolean(shiftForm)} onOpenChange={open => { if (!open && !busy) setShiftForm(null); }}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-md"><DialogHeader><DialogTitle>{shiftForm?.original ? "Edit work shift" : "New work shift"}</DialogTitle><DialogDescription>{shiftForm?.original ? "Update this family’s scheduled shift." : "Schedule work for one family."}</DialogDescription></DialogHeader>
-      {shiftForm && <form className="space-y-4" onSubmit={e => { e.preventDefault(); void run(() => saveShift({ data: { ...(shiftForm.original ? { id: shiftForm.original.id, version: shiftForm.original.version } : {}), client_id: shiftForm.client_id, start_at: workInputInstant(shiftForm.start, timezone ?? ""), end_at: workInputInstant(shiftForm.end, timezone ?? ""), notes: shiftForm.notes } }), "Shift saved", () => setShiftForm(null)); }}>
+      {shiftForm && <form className="space-y-4" onSubmit={e => { e.preventDefault(); void run(() => {
+        if (!timezone) throw new Error("Your work time zone is not available.");
+        const start_at = workInputInstant(shiftForm.start, timezone, shiftForm.original?.start_at, shiftForm.startOccurrence);
+        const end_at = workInputInstant(shiftForm.end, timezone, shiftForm.original?.end_at, shiftForm.endOccurrence);
+        if (Date.parse(end_at) <= Date.parse(start_at)) throw new Error("End must be after start. Check the repeated time occurrences.");
+        return saveShift({ data: { ...(shiftForm.original ? { id: shiftForm.original.id, version: shiftForm.original.version } : {}), client_id: shiftForm.client_id, start_at, end_at, notes: shiftForm.notes } });
+      }, "Shift saved", () => setShiftForm(null)); }}>
         <div className="space-y-1"><Label>Family</Label><Select value={shiftForm.client_id} onValueChange={client_id => setShiftForm({ ...shiftForm, client_id })}><SelectTrigger><SelectValue placeholder="Choose family" /></SelectTrigger><SelectContent>{clients.filter(c => !c.archived || c.id === shiftForm.original?.client_id).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
         {!activeClients.length && <p className="text-sm text-muted-foreground">Add an active family contact in Settings before scheduling.</p>}
-        <div className="space-y-1"><Label htmlFor="work-start">Start</Label><Input id="work-start" required type="datetime-local" value={shiftForm.start} onChange={e => setShiftForm({ ...shiftForm, start: e.target.value })} /></div>
-        <div className="space-y-1"><Label htmlFor="work-end">End</Label><Input id="work-end" required type="datetime-local" value={shiftForm.end} onChange={e => setShiftForm({ ...shiftForm, end: e.target.value })} /></div>
+        <div className="space-y-1"><Label htmlFor="work-start">Start</Label><Input id="work-start" required type="datetime-local" value={shiftForm.start} onChange={e => setShiftForm({ ...shiftForm, start: e.target.value, startOccurrence: undefined })} />{repeatedTimeControl("start")}</div>
+        <div className="space-y-1"><Label htmlFor="work-end">End</Label><Input id="work-end" required type="datetime-local" value={shiftForm.end} onChange={e => setShiftForm({ ...shiftForm, end: e.target.value, endOccurrence: undefined })} />{repeatedTimeControl("end")}</div>
         <div className="space-y-1"><Label htmlFor="work-notes">Notes</Label><Textarea id="work-notes" value={shiftForm.notes} onChange={e => setShiftForm({ ...shiftForm, notes: e.target.value })} /></div>
         <div className="flex flex-wrap justify-between gap-2">{shiftForm.original ? <Button variant="ghost" type="button" disabled={busy} className="text-destructive" onClick={() => {
           const original = shiftForm.original;
