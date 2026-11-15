@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Caregiver focused release hardening
+- [x] Read signup zone initialization, Today/Month/Week/Day entry/display/dragging, scheduled-hour totals, client changes, web/native OAuth and root callbacks, manual/scheduled sync, account deletion/retries, and database enqueue/claim/finish/select/isolation/delete guards. Fixed cleanup preparation resetting verified deliveries on every retry: additive 0056 now retains same-version progress. No settled-record rewrites, QA or deployment.
 - [x] Block hard deletion until current-version remote deletions finish; account removal queues durable soft deletions, verifies delivery completion and revokes personal credentials before removing the login. Disconnected/unavailable Google blocks account deletion rather than abandoning remote events.
 - [x] Use TZDate real instants in the saved IANA work zone for entry, calendar day bucketing, drag dates, display and monthly scheduled-hour boundaries; reject nonexistent DST entry times.
 - [x] Serialize caregiver browser mutations at statement start and OAuth/select RPCs before row locks; persist household identity/secrets atomically under the same per-user lock and enforce both-direction connection isolation.

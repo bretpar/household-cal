@@ -393,6 +393,13 @@
       "when": 1794717897813,
       "tag": "0055_verify_caregiver_deletion_versions",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1794717968571,
+      "tag": "0056_preserve_caregiver_cleanup_progress",
+      "breakpoints": true
     }
   ]
 }
