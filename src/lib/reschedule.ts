@@ -16,7 +16,7 @@
 import { addDays, differenceInCalendarDays, startOfDay } from "date-fns";
 
 import type { EventDraft, RecurrenceScope } from "@/lib/calendar-store";
-import type { Occurrence, WeekdayCode } from "@/lib/family-data";
+import { copyCalendarDate, type Occurrence, type WeekdayCode } from "@/lib/family-data";
 
 const ORDER: WeekdayCode[] = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
@@ -71,7 +71,7 @@ export function rescheduleDraft(
   const start = detach || !event.recurrence_rule || scope === "future"
     ? newStart
     : withTimeOf(addDays(new Date(event.start_at), dayDelta), newStart);
-  const end = new Date(start.getTime() + duration);
+  const end = copyCalendarDate(start, start.getTime() + duration);
 
   const rule = detach ? null : shiftRuleWeekdays(event.recurrence_rule, dayDelta);
 

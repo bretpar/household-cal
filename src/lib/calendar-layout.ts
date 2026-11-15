@@ -13,7 +13,7 @@
  * - what text is rendered depends on the card's actual width and height.
  */
 
-import type { Occurrence } from "@/lib/family-data";
+import { copyCalendarDate, type Occurrence } from "@/lib/family-data";
 
 /* ------------------------------------------------------------------ tokens */
 
@@ -480,7 +480,7 @@ export function layoutTimedEvents({
         cluster,
         segment: 0,
         hidden,
-        top: topForTime(new Date(firstStart)),
+        top: topForTime(copyCalendarDate(hidden[0]?.start ?? new Date(firstStart), firstStart)),
       });
     }
   }

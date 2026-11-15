@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
 
-import type { Occurrence } from "@/lib/family-data";
+import { copyCalendarDate, type Occurrence } from "@/lib/family-data";
 
 const HOLD_MS = 400;
 /**
@@ -373,13 +373,13 @@ export function useTimeGridDrag({
     reset();
     if (!active) return;
     const day = active.kind === "move" && active.occurrence ? active.occurrence.start : (start?.day ?? active.day);
-    const startAt = new Date(day);
+    const startAt = copyCalendarDate(day);
     startAt.setHours(Math.floor(active.startMinutes / 60), active.startMinutes % 60, 0, 0);
     if (active.kind === "move" && active.occurrence) {
       onMove(active.occurrence, startAt);
       return;
     }
-    onCreate(startAt, new Date(startAt.getTime() + active.durationMinutes * 60000));
+    onCreate(startAt, copyCalendarDate(startAt, startAt.getTime() + active.durationMinutes * 60000));
   }, [onCreate, onMove, reset]);
   commitRef.current = commit;
 

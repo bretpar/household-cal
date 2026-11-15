@@ -14,7 +14,13 @@ import {
   isSameDay,
   startOfDay,
   startOfWeek,
+  constructFrom,
 } from "date-fns";
+import { TZDate } from "@date-fns/tz";
+
+export const copyCalendarDate = (date: Date, value: number = date.getTime()): Date => constructFrom(date, value);
+const timedEventDate = (event: Pick<CalendarEvent, "work_timezone">, value: string): Date =>
+  event.work_timezone ? new TZDate(Date.parse(value), event.work_timezone) : new Date(value);
 
 export type MemberId = string;
 export type FamilyId = string;
@@ -130,6 +136,8 @@ export interface EventParticipant {
 }
 
 export interface CalendarEvent {
+  /** Independent caregiver workspace zone; absent for existing household calendars. */
+  work_timezone?: string;
   id: string;
   family_id: FamilyId;
   calendar_source_id: string | null;
@@ -397,8 +405,8 @@ export function localDateFromKey(key: string): Date {
  * must never be shifted into the viewer's timezone. Timed events keep their
  * real instant.
  */
-export function eventStartDay(event: Pick<CalendarEvent, "start_at" | "all_day">): Date {
-  return event.all_day ? allDayDate(event.start_at) : startOfDay(new Date(event.start_at));
+export function eventStartDay(event: Pick<CalendarEvent, "start_at" | "all_day" | "work_timezone">): Date {
+  return event.all_day ? allDayDate(event.start_at) : startOfDay(timedEventDate(event, event.start_at));
 }
 
 /**
@@ -419,9 +427,9 @@ function allDayDate(value: string): Date {
 
 /** Inclusive last calendar date of an event (all-day ranges can span days). */
 export function eventEndDay(
-  event: Pick<CalendarEvent, "start_at" | "end_at" | "all_day">,
+  event: Pick<CalendarEvent, "start_at" | "end_at" | "all_day" | "work_timezone">,
 ): Date {
-  if (!event.all_day) return startOfDay(new Date(event.end_at));
+  if (!event.all_day) return startOfDay(timedEventDate(event, event.end_at));
   const end = allDayDate(event.end_at);
   const start = eventStartDay(event);
   return end < start ? start : end;
@@ -645,8 +653,8 @@ export function expandOccurrences(
         end.setHours(23, 59, 59, 0);
       } else if (!parseRule(event.recurrence_rule)) {
         // A continuation is the same occurrence, not a new event on this day.
-        start = new Date(event.start_at);
-        end = new Date(event.end_at);
+        start = timedEventDate(event, event.start_at);
+        end = timedEventDate(event, event.end_at);
       } else {
         const baseStart = new Date(event.start_at);
         start = new Date(day);

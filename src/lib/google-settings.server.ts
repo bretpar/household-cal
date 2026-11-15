@@ -64,32 +64,11 @@ export async function saveConnection(
 ): Promise<{ account_email: string }> {
   const accountEmail = (await getAccountEmail(connectionKey)) ?? "google-account";
 
-  const { data: connection, error } = await supabaseAdmin
-    .from("google_connections")
-    .upsert(
-      {
-        family_id: familyId,
-        connected_by: userId,
-        account_email: accountEmail,
-        google_account_id: accountEmail,
-        status: "connected",
-        last_error: null,
-      },
-      { onConflict: "family_id" },
-    )
-    .select("id")
-    .single();
+  const { error } = await supabaseAdmin.rpc("save_household_google_credentials", {
+    _user: userId, _family: familyId, _email: accountEmail,
+    _ciphertext: encryptConnectionKey(connectionKey),
+  });
   if (error) throw error;
-
-  const { error: secretError } = await supabaseAdmin.from("google_connection_secrets").upsert(
-    {
-      connection_id: connection.id,
-      connection_key_ciphertext: encryptConnectionKey(connectionKey),
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "connection_id" },
-  );
-  if (secretError) throw secretError;
 
   // reconnect: pick up anything that changed while we were disconnected
   await pullHousehold(supabaseAdmin, familyId, false);

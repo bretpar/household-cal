@@ -13,10 +13,10 @@ export const shiftInput = z.object({
 }).refine(s => Date.parse(s.end_at) > Date.parse(s.start_at), "End time must be after start time");
 export interface CaregiverClient { id: string; name: string; email: string | null; color: MemberColor; archived: boolean }
 export interface WorkShift { id: string; user_id: string; client_id: string; start_at: string; end_at: string; notes: string | null; version: string; deleted_at: string | null }
-export function workEvents(shifts: WorkShift[], clients: CaregiverClient[]): CalendarEvent[] {
+export function workEvents(shifts: WorkShift[], clients: CaregiverClient[], timezone?: string): CalendarEvent[] {
   return shifts.filter(s => !s.deleted_at).map(s => {
     const client = clients.find(c => c.id === s.client_id);
-    return { id: s.id, family_id: s.user_id, calendar_source_id: null, display_mode: "events", read_only: false,
+    return { id: s.id, family_id: s.user_id, ...(timezone ? { work_timezone: timezone } : {}), calendar_source_id: null, display_mode: "events", read_only: false,
       source_color: client?.color ?? "sky", source_name: client?.name ?? "Family", title: client?.name ?? "Family",
       start_at: s.start_at, end_at: s.end_at, all_day: false, location: null, notes: s.notes, event_type: "work",
       recurrence_rule: null, recurrence_until: null, excluded_dates: [], category_id: s.client_id,

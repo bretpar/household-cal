@@ -4,13 +4,13 @@ import { styleForColor, FALLBACK_MEMBER_STYLE, type Occurrence } from "@/lib/fam
 import type { CategoryRef } from "@/lib/event-categories";
 import { workEvents, type CaregiverClient, type WorkShift } from "./independent-caregiver";
 
-export function CaregiverCalendarStore({ clients, shifts, children, openShift, moveShift }: {
-  clients: CaregiverClient[]; shifts: WorkShift[]; children: ReactNode;
+export function CaregiverCalendarStore({ clients, shifts, timezone, children, openShift, moveShift }: {
+  clients: CaregiverClient[]; shifts: WorkShift[]; timezone: string; children: ReactNode;
   openShift: (shift: WorkShift) => void; moveShift: (shift: WorkShift, draft: EventDraft) => Promise<void>;
 }) {
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const events = workEvents(shifts, clients);
+  const events = workEvents(shifts, clients, timezone);
   const appearance = (ref: CategoryRef) => {
     const id = typeof ref === "string" ? ref : ref?.category_id;
     const client = clients.find(c => c.id === id);
@@ -25,6 +25,7 @@ export function CaregiverCalendarStore({ clients, shifts, children, openShift, m
     return { event_id: shift.id, google_sync: "pending" as const };
   };
   return <CalendarStoreAdapter value={{
+    workTimeZone: timezone,
     loading: false, loadError: false, family: null, role: null, canEdit: true, isOwner: false,
     members: [], memberById: {}, memberStyles: {}, styleFor: () => FALLBACK_MEMBER_STYLE, sources: [], activities: [],
     events, visibleEvents: selectedCategory ? events.filter(e => e.category_id === selectedCategory) : events,

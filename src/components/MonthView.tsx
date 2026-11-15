@@ -22,6 +22,7 @@ import { useLongPress } from "@/hooks/use-long-press";
 
 import {
   expandOccurrences,
+  copyCalendarDate,
   isCoverage,
   occurrenceMatchesFilter,
   occurrenceOccursOnDay,
@@ -64,7 +65,7 @@ export function MonthView({
   selectedDay?: Date;
 }) {
   const { dragProps, dropProps, draggingKey, dialog } = useReschedule();
-  const { categoryAppearanceFor, family } = useCalendar();
+  const { categoryAppearanceFor, family, workTimeZone } = useCalendar();
   /** the household's Babysitter calendar — the only source that tints a day cell */
   const babysitterSourceId = family?.babysitter_calendar_source_id ?? null;
 
@@ -114,7 +115,7 @@ export function MonthView({
 
   /** Month cells only change the day; the event keeps its time of day. */
   const sameTimeOn = (day: Date, occurrence: { start: Date }) => {
-    const next = new Date(day);
+    const next = copyCalendarDate(day);
     next.setHours(occurrence.start.getHours(), occurrence.start.getMinutes(), 0, 0);
     return next;
   };
@@ -184,7 +185,7 @@ export function MonthView({
             (o) => !isCoverage(o.event) && occurrenceMatchesFilter(o, selectedMembers),
           );
           const inMonth = isSameMonth(day, month);
-          const today = isSameDay(day, new Date());
+          const today = isSameDay(day, workTimeZone ? copyCalendarDate(day, Date.now()) : new Date());
           const selected = compact && selectedDay && isSameDay(day, selectedDay);
           const indicators = dayOccurrences.filter(
             (o) => isCoverage(o.event) || occurrenceMatchesFilter(o, selectedMembers),

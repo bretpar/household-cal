@@ -1,5 +1,11 @@
 # Roadmap
 
+## Caregiver focused release hardening
+- [x] Block hard deletion until current-version remote deletions finish; account removal queues durable soft deletions, verifies delivery completion and revokes personal credentials before removing the login. Disconnected/unavailable Google blocks account deletion rather than abandoning remote events.
+- [x] Use TZDate real instants in the saved IANA work zone for entry, calendar day bucketing, drag dates, display and monthly scheduled-hour boundaries; reject nonexistent DST entry times.
+- [x] Serialize caregiver browser mutations at statement start and OAuth/select RPCs before row locks; persist household identity/secrets atomically under the same per-user lock and enforce both-direction connection isolation.
+- [x] Add pre-write checks for lease expiry/version/reconciliation changes. Additive migrations 0052–0055 applied; automatic compilation clean. No QA, browser tests, deployment or record cleanup executed. Device OAuth, concurrency and DST behavior remain for Codex verification; network-in-flight lease expiry cannot be fully fenced at Google.
+
 ## Independent caregiver release blockers
 - [x] Read caregiver settings, web/native consent, root warm/cold callbacks, Today/Month/Week/Day shift editors and moves, client changes, scheduled-hours view, manual/scheduled delivery and database version/enqueue/select/claim/finish/OAuth-save paths. Late disconnect/reconnect-required results now match the credentials that produced them; other paths retain the original rule. No QA, deployment, further migration or settled-record changes.
 - [x] Reconnect atomically requeues every current shift (including soft-deleted shifts) with a separate reconciliation fence; deterministic Google identities and existing delivery leases/shift-version checks remain unchanged.

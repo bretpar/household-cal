@@ -365,6 +365,34 @@
       "when": 1794717031850,
       "tag": "0051_caregiver_google_reconnect_native_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1794717689507,
+      "tag": "0052_caregiver_release_safety",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1794717790928,
+      "tag": "0053_atomic_household_google_credentials",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1794717861677,
+      "tag": "0054_caregiver_connection_transition_lock_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1794717897813,
+      "tag": "0055_verify_caregiver_deletion_versions",
+      "breakpoints": true
     }
   ]
 }

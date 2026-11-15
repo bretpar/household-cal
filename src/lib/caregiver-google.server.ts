@@ -14,6 +14,12 @@ export async function syncCaregiverWork(userId: string, limit = 20) {
     if (claimError) throw new Error(claimError.message);
     const claim = claims?.[0];
     if (!claim?.lease_token) break;
+    const leaseToken = claim.lease_token;
+    const assertLease = async () => {
+      const { data: valid, error: leaseError } = await db.rpc("check_caregiver_google_lease", { _user: userId, _shift: claim.shift_id, _calendar: claim.calendar_id, _lease: leaseToken, _version: claim.version });
+      if (leaseError) throw new Error(leaseError.message);
+      if (!valid) throw new Error("Delivery changed or lease expired; sync remains pending");
+    };
     let failure: string | null = null;
     try {
       const { data: shift, error: shiftError } = await db.from("caregiver_work_shifts").select("*").eq("id", claim.shift_id).eq("user_id", userId).single();
@@ -29,12 +35,13 @@ export async function syncCaregiverWork(userId: string, limit = 20) {
       const properties = (remote?.['extendedProperties'] as { private?: Record<string, string> } | undefined)?.private;
       if (remote && (properties?.['ofc_caregiver_user_id'] !== userId || properties?.['ofc_caregiver_shift_id'] !== shift.id)) throw new Error("Google shift ownership could not be verified");
       if (shift.deleted_at) {
-        if (remote) await deleteEvent(key, claim.calendar_id, remoteId);
+        if (remote) { await assertLease(); await deleteEvent(key, claim.calendar_id, remoteId); }
       } else {
         const body = { summary: client.name, description: shift.notes ?? "", location: "",
           start: { dateTime: shift.start_at, timeZone: workspace.timezone }, end: { dateTime: shift.end_at, timeZone: workspace.timezone },
           extendedProperties: { private: { ofc_caregiver_user_id: userId, ofc_caregiver_shift_id: shift.id, ofc_caregiver_client_id: shift.client_id } } };
         if (!remote) {
+          await assertLease();
           try { await insertEvent(key, claim.calendar_id, { ...body, id: remoteId }); }
           catch (e) { if (!(e instanceof Error) || !/\[409\]/.test(e.message)) throw e; }
           remote = await getEventRaw(key, claim.calendar_id, remoteId);
@@ -42,6 +49,7 @@ export async function syncCaregiverWork(userId: string, limit = 20) {
           if (createdProperties?.['ofc_caregiver_user_id'] !== userId || createdProperties?.['ofc_caregiver_shift_id'] !== shift.id) throw new Error("Google shift ownership could not be verified");
         }
         if (!remoteMatchesDelivery(remote, body, remoteId)) {
+          await assertLease();
           await patchEvent(key, claim.calendar_id, remoteId, body, typeof remote['etag'] === "string" ? remote['etag'] : undefined);
           remote = await getEventRaw(key, claim.calendar_id, remoteId);
         }

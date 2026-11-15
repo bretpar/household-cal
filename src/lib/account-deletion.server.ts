@@ -112,6 +112,7 @@ export function isPlanReady(plans: HouseholdDeletionPlan[]): boolean {
 }
 
 export interface DeleteAccountOptions {
+  cleanupPersonalGoogle?: (userId: string) => Promise<void>;
   /** Reads a household's Google connection key (held in memory only). */
   readGoogleKey?: (familyId: string) => Promise<string | null>;
   /** Revokes a Google connection remotely, given its key. */
@@ -230,6 +231,13 @@ export async function deleteAccount(
   };
 
   const keys: string[] = [];
+  if (options.cleanupPersonalGoogle) {
+    try { await options.cleanupPersonalGoogle(userId); }
+    catch (error) {
+      await unblock("Personal Google cleanup incomplete");
+      throw error;
+    }
+  }
   if (options.readGoogleKey) {
     for (const p of plans) {
       if (p.action.kind !== "delete_household") continue;

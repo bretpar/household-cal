@@ -61,6 +61,8 @@ export interface EventSaveResult {
 
 
 interface CalendarStore {
+  /** Independent work calendars only; household behavior remains device-local. */
+  workTimeZone?: string;
   loading: boolean;
   /** first load failed and no events were ever loaded (not the same as "no events") */
   loadError: boolean;

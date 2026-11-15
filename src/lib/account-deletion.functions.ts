@@ -24,6 +24,10 @@ export const deleteMyAccount = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { deleteAccount } = await import("@/lib/account-deletion.server");
     return deleteAccount(supabaseAdmin as unknown as DeletionDb, context.userId, data, {
+      cleanupPersonalGoogle: async (userId) => {
+        const { cleanupCaregiverGoogleForDeletion } = await import("@/lib/caregiver-account-cleanup.server");
+        await cleanupCaregiverGoogleForDeletion(userId);
+      },
       readGoogleKey: async (familyId) => {
         const { existingConnectionKey } = await import("@/lib/google-settings.server");
         return existingConnectionKey(familyId);

@@ -2540,6 +2540,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_caregiver_google_lease: {
+        Args: {
+          _calendar: string
+          _lease: string
+          _shift: string
+          _user: string
+          _version: string
+        }
+        Returns: boolean
+      }
       check_google_delivery_lease: {
         Args: {
           _family: string
@@ -2690,6 +2700,7 @@ export type Database = {
         Args: { _member_id: string }
         Returns: number
       }
+      lock_caregiver_user: { Args: { _user: string }; Returns: undefined }
       lock_timesheet_household: {
         Args: { _family: string }
         Returns: undefined
@@ -2726,6 +2737,10 @@ export type Database = {
           _start: string
           _work_date: string
         }
+        Returns: undefined
+      }
+      prepare_caregiver_google_deletion: {
+        Args: { _user: string }
         Returns: undefined
       }
       queue_google_event_delivery: {
@@ -2783,6 +2798,15 @@ export type Database = {
           _attempt: string
           _ciphertext: string
           _email: string
+          _user: string
+        }
+        Returns: undefined
+      }
+      save_household_google_credentials: {
+        Args: {
+          _ciphertext: string
+          _email: string
+          _family: string
           _user: string
         }
         Returns: undefined

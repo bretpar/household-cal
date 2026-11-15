@@ -24,6 +24,7 @@ import { useTimeGridDrag } from "@/hooks/use-time-grid-drag";
 
 import {
   expandOccurrences,
+  copyCalendarDate,
   formatTimeRange,
   isChildcare,
   isCoverage,
@@ -100,7 +101,7 @@ export function WeekView({
 
 }) {
 
-  const { openOccurrence, categoryAppearanceFor, sources } = useCalendar();
+  const { openOccurrence, categoryAppearanceFor, sources, workTimeZone } = useCalendar();
   const { dragProps, dropProps, draggingKey, requestMove, dialog } = useReschedule();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
@@ -150,7 +151,7 @@ export function WeekView({
       Math.min(DAY_END * 60 - SNAP_MINUTES, minutesFromTop),
     );
     const snapped = Math.round(total / SNAP_MINUTES) * SNAP_MINUTES;
-    const next = new Date(day);
+    const next = copyCalendarDate(day);
     next.setHours(Math.floor(snapped / 60), snapped % 60, 0, 0);
     return next;
   };
@@ -176,28 +177,29 @@ export function WeekView({
 
   const ghostTimes = ghost
     ? (() => {
-        const start = new Date(ghost.day);
+        const start = copyCalendarDate(ghost.day);
         start.setHours(Math.floor(ghost.startMinutes / 60), ghost.startMinutes % 60, 0, 0);
-        const end = new Date(start.getTime() + ghost.durationMinutes * 60000);
+        const end = copyCalendarDate(start, start.getTime() + ghost.durationMinutes * 60000);
         return { start, end, label: formatTimeRange(start, end, false) };
       })()
     : null;
 
   /** Day-block / all-day chips keep their time of day and only change day. */
   const sameTimeOn = (day: Date, occurrence: Occurrence): Date => {
-    const next = new Date(day);
+    const next = copyCalendarDate(day);
     next.setHours(occurrence.start.getHours(), occurrence.start.getMinutes(), 0, 0);
     return next;
   };
 
-  const [now, setNow] = useState(() => new Date());
+  const currentTime = () => workTimeZone ? copyCalendarDate(anchor, Date.now()) : new Date();
+  const [now, setNow] = useState(currentTime);
 
 
   useEffect(() => {
-    setNow(new Date());
-    const interval = setInterval(() => setNow(new Date()), 60_000);
+    setNow(currentTime());
+    const interval = setInterval(() => setNow(currentTime()), 60_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [workTimeZone, anchor]);
 
   // Position the timeline so the first visible time is ~1 hour before the
   // current local time, clamped to the end of the day (never past 11:59 PM,
@@ -215,11 +217,11 @@ export function WeekView({
     const timelineStart = isNativeApp() && (scaleDays ?? days) === 1 && dayWidth && content
       ? content.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
       : 0;
-    const targetTop = timelineStart + topFor(new Date()) - HOUR_PX;
+    const targetTop = timelineStart + topFor(currentTime()) - HOUR_PX;
     const maxScroll = el.scrollHeight - el.clientHeight;
     el.scrollTo({ top: Math.max(0, Math.min(maxScroll, targetTop)), behavior: "auto" });
     return true;
-  }, [dayWidth, days, scaleDays]);
+  }, [dayWidth, days, scaleDays, workTimeZone, anchor]);
 
   // Initial open / entering this timed view: position before paint; when the
   // timeline is hidden or unmeasured, retry once it gains dimensions.
@@ -334,7 +336,7 @@ export function WeekView({
               <p
                 className={cn(
                   "mx-auto mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-[13px] leading-none font-bold",
-                  isSameDay(day, new Date()) && "bg-primary text-primary-foreground",
+                  isSameDay(day, currentTime()) && "bg-primary text-primary-foreground",
                 )}
               >
                 {format(day, "d")}

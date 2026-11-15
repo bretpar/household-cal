@@ -15,8 +15,15 @@ export const createCaregiverWorkspace = createServerFn({ method: "POST" }).middl
     return { ok: true };
   });
 
+export const getCaregiverWorkTimezone = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase.from("caregiver_workspaces").select("timezone").eq("user_id", context.userId).single();
+    if (error || !data) throw new Error("Could not read your work time zone");
+    return data.timezone;
+  });
+
 export const getCaregiverWorkspace = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ from: z.string().datetime(), to: z.string().datetime() }))
+  .inputValidator(z.object({ from: z.string().datetime({ offset: true }), to: z.string().datetime({ offset: true }) }))
   .handler(async ({ data, context }) => {
     if (Date.parse(data.to) <= Date.parse(data.from) || Date.parse(data.to) - Date.parse(data.from) > 100 * 86400000) throw new Error("Choose a date range of at most 100 days");
     const [workspace, clients, shifts] = await Promise.all([
