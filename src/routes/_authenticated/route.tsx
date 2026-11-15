@@ -48,6 +48,10 @@ function AuthenticatedLayout() {
   // trigger a navigation (e.g. fresh signup -> /onboarding), and without this
   // dependency the layout would stay unready forever after that redirect.
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Provider branch must follow the RENDERED match, not the pending location:
+  // during /onboarding -> /caregiver/* the old page (which uses useCalendar)
+  // stays mounted until the new route resolves.
+  const renderedPath = useRouterState({ select: (s) => (s.resolvedLocation ?? s.location).pathname });
   // Once the guard has passed once, keep the shell (header + bottom nav + page)
   // mounted while re-validating on later tab navigations. Blanking the tree on
   // every pathname change is what made tab switches flash an empty screen.
@@ -202,7 +206,7 @@ function AuthenticatedLayout() {
       : !pathname.startsWith("/onboarding") && !pathname.startsWith("/caregiver") && calState.loading;
   return (
     <>
-      {everReady && !navAccessError && pathname.startsWith("/caregiver") ? <Outlet /> : everReady && !navAccessError ? (
+      {everReady && !navAccessError && renderedPath.startsWith("/caregiver") ? <Outlet /> : everReady && !navAccessError ? (
         <UserPreferencesProvider>
           <CalendarProvider>
             <AppTourProvider>

@@ -327,6 +327,12 @@ function OnboardingPage() {
     }
   };
 
+  // Account type is unknown until the first status load: stay neutral rather
+  // than rendering household step 1 before the Family/Caregiver choice.
+  if (!status.data && !status.isError) {
+    return <div className="min-h-screen bg-background" aria-busy="true" />;
+  }
+
   if (status.data && !status.data.family_id && status.data.had_access && !creatingNew) {
     return (
       <div className="flex min-h-screen items-center bg-background px-4 py-8">
