@@ -54,10 +54,10 @@ export function CaregiverTimesheets({ userId, clients, timezone }: { userId: str
     <div className="flex flex-wrap items-center gap-2">
       <Select value={clientId} onValueChange={setClientId}><SelectTrigger className="w-56" aria-label="Family"><SelectValue placeholder="Choose family" /></SelectTrigger>
         <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}{c.archived ? " (archived)" : ""}</SelectItem>)}</SelectContent></Select>
-      <div className="flex items-center gap-1"><Button size="icon" variant="ghost" aria-label="Previous week" onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeft className="size-4" /></Button>
+      <div className="flex items-center gap-1"><Button size="icon" variant="ghost" aria-label="Previous week" onClick={() => setWeekStart(workDate(addDays(weekStart, -7), timezone))}><ChevronLeft className="size-4" /></Button>
         <h2 className="text-base font-bold">{doc ? rangeLabel(doc) : formatInTimeZone(weekStart, timezone, "MMM d, yyyy")}</h2>
-        <Button size="icon" variant="ghost" aria-label="Next week" onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRight className="size-4" /></Button>
-        <Button size="sm" variant="outline" onClick={() => setWeekStart(startOfWeek(workDate(Date.now(), timezone), { weekStartsOn: 1 }))}>This week</Button></div>
+        <Button size="icon" variant="ghost" aria-label="Next week" onClick={() => setWeekStart(workDate(addDays(weekStart, 7), timezone))}><ChevronRight className="size-4" /></Button>
+        <Button size="sm" variant="outline" onClick={() => setWeekStart(workDate(startOfWeek(workDate(Date.now(), timezone), { weekStartsOn: 1 }), timezone))}>This week</Button></div>
     </div>
     {sheet.isError ? <div role="alert" className="space-y-2"><p className="text-destructive">Could not load this timesheet.</p><Button variant="outline" onClick={() => void sheet.refetch()}>Try again</Button></div>
       : !sheet.data ? <p className="text-muted-foreground">Loading timesheet…</p> : <>
