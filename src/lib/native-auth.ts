@@ -128,6 +128,12 @@ export async function installNativeAuthListener(
 
   const handleCallback = async (url: string | undefined | null): Promise<void> => {
     if (!url || url === lastHandledUrl) return;
+    if (url.startsWith(`${NATIVE_AUTH_SCHEME}://caregiver-google-callback`)) {
+      const { handleCaregiverNativeOAuth } = await import("@/lib/caregiver-google-native");
+      try { await handleCaregiverNativeOAuth(url); }
+      catch (error) { onError(error instanceof Error ? error.message : "Google Calendar did not finish connecting."); }
+      return;
+    }
     const parsed = parseNativeCallback(url);
     if (!parsed) return;
     // Peek without consuming: a callback with the wrong state must not destroy

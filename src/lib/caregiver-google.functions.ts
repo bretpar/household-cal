@@ -21,7 +21,8 @@ export const getCaregiverGoogle = createServerFn({ method: "GET" }).middleware([
       issues: deliveries?.filter(d => d.status === "needs_attention").length ?? 0 };
   });
 export const startCaregiverGoogle = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator(z.object({ challenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/), native: z.boolean() }))
+  .handler(async ({ data, context }) => {
     const { db } = await personalConnection(context.userId);
     // Google grants are per gateway identity: do not reconnect over a household grant.
     const { data: existing, error } = await db.from("google_connections").select("id").eq("connected_by", context.userId).neq("status", "disconnected").limit(1);
@@ -36,23 +37,32 @@ export const startCaregiverGoogle = createServerFn({ method: "POST" }).middlewar
     const origin = host ? `https://${host}` : url.origin;
     const { authorizeAppUserOAuth } = await import("@/integrations/lovable/appUserConnector");
     const { GOOGLE_SCOPES, GATEWAY_BASE_URL } = await import("@/lib/google/api.server");
-    return authorizeAppUserOAuth({ gatewayBaseUrl: GATEWAY_BASE_URL, connectorId: "google_calendar", appUserId: context.userId,
-      clientAPIKey: key, returnUrl: new URL("/oauth/google-calendar/return", origin).toString(), credentialsConfiguration: { scopes: GOOGLE_SCOPES } });
+    const { randomBytes } = await import("node:crypto");
+    const state = randomBytes(32).toString("base64url");
+    const { data: attempt, error: attemptError } = await db.from("caregiver_google_oauth_attempts").insert({ user_id: context.userId, challenge: data.challenge, return_secret: state, mode: data.native ? "native" : "web" }).select("id").single();
+    if (attemptError || !attempt) throw new Error("Could not start Google authorization");
+    const returnUrl = new URL("/api/public/caregiver-google/return", origin);
+    returnUrl.searchParams.set("attempt", attempt.id);
+    returnUrl.searchParams.set("state", state);
+    const auth = await authorizeAppUserOAuth({ gatewayBaseUrl: GATEWAY_BASE_URL, connectorId: "google_calendar", appUserId: context.userId,
+      clientAPIKey: key, returnUrl: returnUrl.toString(), credentialsConfiguration: { scopes: GOOGLE_SCOPES } });
+    return { authorizationUrl: auth.authorizationUrl, attempt: attempt.id, state };
   });
 export const completeCaregiverGoogle = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ code: z.string().min(1).max(4096) })).handler(async ({ data, context }) => {
+  .inputValidator(z.object({ attempt: z.string().uuid(), verifier: z.string().regex(/^[A-Za-z0-9_-]{43}$/) })).handler(async ({ data, context }) => {
     const { db } = await personalConnection(context.userId);
+    const { oauthChallenge } = await import("@/lib/caregiver-google-oauth.server");
+    const { data: storedCode, error: claimError } = await db.rpc("claim_caregiver_google_oauth", { _user: context.userId, _attempt: data.attempt, _challenge: oauthChallenge(data.verifier) });
+    if (claimError || !storedCode) throw new Error(claimError?.message ?? "Google authorization did not match");
     const { exchangeAppUserOAuthCode } = await import("@/integrations/lovable/appUserConnector");
-    const { encryptConnectionKey } = await import("@/lib/google/crypto.server");
+    const { encryptConnectionKey, decryptConnectionKey } = await import("@/lib/google/crypto.server");
     const { GATEWAY_BASE_URL, getAccountEmail } = await import("@/lib/google/api.server");
-    const exchange = await exchangeAppUserOAuthCode(GATEWAY_BASE_URL, data.code);
+    const exchange = await exchangeAppUserOAuthCode(GATEWAY_BASE_URL, decryptConnectionKey(storedCode));
     if (exchange.connectorId !== "google_calendar") throw new Error("Wrong Google connection returned");
-    const { error } = await db.from("caregiver_google_connections").upsert({ user_id: context.userId,
-      connection_key_ciphertext: encryptConnectionKey(exchange.connectionAPIKey), status: "connected", last_error: null, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
-    if (error) throw new Error(error.message);
     const email = await getAccountEmail(exchange.connectionAPIKey);
-    const { error: emailError } = await db.from("caregiver_google_connections").update({ account_email: email }).eq("user_id", context.userId);
-    if (emailError) throw new Error(emailError.message);
+    if (!email) throw new Error("Google account identity could not be verified");
+    const { error } = await db.rpc("save_caregiver_google_oauth", { _user: context.userId, _attempt: data.attempt, _ciphertext: encryptConnectionKey(exchange.connectionAPIKey), _email: email });
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 export const listCaregiverGoogleCalendars = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])

@@ -1,5 +1,10 @@
 # Roadmap
 
+## Independent caregiver release blockers
+- [x] Reconnect atomically requeues every current shift (including soft-deleted shifts) with a separate reconciliation fence; deterministic Google identities and existing delivery leases/shift-version checks remain unchanged.
+- [x] Web popup and native system-browser consent use server-stored single-use attempts and app-held proof; the root iOS listener handles warm/cold returns and verifies the originating caregiver. Save rechecks ownership, household conflict and prior Google account identity.
+- [x] Additive migration 0051 applied and schema confirmed; automatic compilation clean. No QA, browser tests, deployment, or Phase 2 work; native device completion and reconnect delivery await Codex verification.
+
 ## Phase 1 independent caregiver accounts
 - [x] Add independent account onboarding with the existing profile and authentication; preserve family onboarding and invited caregiver access.
 - [x] Add isolated caregiver-owned client contacts and shifts with server authorization and RLS; reuse calendar rendering and native safe-area presentation.

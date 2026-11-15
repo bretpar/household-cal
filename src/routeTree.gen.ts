@@ -44,6 +44,7 @@ import { Route as AuthenticatedCaregiverTimesheetsRouteImport } from './routes/_
 import { Route as AuthenticatedCaregiverTodayRouteImport } from './routes/_authenticated/caregiver.today'
 import { Route as OauthGoogleCalendarReturnRouteImport } from './routes/oauth/google-calendar/return'
 import { Route as ApiPublicAccountDeletionRequeueRouteImport } from './routes/api/public/account-deletion/requeue'
+import { Route as ApiPublicCaregiverGoogleReturnRouteImport } from './routes/api/public/caregiver-google/return'
 import { Route as ApiPublicEmailSummariesDispatchRouteImport } from './routes/api/public/email-summaries/dispatch'
 import { Route as ApiPublicGoogleCalendarManualSyncRouteImport } from './routes/api/public/google-calendar/manual-sync'
 import { Route as ApiPublicGoogleCalendarNotifyRouteImport } from './routes/api/public/google-calendar/notify'
@@ -238,6 +239,12 @@ const ApiPublicAccountDeletionRequeueRoute =
     path: '/api/public/account-deletion/requeue',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCaregiverGoogleReturnRoute =
+  ApiPublicCaregiverGoogleReturnRouteImport.update({
+    id: '/api/public/caregiver-google/return',
+    path: '/api/public/caregiver-google/return',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicEmailSummariesDispatchRoute =
   ApiPublicEmailSummariesDispatchRouteImport.update({
     id: '/api/public/email-summaries/dispatch',
@@ -315,6 +322,7 @@ export interface FileRoutesByFullPath {
   '/caregiver/today': typeof AuthenticatedCaregiverTodayRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
   '/api/public/account-deletion/requeue': typeof ApiPublicAccountDeletionRequeueRoute
+  '/api/public/caregiver-google/return': typeof ApiPublicCaregiverGoogleReturnRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
   '/api/public/google-calendar/manual-sync': typeof ApiPublicGoogleCalendarManualSyncRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
@@ -358,6 +366,7 @@ export interface FileRoutesByTo {
   '/caregiver/today': typeof AuthenticatedCaregiverTodayRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
   '/api/public/account-deletion/requeue': typeof ApiPublicAccountDeletionRequeueRoute
+  '/api/public/caregiver-google/return': typeof ApiPublicCaregiverGoogleReturnRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
   '/api/public/google-calendar/manual-sync': typeof ApiPublicGoogleCalendarManualSyncRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
@@ -403,6 +412,7 @@ export interface FileRoutesById {
   '/_authenticated/caregiver/today': typeof AuthenticatedCaregiverTodayRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
   '/api/public/account-deletion/requeue': typeof ApiPublicAccountDeletionRequeueRoute
+  '/api/public/caregiver-google/return': typeof ApiPublicCaregiverGoogleReturnRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
   '/api/public/google-calendar/manual-sync': typeof ApiPublicGoogleCalendarManualSyncRoute
   '/api/public/google-calendar/notify': typeof ApiPublicGoogleCalendarNotifyRoute
@@ -448,6 +458,7 @@ export interface FileRouteTypes {
     | '/caregiver/today'
     | '/oauth/google-calendar/return'
     | '/api/public/account-deletion/requeue'
+    | '/api/public/caregiver-google/return'
     | '/api/public/email-summaries/dispatch'
     | '/api/public/google-calendar/manual-sync'
     | '/api/public/google-calendar/notify'
@@ -491,6 +502,7 @@ export interface FileRouteTypes {
     | '/caregiver/today'
     | '/oauth/google-calendar/return'
     | '/api/public/account-deletion/requeue'
+    | '/api/public/caregiver-google/return'
     | '/api/public/email-summaries/dispatch'
     | '/api/public/google-calendar/manual-sync'
     | '/api/public/google-calendar/notify'
@@ -535,6 +547,7 @@ export interface FileRouteTypes {
     | '/_authenticated/caregiver/today'
     | '/oauth/google-calendar/return'
     | '/api/public/account-deletion/requeue'
+    | '/api/public/caregiver-google/return'
     | '/api/public/email-summaries/dispatch'
     | '/api/public/google-calendar/manual-sync'
     | '/api/public/google-calendar/notify'
@@ -567,6 +580,7 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   OauthGoogleCalendarReturnRoute: typeof OauthGoogleCalendarReturnRoute
   ApiPublicAccountDeletionRequeueRoute: typeof ApiPublicAccountDeletionRequeueRoute
+  ApiPublicCaregiverGoogleReturnRoute: typeof ApiPublicCaregiverGoogleReturnRoute
   ApiPublicEmailSummariesDispatchRoute: typeof ApiPublicEmailSummariesDispatchRoute
   ApiPublicGoogleCalendarManualSyncRoute: typeof ApiPublicGoogleCalendarManualSyncRoute
   ApiPublicGoogleCalendarNotifyRoute: typeof ApiPublicGoogleCalendarNotifyRoute
@@ -823,6 +837,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAccountDeletionRequeueRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/caregiver-google/return': {
+      id: '/api/public/caregiver-google/return'
+      path: '/api/public/caregiver-google/return'
+      fullPath: '/api/public/caregiver-google/return'
+      preLoaderRoute: typeof ApiPublicCaregiverGoogleReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/email-summaries/dispatch': {
       id: '/api/public/email-summaries/dispatch'
       path: '/api/public/email-summaries/dispatch'
@@ -935,6 +956,7 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   OauthGoogleCalendarReturnRoute: OauthGoogleCalendarReturnRoute,
   ApiPublicAccountDeletionRequeueRoute: ApiPublicAccountDeletionRequeueRoute,
+  ApiPublicCaregiverGoogleReturnRoute: ApiPublicCaregiverGoogleReturnRoute,
   ApiPublicEmailSummariesDispatchRoute: ApiPublicEmailSummariesDispatchRoute,
   ApiPublicGoogleCalendarManualSyncRoute:
     ApiPublicGoogleCalendarManualSyncRoute,

@@ -808,8 +808,10 @@ export type Database = {
           attempts: number
           calendar_id: string
           last_error: string | null
+          lease_reconciliation_version: string | null
           lease_token: string | null
           lease_until: string | null
+          reconciliation_version: string
           shift_id: string
           status: string
           updated_at: string
@@ -820,8 +822,10 @@ export type Database = {
           attempts?: number
           calendar_id: string
           last_error?: string | null
+          lease_reconciliation_version?: string | null
           lease_token?: string | null
           lease_until?: string | null
+          reconciliation_version?: string
           shift_id: string
           status?: string
           updated_at?: string
@@ -832,8 +836,10 @@ export type Database = {
           attempts?: number
           calendar_id?: string
           last_error?: string | null
+          lease_reconciliation_version?: string | null
           lease_token?: string | null
           lease_until?: string | null
+          reconciliation_version?: string
           shift_id?: string
           status?: string
           updated_at?: string
@@ -850,6 +856,47 @@ export type Database = {
           },
           {
             foreignKeyName: "caregiver_google_deliveries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "caregiver_workspaces"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      caregiver_google_oauth_attempts: {
+        Row: {
+          challenge: string
+          code_ciphertext: string | null
+          consumed_at: string | null
+          expires_at: string
+          id: string
+          mode: string
+          return_secret: string
+          user_id: string
+        }
+        Insert: {
+          challenge: string
+          code_ciphertext?: string | null
+          consumed_at?: string | null
+          expires_at?: string
+          id?: string
+          mode: string
+          return_secret: string
+          user_id: string
+        }
+        Update: {
+          challenge?: string
+          code_ciphertext?: string | null
+          consumed_at?: string | null
+          expires_at?: string
+          id?: string
+          mode?: string
+          return_secret?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caregiver_google_oauth_attempts_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "caregiver_workspaces"
@@ -2508,8 +2555,10 @@ export type Database = {
           attempts: number
           calendar_id: string
           last_error: string | null
+          lease_reconciliation_version: string | null
           lease_token: string | null
           lease_until: string | null
+          reconciliation_version: string
           shift_id: string
           status: string
           updated_at: string
@@ -2522,6 +2571,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      claim_caregiver_google_oauth: {
+        Args: { _attempt: string; _challenge: string; _user: string }
+        Returns: string
       }
       claim_google_delivery: {
         Args: {
@@ -2722,6 +2775,15 @@ export type Database = {
           _family: string
           _member: string
           _sheet: string
+        }
+        Returns: undefined
+      }
+      save_caregiver_google_oauth: {
+        Args: {
+          _attempt: string
+          _ciphertext: string
+          _email: string
+          _user: string
         }
         Returns: undefined
       }

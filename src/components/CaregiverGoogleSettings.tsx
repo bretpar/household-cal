@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getCaregiverGoogle, startCaregiverGoogle, completeCaregiverGoogle, listCaregiverGoogleCalendars, selectCaregiverGoogleCalendar, syncCaregiverGoogle, disconnectCaregiverGoogle } from "@/lib/caregiver-google.functions";
 import { waitForOAuth } from "@/components/CalendarSyncSettings";
+import { isNativeApp } from "@/lib/native-auth";
+import { createCaregiverOAuthProof, openCaregiverNativeOAuth } from "@/lib/caregiver-google-native";
 
 export function CaregiverGoogleSettings({ userId }: { userId: string }) {
   const load = useServerFn(getCaregiverGoogle);
@@ -28,16 +30,26 @@ export function CaregiverGoogleSettings({ userId }: { userId: string }) {
     finally { setBusy(false); }
   };
   const connect = () => {
+    if (busy) return;
+    if (isNativeApp()) {
+      void run(async () => {
+        const proof = await createCaregiverOAuthProof();
+        const auth = await start({ data: { challenge: proof.challenge, native: true } });
+        await openCaregiverNativeOAuth({ userId, attempt: auth.attempt, state: auth.state, verifier: proof.verifier }, auth.authorizationUrl);
+      }, "Continue connecting in Google");
+      return;
+    }
     const popup = window.open("", "caregiver-google-oauth", "width=600,height=720");
     if (!popup) { toast.error("Allow popups to connect Google Calendar"); return; }
     void run(async () => {
       try {
-        const { authorizationUrl } = await start();
+        const proof = await createCaregiverOAuthProof();
+        const { authorizationUrl, attempt } = await start({ data: { challenge: proof.challenge, native: false } });
         const pending = waitForOAuth(popup);
         popup.location.href = authorizationUrl;
         const code = await pending;
-        if (!code) throw new Error("Google must allow offline access to sync work shifts");
-        await complete({ data: { code } });
+        if (!code || code !== attempt) throw new Error("Google authorization did not match this attempt");
+        await complete({ data: { attempt, verifier: proof.verifier } });
       } catch (e) { popup.close(); throw e; }
     }, "Google Calendar connected");
   };
@@ -53,7 +65,7 @@ export function CaregiverGoogleSettings({ userId }: { userId: string }) {
       </div>}
       {calendars.isError && <p role="alert" className="text-sm text-destructive">Could not load Google calendars. Reconnect if access has expired.</p>}
       <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy || !connection.calendar_id} onClick={() => void run(() => sync(), "Sync checked")}><RefreshCw className="size-4" />Sync now</Button><Button variant="ghost" disabled={busy} onClick={() => void run(() => disconnect(), "Google disconnected")}><Unlink className="size-4" />Disconnect</Button></div>
-      <p className="text-sm text-muted-foreground">{status.data?.issues ? `${status.data.issues} shifts need sync attention` : status.data?.pending ? `${status.data.pending} shifts pending sync` : connection.calendar_id ? "Synced" : "Not syncing yet"}</p>
+      <p className="text-sm text-muted-foreground">{status.isFetching ? "Checking sync status…" : status.data?.issues ? `${status.data.issues} shifts need sync attention` : status.data?.pending ? `${status.data.pending} shifts pending sync` : connection.calendar_id ? "Synced" : "Not syncing yet"}</p>
     </>}
   </section>;
 }
