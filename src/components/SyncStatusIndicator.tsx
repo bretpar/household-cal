@@ -78,6 +78,15 @@ export function SyncStatusIndicator() {
         : "Google Calendar needs to be reconnected"
       : "Google Calendar is not connected";
 
+  return <SyncStatusControl status={status} detail={detail} accountEmail={connection?.account_email} lastSync={lastSync} connected={Boolean(connection && connected)} syncing={syncing} onSync={() => syncMutation.mutate()} />;
+}
+
+/** Shared presentation; each account type supplies its own authorized action. */
+export function SyncStatusControl({ status, detail, accountEmail, lastSync, connected, syncing, onSync }: {
+  status: { label: string; dot: string; tone: string }; detail: string;
+  accountEmail?: string | null | undefined; lastSync?: string | undefined;
+  connected: boolean; syncing: boolean; onSync: () => void;
+}) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -99,19 +108,19 @@ export function SyncStatusIndicator() {
             {status.label}
           </p>
           <p className="text-xs leading-relaxed text-muted-foreground">{detail}</p>
-          {connection?.account_email ? (
-            <p className="truncate text-xs font-semibold" title={connection.account_email}>
-              {connection.account_email}
+          {accountEmail ? (
+            <p className="truncate text-xs font-semibold" title={accountEmail}>
+              {accountEmail}
             </p>
           ) : null}
           <p className="text-xs text-muted-foreground">{lastSync}</p>
         </div>
-        {connection && connected ? (
+        {connected ? (
           <Button
             type="button"
             size="sm"
             className="w-full rounded-md"
-            onClick={() => syncMutation.mutate()}
+            onClick={onSync}
             disabled={syncing}
           >
             <RefreshCw className={syncing ? "animate-spin" : ""} aria-hidden />

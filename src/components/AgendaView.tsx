@@ -14,6 +14,7 @@ import {
   isChildcare,
   isCoverage,
   occurrenceMatchesFilter,
+  occurrenceOccursOnDay,
   type CalendarEvent,
   type MemberId,
   type Occurrence,
@@ -48,7 +49,7 @@ export function AgendaView({
   return (
     <div className="space-y-6">
       {dayList.map((day) => {
-        const dayOccurrences = occurrences.filter((o) => isSameDay(o.start, day));
+        const dayOccurrences = occurrences.filter((o) => o.event.work_timezone ? occurrenceOccursOnDay(o, day) : isSameDay(o.start, day));
         // Childcare reads as a soft care-coverage strip above the day's events.
         const coverage = dayOccurrences.filter((o) => isCoverage(o.event) || isChildcare(o.event));
         const visible = dayOccurrences.filter(

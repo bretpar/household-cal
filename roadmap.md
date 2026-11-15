@@ -1,5 +1,10 @@
 # Roadmap
 
+## Shared caregiver interface
+- [x] Reuse OFC ShellChrome, three-day AgendaView, MobileMonthView, MonthScrollView, DayStripView and WeekView through the private caregiver adapter; bounded window changes preserve mounted scroll surfaces and verified-account scope.
+- [x] Reuse SyncStatusControl header presentation with personal-only sync actions/status/retry; preserve Settings, calendar selection and scheduled-hours behavior. No server logic or schema changes.
+- [x] Automatic compilation clean; no QA, tests, browser verification or deployment. Codex owns responsive/gesture verification; personal sync remains outbound-only and uses existing pending/issue status rather than household last-sync metadata.
+
 ## Caregiver onboarding and Google destinations
 - [x] Add resumable contact/optional Google setup, with skip and Today completion; existing workspaces remain completed.
 - [x] Reuse Google creation and add durable, ownership-checked destination cleanup/reconciliation with existing delivery leases and credential-fenced selection. Additive migrations 0057–0059 applied; no existing shifts changed.

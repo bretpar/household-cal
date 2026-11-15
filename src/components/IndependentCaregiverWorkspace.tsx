@@ -1,37 +1,35 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, Navigate } from "@tanstack/react-router";
+import { Navigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { addDays, addMonths, endOfMonth, endOfWeek, format, startOfDay, startOfMonth, startOfWeek } from "date-fns";
-import { CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Home, Pencil, Plus, Settings, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import logo from "@/assets/logo.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MonthView } from "@/components/MonthView";
+import { AgendaView } from "@/components/AgendaView";
+import { IndependentCaregiverShell } from "@/components/AppShell";
+import { CaregiverSyncStatusIndicator } from "@/components/CaregiverSyncStatusIndicator";
+import { MobileMonthView } from "@/components/MobileMonthView";
+import { MonthScrollView, type MonthScrollHandle } from "@/components/MonthScrollView";
+import { DayStripView } from "@/components/DayStripView";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { WeekView } from "@/components/WeekView";
-import { EventCard } from "@/components/EventCard";
 import { AccountDeletion } from "@/components/AccountDeletion";
 import { SignOutButton } from "@/components/SignOutButton";
 import { CaregiverGoogleSettings } from "./CaregiverGoogleSettings";
 import { CaregiverCalendarStore } from "@/lib/caregiver-calendar-store";
 import { getCaregiverWorkTimezone, getCaregiverWorkspace, saveCaregiverShift, deleteCaregiverShift, saveCaregiverClient, archiveCaregiverClient } from "@/lib/independent-caregiver.functions";
 import { scheduledHours, workEvents, type CaregiverClient, type WorkShift } from "@/lib/independent-caregiver";
-import { MEMBER_COLORS, expandOccurrences, styleForColor } from "@/lib/family-data";
+import { MEMBER_COLORS, styleForColor } from "@/lib/family-data";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { workDate, workInput, workInputInstant, workInputInstants, workDateInput, workOffset } from "@/lib/caregiver-timezone";
 
-const NAV = [
-  { to: "/caregiver/today", label: "Today", icon: Home },
-  { to: "/caregiver/calendar", label: "Calendar", icon: CalendarDays },
-  { to: "/caregiver/timesheets", label: "Timesheets", icon: ClipboardList },
-  { to: "/caregiver/settings", label: "Settings", icon: Settings },
-] as const;
 export type CaregiverTab = "today" | "calendar" | "timesheets" | "settings";
 type ShiftForm = { original: WorkShift | null; client_id: string; start: string; end: string; notes: string; startOccurrence?: string | undefined; endOccurrence?: string | undefined };
 
@@ -44,6 +42,11 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
   const saveClient = useServerFn(saveCaregiverClient);
   const archiveClient = useServerFn(archiveCaregiverClient);
   const [selectedAnchor, setAnchor] = useState<Date | null>(null);
+  const [visibleMonth, setVisibleMonth] = useState<Date | null>(null);
+  const monthScroll = useRef<MonthScrollHandle>(null);
+  const isMobile = useIsMobile();
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => { const id = window.setInterval(() => setClock(Date.now()), 60000); return () => window.clearInterval(id); }, []);
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [shiftForm, setShiftForm] = useState<ShiftForm | null>(null);
   const [clientForm, setClientForm] = useState<{ id?: string; name: string; email: string; color: CaregiverClient["color"] } | null>(null);
@@ -58,11 +61,14 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
   useEffect(() => { if (zone.data) setAnchor(current => current ? workDate(current, zone.data) : workDate(Date.now(), zone.data)); }, [zone.data]);
   const timezone = zone.data;
   const anchor = selectedAnchor ?? new Date(0);
-  const rangeAnchor = tab === "today" && timezone ? workDate(Date.now(), timezone) : anchor;
-  const from = startOfWeek(startOfMonth(rangeAnchor));
-  const to = tab === "today" ? addDays(startOfDay(rangeAnchor), 60) : addDays(endOfWeek(endOfMonth(rangeAnchor)), 1);
+  const rangeAnchor = tab === "today" && timezone ? workDate(clock, timezone) : tab === "calendar" && view === "month" && !isMobile ? visibleMonth ?? anchor : anchor;
+  const from = tab === "today" ? startOfDay(rangeAnchor) : tab === "calendar" ? addDays(startOfWeek(startOfMonth(rangeAnchor)), -28) : startOfWeek(startOfMonth(rangeAnchor));
+  const to = tab === "today" ? addDays(from, 3) : addDays(endOfWeek(endOfMonth(rangeAnchor)), tab === "calendar" ? 29 : 1);
   const workspace = useQuery({ queryKey: ["caregiver-work", identity.data, from.toISOString(), to.toISOString()],
-    queryFn: () => load({ data: { from: from.toISOString(), to: to.toISOString() } }), enabled: Boolean(identity.data && timezone && selectedAnchor) });
+    queryFn: () => load({ data: { from: from.toISOString(), to: to.toISOString() } }), enabled: Boolean(identity.data && timezone && selectedAnchor),
+    // Keep the scroller/editor mounted while its bounded window advances, but
+    // never carry another account's cached rows into the next identity.
+    placeholderData: (previous, previousQuery) => previousQuery?.queryKey[1] === identity.data ? previous : undefined });
   const clients = (workspace.data?.clients ?? []) as CaregiverClient[];
   const shifts = workspace.data?.shifts ?? [];
   const activeClients = clients.filter(c => !c.archived);
@@ -88,10 +94,15 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
     finally { submission.current = false; setBusy(false); }
   };
   const events = workEvents(shifts, clients, timezone);
-  const today = startOfDay(timezone ? workDate(Date.now(), timezone) : new Date(0));
+  const today = startOfDay(timezone ? workDate(clock, timezone) : new Date(0));
   const monthStart = startOfMonth(anchor), monthEnd = addMonths(monthStart, 1);
   const total = scheduledHours(shifts, monthStart, monthEnd);
-  const upcoming = expandOccurrences(events, today, to).filter(o => o.end > new Date());
+  const calendarStep = (direction: 1 | -1) => {
+    const next = view === "month" ? addMonths(visibleMonth ?? anchor, direction) : addDays(anchor, direction * (view === "week" && !isMobile ? 7 : view === "week" ? 3 : 1));
+    if (view === "month" && !isMobile) { setVisibleMonth(next); monthScroll.current?.scrollToMonth(next); }
+    else { setAnchor(next); setVisibleMonth(null); }
+  };
+  const goToday = () => { setAnchor(today); setVisibleMonth(null); if (view === "month" && !isMobile) monthScroll.current?.scrollToMonth(today); };
   const formatHours = (hours: number) => `${Number(hours.toFixed(2))} hours`;
   const repeatedTimeControl = (field: "start" | "end") => {
     if (!shiftForm || !timezone) return null;
@@ -108,36 +119,33 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
     </Select>;
   };
   if (workspace.data?.workspace.onboarding_finished_at === null) return <Navigate to="/caregiver/onboarding" replace />;
-  return <div className="app-shell min-h-dvh bg-background">
-    <header className="app-shell-header sticky top-0 z-30 border-b border-border-soft bg-surface">
-      <div className="app-shell-header-inner mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-        <Link to="/caregiver/today" className="flex min-w-0 items-center gap-2"><img src={logo.url} alt="" className="size-8" /><span className="truncate font-display text-lg font-bold">Our Family Calendar</span></Link>
-        <nav aria-label="Work navigation" className="hidden gap-1 md:flex">{NAV.map(n => <Button key={n.to} variant={tab === n.to.split("/").at(-1) ? "secondary" : "ghost"} asChild><Link to={n.to}><n.icon className="size-4" />{n.label}</Link></Button>)}</nav>
-      </div>
-    </header>
-    <main className="app-shell-main mx-auto max-w-6xl space-y-5 px-3 pt-5 pb-[calc(7rem+env(safe-area-inset-bottom))] md:px-6">
-      <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="font-display text-2xl font-bold">{tab === "today" ? "My work today" : tab === "calendar" ? "My work calendar" : tab === "timesheets" ? "Scheduled hours" : "My settings"}</h1>
+  return <IndependentCaregiverShell fitViewport={tab === "calendar"} syncControl={identity.data ? <CaregiverSyncStatusIndicator userId={identity.data} /> : null}>
+    <div className={cn("space-y-3", tab === "calendar" && "flex min-h-0 flex-1 flex-col md:h-[calc(100dvh-9rem)]")}>
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3"><div>{tab === "today" && <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{format(today, "EEEE")}</p>}<h1 className="text-2xl font-bold sm:text-3xl">{tab === "today" ? format(today, "MMMM d") : tab === "calendar" ? "My work calendar" : tab === "timesheets" ? "Scheduled hours" : "My settings"}</h1></div>
         {tab !== "settings" && <Button disabled={busy || !workspace.data} onClick={() => newShift()}><Plus className="size-4" />Add shift</Button>}
-      </div>
+      </header>
       {identity.isError || workspace.isError || zone.isError ? <div role="alert" className="space-y-3"><p className="text-destructive">Could not load your private work calendar.</p><Button variant="outline" onClick={() => { void identity.refetch(); void zone.refetch(); void workspace.refetch(); }}>Try again</Button></div> : !workspace.data || !identity.data || !timezone ? <p className="text-muted-foreground">Loading your work calendar…</p> : <CaregiverCalendarStore clients={clients} shifts={shifts} timezone={timezone} openShift={openShift}
         moveShift={async (shift, draft) => {
           await saveShift({ data: { id: shift.id, version: shift.version, client_id: shift.client_id, start_at: draft.start_at, end_at: draft.end_at, notes: shift.notes } });
           await workspace.refetch();
         }}>
         {tab === "today" && <>
-          <p className="text-muted-foreground">{format(today, "EEEE, MMMM d")} · {formatHours(scheduledHours(shifts, today, addDays(today, 1)))} scheduled today</p>
-          <h2 className="text-lg font-bold">Upcoming shifts</h2>
-          <div className="grid gap-3 sm:grid-cols-2">{upcoming.slice(0, 12).map(o => <EventCard key={o.key} occurrence={o} showDate={format(o.start, "EEE, MMM d")} />)}</div>
-          {!upcoming.length && <p className="text-muted-foreground">No upcoming shifts this month.</p>}
+          <p role="status" className="h-4 truncate text-xs leading-4 text-muted-foreground">{workspace.isFetching ? "Updating…" : null}</p>
+          <AgendaView anchor={today} events={events} selectedMembers={[]} days={3} />
         </>}
         {(tab === "calendar" || tab === "timesheets") && <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2"><Button size="icon" variant="ghost" aria-label="Previous month" onClick={() => setAnchor(addMonths(anchor, -1))}><ChevronLeft className="size-4" /></Button><h2 className="text-lg font-bold">{format(anchor, "MMMM yyyy")}</h2><Button size="icon" variant="ghost" aria-label="Next month" onClick={() => setAnchor(addMonths(anchor, 1))}><ChevronRight className="size-4" /></Button><Button variant="outline" size="sm" onClick={() => timezone && setAnchor(workDate(Date.now(), timezone))}>Today</Button></div>
-          {tab === "calendar" && <div role="group" aria-label="Calendar view" className="flex gap-1">{(["month", "week", "day"] as const).map(v => <Button key={v} variant={view === v ? "secondary" : "ghost"} size="sm" onClick={() => setView(v)}>{v[0]?.toUpperCase()}{v.slice(1)}</Button>)}</div>}
+          <div className="flex min-w-0 items-center gap-1 sm:gap-2"><Button size="icon" variant="ghost" aria-label="Previous period" onClick={() => tab === "timesheets" ? setAnchor(addMonths(anchor, -1)) : calendarStep(-1)}><ChevronLeft className="size-4" /></Button><h2 className="min-w-0 text-base font-bold sm:text-lg">{format(tab === "calendar" && view === "month" ? visibleMonth ?? anchor : anchor, tab === "calendar" && view !== "month" ? "MMM d, yyyy" : "MMMM yyyy")}</h2><Button size="icon" variant="ghost" aria-label="Next period" onClick={() => tab === "timesheets" ? setAnchor(addMonths(anchor, 1)) : calendarStep(1)}><ChevronRight className="size-4" /></Button><Button variant="outline" size="sm" onClick={goToday}>Today</Button></div>
+          {tab === "calendar" && <div role="group" aria-label="Calendar view" className="flex gap-1">{(["month", "week", "day"] as const).map(v => <Button key={v} variant={view === v ? "secondary" : "ghost"} size="sm" onClick={() => { if (visibleMonth) setAnchor(visibleMonth); setVisibleMonth(null); setView(v); }}>{v[0]?.toUpperCase()}{v.slice(1)}</Button>)}</div>}
         </div>}
         {tab === "calendar" && <>
           <div className="flex flex-wrap gap-3">{activeClients.map(c => <span key={c.id} className="flex items-center gap-1.5 text-xs"><span className={cn("size-2 rounded-full", styleForColor(c.color).dot)} />{c.name}</span>)}</div>
-          {view === "month" ? <MonthView month={anchor} events={events} selectedMembers={[]} onSelectDay={day => { setAnchor(day); setView("day"); }} onCreateAt={day => newShift(day)} /> : <WeekView anchor={view === "week" ? startOfWeek(anchor, { weekStartsOn: 1 }) : anchor} events={events} selectedMembers={[]} days={view === "day" ? 1 : 7} onCreateRange={(start, end) => newShift(start, end)} />}
-          <div className="grid gap-2 sm:grid-cols-2">{expandOccurrences(events, startOfDay(anchor), addDays(startOfDay(anchor), 1)).map(o => <EventCard key={o.key} occurrence={o} />)}</div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border-soft bg-surface">
+            {view === "month" ? isMobile
+              ? <MobileMonthView selectedDay={anchor} events={events} selectedMembers={[]} onSelectDay={setAnchor} onNavigate={calendarStep} onCreateAt={day => newShift(day)} weekStartsOn={1} loading={workspace.isFetching} loadError={workspace.isError} />
+              : <MonthScrollView ref={monthScroll} anchor={anchor} events={events} selectedMembers={[]} onVisibleMonthChange={setVisibleMonth} onSwipeMonth={calendarStep} onSelectDay={day => { setAnchor(day); setVisibleMonth(null); setView("day"); }} onCreateAt={day => newShift(day)} />
+              : isMobile ? <DayStripView key={view} anchor={anchor} onAnchorChange={setAnchor} visibleDays={view === "week" ? 3 : 1} events={events} selectedMembers={[]} onCreateRange={(start, end) => newShift(start, end)} isBlocked={() => Boolean(shiftForm)} />
+              : <WeekView anchor={view === "week" ? startOfWeek(anchor, { weekStartsOn: 1 }) : anchor} events={events} selectedMembers={[]} days={view === "day" ? 1 : 7} bare fill onCreateRange={(start, end) => newShift(start, end)} />}
+          </div>
         </>}
         {tab === "timesheets" && <section className="space-y-3">
           <p className="text-2xl font-bold">{formatHours(total)} scheduled</p>
@@ -152,8 +160,7 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
           <section className="space-y-3 border-t border-border-soft pt-5"><h2 className="text-lg font-bold">Account</h2><p className="text-sm text-muted-foreground">Work time zone: {workspace.data.workspace.timezone}</p><SignOutButton /><AccountDeletion /></section>
         </div>}
       </CaregiverCalendarStore>}
-    </main>
-    <nav aria-label="Work navigation" className="app-shell-bottom-nav fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-30 mx-auto grid max-w-lg grid-cols-4 rounded-3xl border border-border-soft bg-surface p-1.5 shadow-lifted md:hidden">{NAV.map(n => <Button key={n.to} variant={tab === n.to.split("/").at(-1) ? "secondary" : "ghost"} className="h-14 min-w-0 flex-col gap-1 px-1 text-[11px]" asChild><Link to={n.to}><n.icon className="size-5" />{n.label}</Link></Button>)}</nav>
+    </div>
     <Dialog open={Boolean(shiftForm)} onOpenChange={open => { if (!open && !busy) setShiftForm(null); }}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-md"><DialogHeader><DialogTitle>{shiftForm?.original ? "Edit work shift" : "New work shift"}</DialogTitle><DialogDescription>{shiftForm?.original ? "Update this family’s scheduled shift." : "Schedule work for one family."}</DialogDescription></DialogHeader>
       {shiftForm && <form className="space-y-4" onSubmit={e => { e.preventDefault(); void run(() => {
         if (!timezone) throw new Error("Your work time zone is not available.");
@@ -181,5 +188,5 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
         <Button type="submit" disabled={busy} className="w-full">{busy ? "Saving…" : "Save family"}</Button>
       </form>}
     </DialogContent></Dialog>
-  </div>;
+  </IndependentCaregiverShell>;
 }

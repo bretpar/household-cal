@@ -40,6 +40,24 @@ const CAREGIVER_NAV = [
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
+const INDEPENDENT_NAV = [
+  { to: "/caregiver/today", label: "Today", icon: Home },
+  { to: "/caregiver/calendar", label: "Calendar", icon: CalendarDays },
+  { to: "/caregiver/timesheets", label: "Timesheets", icon: ClipboardList },
+  { to: "/caregiver/settings", label: "Settings", icon: Settings },
+] as const;
+
+/** Same OFC frame without mounting household hooks or sync for private accounts. */
+export function IndependentCaregiverShell({ children, syncControl, fitViewport = false }: {
+  children: ReactNode; syncControl: ReactNode; fitViewport?: boolean;
+}) {
+  const pathname = useRouterState({ select: s => s.location.pathname });
+  return <ShellChrome active fitViewport={fitViewport} compactMobileLandscape={false} lockChrome={false}
+    nav={INDEPENDENT_NAV} home="/caregiver/today" syncControl={syncControl} pathname={pathname}
+    caregiverResolved accessFailed={false} retryAccess={() => {}} pendingReview={0}
+    badgeTo="/caregiver/timesheets" isCaregiver>{children}</ShellChrome>;
+}
+
 type ShellOptions = { fitViewport: boolean; compactMobileLandscape: boolean; lockChrome: boolean };
 type ShellRegistry = { register: (id: object, o: ShellOptions) => void; unregister: (id: object) => void };
 const ShellContext = createContext<ShellRegistry | null>(null);
@@ -165,6 +183,20 @@ function ShellFrame({
   const myActions = useMyTimesheetActionCount(isCaregiver && timesheetsActive);
   const badgeTo = isCaregiver ? "/timesheet" : "/activities";
   const pendingReview = isCaregiver ? myActions : ownerPending;
+  return <ShellChrome active={active} fitViewport={fitViewport} compactMobileLandscape={compactMobileLandscape}
+    lockChrome={lockChrome} nav={nav} home="/today" syncControl={<SyncStatusIndicator />} pathname={pathname}
+    caregiverResolved={caregiverResolved} accessFailed={accessFailed} retryAccess={retryAccess}
+    pendingReview={pendingReview} badgeTo={badgeTo} isCaregiver={isCaregiver}>{children}</ShellChrome>;
+}
+
+function ShellChrome({ children, active, fitViewport, compactMobileLandscape, lockChrome, nav, home, syncControl,
+  pathname, caregiverResolved, accessFailed, retryAccess, pendingReview, badgeTo, isCaregiver }: {
+  children: ReactNode; active: boolean; fitViewport: boolean; compactMobileLandscape: boolean; lockChrome: boolean;
+  nav: readonly { to: (typeof NAV)[number]["to"] | (typeof CAREGIVER_NAV)[number]["to"] | (typeof INDEPENDENT_NAV)[number]["to"]; label: string; icon: typeof Home }[];
+  home: "/today" | "/caregiver/today"; syncControl: ReactNode; pathname: string;
+  caregiverResolved: boolean; accessFailed: boolean; retryAccess: () => void;
+  pendingReview: number; badgeTo: string; isCaregiver: boolean;
+}) {
   const badgeFor = (to: string) =>
     to === badgeTo && pendingReview > 0 ? (
       <span
@@ -219,7 +251,7 @@ function ShellFrame({
       {active && <header className="app-shell-header sticky top-0 z-30 shrink-0 border-b border-border-soft bg-surface/90 backdrop-blur">
         <div className="app-shell-header-inner mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:px-8">
 
-          <Link to="/today" className="flex min-w-0 items-center gap-2">
+          <Link to={home} className="flex min-w-0 items-center gap-2">
             <img
               src={logoAsset.url}
               alt="Our Family Calendar logo"
@@ -230,7 +262,7 @@ function ShellFrame({
             </span>
           </Link>
           <div className="flex items-center gap-1">
-            <SyncStatusIndicator />
+            {syncControl}
             <nav className="hidden items-center gap-1 md:flex">
               {nav.map(({ to, label, icon: Icon }) => (
                 <Link
