@@ -85,8 +85,12 @@ function AuthenticatedLayout() {
         // outside it (e.g. /login) unmount this layout, so everReady is
         // irrelevant there and stays false.
         if (result.redirectTo !== pathname) {
-          if (result.redirectTo.startsWith("/onboarding") || result.redirectTo.startsWith("/caregiver")) setEverReady(true);
-          navigate({ to: result.redirectTo, replace: true });
+          // Mount only after arriving: marking ready first rendered the
+          // household shell for the old path (e.g. /today) for a frame.
+          const target = result.redirectTo;
+          void navigate({ to: target, replace: true }).then(() => {
+            if ((target.startsWith("/onboarding") || target.startsWith("/caregiver"))) setEverReady(true);
+          });
         }
         return;
       }

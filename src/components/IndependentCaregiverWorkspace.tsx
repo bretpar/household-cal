@@ -119,6 +119,8 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
     </Select>;
   };
   if (workspace.data?.workspace.onboarding_finished_at === null) return <Navigate to="/caregiver/onboarding" replace />;
+  // Setup state decides the destination: keep the startup screen until known.
+  if (!workspace.data && !workspace.isError && !identity.isError && !zone.isError) return <div className="min-h-dvh bg-background" aria-busy="true" />;
   return <IndependentCaregiverShell fitViewport={tab === "calendar"} syncControl={identity.data ? <CaregiverSyncStatusIndicator userId={identity.data} /> : null}>
     <div className={cn("space-y-3", tab === "calendar" && "flex min-h-0 flex-1 flex-col md:h-[calc(100dvh-9rem)]")}>
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3"><div>{tab === "today" && <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{format(today, "EEEE")}</p>}<h1 className="text-2xl font-bold sm:text-3xl">{tab === "today" ? format(today, "MMMM d") : tab === "calendar" ? "My work calendar" : tab === "timesheets" ? "Scheduled hours" : "My settings"}</h1></div>
