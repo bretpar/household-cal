@@ -159,7 +159,7 @@ export function MonthView({
             days
               .slice(dayIndex, dayIndex + 7)
               .some((d) => d.getDate() === 1 && isSameMonth(d, month));
-          const dayOccurrences = occurrences.filter((o) => compact
+          const dayOccurrences = occurrences.filter((o) => compact || o.event.work_timezone
             ? occurrenceOccursOnDay(o, day)
             : isSameDay(o.start, day));
           const coverage = dayOccurrences.filter((o) => isCoverage(o.event));

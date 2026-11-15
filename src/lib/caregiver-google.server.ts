@@ -40,6 +40,15 @@ export async function syncCaregiverWork(userId: string, limit = 20) {
         const body = { summary: client.name, description: shift.notes ?? "", location: "",
           start: { dateTime: shift.start_at, timeZone: workspace.timezone }, end: { dateTime: shift.end_at, timeZone: workspace.timezone },
           extendedProperties: { private: { ofc_caregiver_user_id: userId, ofc_caregiver_shift_id: shift.id, ofc_caregiver_client_id: shift.client_id } } };
+        // Personal shifts have exact UTC instants; equal repeated-hour wall times
+        // are not sufficient proof that Google retained their duration.
+        const matchesShift = (candidate: Record<string, unknown>) => {
+          const start = candidate['start'] as { dateTime?: string } | undefined;
+          const end = candidate['end'] as { dateTime?: string } | undefined;
+          return remoteMatchesDelivery(candidate, body, remoteId) &&
+            Date.parse(start?.dateTime ?? "") === Date.parse(shift.start_at) &&
+            Date.parse(end?.dateTime ?? "") === Date.parse(shift.end_at);
+        };
         if (!remote) {
           await assertLease();
           try { await insertEvent(key, claim.calendar_id, { ...body, id: remoteId }); }
@@ -48,12 +57,12 @@ export async function syncCaregiverWork(userId: string, limit = 20) {
           const createdProperties = (remote['extendedProperties'] as { private?: Record<string, string> } | undefined)?.private;
           if (createdProperties?.['ofc_caregiver_user_id'] !== userId || createdProperties?.['ofc_caregiver_shift_id'] !== shift.id) throw new Error("Google shift ownership could not be verified");
         }
-        if (!remoteMatchesDelivery(remote, body, remoteId)) {
+        if (!matchesShift(remote)) {
           await assertLease();
           await patchEvent(key, claim.calendar_id, remoteId, body, typeof remote['etag'] === "string" ? remote['etag'] : undefined);
           remote = await getEventRaw(key, claim.calendar_id, remoteId);
         }
-        if (!remoteMatchesDelivery(remote, body, remoteId)) throw new Error("Google work shift was not verified after save");
+        if (!matchesShift(remote)) throw new Error("Google work shift was not verified after save");
       }
     } catch (e) {
       failure = e instanceof Error ? e.message : "Google work shift could not sync";

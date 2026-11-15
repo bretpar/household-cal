@@ -72,8 +72,10 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
     if (!timezone) return;
     const a = workDate(start ?? Date.now(), timezone);
     if (!end) a.setHours(9, 0, 0, 0);
+    const b = workDate(end ?? a.getTime() + 4 * 3600000, timezone);
     setShiftForm({ original: null, client_id: activeClients[0]?.id ?? "", start: workDateInput(a),
-      end: workDateInput(workDate(end ?? a.getTime() + 4 * 3600000, timezone)), notes: "" });
+      end: workDateInput(b), notes: "",
+      startOccurrence: a.toISOString(), endOccurrence: b.toISOString() });
   };
   const run = async (action: () => Promise<unknown>, message: string, close?: () => void) => {
     if (submission.current) return;
