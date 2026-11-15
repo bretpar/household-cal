@@ -23,6 +23,7 @@ export function CaregiverSyncStatusIndicator({ userId }: { userId: string }) {
     : pending || !connected ? { label: "Needs sync", dot: "bg-warning", tone: "text-warning-foreground" }
     : { label: "Synced", dot: "bg-success", tone: "text-foreground" };
   const detail = connection.status === "reconnect_required" ? "Reconnect your Google Calendar in Settings."
+    : mutation.isError ? "Couldn’t sync your work calendar. Try again."
     : statusQuery.isError ? "Could not check sync status. Try again."
     : statusQuery.data?.issues ? `${statusQuery.data.issues} work shifts need attention. Sync now to retry.`
     : statusQuery.data?.moving ? "Moving calendars. Previous-calendar cleanup is still pending."
