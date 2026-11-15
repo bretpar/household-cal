@@ -1,0 +1,12 @@
+CREATE OR REPLACE FUNCTION public.guard_caregiver_hard_delete() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+BEGIN
+ IF auth.uid() IS NOT NULL THEN RAISE EXCEPTION 'Use soft deletion for shifts and the account deletion flow for workspaces'; END IF;
+ IF TG_TABLE_NAME='caregiver_workspaces' THEN
+  IF EXISTS (SELECT 1 FROM public.caregiver_google_connections WHERE user_id=OLD.user_id AND calendar_id IS NOT NULL) THEN
+   IF EXISTS (SELECT 1 FROM public.caregiver_work_shifts s JOIN public.caregiver_google_connections c ON c.user_id=s.user_id LEFT JOIN public.caregiver_google_deliveries d ON d.shift_id=s.id AND d.calendar_id=c.calendar_id WHERE s.user_id=OLD.user_id AND (s.deleted_at IS NULL OR d.shift_id IS NULL OR d.version<>s.version OR d.status<>'synced' OR d.lease_until>now())) OR EXISTS (SELECT 1 FROM public.caregiver_google_connections WHERE user_id=OLD.user_id AND status<>'disconnected') THEN RAISE EXCEPTION 'Finish personal Google cleanup before deleting this account'; END IF;
+  END IF;
+ ELSIF TG_TABLE_NAME='caregiver_work_shifts' THEN
+  IF EXISTS (SELECT 1 FROM public.caregiver_google_connections c LEFT JOIN public.caregiver_google_deliveries d ON d.shift_id=(to_jsonb(OLD)->>'id')::uuid AND d.calendar_id=c.calendar_id WHERE c.user_id=OLD.user_id AND c.calendar_id IS NOT NULL AND ((to_jsonb(OLD)->>'deleted_at') IS NULL OR d.shift_id IS NULL OR d.version<>(to_jsonb(OLD)->>'version')::uuid OR d.status<>'synced' OR d.lease_until>now())) THEN RAISE EXCEPTION 'Finish Google deletion before removing shift history'; END IF;
+ END IF;
+ RETURN OLD;
+END $$;

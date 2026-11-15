@@ -20,7 +20,7 @@ export type DeletionDb = {
   auth: {
     admin: {
       updateUserById: (id: string, attrs: { ban_duration: string }) => Promise<{ error: any }>;
-      getUserById: (id: string) => Promise<{ data: { user: { email?: string | null } | null } }>;
+      getUserById: (id: string) => Promise<{ data: { user: { email?: string | null; banned_until?: string | null } | null }; error?: any }>;
       deleteUser: (id: string) => Promise<{ error: any }>;
     };
   };
@@ -166,8 +166,20 @@ export async function recoverStalePendingDeletions(
     .eq("sign_in_restored", false);
   if (onlyUserId) rq = rq.eq("user_id", onlyUserId);
   const pendingRestore = await rq.limit(20);
+  const restoreIds = ((pendingRestore.data ?? []) as { user_id: string }[]).map((j) => j.user_id);
+  // Older runs could record sign_in_restored=true after a failed unban; only
+  // the targeted check (onlyUserId) re-verifies those against Auth.
+  if (onlyUserId && !restoreIds.includes(onlyUserId)) {
+    const done = await db.from("account_deletion_jobs").select("user_id")
+      .eq("user_id", onlyUserId).eq("status", "rolled_back").eq("sign_in_restored", true).maybeSingle();
+    if (done.data) {
+      const u = await db.auth.admin.getUserById(onlyUserId);
+      const until = u.data?.user?.banned_until;
+      if (until && new Date(until).getTime() > Date.now()) restoreIds.push(onlyUserId);
+    }
+  }
   let restored = 0;
-  for (const job of (pendingRestore.data ?? []) as { user_id: string }[]) {
+  for (const job of restoreIds.map((user_id) => ({ user_id }))) {
     const un = await db.auth.admin.updateUserById(job.user_id, { ban_duration: "none" });
     if (un.error && !isUserNotFound(un.error)) continue;
     await db
@@ -226,8 +238,10 @@ export async function deleteAccount(
   if (ban.error) throw new Error(`block sign-in: ${ban.error.message ?? ban.error}`);
 
   const unblock = async (reason: string) => {
-    await db.auth.admin.updateUserById(userId, { ban_duration: "none" });
-    await setJob(db, userId, { status: "rolled_back", last_error: sanitize(reason) });
+    // Record restoration only when Auth confirmed it; otherwise the recovery
+    // worker retries the unban (no data cleanup is repeated for rolled_back).
+    const un = await db.auth.admin.updateUserById(userId, { ban_duration: "none" }).catch((e) => ({ error: e }));
+    await setJob(db, userId, { status: "rolled_back", last_error: sanitize(reason), sign_in_restored: !un.error });
   };
 
   const keys: string[] = [];
