@@ -33,7 +33,7 @@ const NAV = [
   { to: "/caregiver/settings", label: "Settings", icon: Settings },
 ] as const;
 export type CaregiverTab = "today" | "calendar" | "timesheets" | "settings";
-type ShiftForm = { original: WorkShift | null; client_id: string; start: string; end: string; notes: string; startOccurrence?: string; endOccurrence?: string };
+type ShiftForm = { original: WorkShift | null; client_id: string; start: string; end: string; notes: string; startOccurrence?: string | undefined; endOccurrence?: string | undefined };
 
 
 export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
