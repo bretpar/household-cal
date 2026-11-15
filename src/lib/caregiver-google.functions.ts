@@ -14,10 +14,11 @@ async function personalConnection(userId: string) {
 export const getCaregiverGoogle = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { db, connection } = await personalConnection(context.userId);
-    const { data: deliveries, error } = await db.from("caregiver_google_deliveries").select("status").eq("user_id", context.userId);
+    const { data: deliveries, error } = await db.from("caregiver_google_deliveries").select("status,calendar_id,lease_until,reconciliation_version,lease_reconciliation_version").eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { connection: connection ? { account_email: connection.account_email, calendar_id: connection.calendar_id, calendar_name: connection.calendar_name, status: connection.status } : null,
-      pending: deliveries?.filter(d => d.status === "pending").length ?? 0,
+      pending: deliveries?.filter(d => d.status === "pending" || d.lease_until !== null).length ?? 0,
+      moving: deliveries?.some(d => d.calendar_id !== connection?.calendar_id && (d.status !== "synced" || d.lease_until !== null)) ?? false,
       issues: deliveries?.filter(d => d.status === "needs_attention").length ?? 0 };
   });
 export const startCaregiverGoogle = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
@@ -82,9 +83,24 @@ export const selectCaregiverGoogleCalendar = createServerFn({ method: "POST" }).
     const calendars = await listCalendars(decryptConnectionKey(connection.connection_key_ciphertext));
     const calendar = calendars.find(c => c.id === data.calendarId);
     if (!calendar || (calendar.accessRole !== "writer" && calendar.accessRole !== "owner")) throw new Error("Choose a writable Google calendar");
-    const { error } = await db.rpc("select_caregiver_google_calendar", { _user: context.userId, _calendar: calendar.id, _name: calendar.summary });
+    const { error } = await db.rpc("change_caregiver_google_calendar", { _user: context.userId, _calendar: calendar.id, _name: calendar.summary, _expected: connection.connection_key_ciphertext });
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+export const createCaregiverGoogleCalendar = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ name: z.string().trim().min(1).max(160) })).handler(async ({ data, context }) => {
+    const { db, connection } = await personalConnection(context.userId);
+    if (!connection || connection.status !== "connected") throw new Error("Connect Google first");
+    const { data: workspace, error: zoneError } = await db.from("caregiver_workspaces").select("timezone").eq("user_id", context.userId).single();
+    if (zoneError || !workspace) throw new Error("Could not read your work time zone");
+    const { decryptConnectionKey } = await import("@/lib/google/crypto.server");
+    const { createCalendar } = await import("@/lib/google/api.server");
+    const calendar = await createCalendar(decryptConnectionKey(connection.connection_key_ciphertext), data.name, workspace.timezone);
+    if (!calendar.id) throw new Error("Google did not return the new calendar. Check your calendar list before creating another.");
+    const { error } = await db.rpc("change_caregiver_google_calendar", { _user: context.userId, _calendar: calendar.id, _name: calendar.summary, _expected: connection.connection_key_ciphertext });
+    // Creation is not repeated if selection fails (for example an active worker).
+    // Return the new id so the user can safely retry selecting that same calendar.
+    return { calendarId: calendar.id, name: calendar.summary, selected: !error, error: error?.message ?? null };
   });
 export const syncCaregiverGoogle = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

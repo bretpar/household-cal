@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, Navigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { addDays, addMonths, endOfMonth, endOfWeek, format, startOfDay, startOfMonth, startOfWeek } from "date-fns";
@@ -107,6 +107,7 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
       <SelectContent>{candidates.map((candidate, index) => <SelectItem key={candidate} value={candidate}>{index === 0 ? "First" : "Second"} occurrence · UTC{workOffset(candidate, timezone)}</SelectItem>)}</SelectContent>
     </Select>;
   };
+  if (workspace.data?.workspace.onboarding_finished_at === null) return <Navigate to="/caregiver/onboarding" replace />;
   return <div className="app-shell min-h-dvh bg-background">
     <header className="app-shell-header sticky top-0 z-30 border-b border-border-soft bg-surface">
       <div className="app-shell-header-inner mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">

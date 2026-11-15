@@ -1,5 +1,10 @@
 # Roadmap
 
+## Caregiver onboarding and Google destinations
+- [x] Add resumable contact/optional Google setup, with skip and Today completion; existing workspaces remain completed.
+- [x] Reuse Google creation and add durable, ownership-checked destination cleanup/reconciliation with existing delivery leases and credential-fenced selection. Additive migrations 0057–0059 applied; no existing shifts changed.
+- [x] Inspect automatic compilation and prepare commit; no QA, browser tests or deployment. Codex verifies sync changes, including interrupted moves and switching back to a calendar with Google tombstones. Calendar creation has no provider idempotency key; on uncertain creation outcomes inspect the list rather than creating again.
+
 ## Codex caregiver time-zone corrections
 - [x] Repeated-hour source sweep: Today/calendar editor and creation, Month/Week/Day desktop/touch moves, duration projection, monthly hours, workspace setup/settings, server range/save/delete, personal manual/background Google delivery and queue/claim/finish/reconnect/cleanup SQL retain instants. Fixed ambiguous-move confirmation end-time formatting losing the workspace zone; no settled data, tests or deployment.
 - [x] Preserve unchanged repeated-hour touch/desktop drag slots; genuinely ambiguous caregiver moves require explicit first/second occurrence selection. Normalize prefilled editor selections and resolver comparisons to UTC. No tests, migration, data changes or deployment; Codex owns verification.

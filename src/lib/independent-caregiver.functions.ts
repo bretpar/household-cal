@@ -10,8 +10,16 @@ export const createCaregiverWorkspace = createServerFn({ method: "POST" }).middl
     const { data: membership, error: accessError } = await context.supabase.from("family_users").select("id").eq("user_id", context.userId).limit(1);
     if (accessError) throw new Error(accessError.message);
     if (membership?.length) throw new Error("Existing household accounts keep their current setup");
-    const { error } = await context.supabase.from("caregiver_workspaces").upsert({ user_id: context.userId, timezone: data.timezone }, { onConflict: "user_id", ignoreDuplicates: true });
+    const { error } = await context.supabase.from("caregiver_workspaces").upsert({ user_id: context.userId, timezone: data.timezone, onboarding_finished_at: null }, { onConflict: "user_id", ignoreDuplicates: true });
     if (error) throw new Error(error.message);
+    return { ok: true, userId: context.userId };
+  });
+
+export const finishCaregiverOnboarding = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { error } = await context.supabase.from("caregiver_workspaces")
+      .update({ onboarding_finished_at: new Date().toISOString() }).eq("user_id", context.userId).select("user_id").single();
+    if (error) throw new Error("Could not finish caregiver setup. Please try again.");
     return { ok: true };
   });
 
@@ -27,7 +35,7 @@ export const getCaregiverWorkspace = createServerFn({ method: "GET" }).middlewar
   .handler(async ({ data, context }) => {
     if (Date.parse(data.to) <= Date.parse(data.from) || Date.parse(data.to) - Date.parse(data.from) > 100 * 86400000) throw new Error("Choose a date range of at most 100 days");
     const [workspace, clients, shifts] = await Promise.all([
-      context.supabase.from("caregiver_workspaces").select("user_id,timezone").eq("user_id", context.userId).maybeSingle(),
+      context.supabase.from("caregiver_workspaces").select("user_id,timezone,onboarding_finished_at").eq("user_id", context.userId).maybeSingle(),
       context.supabase.from("caregiver_clients").select("id,name,email,color,archived").eq("user_id", context.userId).order("name"),
       context.supabase.from("caregiver_work_shifts").select("*").eq("user_id", context.userId).is("deleted_at", null).lt("start_at", data.to).gt("end_at", data.from).order("start_at"),
     ]);

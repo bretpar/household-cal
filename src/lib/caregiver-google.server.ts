@@ -32,10 +32,19 @@ export async function syncCaregiverWork(userId: string, limit = 20) {
       let remote: Record<string, unknown> | null = null;
       try { remote = await getEventRaw(key, claim.calendar_id, remoteId); }
       catch (e) { if (!(e instanceof Error) || !/\[(404|410)\]/.test(e.message)) throw e; }
+      // Google can retain a cancelled tombstone with no private properties.
+      // It is proof of absence for deletion, never a live event to adopt.
+      if (remote?.['status'] === "cancelled" && (shift.deleted_at || claim.desired_action === "delete")) remote = null;
       const properties = (remote?.['extendedProperties'] as { private?: Record<string, string> } | undefined)?.private;
       if (remote && (properties?.['ofc_caregiver_user_id'] !== userId || properties?.['ofc_caregiver_shift_id'] !== shift.id)) throw new Error("Google shift ownership could not be verified");
-      if (shift.deleted_at) {
+      if (shift.deleted_at || claim.desired_action === "delete") {
         if (remote) { await assertLease(); await deleteEvent(key, claim.calendar_id, remoteId); }
+        try {
+          const remaining = await getEventRaw(key, claim.calendar_id, remoteId);
+          if (remaining['status'] !== "cancelled") throw new Error("Google shift deletion was not verified; cleanup remains pending");
+        } catch (e) {
+          if (!(e instanceof Error) || !/\[(404|410)\]/.test(e.message)) throw e;
+        }
       } else {
         const body = { summary: client.name, description: shift.notes ?? "", location: "",
           start: { dateTime: shift.start_at, timeZone: workspace.timezone }, end: { dateTime: shift.end_at, timeZone: workspace.timezone },

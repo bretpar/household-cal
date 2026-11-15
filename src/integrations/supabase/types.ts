@@ -807,6 +807,7 @@ export type Database = {
         Row: {
           attempts: number
           calendar_id: string
+          desired_action: string
           last_error: string | null
           lease_reconciliation_version: string | null
           lease_token: string | null
@@ -821,6 +822,7 @@ export type Database = {
         Insert: {
           attempts?: number
           calendar_id: string
+          desired_action?: string
           last_error?: string | null
           lease_reconciliation_version?: string | null
           lease_token?: string | null
@@ -835,6 +837,7 @@ export type Database = {
         Update: {
           attempts?: number
           calendar_id?: string
+          desired_action?: string
           last_error?: string | null
           lease_reconciliation_version?: string | null
           lease_token?: string | null
@@ -961,16 +964,19 @@ export type Database = {
       caregiver_workspaces: {
         Row: {
           created_at: string
+          onboarding_finished_at: string | null
           timezone: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          onboarding_finished_at?: string | null
           timezone?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          onboarding_finished_at?: string | null
           timezone?: string
           user_id?: string
         }
@@ -2540,6 +2546,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      change_caregiver_google_calendar: {
+        Args: {
+          _calendar: string
+          _expected: string
+          _name: string
+          _user: string
+        }
+        Returns: undefined
+      }
       check_caregiver_google_lease: {
         Args: {
           _calendar: string
@@ -2564,6 +2579,7 @@ export type Database = {
         Returns: {
           attempts: number
           calendar_id: string
+          desired_action: string
           last_error: string | null
           lease_reconciliation_version: string | null
           lease_token: string | null

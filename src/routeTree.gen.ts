@@ -39,6 +39,7 @@ import { Route as NativeAuthCallbackRouteImport } from './routes/native-auth.cal
 import { Route as UnsubscribeTokenRouteImport } from './routes/unsubscribe.$token'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as AuthenticatedCaregiverCalendarRouteImport } from './routes/_authenticated/caregiver.calendar'
+import { Route as AuthenticatedCaregiverOnboardingRouteImport } from './routes/_authenticated/caregiver.onboarding'
 import { Route as AuthenticatedCaregiverSettingsRouteImport } from './routes/_authenticated/caregiver.settings'
 import { Route as AuthenticatedCaregiverTimesheetsRouteImport } from './routes/_authenticated/caregiver.timesheets'
 import { Route as AuthenticatedCaregiverTodayRouteImport } from './routes/_authenticated/caregiver.today'
@@ -209,6 +210,12 @@ const AuthenticatedCaregiverCalendarRoute =
     path: '/caregiver/calendar',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCaregiverOnboardingRoute =
+  AuthenticatedCaregiverOnboardingRouteImport.update({
+    id: '/caregiver/onboarding',
+    path: '/caregiver/onboarding',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCaregiverSettingsRoute =
   AuthenticatedCaregiverSettingsRouteImport.update({
     id: '/caregiver/settings',
@@ -317,6 +324,7 @@ export interface FileRoutesByFullPath {
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/caregiver/calendar': typeof AuthenticatedCaregiverCalendarRoute
+  '/caregiver/onboarding': typeof AuthenticatedCaregiverOnboardingRoute
   '/caregiver/settings': typeof AuthenticatedCaregiverSettingsRoute
   '/caregiver/timesheets': typeof AuthenticatedCaregiverTimesheetsRoute
   '/caregiver/today': typeof AuthenticatedCaregiverTodayRoute
@@ -361,6 +369,7 @@ export interface FileRoutesByTo {
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/caregiver/calendar': typeof AuthenticatedCaregiverCalendarRoute
+  '/caregiver/onboarding': typeof AuthenticatedCaregiverOnboardingRoute
   '/caregiver/settings': typeof AuthenticatedCaregiverSettingsRoute
   '/caregiver/timesheets': typeof AuthenticatedCaregiverTimesheetsRoute
   '/caregiver/today': typeof AuthenticatedCaregiverTodayRoute
@@ -407,6 +416,7 @@ export interface FileRoutesById {
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/_authenticated/caregiver/calendar': typeof AuthenticatedCaregiverCalendarRoute
+  '/_authenticated/caregiver/onboarding': typeof AuthenticatedCaregiverOnboardingRoute
   '/_authenticated/caregiver/settings': typeof AuthenticatedCaregiverSettingsRoute
   '/_authenticated/caregiver/timesheets': typeof AuthenticatedCaregiverTimesheetsRoute
   '/_authenticated/caregiver/today': typeof AuthenticatedCaregiverTodayRoute
@@ -453,6 +463,7 @@ export interface FileRouteTypes {
     | '/unsubscribe/$token'
     | '/.lovable/oauth/consent'
     | '/caregiver/calendar'
+    | '/caregiver/onboarding'
     | '/caregiver/settings'
     | '/caregiver/timesheets'
     | '/caregiver/today'
@@ -497,6 +508,7 @@ export interface FileRouteTypes {
     | '/unsubscribe/$token'
     | '/.lovable/oauth/consent'
     | '/caregiver/calendar'
+    | '/caregiver/onboarding'
     | '/caregiver/settings'
     | '/caregiver/timesheets'
     | '/caregiver/today'
@@ -542,6 +554,7 @@ export interface FileRouteTypes {
     | '/unsubscribe/$token'
     | '/.lovable/oauth/consent'
     | '/_authenticated/caregiver/calendar'
+    | '/_authenticated/caregiver/onboarding'
     | '/_authenticated/caregiver/settings'
     | '/_authenticated/caregiver/timesheets'
     | '/_authenticated/caregiver/today'
@@ -802,6 +815,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCaregiverCalendarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/caregiver/onboarding': {
+      id: '/_authenticated/caregiver/onboarding'
+      path: '/caregiver/onboarding'
+      fullPath: '/caregiver/onboarding'
+      preLoaderRoute: typeof AuthenticatedCaregiverOnboardingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/caregiver/settings': {
       id: '/_authenticated/caregiver/settings'
       path: '/caregiver/settings'
@@ -907,6 +927,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTimesheetRoute: typeof AuthenticatedTimesheetRoute
   AuthenticatedTodayRoute: typeof AuthenticatedTodayRoute
   AuthenticatedCaregiverCalendarRoute: typeof AuthenticatedCaregiverCalendarRoute
+  AuthenticatedCaregiverOnboardingRoute: typeof AuthenticatedCaregiverOnboardingRoute
   AuthenticatedCaregiverSettingsRoute: typeof AuthenticatedCaregiverSettingsRoute
   AuthenticatedCaregiverTimesheetsRoute: typeof AuthenticatedCaregiverTimesheetsRoute
   AuthenticatedCaregiverTodayRoute: typeof AuthenticatedCaregiverTodayRoute
@@ -923,6 +944,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTimesheetRoute: AuthenticatedTimesheetRoute,
   AuthenticatedTodayRoute: AuthenticatedTodayRoute,
   AuthenticatedCaregiverCalendarRoute: AuthenticatedCaregiverCalendarRoute,
+  AuthenticatedCaregiverOnboardingRoute: AuthenticatedCaregiverOnboardingRoute,
   AuthenticatedCaregiverSettingsRoute: AuthenticatedCaregiverSettingsRoute,
   AuthenticatedCaregiverTimesheetsRoute: AuthenticatedCaregiverTimesheetsRoute,
   AuthenticatedCaregiverTodayRoute: AuthenticatedCaregiverTodayRoute,

@@ -356,7 +356,7 @@ function OnboardingPage() {
         try {
           await createPersonal({ data: { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone } });
           await retryGuard("/caregiver/today");
-          await navigate({ to: "/caregiver/today" });
+          await navigate({ to: "/caregiver/onboarding" });
         } catch (e) { toast.error(e instanceof Error ? e.message : "Could not create your caregiver account"); }
         finally { setBusy(false); }
       }}>I’m a Babysitter / Caregiver</Button>
