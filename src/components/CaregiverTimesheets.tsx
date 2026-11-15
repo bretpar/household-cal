@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { addDays, startOfWeek } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
-import { ChevronLeft, ChevronRight, Download, Mail } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Mail, Share } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { buildTimesheetPdf, pdfFileName, rangeLabel, timesheetSummary, type Time
 import { workDate, workInput, workInputInstant } from "@/lib/caregiver-timezone";
 import type { CaregiverClient, WorkShift } from "@/lib/independent-caregiver";
 import { cn } from "@/lib/utils";
+import { canShareNativeFile, shareNativePdf } from "@/lib/native-file-share";
 
 export function CaregiverTimesheets({ userId, clients, timezone }: { userId: string; clients: CaregiverClient[]; timezone: string }) {
   const load = useServerFn(getCaregiverTimesheet);
@@ -40,6 +41,14 @@ export function CaregiverTimesheets({ userId, clients, timezone }: { userId: str
     finally { setBusy(false); }
   };
   const download = async () => { if (!doc) return; (await buildTimesheetPdf(doc)).save(pdfFileName(doc)); };
+  const [native, setNative] = useState(false);
+  useEffect(() => setNative(canShareNativeFile()), []);
+  const shareNative = async () => {
+    if (!doc) return;
+    try { const pdf = await buildTimesheetPdf(doc); const b64 = pdf.output("datauristring").split(",")[1];
+      await shareNativePdf(b64, pdfFileName(doc), `Timesheet: ${doc.familyName}, ${rangeLabel(doc)}`); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Could not share the PDF"); }
+  };
   if (!clients.length) return <p className="text-muted-foreground">Add a family contact in Settings to start a timesheet.</p>;
   return <section className="space-y-4">
     <div className="flex flex-wrap items-center gap-2">
@@ -68,8 +77,10 @@ export function CaregiverTimesheets({ userId, clients, timezone }: { userId: str
           </div>}
         </div>) : <p className="p-4 text-sm text-muted-foreground">No shifts for this family this week.</p>}
       </div>
-      <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void download()}><Download className="size-4" />Download PDF</Button>
-        <Button variant="outline" onClick={() => setSharing(sheet.data?.client.email ?? "")}><Mail className="size-4" />Email timesheet</Button></div>
+      {native ? <div className="space-y-1"><Button variant="outline" onClick={() => void shareNative()}><Share className="size-4" />Share PDF</Button>
+        <p className="text-xs text-muted-foreground">Send the PDF by Mail, Messages or AirDrop, or save it to Files.</p></div>
+      : <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void download()}><Download className="size-4" />Download PDF</Button>
+        <Button variant="outline" onClick={() => setSharing(sheet.data?.client.email ?? "")}><Mail className="size-4" />Prepare email</Button></div>}
     </>}
     <Dialog open={Boolean(editing)} onOpenChange={o => { if (!o && !busy) setEditing(null); }}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Actual hours</DialogTitle><DialogDescription>Times are in {timezone}. Saving confirms these hours.</DialogDescription></DialogHeader>
       {editing && <form className="space-y-4" onSubmit={async e => { e.preventDefault();
