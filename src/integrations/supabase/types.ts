@@ -724,6 +724,211 @@ export type Database = {
           },
         ]
       }
+      caregiver_clients: {
+        Row: {
+          archived: boolean
+          color: string
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caregiver_clients_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "caregiver_workspaces"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      caregiver_google_connections: {
+        Row: {
+          account_email: string | null
+          calendar_id: string | null
+          calendar_name: string | null
+          connection_key_ciphertext: string
+          last_error: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_email?: string | null
+          calendar_id?: string | null
+          calendar_name?: string | null
+          connection_key_ciphertext: string
+          last_error?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_email?: string | null
+          calendar_id?: string | null
+          calendar_name?: string | null
+          connection_key_ciphertext?: string
+          last_error?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caregiver_google_connections_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "caregiver_workspaces"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      caregiver_google_deliveries: {
+        Row: {
+          attempts: number
+          calendar_id: string
+          last_error: string | null
+          lease_token: string | null
+          lease_until: string | null
+          shift_id: string
+          status: string
+          updated_at: string
+          user_id: string
+          version: string
+        }
+        Insert: {
+          attempts?: number
+          calendar_id: string
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          shift_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          version: string
+        }
+        Update: {
+          attempts?: number
+          calendar_id?: string
+          last_error?: string | null
+          lease_token?: string | null
+          lease_until?: string | null
+          shift_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caregiver_google_deliveries_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "caregiver_work_shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caregiver_google_deliveries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "caregiver_workspaces"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      caregiver_work_shifts: {
+        Row: {
+          client_id: string
+          created_at: string
+          deleted_at: string | null
+          end_at: string
+          id: string
+          notes: string | null
+          start_at: string
+          updated_at: string
+          user_id: string
+          version: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          deleted_at?: string | null
+          end_at: string
+          id?: string
+          notes?: string | null
+          start_at: string
+          updated_at?: string
+          user_id: string
+          version?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          end_at?: string
+          id?: string
+          notes?: string | null
+          start_at?: string
+          updated_at?: string
+          user_id?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caregiver_work_shifts_client_id_user_id_fkey"
+            columns: ["client_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "caregiver_clients"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "caregiver_work_shifts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "caregiver_workspaces"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      caregiver_workspaces: {
+        Row: {
+          created_at: string
+          timezone: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          timezone?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          timezone?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       email_schedule_recipient_calendars: {
         Row: {
           calendar_source_id: string
@@ -2297,6 +2502,27 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_caregiver_google_delivery: {
+        Args: { _user: string }
+        Returns: {
+          attempts: number
+          calendar_id: string
+          last_error: string | null
+          lease_token: string | null
+          lease_until: string | null
+          shift_id: string
+          status: string
+          updated_at: string
+          user_id: string
+          version: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "caregiver_google_deliveries"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_google_delivery: {
         Args: {
           _event: string
@@ -2361,6 +2587,16 @@ export type Database = {
       family_role_of: {
         Args: { _family_id: string }
         Returns: Database["public"]["Enums"]["family_role"]
+      }
+      finish_caregiver_google_delivery: {
+        Args: {
+          _calendar: string
+          _error: string
+          _lease: string
+          _shift: string
+          _version: string
+        }
+        Returns: undefined
       }
       finish_google_branch_deletion: {
         Args: {
@@ -2507,6 +2743,10 @@ export type Database = {
       }
       save_timesheet_schedule_atomic: {
         Args: { _family: string; _settings: Json; _validated_periods: Json }
+        Returns: undefined
+      }
+      select_caregiver_google_calendar: {
+        Args: { _calendar: string; _name: string; _user: string }
         Returns: undefined
       }
       set_caregiver_access: {

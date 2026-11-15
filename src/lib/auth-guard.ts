@@ -64,7 +64,7 @@ if (typeof window !== "undefined") {
 export async function resolveGuard(pathname: string): ReturnType<typeof resolveGuardUncached> {
   const gen = authGeneration;
   const onOnboarding = pathname.startsWith("/onboarding");
-  if (guardCache && !onOnboarding && Date.now() - guardCache.at < GUARD_TTL_MS) {
+  if (guardCache && !onOnboarding && !pathname.startsWith("/caregiver") && Date.now() - guardCache.at < GUARD_TTL_MS) {
     // Local session read only (no network); confirms the same user is still signed in.
     const { data } = await withTimeout(supabase.auth.getSession(), AUTH_TIMEOUT_MS, "Session");
     if (gen === authGeneration && guardCache && data.session?.user.id === guardCache.userId) {
@@ -131,7 +131,7 @@ async function resolveGuardUncached(pathname: string, gen: number) {
   // A failed lookup must NOT be treated as "no household" — keep established
   // users in the app instead of bouncing them through onboarding.
   const onOnboarding = pathname.startsWith("/onboarding");
-  let resolved: { family_id: string | null; role?: string | null } | undefined;
+  let resolved: { family_id: string | null; role?: string | null; independent_caregiver?: boolean } | undefined;
   try {
     resolved = await membershipPromise;
   } catch {
@@ -144,6 +144,13 @@ async function resolveGuardUncached(pathname: string, gen: number) {
     return { accessError: true as const };
   }
   if (resolved) {
+    if (resolved.independent_caregiver && (!resolved.family_id || pathname.startsWith("/caregiver"))) {
+      if (!pathname.startsWith("/caregiver")) return { redirectTo: "/caregiver/today" as const };
+      if (gen !== authGeneration) return { user: data.user };
+      setVerifiedMembership(null);
+      return { user: data.user, family_id: null, independent_caregiver: true };
+    }
+    if (pathname.startsWith("/caregiver")) return { redirectTo: "/onboarding" as const };
     if (!resolved.family_id && !onOnboarding) return { redirectTo: "/onboarding" as const };
     if (resolved.family_id && onOnboarding && !(resolved.role === "owner" && hasCalendarSetup(user.id, resolved.family_id))) {
       return { redirectTo: "/calendar" as const };

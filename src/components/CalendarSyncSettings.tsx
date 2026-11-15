@@ -43,7 +43,7 @@ import { cn } from "@/lib/utils";
 
 export const SYNC_KEY = ["calendar-sync"] as const;
 
-function waitForOAuth(popup: Window): Promise<string | null> {
+export function waitForOAuth(popup: Window): Promise<string | null> {
   return new Promise((resolve, reject) => {
     let poll: number | undefined;
     const cleanup = () => {

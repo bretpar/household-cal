@@ -149,6 +149,12 @@ export const startGoogleCalendarConnect = createServerFn({ method: "POST" })
     const family = await resolveOwnedFamily(context.supabase, context.userId);
     if (!family) throw new Error("Only household owners can configure calendar sync");
 
+    const { supabaseAdmin: connectionDb } = await import("@/integrations/supabase/client.server");
+    const { data: personalConnection, error: personalError } = await connectionDb
+      .from("caregiver_google_connections").select("user_id").eq("user_id", context.userId).neq("status", "disconnected").maybeSingle();
+    if (personalError) throw new Error(personalError.message);
+    if (personalConnection) throw new Error("Disconnect your personal work Google connection before connecting a household with this account.");
+
     const clientAPIKey = process.env["GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY"];
     if (!clientAPIKey) throw new Error("Google Calendar connector client is not configured");
 

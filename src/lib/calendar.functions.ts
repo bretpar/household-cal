@@ -47,7 +47,10 @@ export const ensureFamilyMembership = createServerFn({ method: "POST" })
         .maybeSingle();
       role = (data?.role as string | undefined) ?? null;
     }
-    return { family_id: familyId, role };
+    const { data: personal, error: personalError } = await context.supabase
+      .from("caregiver_workspaces").select("user_id").eq("user_id", context.userId).maybeSingle();
+    if (personalError) throw new Error(personalError.message);
+    return { family_id: familyId, role, independent_caregiver: Boolean(personal) };
   });
 
 

@@ -9,6 +9,8 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 - Schedule-builder engine stays UI-free; private drafts never write live events.
+- Independent caregivers use owner-scoped caregiver_workspaces/clients/work_shifts, never synthetic households; CalendarStoreAdapter reuses existing calendar renderers without household queries. Why: preserve household roles and isolate client identities.
+- Personal Google delivery reuses the existing API, encryption and remote verification with separate durable leased intents/version acknowledgments; personal and household grants cannot overwrite each other. Why: stable per-user ownership, safe retries and no household sync changes.
 - Lock inbound/outbox checks to prevent stale echoes.
 - Subdirectories have their own AGENTS.md (src/components for calendar view layout, src/routes for public marketing pages, src/lib for schedule, timesheet and Google sync internals); read them before changing files there.
 - calendar_sources.calendar_kind (household_default | custom | legacy_internal) distinguishes the Family calendar, user-created OFC calendars and hidden legacy rows; destinations are validated server-side via assertWritableDestination. Why: never rely on calendar names.

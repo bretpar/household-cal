@@ -164,6 +164,11 @@ const sameScope = (a: EventCacheScope | null, b: EventCacheScope | null) =>
 
 const CalendarContext = createContext<CalendarStore | null>(null);
 
+/** Reuse calendar rendering with an isolated personal store, never household queries. */
+export function CalendarStoreAdapter({ value, children }: { value: CalendarStore; children: ReactNode }) {
+  return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;
+}
+
 export const FAMILY_BUNDLE_KEY = ["family-bundle"] as const;
 const TIMESHEET_QUERY_ROOTS = [
   "my-timesheet",

@@ -344,6 +344,20 @@
       "when": 1794692763459,
       "tag": "0048_chain_publish_series_versions",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1794715565134,
+      "tag": "0049_independent_caregiver_workspaces",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1794715810535,
+      "tag": "0050_caregiver_delivery_version_fencing",
+      "breakpoints": true
     }
   ]
 }

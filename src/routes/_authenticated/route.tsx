@@ -85,7 +85,7 @@ function AuthenticatedLayout() {
         // outside it (e.g. /login) unmount this layout, so everReady is
         // irrelevant there and stays false.
         if (result.redirectTo !== pathname) {
-          if (result.redirectTo.startsWith("/onboarding")) setEverReady(true);
+          if (result.redirectTo.startsWith("/onboarding") || result.redirectTo.startsWith("/caregiver")) setEverReady(true);
           navigate({ to: result.redirectTo, replace: true });
         }
         return;
@@ -130,7 +130,7 @@ function AuthenticatedLayout() {
           // then clear the error and mount the shell. Clearing readiness
           // before the navigation settles would let the previous route's
           // stale accessError reset it and hide onboarding again.
-          if (result.redirectTo.startsWith("/onboarding")) {
+          if (result.redirectTo.startsWith("/onboarding") || result.redirectTo.startsWith("/caregiver")) {
             if (result.redirectTo !== path) {
               await navigate({ to: result.redirectTo, replace: true });
             }
@@ -182,7 +182,7 @@ function AuthenticatedLayout() {
   // membership; re-verify instead of leaving the calendar disabled.
   const membership = useSyncExternalStore(subscribeVerifiedMembership, getVerifiedMembership, () => null);
   useEffect(() => {
-    if (everReady && !membership && !pathname.startsWith("/onboarding")) reverify();
+    if (everReady && !membership && !pathname.startsWith("/onboarding") && !pathname.startsWith("/caregiver")) reverify();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [everReady, membership]);
 
@@ -195,10 +195,10 @@ function AuthenticatedLayout() {
     ? false
     : !everReady
       ? true
-      : !pathname.startsWith("/onboarding") && calState.loading;
+      : !pathname.startsWith("/onboarding") && !pathname.startsWith("/caregiver") && calState.loading;
   return (
     <>
-      {everReady && !navAccessError ? (
+      {everReady && !navAccessError && pathname.startsWith("/caregiver") ? <Outlet /> : everReady && !navAccessError ? (
         <UserPreferencesProvider>
           <CalendarProvider>
             <AppTourProvider>

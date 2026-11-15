@@ -1,10 +1,10 @@
 # Roadmap
 
 ## Phase 1 independent caregiver accounts
-- [ ] Add independent account onboarding with the existing profile and authentication; preserve family onboarding and invited caregiver access.
-- [ ] Add isolated caregiver-owned client contacts and shifts with server authorization and RLS; reuse calendar rendering and native presentation.
-- [ ] Wire Today, Calendar, scheduled-hours Timesheets and Settings, plus personal Google consent and reliable outbound synchronization using shared infrastructure.
-- [ ] Record implementation limitations and database changes; no QA, browser verification or automatic deployment.
+- [x] Add independent account onboarding with the existing profile and authentication; preserve family onboarding and invited caregiver access.
+- [x] Add isolated caregiver-owned client contacts and shifts with server authorization and RLS; reuse calendar rendering and native safe-area presentation.
+- [x] Wire Today, Calendar, scheduled-hours Timesheets and Settings, plus personal Google consent and durable outbound synchronization using shared infrastructure; no household linking or actual-hour writes.
+- [x] Apply additive migrations 0049–0050, confirm tables exist and inspect automatic compilation. No browser verification, real-account QA or deployment. Native Google popup completion remains unverified; switching Google destinations and simultaneous personal/household Google grants are intentionally blocked to preserve identities.
 
 ## Simplified monthly Schedule Builder summary
 - [x] Remove the four-column statistics area; keep one parent-friendly monthly hours summary (after changes vs currently published, difference, caregiver rows) with the color legend and Check Coverage/Review Schedule action row.

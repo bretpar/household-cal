@@ -174,7 +174,7 @@ function RootComponent() {
     // Last signed-in user in this tab; a different user means drop all cached data.
     let lastUserId: string | null | undefined;
     const isPrivatePath = () =>
-      /^\/(today|calendar|activities|family|preferences|onboarding)(\/|$)/.test(
+      /^\/(today|calendar|activities|family|preferences|onboarding|caregiver)(\/|$)/.test(
         window.location.pathname,
       );
     const dropSessionData = async () => {

@@ -36,6 +36,7 @@ import { useCalendar } from "@/lib/calendar-store";
 import { beginCalendarSetup, finishCalendarSetup } from "@/lib/onboarding-calendar-session";
 import { retryGuard } from "@/lib/auth-guard";
 import { requestHeartReveal } from "@/components/StartupSplash";
+import { createCaregiverWorkspace } from "@/lib/independent-caregiver.functions";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => ({
@@ -94,6 +95,8 @@ const STEPS = ["Household", "Family", "Calendars", "Done"];
 
 function OnboardingPage() {
   const navigate = useNavigate();
+  const createPersonal = useServerFn(createCaregiverWorkspace);
+  const [accountChoice, setAccountChoice] = useState<"family" | null>(null);
   const queryClient = useQueryClient();
   const loadStatus = useServerFn(getOnboardingStatus);
   const createHousehold = useServerFn(createHouseholdFn);
@@ -342,6 +345,23 @@ function OnboardingPage() {
         </div>
       </div>
     );
+  }
+
+  if (status.data && !status.data.family_id && !status.data.had_access && !accountChoice) {
+    return <div className="min-h-screen bg-background px-4 py-16"><div className="mx-auto max-w-md space-y-5">
+      <h1 className="font-display text-2xl font-bold">Welcome to Our Family Calendar</h1>
+      <Button className="h-12 w-full" disabled={busy} onClick={() => setAccountChoice("family")}>I’m a Parent / Family</Button>
+      <Button className="h-12 w-full" variant="outline" disabled={busy} onClick={async () => {
+        setBusy(true);
+        try {
+          await createPersonal({ data: { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone } });
+          await retryGuard("/caregiver/today");
+          await navigate({ to: "/caregiver/today" });
+        } catch (e) { toast.error(e instanceof Error ? e.message : "Could not create your caregiver account"); }
+        finally { setBusy(false); }
+      }}>I’m a Babysitter / Caregiver</Button>
+      <SignOutButton />
+    </div></div>;
   }
 
   return (

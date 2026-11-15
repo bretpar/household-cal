@@ -26,7 +26,9 @@ export const Route = createFileRoute("/api/public/google-calendar/reconcile")({
           for (const row of (connections ?? []) as { family_id: string }[]) {
             results[row.family_id] = await reconcileHousehold(supabaseAdmin, row.family_id);
           }
-          return { households: (connections ?? []).length, results };
+          const { syncAllCaregiverWork } = await import("@/lib/caregiver-google.server");
+          const caregiverResults = await syncAllCaregiverWork();
+          return { households: (connections ?? []).length, results, caregiverResults };
         }),
     },
   },
