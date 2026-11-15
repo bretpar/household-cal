@@ -36,7 +36,11 @@ export async function syncCaregiverWork(userId: string, limit = 20) {
       // It is proof of absence for deletion, never a live event to adopt.
       if (remote?.['status'] === "cancelled" && (shift.deleted_at || claim.desired_action === "delete")) remote = null;
       const properties = (remote?.['extendedProperties'] as { private?: Record<string, string> } | undefined)?.private;
-      if (remote && (properties?.['ofc_caregiver_user_id'] !== userId || properties?.['ofc_caregiver_shift_id'] !== shift.id)) throw new Error("Google shift ownership could not be verified");
+      // A cancelled tombstone at this deterministic, user+calendar+shift-derived
+      // ID can only be our own earlier delivery; Google may strip its private
+      // properties. Any properties it does keep must still match.
+      const ownedTombstone = remote?.['status'] === "cancelled" && !properties;
+      if (remote && !ownedTombstone && (properties?.['ofc_caregiver_user_id'] !== userId || properties?.['ofc_caregiver_shift_id'] !== shift.id)) throw new Error("Google shift ownership could not be verified");
       if (shift.deleted_at || claim.desired_action === "delete") {
         if (remote) { await assertLease(); await deleteEvent(key, claim.calendar_id, remoteId); }
         try {
@@ -46,7 +50,7 @@ export async function syncCaregiverWork(userId: string, limit = 20) {
           if (!(e instanceof Error) || !/\[(404|410)\]/.test(e.message)) throw e;
         }
       } else {
-        const body = { summary: client.name, description: shift.notes ?? "", location: "",
+        const body = { status: "confirmed", summary: client.name, description: shift.notes ?? "", location: "",
           start: { dateTime: shift.start_at, timeZone: workspace.timezone }, end: { dateTime: shift.end_at, timeZone: workspace.timezone },
           extendedProperties: { private: { ofc_caregiver_user_id: userId, ofc_caregiver_shift_id: shift.id, ofc_caregiver_client_id: shift.client_id } } };
         // Personal shifts have exact UTC instants; equal repeated-hour wall times
@@ -54,7 +58,7 @@ export async function syncCaregiverWork(userId: string, limit = 20) {
         const matchesShift = (candidate: Record<string, unknown>) => {
           const start = candidate['start'] as { dateTime?: string } | undefined;
           const end = candidate['end'] as { dateTime?: string } | undefined;
-          return remoteMatchesDelivery(candidate, body, remoteId) &&
+          return candidate['status'] !== "cancelled" && remoteMatchesDelivery(candidate, body, remoteId) &&
             Date.parse(start?.dateTime ?? "") === Date.parse(shift.start_at) &&
             Date.parse(end?.dateTime ?? "") === Date.parse(shift.end_at);
         };
@@ -71,6 +75,8 @@ export async function syncCaregiverWork(userId: string, limit = 20) {
           await patchEvent(key, claim.calendar_id, remoteId, body, typeof remote['etag'] === "string" ? remote['etag'] : undefined);
           remote = await getEventRaw(key, claim.calendar_id, remoteId);
         }
+        const savedProperties = (remote['extendedProperties'] as { private?: Record<string, string> } | undefined)?.private;
+        if (savedProperties?.['ofc_caregiver_user_id'] !== userId || savedProperties?.['ofc_caregiver_shift_id'] !== shift.id) throw new Error("Google shift ownership could not be verified");
         if (!matchesShift(remote)) throw new Error("Google work shift was not verified after save");
       }
     } catch (e) {
