@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Codex caregiver time-zone corrections
+- [x] Repeated-hour source sweep: Today/calendar editor and creation, Month/Week/Day desktop/touch moves, duration projection, monthly hours, workspace setup/settings, server range/save/delete, personal manual/background Google delivery and queue/claim/finish/reconnect/cleanup SQL retain instants. Fixed ambiguous-move confirmation end-time formatting losing the workspace zone; no settled data, tests or deployment.
 - [x] Preserve unchanged repeated-hour touch/desktop drag slots; genuinely ambiguous caregiver moves require explicit first/second occurrence selection. Normalize prefilled editor selections and resolver comparisons to UTC. No tests, migration, data changes or deployment; Codex owns verification.
 - [x] Source sweep covered signup/settings, Today, Month/Week/Day, editor/create/drag, scheduled hours, range/save/delete server functions, manual/background Google delivery and queue/claim/finish/reconnect/cleanup SQL. Fixed caregiver overnight Month continuation filtering, retained create-range repeated-hour instants, and required exact personal Google endpoint verification. Household behavior and settled records unchanged; no tests or deployment.
 - [x] Scope nonrecurring caregiver day bucketing to workspace-local, end-exclusive day boundaries without changing household behavior.

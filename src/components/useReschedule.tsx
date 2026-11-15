@@ -15,7 +15,7 @@ import { runGuardedMutation } from "@/lib/async-submit";
 import { useCalendar, type RecurrenceScope } from "@/lib/calendar-store";
 
 import { isRecurring, rescheduleDraft } from "@/lib/reschedule";
-import { formatTimeRange, type Occurrence } from "@/lib/family-data";
+import { copyCalendarDate, formatTimeRange, type Occurrence } from "@/lib/family-data";
 import { workDate, workInput, workInputInstants, workOffset } from "@/lib/caregiver-timezone";
 
 const SCOPES: { id: RecurrenceScope; label: string; hint: string }[] = [
@@ -139,7 +139,8 @@ export function useReschedule() {
             New time: {format(pending.start, "EEEE, MMM d")} ·{" "}
             {formatTimeRange(
               pending.start,
-              new Date(
+              (pending.occurrence.event.work_timezone ? copyCalendarDate : (_date: Date, value: number) => new Date(value))(
+                pending.start,
                 pending.start.getTime() +
                   (pending.occurrence.end.getTime() - pending.occurrence.start.getTime()),
               ),
