@@ -101,7 +101,9 @@ export const disconnectCaregiverGoogle = createServerFn({ method: "POST" }).midd
     const { decryptConnectionKey } = await import("@/lib/google/crypto.server");
     const { GATEWAY_BASE_URL } = await import("@/lib/google/api.server");
     await disconnectAppUser({ gatewayBaseUrl: GATEWAY_BASE_URL, connectorId: "google_calendar", connectionAPIKey: decryptConnectionKey(connection.connection_key_ciphertext) });
-    const { error } = await db.from("caregiver_google_connections").update({ status: "disconnected", connection_key_ciphertext: "", updated_at: new Date().toISOString() }).eq("user_id", context.userId);
+    // Do not clear a newer reconnect that finished while revoking the old key.
+    const { error } = await db.from("caregiver_google_connections").update({ status: "disconnected", connection_key_ciphertext: "", updated_at: new Date().toISOString() })
+      .eq("user_id", context.userId).eq("connection_key_ciphertext", connection.connection_key_ciphertext);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

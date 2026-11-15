@@ -50,7 +50,15 @@ export async function syncCaregiverWork(userId: string, limit = 20) {
     } catch (e) {
       failure = e instanceof Error ? e.message : "Google work shift could not sync";
       // Provider errors remain recorded server-side; never include credentials.
-      if (/\[401\]/.test(failure)) await db.from("caregiver_google_connections").update({ status: "reconnect_required", last_error: "Reconnect Google Calendar" }).eq("user_id", userId);
+      // A worker may still hold credentials from before a successful reconnect.
+      // Its failure must never disconnect the newly authorized connection.
+      if (/\[401\]/.test(failure)) {
+        const { error: connectionError } = await db.from("caregiver_google_connections")
+          .update({ status: "reconnect_required", last_error: "Reconnect Google Calendar" })
+          .eq("user_id", userId).eq("status", "connected")
+          .eq("connection_key_ciphertext", connection.connection_key_ciphertext);
+        if (connectionError) throw new Error(connectionError.message);
+      }
     }
     const { error: finishError } = await db.rpc("finish_caregiver_google_delivery", {
       _shift: claim.shift_id, _calendar: claim.calendar_id, _lease: claim.lease_token, _version: claim.version, _error: failure ?? "",

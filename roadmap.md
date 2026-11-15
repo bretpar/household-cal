@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Independent caregiver release blockers
+- [x] Read caregiver settings, web/native consent, root warm/cold callbacks, Today/Month/Week/Day shift editors and moves, client changes, scheduled-hours view, manual/scheduled delivery and database version/enqueue/select/claim/finish/OAuth-save paths. Late disconnect/reconnect-required results now match the credentials that produced them; other paths retain the original rule. No QA, deployment, further migration or settled-record changes.
 - [x] Reconnect atomically requeues every current shift (including soft-deleted shifts) with a separate reconciliation fence; deterministic Google identities and existing delivery leases/shift-version checks remain unchanged.
 - [x] Web popup and native system-browser consent use server-stored single-use attempts and app-held proof; the root iOS listener handles warm/cold returns and verifies the originating caregiver. Save rechecks ownership, household conflict and prior Google account identity.
 - [x] Additive migration 0051 applied and schema confirmed; automatic compilation clean. No QA, browser tests, deployment, or Phase 2 work; native device completion and reconnect delivery await Codex verification.
