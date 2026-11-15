@@ -907,6 +907,51 @@ export type Database = {
           },
         ]
       }
+      caregiver_shift_actuals: {
+        Row: {
+          actual_end: string
+          actual_start: string
+          confirmed: boolean
+          note: string | null
+          shift_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actual_end: string
+          actual_start: string
+          confirmed?: boolean
+          note?: string | null
+          shift_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actual_end?: string
+          actual_start?: string
+          confirmed?: boolean
+          note?: string | null
+          shift_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caregiver_shift_actuals_shift_id_user_id_fkey"
+            columns: ["shift_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "caregiver_work_shifts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "caregiver_shift_actuals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "caregiver_workspaces"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       caregiver_work_shifts: {
         Row: {
           client_id: string

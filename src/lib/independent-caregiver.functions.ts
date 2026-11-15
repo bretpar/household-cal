@@ -83,3 +83,34 @@ export const deleteCaregiverShift = createServerFn({ method: "POST" }).middlewar
     if (error) throw new Error("Reload the shift before deleting it");
     return { ok: true };
   });
+/** One family's shifts and actuals for a bounded week; RLS plus explicit owner filters keep families isolated. */
+export const getCaregiverTimesheet = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ client_id: z.string().uuid(), from: z.string().datetime({ offset: true }), to: z.string().datetime({ offset: true }) }))
+  .handler(async ({ data, context }) => {
+    const span = Date.parse(data.to) - Date.parse(data.from);
+    if (span <= 0 || span > 8 * 86400000) throw new Error("Choose one week");
+    const [client, shifts, profile] = await Promise.all([
+      context.supabase.from("caregiver_clients").select("id,name,email,color,archived").eq("id", data.client_id).eq("user_id", context.userId).single(),
+      context.supabase.from("caregiver_work_shifts").select("*").eq("user_id", context.userId).eq("client_id", data.client_id).gte("start_at", data.from).lt("start_at", data.to).order("start_at"),
+      context.supabase.from("profiles").select("display_name").eq("id", context.userId).maybeSingle(),
+    ]);
+    if (client.error || !client.data) throw new Error("Choose one of your family contacts");
+    if (shifts.error) throw new Error(shifts.error.message);
+    const ids = (shifts.data ?? []).map(s => s.id);
+    const actuals = ids.length ? await context.supabase.from("caregiver_shift_actuals").select("shift_id,actual_start,actual_end,confirmed,note").eq("user_id", context.userId).in("shift_id", ids) : { data: [], error: null };
+    if (actuals.error) throw new Error(actuals.error.message);
+    const email = typeof context.claims?.email === "string" ? context.claims.email : "";
+    return { client: client.data, shifts: shifts.data ?? [], actuals: actuals.data ?? [], caregiverName: profile.data?.display_name || email || "Caregiver" };
+  });
+
+export const saveCaregiverActual = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ shift_id: z.string().uuid(), actual_start: z.string().datetime({ offset: true }), actual_end: z.string().datetime({ offset: true }),
+    confirmed: z.boolean(), note: z.string().max(2000).nullable().optional() }).refine(a => Date.parse(a.actual_end) > Date.parse(a.actual_start), "End time must be after start time"))
+  .handler(async ({ data, context }) => {
+    const { data: shift, error: shiftError } = await context.supabase.from("caregiver_work_shifts").select("id,deleted_at").eq("id", data.shift_id).eq("user_id", context.userId).single();
+    if (shiftError || !shift) throw new Error("Choose one of your shifts");
+    if (shift.deleted_at) throw new Error("This shift was removed from your calendar and can no longer be edited");
+    const { error } = await context.supabase.from("caregiver_shift_actuals").upsert({ ...data, note: data.note || null, user_id: context.userId }, { onConflict: "shift_id" });
+    if (error) throw new Error("Could not save these hours. Shifts can be at most 48 hours long.");
+    return { ok: true };
+  });

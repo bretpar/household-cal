@@ -22,9 +22,10 @@ import { WeekView } from "@/components/WeekView";
 import { AccountDeletion } from "@/components/AccountDeletion";
 import { SignOutButton } from "@/components/SignOutButton";
 import { CaregiverGoogleSettings } from "./CaregiverGoogleSettings";
+import { CaregiverTimesheets } from "./CaregiverTimesheets";
 import { CaregiverCalendarStore } from "@/lib/caregiver-calendar-store";
 import { getCaregiverWorkTimezone, getCaregiverWorkspace, saveCaregiverShift, deleteCaregiverShift, saveCaregiverClient, archiveCaregiverClient } from "@/lib/independent-caregiver.functions";
-import { scheduledHours, workEvents, type CaregiverClient, type WorkShift } from "@/lib/independent-caregiver";
+import { workEvents, type CaregiverClient, type WorkShift } from "@/lib/independent-caregiver";
 import { MEMBER_COLORS, styleForColor } from "@/lib/family-data";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -95,15 +96,12 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
   };
   const events = workEvents(shifts, clients, timezone);
   const today = startOfDay(timezone ? workDate(clock, timezone) : new Date(0));
-  const monthStart = startOfMonth(anchor), monthEnd = addMonths(monthStart, 1);
-  const total = scheduledHours(shifts, monthStart, monthEnd);
   const calendarStep = (direction: 1 | -1) => {
     const next = view === "month" ? addMonths(visibleMonth ?? anchor, direction) : addDays(anchor, direction * (view === "week" && !isMobile ? 7 : view === "week" ? 3 : 1));
     if (view === "month" && !isMobile) { setVisibleMonth(next); monthScroll.current?.scrollToMonth(next); }
     else { setAnchor(next); setVisibleMonth(null); }
   };
   const goToday = () => { setAnchor(today); setVisibleMonth(null); if (view === "month" && !isMobile) monthScroll.current?.scrollToMonth(today); };
-  const formatHours = (hours: number) => `${Number(hours.toFixed(2))} hours`;
   const repeatedTimeControl = (field: "start" | "end") => {
     if (!shiftForm || !timezone) return null;
     const candidates = workInputInstants(shiftForm[field], timezone);
@@ -123,7 +121,7 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
   if (!workspace.data && !workspace.isError && !identity.isError && !zone.isError) return <div className="min-h-dvh bg-background" aria-busy="true" />;
   return <IndependentCaregiverShell fitViewport={tab === "calendar"} syncControl={identity.data ? <CaregiverSyncStatusIndicator userId={identity.data} /> : null}>
     <div className={cn("space-y-3", tab === "calendar" && "flex min-h-0 flex-1 flex-col md:h-[calc(100dvh-9rem)]")}>
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3"><div>{tab === "today" && <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{format(today, "EEEE")}</p>}<h1 className="text-2xl font-bold sm:text-3xl">{tab === "today" ? format(today, "MMMM d") : tab === "calendar" ? "My work calendar" : tab === "timesheets" ? "Scheduled hours" : "My settings"}</h1></div>
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3"><div>{tab === "today" && <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{format(today, "EEEE")}</p>}<h1 className="text-2xl font-bold sm:text-3xl">{tab === "today" ? format(today, "MMMM d") : tab === "calendar" ? "My work calendar" : tab === "timesheets" ? "Timesheets" : "My settings"}</h1></div>
         {tab !== "settings" && <Button disabled={busy || !workspace.data} onClick={() => newShift()}><Plus className="size-4" />Add shift</Button>}
       </header>
       {identity.isError || workspace.isError || zone.isError ? <div role="alert" className="space-y-3"><p className="text-destructive">Could not load your private work calendar.</p><Button variant="outline" onClick={() => { void identity.refetch(); void zone.refetch(); void workspace.refetch(); }}>Try again</Button></div> : !workspace.data || !identity.data || !timezone ? <p className="text-muted-foreground">Loading your work calendar…</p> : <CaregiverCalendarStore clients={clients} shifts={shifts} timezone={timezone} openShift={openShift}
@@ -135,8 +133,8 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
           <p role="status" className="h-4 truncate text-xs leading-4 text-muted-foreground">{workspace.isFetching ? "Updating…" : null}</p>
           <AgendaView anchor={today} events={events} selectedMembers={[]} days={3} />
         </>}
-        {(tab === "calendar" || tab === "timesheets") && <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1 sm:gap-2"><Button size="icon" variant="ghost" aria-label="Previous period" onClick={() => tab === "timesheets" ? setAnchor(addMonths(anchor, -1)) : calendarStep(-1)}><ChevronLeft className="size-4" /></Button><h2 className="min-w-0 truncate text-base font-bold sm:text-lg">{format(tab === "calendar" && view === "month" ? visibleMonth ?? anchor : anchor, tab === "calendar" && view !== "month" ? "MMM d, yyyy" : "MMMM yyyy")}</h2><Button size="icon" variant="ghost" aria-label="Next period" onClick={() => tab === "timesheets" ? setAnchor(addMonths(anchor, 1)) : calendarStep(1)}><ChevronRight className="size-4" /></Button><Button variant="outline" size="sm" onClick={goToday}>Today</Button></div>
+        {tab === "calendar" && <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1 sm:gap-2"><Button size="icon" variant="ghost" aria-label="Previous period" onClick={() => calendarStep(-1)}><ChevronLeft className="size-4" /></Button><h2 className="min-w-0 truncate text-base font-bold sm:text-lg">{format(tab === "calendar" && view === "month" ? visibleMonth ?? anchor : anchor, tab === "calendar" && view !== "month" ? "MMM d, yyyy" : "MMMM yyyy")}</h2><Button size="icon" variant="ghost" aria-label="Next period" onClick={() => calendarStep(1)}><ChevronRight className="size-4" /></Button><Button variant="outline" size="sm" onClick={goToday}>Today</Button></div>
           {tab === "calendar" && <div role="group" aria-label="Calendar view" className="flex gap-1">{(["month", "week", "day"] as const).map(v => <Button key={v} variant={view === v ? "secondary" : "ghost"} size="sm" onClick={() => { if (visibleMonth) setAnchor(visibleMonth); setVisibleMonth(null); setView(v); }}>{v === "week" && isMobile ? "3 Day" : `${v[0]?.toUpperCase()}${v.slice(1)}`}</Button>)}</div>}
         </div>}
         {tab === "calendar" && <>
@@ -149,11 +147,7 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
               : <WeekView anchor={view === "week" ? startOfWeek(anchor, { weekStartsOn: 1 }) : anchor} events={events} selectedMembers={[]} days={view === "day" ? 1 : 7} bare fill onCreateRange={(start, end) => newShift(start, end)} />}
           </div>
         </>}
-        {tab === "timesheets" && <section className="space-y-3">
-          <p className="text-2xl font-bold">{formatHours(total)} scheduled</p>
-          {clients.map(c => <div key={c.id} className="flex justify-between border-b border-border-soft py-2"><span>{c.name}</span><span>{formatHours(scheduledHours(shifts.filter(s => s.client_id === c.id), monthStart, monthEnd))}</span></div>)}
-          <p className="text-sm text-muted-foreground">Actual hours and approvals are not recorded here.</p>
-        </section>}
+        {tab === "timesheets" && <CaregiverTimesheets userId={identity.data} clients={clients} timezone={timezone} />}
         {tab === "settings" && <div className="max-w-2xl space-y-6">
           <section className="space-y-3"><div className="flex items-center justify-between"><h2 className="text-lg font-bold">Family contacts</h2><Button size="sm" onClick={() => setClientForm({ name: "", email: "", color: MEMBER_COLORS[clients.length % MEMBER_COLORS.length] ?? "sky" })}><Plus className="size-4" />Add family</Button></div>
             {clients.map(c => <div key={c.id} className="flex items-center justify-between gap-2 border-b border-border-soft py-3"><div className="min-w-0"><p className="flex items-center gap-2 font-semibold"><span className={cn("size-2 shrink-0 rounded-full", styleForColor(c.color).dot)} />{c.name}{c.archived ? " · Archived" : ""}</p><p className="truncate text-sm text-muted-foreground">{c.email}</p></div><div className="flex shrink-0 gap-1"><Button variant="ghost" size="icon" aria-label={`Edit ${c.name}`} onClick={() => setClientForm({ id: c.id, name: c.name, email: c.email ?? "", color: c.color })}><Pencil className="size-4" /></Button><Button variant="ghost" size="sm" disabled={busy} onClick={() => void run(() => archiveClient({ data: { id: c.id, archived: !c.archived } }), c.archived ? "Family restored" : "Family archived")}>{c.archived ? "Restore" : "Archive"}</Button></div></div>)}

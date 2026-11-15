@@ -435,6 +435,13 @@
       "when": 1794721995615,
       "tag": "0061_fix_caregiver_hard_delete_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1794755092204,
+      "tag": "0062_caregiver_shift_actuals",
+      "breakpoints": true
     }
   ]
 }
