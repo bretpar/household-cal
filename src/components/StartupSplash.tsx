@@ -16,6 +16,47 @@ export function usesBrandedSplash(): boolean {
 }
 
 /**
+ * Three softly pulsing dots — the subtle "still working" cue used on the
+ * neutral cream startup screen. Decorative: the surrounding status element
+ * carries the text announced to screen readers.
+ */
+export function StartupLoadingDots({ className = "" }: { className?: string }) {
+  return (
+    <span className={`startup-loading-dots ${className}`} aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </span>
+  );
+}
+
+/**
+ * Neutral full-screen wait: the same small logo and pulsing dots as the minimal
+ * startup splash, used while account type and onboarding routing are resolved.
+ * In-flow (not a fixed overlay) so it can never sit above the real page.
+ */
+export function StartupWaitScreen({ label = "Loading…" }: { label?: string }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex min-h-screen flex-col items-center justify-center gap-5 bg-background"
+    >
+      <img
+        src="/launch-logo.png"
+        alt=""
+        width={56}
+        height={56}
+        decoding="async"
+        className="h-14 w-14 object-contain"
+      />
+      <StartupLoadingDots />
+      <span className="sr-only">{label}</span>
+    </div>
+  );
+}
+
+/**
  * Full-screen startup screen. Matches the iOS LaunchScreen.storyboard exactly:
  * logo-blue background (#114476), the same 144px logo image, centered in the
  * full screen (fixed inset-0, so body safe-area padding can't shift it). The
@@ -67,6 +108,11 @@ export function StartupSplash({
       <p className="startup-splash-text absolute left-0 right-0 top-1/2 mt-[92px] text-center font-display text-sm font-semibold text-muted-foreground">
         {message}
       </p>
+      {!revealing && (
+        <StartupLoadingDots
+          className={`absolute left-0 right-0 top-1/2 justify-center ${minimal ? "mt-[70px]" : "mt-[118px]"}`}
+        />
+      )}
     </div>
   );
 }

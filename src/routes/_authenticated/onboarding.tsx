@@ -35,7 +35,7 @@ import { ChildcareSetupFields, useChildcareSetup } from "@/components/ChildcareS
 import { useCalendar } from "@/lib/calendar-store";
 import { beginCalendarSetup, finishCalendarSetup } from "@/lib/onboarding-calendar-session";
 import { retryGuard } from "@/lib/auth-guard";
-import { requestHeartReveal } from "@/components/StartupSplash";
+import { requestHeartReveal, StartupWaitScreen } from "@/components/StartupSplash";
 import { createCaregiverWorkspace } from "@/lib/independent-caregiver.functions";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
@@ -330,7 +330,7 @@ function OnboardingPage() {
   // Account type is unknown until the first status load: stay neutral rather
   // than rendering household step 1 before the Family/Caregiver choice.
   if (!status.data && !status.isError) {
-    return <div className="min-h-screen bg-background" aria-busy="true" />;
+    return <StartupWaitScreen label="Setting up your account…" />;
   }
 
   if (status.data && !status.data.family_id && status.data.had_access && !creatingNew) {

@@ -497,6 +497,45 @@ body:has(.app-tour-layer[data-tour-tab="/settings"]) .app-shell-bottom-link[data
 .startup-splash-bg[data-minimal] .startup-splash-text {
   margin-top: 44px;
 }
+/* Subtle "still working" cue on the neutral cream screen: three dots that
+   brighten in sequence. Low contrast so it never competes with the logo. */
+.startup-loading-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.startup-loading-dots > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background-color: var(--muted-foreground);
+  opacity: 0.4;
+  animation: startup-dot-pulse 1.5s ease-in-out infinite;
+}
+.startup-loading-dots > span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.startup-loading-dots > span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes startup-dot-pulse {
+  0%,
+  60%,
+  100% {
+    opacity: 0.4;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 0.85;
+    transform: translateY(-2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .startup-loading-dots > span {
+    animation: none;
+    opacity: 0.6;
+  }
+}
 /* The logo softly grows and fades as the heart opens around it. */
 .heart-reveal .startup-splash-logo {
   animation: heart-logo-out 1000ms ease-in forwards;
