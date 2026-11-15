@@ -45,7 +45,7 @@ export function CaregiverTimesheets({ userId, clients, timezone }: { userId: str
   useEffect(() => setNative(canShareNativeFile()), []);
   const shareNative = async () => {
     if (!doc) return;
-    try { const pdf = await buildTimesheetPdf(doc); const b64 = pdf.output("datauristring").split(",")[1];
+    try { const pdf = await buildTimesheetPdf(doc); const b64 = pdf.output("datauristring").split(",")[1] ?? "";
       await shareNativePdf(b64, pdfFileName(doc), `Timesheet: ${doc.familyName}, ${rangeLabel(doc)}`); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Could not share the PDF"); }
   };
