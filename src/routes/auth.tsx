@@ -171,7 +171,11 @@ function AuthPage() {
         }
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Something went wrong";
+      const raw = error instanceof Error ? error.message : "Something went wrong";
+      // A banned account is one whose deletion is in progress or was blocked.
+      const message = /user is banned/i.test(raw)
+        ? "This account is being deleted and can't be used right now. Contact info@ourfamilycalendar.com if this is unexpected."
+        : raw;
       // Invited (or returning) users who already have an account but landed on
       // the sign-up stage: switch to sign-in instead of showing a raw error.
       if (mode === "signup" && /already (been )?registered|already exists|already in use/i.test(message)) {

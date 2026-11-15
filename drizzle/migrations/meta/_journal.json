@@ -421,6 +421,13 @@
       "when": 1794720324730,
       "tag": "0059_caregiver_destination_switch_rollback_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1794721400000,
+      "tag": "0060_fix_caregiver_hard_delete_guard",
+      "breakpoints": true
     }
   ]
 }
