@@ -313,6 +313,19 @@ function LandingPage() {
             <p className="mt-4 text-sm text-muted-foreground">
               Works with Google Calendar · Invite caregivers · No special hardware required
             </p>
+            <Link
+              to="/caregiver"
+              className="mt-5 flex max-w-xl items-center gap-3 rounded-2xl border border-border-soft bg-card p-4 shadow-soft transition-colors hover:bg-accent"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent">
+                <Baby className="h-5 w-5 text-accent-foreground" aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1 text-sm">
+                <span className="block font-bold">Are you a babysitter or nanny?</span>
+                <span className="block text-muted-foreground">Track your shifts and hours across families in your own workspace.</span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+            </Link>
           </div>
           <figure className="min-w-0 overflow-hidden rounded-3xl border border-border-soft bg-card shadow-lifted">
             <img
@@ -498,6 +511,33 @@ function LandingPage() {
               </div>
             </div>
           </article>
+        </section>
+
+        {/* For independent caregivers */}
+        <section id="for-caregivers" className="mx-auto max-w-6xl px-4 pb-14 sm:px-6 sm:pb-20 lg:px-8">
+          <div className="rounded-3xl border border-border-soft bg-surface p-6 sm:p-10">
+            <p className="text-xs font-bold tracking-widest text-primary uppercase">For babysitters &amp; nannies</p>
+            <h2 className="mt-3 font-display text-3xl font-bold sm:text-4xl">Not a parent? Your own caregiver workspace.</h2>
+            <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
+              If you babysit or nanny for one or more families, keep your own private schedule and hours. Families don't need an account, and your workspace stays separate from any household calendar.
+            </p>
+            <ul className="mt-6 grid gap-3 sm:grid-cols-3">
+              {[
+                { icon: Clock3, title: "Every shift, one schedule", body: "See your shifts across families in Today, Day, Week and Month views." },
+                { icon: Check, title: "Scheduled and actual hours", body: "Start from scheduled hours, then edit the actual times after a shift." },
+                { icon: Users, title: "Timesheets per family", body: "Weekly, biweekly or monthly timesheets you can download as a PDF." },
+              ].map(({ icon: Icon, title, body }) => (
+                <li key={title} className="rounded-2xl border border-border-soft bg-card p-5 shadow-soft">
+                  <Icon className="h-5 w-5 text-primary" aria-hidden />
+                  <h3 className="mt-3 font-bold">{title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{body}</p>
+                </li>
+              ))}
+            </ul>
+            <Button asChild size="lg" className="mt-7 h-auto min-h-12 max-w-full whitespace-normal rounded-full px-6 py-3 font-bold">
+              <Link to="/caregiver">See the caregiver app <ArrowRight className="h-4 w-4 shrink-0" aria-hidden /></Link>
+            </Button>
+          </div>
         </section>
 
         {/* Mobile showcase */}
