@@ -44,10 +44,46 @@ export function normalizeSubscriptionUrl(raw: string): string {
   } catch {
     throw new Error("That does not look like a calendar link");
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
+  assertPublicFeedUrl(url);
+  return url.toString();
+}
+
+function isPrivateIpv4(host: string): boolean {
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  return (
+    a === 0 || a === 10 || a === 127 || a >= 224 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19))
+  );
+}
+
+/** Only public HTTPS hosts on the default port; blocks internal/metadata targets. */
+export function assertPublicFeedUrl(url: URL): void {
+  if (url.protocol !== "https:") {
     throw new Error("Calendar links must start with https:// or webcal://");
   }
-  return url.toString();
+  if (url.username || url.password || (url.port && url.port !== "443")) {
+    throw new Error("That calendar link is not supported");
+  }
+  const host = url.hostname.toLowerCase().replace(/\.$/, "");
+  if (
+    !host.includes(".") ||
+    host.startsWith("[") ||
+    host.includes(":") ||
+    /^\d+$/.test(host) ||
+    /^0x/i.test(host) ||
+    isPrivateIpv4(host) ||
+    host === "localhost" ||
+    /\.(localhost|local|internal|lan|home|corp|intranet|localdomain)$/.test(host) ||
+    host === "metadata.google.internal"
+  ) {
+    throw new Error("That calendar link is not supported");
+  }
 }
 
 /** Safe-to-display remnant of a secret URL: host plus a short tail. */
@@ -66,11 +102,21 @@ async function fetchFeed(url: string): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(url, {
-      redirect: "follow",
-      signal: controller.signal,
-      headers: { Accept: "text/calendar, text/plain, */*" },
-    });
+    let current = new URL(url);
+    assertPublicFeedUrl(current);
+    let response: Response;
+    for (let hop = 0; ; hop++) {
+      response = await fetch(current.toString(), {
+        redirect: "manual",
+        signal: controller.signal,
+        headers: { Accept: "text/calendar, text/plain, */*" },
+      });
+      if (response.status < 300 || response.status >= 400) break;
+      const location = response.headers.get("location");
+      if (!location || hop >= 4) throw new Error("The calendar link redirected too many times");
+      current = new URL(location.replace(/^webcal:\/\//i, "https://"), current);
+      assertPublicFeedUrl(current);
+    }
     if (!response.ok) {
       // Never echo the URL itself — it is a credential.
       throw new Error(`The calendar link returned ${response.status}`);
