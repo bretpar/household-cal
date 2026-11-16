@@ -7,7 +7,11 @@ import { LegalFooter } from "@/components/LegalFooter";
 
 export const SITE_URL = "https://ourfamilycalendar.com";
 
-export type FeatureSection = { title: string; body: string };
+export type FeatureSection = {
+  title: string;
+  body: string;
+  image?: { src: string; alt: string; width: number; height: number };
+};
 export type FeatureFaq = { question: string; answer: string };
 
 /** Builds head() for a public feature page: meta, canonical, SoftwareApplication, BreadcrumbList, FAQ. */
@@ -129,9 +133,22 @@ export function MarketingFeaturePage(props: {
           <h2 className="font-display text-3xl font-bold sm:text-4xl">{props.sectionsTitle}</h2>
           <div className="mt-8 grid gap-4 sm:grid-cols-2 sm:gap-6">
             {props.sections.map((s) => (
-              <article key={s.title} className="rounded-3xl border border-border-soft bg-card p-6 shadow-soft">
+              <article key={s.title} className={`min-w-0 rounded-3xl border border-border-soft bg-card p-6 shadow-soft${s.image ? " sm:col-span-2" : ""}`}>
                 <h3 className="font-display text-xl font-bold">{s.title}</h3>
                 <p className="mt-2 text-muted-foreground">{s.body}</p>
+                {s.image ? (
+                  <figure className="mt-5 overflow-hidden">
+                    <img
+                      src={s.image.src}
+                      alt={s.image.alt}
+                      width={s.image.width}
+                      height={s.image.height}
+                      loading="lazy"
+                      decoding="async"
+                      className="mx-auto block h-auto w-full max-w-full rounded-2xl border border-border-soft"
+                    />
+                  </figure>
+                ) : null}
               </article>
             ))}
           </div>

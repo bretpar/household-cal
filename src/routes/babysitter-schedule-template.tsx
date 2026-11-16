@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import monthAsset from "@/assets/babysitter-schedule-builder-monthly-desktop.webp.asset.json";
+import templateAsset from "@/assets/babysitter-schedule-template-build-from-template.webp.asset.json";
 import { MarketingFeaturePage, linkClass, SITE_URL } from "@/components/MarketingFeaturePage";
 
 const TITLE = "Babysitter Schedule Template & Monthly Planner | Our Family Calendar";
@@ -11,6 +12,12 @@ const SECTIONS = [
   {
     title: "Start with a reusable weekly template",
     body: "Build a baseline of childcare days, times and caregivers, then use that template to start a monthly draft. Customize the month instead of rebuilding every shift when your work rotation changes.",
+    image: {
+      src: templateAsset.url,
+      alt: "Our Family Calendar Build from Template with Monday, Wednesday and Friday selected, 8:30 AM–5:00 PM, and a default caregiver.",
+      width: 1920,
+      height: 1629,
+    },
   },
   {
     title: "Adjust individual shifts before publishing",
