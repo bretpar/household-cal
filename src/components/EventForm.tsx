@@ -21,6 +21,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { endAfterStartChange } from "@/lib/event-duration";
 import type { EventDraft } from "@/lib/calendar-store";
 import type { EventClipboard } from "@/lib/event-clipboard";
 import {
@@ -59,6 +60,8 @@ export interface EventFormState {
   endDate: string;
   startTime: string;
   endTime: string;
+  startInstant?: string;
+  endInstant?: string;
   allDay: boolean;
   members: MemberId[];
   eventType: EventType;
@@ -185,6 +188,8 @@ export function formStateFromOccurrence(occurrence: Occurrence): EventFormState 
     endDate: format(end, "yyyy-MM-dd"),
     startTime: format(start, "HH:mm"),
     endTime: format(end, "HH:mm"),
+    startInstant: start.toISOString(),
+    endInstant: end.toISOString(),
     allDay: event.all_day,
     members: [...event.member_ids],
     eventType: event.event_type,
@@ -233,6 +238,13 @@ export function formStateFromClipboard(clip: EventClipboard, date: Date): EventF
 
 function combine(date: string, time: string) {
   return new Date(`${date}T${time || "00:00"}`).toISOString();
+}
+function formInstant(state: EventFormState, endpoint: "start" | "end") {
+  const date = endpoint === "start" ? state.date : state.endDate;
+  const time = endpoint === "start" ? state.startTime : state.endTime;
+  const original = endpoint === "start" ? state.startInstant : state.endInstant;
+  if (original && format(new Date(original), "yyyy-MM-dd'T'HH:mm") === `${date}T${time}`) return original;
+  return combine(date, time);
 }
 
 /**
@@ -481,10 +493,10 @@ export function draftFromFormState(
     // All-day entries are date-only: stored at UTC midnight (start) / UTC
     // 23:59:59 on the inclusive last day, matching the Google/ICS convention so
     // the calendar date never shifts through the viewer's timezone.
-    start_at: state.allDay ? `${state.date}T00:00:00.000Z` : combine(state.date, state.startTime),
+    start_at: state.allDay ? `${state.date}T00:00:00.000Z` : formInstant(state, "start"),
     end_at: state.allDay
       ? `${state.endDate < state.date ? state.date : state.endDate}T23:59:59.000Z`
-      : combine(state.endDate, state.endTime),
+      : formInstant(state, "end"),
     all_day: state.allDay,
     location: state.location.trim() || null,
     notes: state.notes.trim() || null,
@@ -706,6 +718,18 @@ export function EventFormFields({
 
   const set = <K extends keyof EventFormState>(key: K, value: EventFormState[K]) =>
     onChange({ ...state, [key]: value });
+  const changeStart = (date: string, startTime: string) => {
+    if (state.allDay) {
+      const days = differenceInCalendarDays(new Date(`${state.endDate}T00:00`), new Date(`${state.date}T00:00`));
+      onChange({ ...state, date, startTime, endDate: format(addDays(new Date(`${date}T00:00`), Math.max(0, days)), "yyyy-MM-dd") });
+      return;
+    }
+    try {
+      const start = combine(date, startTime);
+      const end = endAfterStartChange(formInstant(state, "start"), formInstant(state, "end"), start);
+      onChange({ ...state, date, startTime, startInstant: start, ...(end ? { endDate: format(new Date(end), "yyyy-MM-dd"), endTime: format(new Date(end), "HH:mm"), endInstant: end } : {}) });
+    } catch { onChange({ ...state, date, startTime }); }
+  };
 
   /**
    * Category is the user-facing choice; event_type is derived from its name so
@@ -788,22 +812,13 @@ export function EventFormFields({
           <DatePickerField
             id={`${idPrefix}-date`}
             value={state.date}
-            onChange={(date) => {
-              const endDate = !state.endDate || state.endDate <= state.date ? date : state.endDate;
-              onChange({
-                ...state,
-                date,
-                endDate,
-                recurrenceUntil:
-                  date && state.recurrenceUntil < date ? defaultUntil(date) : state.recurrenceUntil,
-              });
-            }}
+            onChange={(date) => changeStart(date, state.startTime)}
           />
             {!state.allDay ? (
               <TimeField
                 id={`${idPrefix}-start`}
                 value={state.startTime}
-                onChange={(value) => set("startTime", value)}
+                onChange={(value) => changeStart(state.date, value)}
               />
             ) : null}
           </div>

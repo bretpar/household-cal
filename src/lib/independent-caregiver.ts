@@ -10,9 +10,12 @@ export const shiftInput = z.object({
   id: z.string().uuid().optional(), version: z.string().uuid().optional(), client_id: z.string().uuid(),
   start_at: z.string().datetime({ offset: true }), end_at: z.string().datetime({ offset: true }),
   notes: z.string().max(10000).nullable().optional(),
+  weekdays: z.array(z.enum(["MO","TU","WE","TH","FR","SA","SU"])).max(7).optional(),
+  until_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  scope: z.enum(["only", "future"]).optional(),
 }).refine(s => Date.parse(s.end_at) > Date.parse(s.start_at), "End time must be after start time");
 export interface CaregiverClient { id: string; name: string; email: string | null; color: MemberColor; archived: boolean }
-export interface WorkShift { id: string; user_id: string; client_id: string; start_at: string; end_at: string; notes: string | null; version: string; deleted_at: string | null }
+export interface WorkShift { id: string; user_id: string; client_id: string; start_at: string; end_at: string; notes: string | null; version: string; deleted_at: string | null; series_id?: string | null; occurrence_date?: string | null; is_exception?: boolean }
 export function workEvents(shifts: WorkShift[], clients: CaregiverClient[], timezone?: string): CalendarEvent[] {
   return shifts.filter(s => !s.deleted_at).map(s => {
     const client = clients.find(c => c.id === s.client_id);

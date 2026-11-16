@@ -1,5 +1,12 @@
 # Roadmap
 
+## Caregiver scheduling and timesheet simplicity
+- [x] Add bounded weekly recurring work shifts with stable occurrences, exceptions and existing personal Google delivery.
+- [x] Add caregiver-wide weekly/biweekly/monthly timesheet schedules using shared period math; preserve saved adjustment dates/families. Monthly follows household calendar-month boundaries; no immutable PDF archive exists.
+- [x] Share duration-preserving start edits across work shifts, household event fields and Schedule Builder (same-day proposals remain its existing limit).
+- [x] Replace independent confirmation with scheduled/adjusted effective hours across UI, PDF and email; native sharing unchanged.
+- [x] Additive migrations 0063–0064 applied; automatic compilation passed and 11 focused changed-rule tests passed. No browser QA, broad suites or publishing; real Google/native/concurrency behavior remains unverified. Recurring nonexistent DST wall starts are omitted; Google horizon is 90 days and actual adjustment retains the existing 48-hour limit.
+
 ## Focused marketing messaging update
 - [x] Strengthen the existing homepage childcare section with two audience paths and timesheets; update relevant family feature content, FAQs and workflow comparison without new routes.
 - [x] Add caregiver links in relevant public pages and the footer; preserve canonical URLs, sitemap and app behavior; automatic compilation passed. Commit without QA or publishing.

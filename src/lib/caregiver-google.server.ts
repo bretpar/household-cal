@@ -8,6 +8,8 @@ export async function syncCaregiverWork(userId: string, limit = 20) {
   const { data: connection, error } = await db.from("caregiver_google_connections").select("*").eq("user_id", userId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!connection || connection.status !== "connected" || !connection.calendar_id) return;
+  const { ensureCaregiverOccurrences } = await import("./caregiver-recurrence.server");
+  await ensureCaregiverOccurrences(userId, new Date().toISOString(), new Date(Date.now() + 90 * 86400000).toISOString());
   const key = decryptConnectionKey(connection.connection_key_ciphertext);
   for (let i = 0; i < limit; i++) {
     const { data: claims, error: claimError } = await db.rpc("claim_caregiver_google_delivery", { _user: userId });

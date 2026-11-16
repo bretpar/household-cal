@@ -911,29 +911,35 @@ export type Database = {
         Row: {
           actual_end: string
           actual_start: string
+          client_id: string | null
           confirmed: boolean
           note: string | null
           shift_id: string
           updated_at: string
           user_id: string
+          work_date: string | null
         }
         Insert: {
           actual_end: string
           actual_start: string
+          client_id?: string | null
           confirmed?: boolean
           note?: string | null
           shift_id: string
           updated_at?: string
           user_id: string
+          work_date?: string | null
         }
         Update: {
           actual_end?: string
           actual_start?: string
+          client_id?: string | null
           confirmed?: boolean
           note?: string | null
           shift_id?: string
           updated_at?: string
           user_id?: string
+          work_date?: string | null
         }
         Relationships: [
           {
@@ -952,6 +958,57 @@ export type Database = {
           },
         ]
       }
+      caregiver_shift_series: {
+        Row: {
+          client_id: string
+          end_at: string
+          id: string
+          notes: string | null
+          start_at: string
+          until_date: string | null
+          user_id: string
+          version: string
+          weekdays: string[]
+        }
+        Insert: {
+          client_id: string
+          end_at: string
+          id?: string
+          notes?: string | null
+          start_at: string
+          until_date?: string | null
+          user_id: string
+          version?: string
+          weekdays: string[]
+        }
+        Update: {
+          client_id?: string
+          end_at?: string
+          id?: string
+          notes?: string | null
+          start_at?: string
+          until_date?: string | null
+          user_id?: string
+          version?: string
+          weekdays?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caregiver_shift_series_client_id_user_id_fkey"
+            columns: ["client_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "caregiver_clients"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "caregiver_shift_series_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "caregiver_workspaces"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       caregiver_work_shifts: {
         Row: {
           client_id: string
@@ -959,7 +1016,10 @@ export type Database = {
           deleted_at: string | null
           end_at: string
           id: string
+          is_exception: boolean
           notes: string | null
+          occurrence_date: string | null
+          series_id: string | null
           start_at: string
           updated_at: string
           user_id: string
@@ -971,7 +1031,10 @@ export type Database = {
           deleted_at?: string | null
           end_at: string
           id?: string
+          is_exception?: boolean
           notes?: string | null
+          occurrence_date?: string | null
+          series_id?: string | null
           start_at: string
           updated_at?: string
           user_id: string
@@ -983,13 +1046,23 @@ export type Database = {
           deleted_at?: string | null
           end_at?: string
           id?: string
+          is_exception?: boolean
           notes?: string | null
+          occurrence_date?: string | null
+          series_id?: string | null
           start_at?: string
           updated_at?: string
           user_id?: string
           version?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "caregiver_shift_series_owner"
+            columns: ["series_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "caregiver_shift_series"
+            referencedColumns: ["id", "user_id"]
+          },
           {
             foreignKeyName: "caregiver_work_shifts_client_id_user_id_fkey"
             columns: ["client_id", "user_id"]
@@ -1010,18 +1083,24 @@ export type Database = {
         Row: {
           created_at: string
           onboarding_finished_at: string | null
+          timesheet_anchor: string
+          timesheet_frequency: string
           timezone: string
           user_id: string
         }
         Insert: {
           created_at?: string
           onboarding_finished_at?: string | null
+          timesheet_anchor?: string
+          timesheet_frequency?: string
           timezone?: string
           user_id: string
         }
         Update: {
           created_at?: string
           onboarding_finished_at?: string | null
+          timesheet_anchor?: string
+          timesheet_frequency?: string
           timezone?: string
           user_id?: string
         }
@@ -2766,6 +2845,10 @@ export type Database = {
         Args: { _family: string }
         Returns: undefined
       }
+      materialize_caregiver_occurrences: {
+        Args: { _rows: Json; _series: string; _user: string; _version: string }
+        Returns: undefined
+      }
       merge_event_exclusions_atomic: {
         Args: {
           _dates: string[]
@@ -2774,6 +2857,22 @@ export type Database = {
           _source?: string
         }
         Returns: string[]
+      }
+      mutate_caregiver_series: {
+        Args: {
+          _client: string
+          _days: string[]
+          _delete: boolean
+          _end: string
+          _notes: string
+          _scope: string
+          _shift: string
+          _start: string
+          _until: string
+          _user: string
+          _version: string
+        }
+        Returns: string
       }
       my_caregiver_member_id: { Args: { _family_id: string }; Returns: string }
       owner_delete_managed_entry_atomic: {

@@ -23,6 +23,10 @@ import { AccountDeletion } from "@/components/AccountDeletion";
 import { SignOutButton } from "@/components/SignOutButton";
 import { CaregiverGoogleSettings } from "./CaregiverGoogleSettings";
 import { CaregiverTimesheets } from "./CaregiverTimesheets";
+import { CaregiverTimesheetSchedule } from "./CaregiverTimesheetSchedule";
+import { endAfterStartChange } from "@/lib/event-duration";
+import type { PaySettings } from "@/lib/timesheet-periods";
+import { Checkbox } from "./ui/checkbox";
 import { CaregiverCalendarStore } from "@/lib/caregiver-calendar-store";
 import { getCaregiverWorkTimezone, getCaregiverWorkspace, saveCaregiverShift, deleteCaregiverShift, saveCaregiverClient, archiveCaregiverClient } from "@/lib/independent-caregiver.functions";
 import { workEvents, type CaregiverClient, type WorkShift } from "@/lib/independent-caregiver";
@@ -32,7 +36,9 @@ import { cn } from "@/lib/utils";
 import { workDate, workInput, workInputInstant, workInputInstants, workDateInput, workOffset } from "@/lib/caregiver-timezone";
 
 export type CaregiverTab = "today" | "calendar" | "timesheets" | "settings";
-type ShiftForm = { original: WorkShift | null; client_id: string; start: string; end: string; notes: string; startOccurrence?: string | undefined; endOccurrence?: string | undefined };
+type ShiftForm = { original: WorkShift | null; client_id: string; start: string; end: string; notes: string; startOccurrence?: string | undefined; endOccurrence?: string | undefined; weekdays: string[]; until: string; scope: "only" | "future" };
+const recurrenceDays = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
+const recurrenceDayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 
 export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
@@ -53,6 +59,7 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
   const [clientForm, setClientForm] = useState<{ id?: string; name: string; email: string; color: CaregiverClient["color"] } | null>(null);
   const [busy, setBusy] = useState(false);
   const submission = useRef(false);
+  const lastDuration = useRef<number | null>(null);
   const identity = useQuery({ queryKey: ["caregiver-verified-user"], queryFn: async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw new Error("Sign in to view your work calendar");
@@ -73,15 +80,15 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
   const clients = (workspace.data?.clients ?? []) as CaregiverClient[];
   const shifts = workspace.data?.shifts ?? [];
   const activeClients = clients.filter(c => !c.archived);
-  const openShift = (shift: WorkShift) => { if (!timezone) return; setShiftForm({ original: shift, client_id: shift.client_id,
-    start: workInput(shift.start_at, timezone), end: workInput(shift.end_at, timezone), notes: shift.notes ?? "" }); };
+  const openShift = (shift: WorkShift) => { if (!timezone) return; const series = workspace.data?.series.find(s => s.id === shift.series_id); setShiftForm({ original: shift, client_id: shift.client_id,
+    start: workInput(shift.start_at, timezone), end: workInput(shift.end_at, timezone), notes: shift.notes ?? "", weekdays: series?.weekdays ?? [], until: series?.until_date ?? "", scope: "only" }); };
   const newShift = (start?: Date, end?: Date) => {
     if (!timezone) return;
     const a = workDate(start ?? Date.now(), timezone);
     if (!end) a.setHours(9, 0, 0, 0);
     const b = workDate(end ?? a.getTime() + 4 * 3600000, timezone);
     setShiftForm({ original: null, client_id: activeClients[0]?.id ?? "", start: workDateInput(a),
-      end: workDateInput(b), notes: "",
+      end: workDateInput(b), notes: "", weekdays: [], until: "", scope: "only",
       startOccurrence: new Date(a.getTime()).toISOString(), endOccurrence: new Date(b.getTime()).toISOString() });
   };
   const run = async (action: () => Promise<unknown>, message: string, close?: () => void) => {
@@ -95,6 +102,22 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
     finally { submission.current = false; setBusy(false); }
   };
   const events = workEvents(shifts, clients, timezone);
+  const paySettings: PaySettings = { frequency: (workspace.data?.workspace.timesheet_frequency ?? "weekly") as PaySettings["frequency"], anchor_date: workspace.data?.workspace.timesheet_anchor ?? "2026-01-05", semimonthly_first_end: 15 };
+  const changeStart = (start: string, occurrence?: string) => {
+    if (!shiftForm || !timezone) return;
+    let next = { ...shiftForm, start, startOccurrence: occurrence };
+    try {
+      const oldStart = workInputInstant(shiftForm.start, timezone, shiftForm.original?.start_at, shiftForm.startOccurrence);
+      const oldEnd = workInputInstant(shiftForm.end, timezone, shiftForm.original?.end_at, shiftForm.endOccurrence);
+      if (Date.parse(oldEnd) > Date.parse(oldStart)) lastDuration.current = Date.parse(oldEnd) - Date.parse(oldStart);
+    } catch { /* A repeated-hour choice may still be pending. */ }
+    try {
+      const newStart = workInputInstant(start, timezone, shiftForm.original?.start_at, occurrence);
+      const end = lastDuration.current ? endAfterStartChange(newStart, new Date(Date.parse(newStart) + lastDuration.current).toISOString(), newStart) : null;
+      if (end) next = { ...next, end: workInput(end, timezone), endOccurrence: end };
+    } catch { /* Keep invalid/ambiguous wall inputs editable until explicitly resolved. */ }
+    setShiftForm(next);
+  };
   const today = startOfDay(timezone ? workDate(clock, timezone) : new Date(0));
   const calendarStep = (direction: 1 | -1) => {
     const next = view === "month" ? addMonths(visibleMonth ?? anchor, direction) : addDays(anchor, direction * (view === "week" && !isMobile ? 7 : view === "week" ? 3 : 1));
@@ -111,7 +134,7 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
     const preserved = original && workInput(original, timezone) === shiftForm[field]
       ? candidates.find(candidate => Date.parse(candidate) === Math.floor(Date.parse(original) / 60000) * 60000)
       : undefined;
-    return <Select value={selection ?? preserved ?? ""} onValueChange={occurrence => setShiftForm({ ...shiftForm, [field === "start" ? "startOccurrence" : "endOccurrence"]: occurrence })}>
+    return <Select value={selection ?? preserved ?? ""} onValueChange={occurrence => field === "start" ? changeStart(shiftForm.start, occurrence) : setShiftForm({ ...shiftForm, endOccurrence: occurrence })}>
       <SelectTrigger aria-label={`${field === "start" ? "Start" : "End"} repeated time occurrence`}><SelectValue placeholder="Choose repeated time occurrence" /></SelectTrigger>
       <SelectContent>{candidates.map((candidate, index) => <SelectItem key={candidate} value={candidate}>{index === 0 ? "First" : "Second"} occurrence · UTC{workOffset(candidate, timezone)}</SelectItem>)}</SelectContent>
     </Select>;
@@ -147,11 +170,12 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
               : <WeekView anchor={view === "week" ? startOfWeek(anchor, { weekStartsOn: 1 }) : anchor} events={events} selectedMembers={[]} days={view === "day" ? 1 : 7} bare fill onCreateRange={(start, end) => newShift(start, end)} />}
           </div>
         </>}
-        {tab === "timesheets" && <CaregiverTimesheets userId={identity.data} clients={clients} timezone={timezone} />}
+        {tab === "timesheets" && <CaregiverTimesheets userId={identity.data} clients={clients} timezone={timezone} settings={paySettings} />}
         {tab === "settings" && <div className="max-w-2xl space-y-6">
           <section className="space-y-3"><div className="flex items-center justify-between"><h2 className="text-lg font-bold">Family contacts</h2><Button size="sm" onClick={() => setClientForm({ name: "", email: "", color: MEMBER_COLORS[clients.length % MEMBER_COLORS.length] ?? "sky" })}><Plus className="size-4" />Add family</Button></div>
             {clients.map(c => <div key={c.id} className="flex items-center justify-between gap-2 border-b border-border-soft py-3"><div className="min-w-0"><p className="flex items-center gap-2 font-semibold"><span className={cn("size-2 shrink-0 rounded-full", styleForColor(c.color).dot)} />{c.name}{c.archived ? " · Archived" : ""}</p><p className="truncate text-sm text-muted-foreground">{c.email}</p></div><div className="flex shrink-0 gap-1"><Button variant="ghost" size="icon" aria-label={`Edit ${c.name}`} onClick={() => setClientForm({ id: c.id, name: c.name, email: c.email ?? "", color: c.color })}><Pencil className="size-4" /></Button><Button variant="ghost" size="sm" disabled={busy} onClick={() => void run(() => archiveClient({ data: { id: c.id, archived: !c.archived } }), c.archived ? "Family restored" : "Family archived")}>{c.archived ? "Restore" : "Archive"}</Button></div></div>)}
           </section>
+          <CaregiverTimesheetSchedule settings={paySettings} timezone={timezone} reload={() => workspace.refetch()} />
           <CaregiverGoogleSettings userId={identity.data} />
           <section className="space-y-3 border-t border-border-soft pt-5"><h2 className="text-lg font-bold">Account</h2><p className="text-sm text-muted-foreground">Work time zone: {workspace.data.workspace.timezone}</p><SignOutButton /><AccountDeletion /></section>
         </div>}
@@ -163,16 +187,21 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
         const start_at = workInputInstant(shiftForm.start, timezone, shiftForm.original?.start_at, shiftForm.startOccurrence);
         const end_at = workInputInstant(shiftForm.end, timezone, shiftForm.original?.end_at, shiftForm.endOccurrence);
         if (Date.parse(end_at) <= Date.parse(start_at)) throw new Error("End must be after start. Check the repeated time occurrences.");
-        return saveShift({ data: { ...(shiftForm.original ? { id: shiftForm.original.id, version: shiftForm.original.version } : {}), client_id: shiftForm.client_id, start_at, end_at, notes: shiftForm.notes } });
+        return saveShift({ data: { ...(shiftForm.original ? { id: shiftForm.original.id, version: shiftForm.original.version } : {}), client_id: shiftForm.client_id, start_at, end_at, notes: shiftForm.notes,
+          weekdays: shiftForm.weekdays as ("MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU")[], until_date: shiftForm.until || null, scope: shiftForm.scope } });
       }, "Shift saved", () => setShiftForm(null)); }}>
         <div className="space-y-1"><Label>Family</Label><Select value={shiftForm.client_id} onValueChange={client_id => setShiftForm({ ...shiftForm, client_id })}><SelectTrigger><SelectValue placeholder="Choose family" /></SelectTrigger><SelectContent>{clients.filter(c => !c.archived || c.id === shiftForm.original?.client_id).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
         {!activeClients.length && <p className="text-sm text-muted-foreground">Add an active family contact in Settings before scheduling.</p>}
-        <div className="space-y-1"><Label htmlFor="work-start">Start</Label><Input id="work-start" required type="datetime-local" value={shiftForm.start} onChange={e => setShiftForm({ ...shiftForm, start: e.target.value, startOccurrence: undefined })} />{repeatedTimeControl("start")}</div>
+        {shiftForm.original?.series_id && <div className="space-y-1"><Label>Apply changes to</Label><Select value={shiftForm.scope} onValueChange={scope => setShiftForm({ ...shiftForm, scope: scope as "only" | "future" })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="only">This shift only</SelectItem><SelectItem value="future">This and future shifts</SelectItem></SelectContent></Select></div>}
+        <div className="space-y-1"><Label htmlFor="work-start">Start</Label><Input id="work-start" required type="datetime-local" value={shiftForm.start} onChange={e => changeStart(e.target.value)} />{repeatedTimeControl("start")}</div>
         <div className="space-y-1"><Label htmlFor="work-end">End</Label><Input id="work-end" required type="datetime-local" value={shiftForm.end} onChange={e => setShiftForm({ ...shiftForm, end: e.target.value, endOccurrence: undefined })} />{repeatedTimeControl("end")}</div>
+        {(!shiftForm.original?.series_id || shiftForm.scope === "future") && <div className="space-y-3"><Label>Repeats</Label><Select value={shiftForm.weekdays.length ? "weekly" : "none"} onValueChange={repeat => setShiftForm({ ...shiftForm, weekdays: repeat === "weekly" ? [recurrenceDays[(new Date(`${shiftForm.start.slice(0, 10)}T12:00:00Z`).getUTCDay() + 6) % 7] ?? "MO"] : [] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Single shift</SelectItem><SelectItem value="weekly">Weekly</SelectItem></SelectContent></Select>
+          {shiftForm.weekdays.length > 0 && <><fieldset className="flex flex-wrap gap-3"><legend className="mb-2 text-sm">Weekdays</legend>{recurrenceDays.map((day, i) => <label key={day} className="flex items-center gap-1 text-sm"><Checkbox checked={shiftForm.weekdays.includes(day)} onCheckedChange={checked => setShiftForm({ ...shiftForm, weekdays: checked ? [...shiftForm.weekdays, day] : shiftForm.weekdays.length > 1 ? shiftForm.weekdays.filter(d => d !== day) : shiftForm.weekdays })} />{recurrenceDayLabels[i]}</label>)}</fieldset><Label htmlFor="work-until">Repeat end date (optional)</Label><Input id="work-until" type="date" min={shiftForm.start.slice(0, 10)} value={shiftForm.until} onChange={e => setShiftForm({ ...shiftForm, until: e.target.value })} /><p className="text-xs text-muted-foreground">Weekly · {recurrenceDays.filter(d => shiftForm.weekdays.includes(d)).map(d => recurrenceDayLabels[recurrenceDays.indexOf(d)]).join(" / ")} · {shiftForm.until ? `until ${shiftForm.until}` : "no end date"}</p></>}
+        </div>}
         <div className="space-y-1"><Label htmlFor="work-notes">Notes</Label><Textarea id="work-notes" value={shiftForm.notes} onChange={e => setShiftForm({ ...shiftForm, notes: e.target.value })} /></div>
         <div className="flex flex-wrap justify-between gap-2">{shiftForm.original ? <Button variant="ghost" type="button" disabled={busy} className="text-destructive" onClick={() => {
           const original = shiftForm.original;
-          if (original && window.confirm("Delete this work shift?")) void run(() => removeShift({ data: { id: original.id, version: original.version } }), "Shift deleted", () => setShiftForm(null));
+          if (original && window.confirm(shiftForm.scope === "future" && original.series_id ? "Delete this and future scheduled shifts? Individual exceptions and saved actual hours are preserved." : "Delete this work shift?")) void run(() => removeShift({ data: { id: original.id, version: original.version, scope: shiftForm.scope } }), "Shift deleted", () => setShiftForm(null));
         }}><Trash2 className="size-4" />Delete shift</Button> : <span />}<Button disabled={busy || !shiftForm.client_id} type="submit">{busy ? "Saving…" : "Save shift"}</Button></div>
       </form>}
     </DialogContent></Dialog>
