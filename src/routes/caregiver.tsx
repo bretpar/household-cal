@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowDown, ArrowRight, CalendarDays, ChevronDown, Clock3, Heart, Users } from "lucide-react";
 import logoAsset from "@/assets/logo.png.asset.json";
+import mobileMonthAsset from "@/assets/caregiver-mobile-month.png.asset.json";
+import desktopMonthAsset from "@/assets/caregiver-desktop-month.png.asset.json";
 import planningAsset from "@/assets/caregiver-planning.jpg.asset.json";
 import { Button } from "@/components/ui/button";
 import { LegalFooter } from "@/components/LegalFooter";
@@ -91,6 +93,23 @@ function CaregiverLandingPage() {
               <h3 className="mt-4 font-display text-xl font-bold">{heading}</h3>
               <p className="mt-3 leading-relaxed text-muted-foreground">{body}</p>
             </article>)}
+          </div>
+        </section>
+        <section aria-labelledby="showcase-heading" className="border-y border-border-soft bg-member-sky-soft">
+          <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:px-8">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-primary">See it in the app</p>
+              <h2 id="showcase-heading" className="mt-3 font-display text-3xl font-bold sm:text-4xl">Every family you babysit for, on one calendar.</h2>
+              <ul className="mt-6 space-y-4 text-muted-foreground">
+                <li><strong className="text-foreground">Manage shifts for multiple families in one calendar.</strong> Each family gets its own color, so your week reads at a glance.</li>
+                <li><strong className="text-foreground">Track scheduled and actual babysitting hours.</strong> Adjust a shift when it runs long or ends early.</li>
+                <li><strong className="text-foreground">Review timesheets without a family household account.</strong> Your workspace is yours — families don't need to sign up.</li>
+              </ul>
+            </div>
+            <div className="flex min-w-0 items-end justify-center gap-4 sm:gap-6">
+              <img src={mobileMonthAsset.url} alt="Our Family Calendar on a phone: November Month view with shifts for three families and the day's agenda" width={390} height={844} loading="lazy" decoding="async" className="w-[46%] max-w-[260px] shrink-0 rounded-3xl border border-border-soft bg-background shadow-xl sm:w-[38%]" />
+              <img src={desktopMonthAsset.url} alt="Our Family Calendar on desktop: Month view of babysitting shifts across multiple families" width={1440} height={900} loading="lazy" decoding="async" className="hidden min-w-0 flex-1 rounded-xl border border-border-soft bg-background shadow-lg sm:block" />
+            </div>
           </div>
         </section>
         <section id="how-it-works" aria-labelledby="steps-heading" className="scroll-mt-6 border-y border-border-soft bg-member-sage-soft">
