@@ -17,8 +17,8 @@ const features = [
   { icon: Users, tone: "bg-member-sage-soft text-member-sage-ink", title: "Different families. Less juggling.", body: "Keep family contacts and color-coded shifts organized in your private workspace. Switch between families in Timesheets without mixing their hours." },
 ];
 const steps = [
-  { title: "Make it yours", body: "Create an account, then choose “I’m a Babysitter / Caregiver” on the Welcome screen." },
-  { title: "Add your families and shifts", body: "Save your family contacts, choose your work time zone, and put upcoming shifts on your calendar." },
+  { title: "Make it yours", body: "Create an account, then choose “I’m a Caregiver” on the Welcome screen." },
+  { title: "Add your families and shifts", body: "Save your family contacts and put upcoming shifts on your calendar." },
   { title: "Keep your hours up to date", body: "Confirm or adjust your hours after each shift, then check each family’s weekly timesheet." },
 ];
 const faq = [
