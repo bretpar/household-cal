@@ -1,5 +1,9 @@
 # Roadmap
 
+## Focused marketing messaging update
+- [x] Strengthen the existing homepage childcare section with two audience paths and timesheets; update relevant family feature content, FAQs and workflow comparison without new routes.
+- [x] Add caregiver links in relevant public pages and the footer; preserve canonical URLs, sitemap and app behavior; automatic compilation passed. Commit without QA or publishing.
+
 ## Independent caregiver public landing page
 - [x] Add mobile-first /caregiver with verified scheduling, per-family hours, three-step setup, FAQs and existing signup links; retain Welcome role selection.
 - [x] Add metadata, verified SoftwareApplication data, matching share photo, sitemap entry and subtle homepage childcare link; preserve existing canonical hostname and robots rules.

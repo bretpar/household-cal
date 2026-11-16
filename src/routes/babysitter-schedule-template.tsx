@@ -134,7 +134,7 @@ function BabysitterScheduleTemplatePage() {
         </>
       }
       faq={FAQ}
-      related={<>Explore <Link to="/features/childcare-scheduling" className={linkClass}>childcare scheduling and caregiver access</Link>, or learn about <Link to="/features/nanny-timesheets" className={linkClass}>scheduled hours and caregiver timesheets</Link>.</>}
+      related={<>Explore <Link to="/features/childcare-scheduling" className={linkClass}>childcare scheduling and caregiver access</Link>, or learn about <Link to="/features/nanny-timesheets" className={linkClass}>scheduled hours and caregiver timesheets</Link>. Working independently as a babysitter or nanny? <Link to="/caregiver" className={linkClass}>Organize your own shifts and track hours across families</Link>.</>}
       ctaTitle="Make room for a work schedule that changes."
     />
   );

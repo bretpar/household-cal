@@ -3,9 +3,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import mobileDayAsset from "@/assets/landing-mobile-day.png.asset.json";
 import { MarketingFeaturePage, featureHead, linkClass, SITE_URL } from "@/components/MarketingFeaturePage";
 
-const TITLE = "Childcare Calendar & Nanny Schedule App | Our Family Calendar";
+const TITLE = "Childcare Scheduling App for Families & Nannies | Our Family Calendar";
 const DESCRIPTION =
-  "A childcare calendar app for families: plan nanny and babysitter shifts, share a view-only caregiver schedule, and track hours with timesheets beside family activities.";
+  "Plan nanny and babysitter shifts on your family calendar, assign caregivers, and connect scheduled childcare hours to actual-hour recording and parent timesheet review.";
 
 const SECTIONS = [
   { title: "Build a recurring nanny schedule", body: "Add your nanny's regular days and start and end times with repeat rules. Assign each shift to a caregiver and keep occasional babysitter shifts in the same calendar." },
@@ -21,6 +21,7 @@ const FAQ = [
   { question: "How can I use this as a nanny schedule app?", answer: "Create nanny shifts with dates and start and end times, assign them to your caregiver, and use repeat rules for a regular weekly schedule. Shifts appear alongside your family's activities on a phone, tablet or computer." },
   { question: "How do babysitter timesheets work?", answer: "Timesheets are prefilled from scheduled shifts. Caregivers can adjust actual hours and submit, and parents review and confirm them. Timesheets track hours only — they don't handle payroll, payments or taxes." },
   { question: "What can a caregiver see on the calendar?", answer: "Only the calendars you choose. You can also limit their view to the days they're scheduled to work. Caregivers can't edit family events." },
+  { question: "What if my babysitter manages their own schedule?", answer: "Independent babysitters and nannies can use a separate private caregiver workspace to organize shifts across family contacts and track their own weekly hours. It does not link to your household calendar or replace the invited-caregiver timesheet workflow." },
 ];
 
 const TIMESHEET_STEPS = [
@@ -47,7 +48,7 @@ function ChildcarePage() {
   return (
     <MarketingFeaturePage
       eyebrow="Our Family Calendar · Childcare scheduling"
-      heading="Nanny Schedule App for Families"
+      heading="Childcare Scheduling for Families"
       intro="Plan your nanny's weekly shifts alongside school pickups, work and family activities. Share a view-only schedule with your nanny or babysitter, then track scheduled and actual hours with caregiver timesheets."
       image={{ src: mobileDayAsset.url, alt: "Our Family Calendar mobile Day view showing activities and babysitter coverage" }}
       sectionsTitle="Plan and share your nanny's weekly schedule"
@@ -89,6 +90,7 @@ function ChildcarePage() {
           <Link to="/features/family-calendar" className={linkClass}>shared family calendar</Link>, plan changing work hours with a{" "}
           <Link to="/babysitter-schedule-template" className={linkClass}>monthly babysitter schedule template</Link>, or see how we{" "}
           <Link to="/best-shared-calendar-app" className={linkClass}>compare to other shared calendar apps</Link>.
+          {" "}Working independently? <Link to="/caregiver" className={linkClass}>Manage your own babysitting schedule and hours</Link>.
         </>
       }
       ctaTitle="Bring your nanny's schedule into the family plan."

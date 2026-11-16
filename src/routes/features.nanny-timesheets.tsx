@@ -4,9 +4,9 @@ import mobileDayAsset from "@/assets/landing-mobile-day.png.asset.json";
 import { MarketingFeaturePage, featureHead, linkClass, SITE_URL } from "@/components/MarketingFeaturePage";
 import { Button } from "@/components/ui/button";
 
-const TITLE = "Nanny Timesheet & Babysitter Hours Tracker | Our Family Calendar";
+const TITLE = "Nanny Timesheet App for Parent Review | Our Family Calendar";
 const DESCRIPTION =
-  "Track nanny and babysitter hours with timesheets connected to your family calendar. Schedule shifts, record actual hours, and confirm caregiver time cards.";
+  "Review nanny and babysitter timesheets connected to your family calendar. Compare scheduled and actual hours, request corrections, and confirm caregiver time cards.";
 
 const STEPS = [
   { title: "Schedule shifts", body: "Parents assign babysitter or nanny shifts right on the family calendar, alongside school pickups, work and activities." },
@@ -27,6 +27,7 @@ const FAQ = [
   { question: "How do nanny timesheets work?", answer: "Timesheets are prefilled from the nanny shifts you schedule on your family calendar. Your caregiver reviews each shift, adjusts actual hours when needed, and submits the time card for the pay period." },
   { question: "Can babysitters update their actual hours?", answer: "Yes. Caregivers see their scheduled shifts and record the actual hours they worked before submitting. The scheduled hours stay unchanged, so parents can compare the two." },
   { question: "Can parents review and confirm caregiver timesheets?", answer: "Yes. Parents review each submitted timesheet, can ask for corrections, and confirm it. Timesheets track hours only — they don't handle payroll, payments or taxes." },
+  { question: "Can I track babysitting hours without joining a family's household?", answer: "Yes. The separate independent caregiver workspace supports your own shifts and weekly timesheets for different family contacts. You confirm your actual hours yourself; this is not the household submission and parent-review workflow." },
 ];
 
 export const Route = createFileRoute("/features/nanny-timesheets")({
@@ -46,7 +47,7 @@ function NannyTimesheetsPage() {
   return (
     <MarketingFeaturePage
       eyebrow="Our Family Calendar · Caregiver timesheets"
-      heading="Nanny Timesheets & Babysitter Hours Tracking, Made Simple"
+      heading="Nanny Timesheets for Families, Made Simple"
       intro="Stop managing babysitter schedules and hours in separate places. Our Family Calendar connects caregiver shifts with timesheets, making it easier to track hours, review changes, and confirm time cards."
       secondaryCta={
         <Button asChild variant="outline" size="lg" className="h-12 rounded-full px-7 font-bold">
@@ -64,6 +65,11 @@ function NannyTimesheetsPage() {
             <p className="mt-4 max-w-3xl text-muted-foreground">
               Scheduled hours are the plan; actual hours are what happened. Our Family Calendar keeps
               both side by side, so a shift that runs long or ends early is easy to see and confirm.
+            </p>
+            <p className="mt-4 max-w-3xl text-muted-foreground">
+              A calendar records the planned shift; a spreadsheet can total worked hours;
+              text messages can explain a change. Here, the time card begins with the scheduled
+              shift and keeps actual hours and parent review connected to that same record.
             </p>
             <ol className="mt-8 grid gap-6 sm:grid-cols-2">
               {STEPS.map((step, index) => (
@@ -86,6 +92,7 @@ function NannyTimesheetsPage() {
           Plan the shifts behind these timesheets with{" "}
           <Link to="/features/childcare-scheduling" className={linkClass}>childcare scheduling</Link>, or see the{" "}
           <Link to="/features/family-calendar" className={linkClass}>shared family calendar</Link> everything connects to.
+          {" "}Working for families independently? <Link to="/caregiver" className={linkClass}>Track your own babysitting hours and weekly timesheets</Link>.
         </>
       }
       ctaTitle="Track caregiver hours where you already plan them."

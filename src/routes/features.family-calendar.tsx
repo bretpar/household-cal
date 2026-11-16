@@ -5,7 +5,7 @@ import { MarketingFeaturePage, featureHead, linkClass, SITE_URL } from "@/compon
 
 const TITLE = "Shared Family Calendar App for Busy Families | Our Family Calendar";
 const DESCRIPTION =
-  "Share family appointments, kids’ activities and nanny schedules in one color-coded calendar, with Google Calendar sync and view-only caregiver access.";
+  "Share appointments, kids’ activities and childcare shifts in a color-coded family calendar. Connect nanny schedules to timesheets, actual hours and parent review.";
 
 const SECTIONS = [
   { title: "One household schedule", body: "Everyone in the household opens the same calendar on a phone, tablet or computer, so school, work and activities are all in one place." },
@@ -23,6 +23,7 @@ const FAQ = [
   { question: "Does it work with Google Calendar?", answer: "Yes. You can connect Google Calendar so existing events show up in your family calendar." },
   { question: "Can I use it with Apple Calendar?", answer: "You can subscribe to calendar feeds so events can be viewed in calendar apps that support subscriptions. Full two-way Apple Calendar integration is not available." },
   { question: "Can my babysitter see the calendar?", answer: "Yes, with view-only caregiver access. You choose which calendars they can see, and they can't edit family events." },
+  { question: "Does the family calendar include caregiver timesheets?", answer: "Yes. When timesheets are enabled for a caregiver, scheduled shifts prefill time cards. Caregivers record actual hours and submit them, and parents review and confirm each period. Timesheets do not process payroll, payments or taxes." },
 ];
 
 export const Route = createFileRoute("/features/family-calendar")({
@@ -56,6 +57,7 @@ function FamilyCalendarPage() {
               <li>Tuesday's soccer practice repeats every week without re-entering it.</li>
               <li>Wednesday's work meeting from Google Calendar appears automatically.</li>
               <li>Thursday's babysitter shift covers the evening when both parents are out.</li>
+              <li>After the shift, your caregiver records actual hours for your timesheet review.</li>
             </ul>
           </div>
         </section>
@@ -66,6 +68,7 @@ function FamilyCalendarPage() {
            Planning childcare? Explore our{" "}
            <Link to="/features/childcare-scheduling" className={linkClass}>nanny schedule app and caregiver timesheets</Link>, or see how we{" "}
           <Link to="/best-shared-calendar-app" className={linkClass}>compare to other shared calendar apps</Link>.
+          {" "}Babysitters and nannies managing their own work can explore the separate <Link to="/caregiver" className={linkClass}>independent caregiver calendar and hours tracker</Link>.
         </>
       }
       ctaTitle="Bring your family's schedule together."

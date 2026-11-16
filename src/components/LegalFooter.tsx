@@ -14,6 +14,9 @@ export function LegalFooter() {
           <Link to="/features/childcare-scheduling" className="hover:text-foreground">
             Childcare scheduling
           </Link>
+          <Link to="/caregiver" className="hover:text-foreground">
+            For babysitters &amp; nannies
+          </Link>
           <Link to="/best-shared-calendar-app" className="hover:text-foreground">
             Compare
           </Link>

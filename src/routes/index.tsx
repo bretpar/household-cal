@@ -46,6 +46,16 @@ const FAQ_ITEMS = [
       "Yes. Plan recurring nanny shifts or occasional babysitter coverage alongside family activities. Invite your caregiver with view-only access, choose which calendars they can see, and optionally limit their view to assigned shift days.",
   },
   {
+    question: "Can I track babysitter hours and review timesheets?",
+    answer:
+      "Yes. For timesheet-enabled caregivers, time cards start from scheduled shifts. Caregivers record actual hours and submit their timesheets, then parents review and confirm them. Timesheets track hours, not payroll, payments or taxes.",
+  },
+  {
+    question: "Can independent babysitters and nannies use Our Family Calendar?",
+    answer:
+      "Yes. Independent caregivers can manage their own shifts across multiple family contacts and track scheduled and confirmed actual hours by family and week. Their private workspace is separate from a parent's household calendar, and families don't need an account.",
+  },
+  {
     question: "Can different family members have different colors?",
     answer:
       "Yes. Every family member gets their own color and initials, so you can tell who an activity belongs to at a glance without opening the event.",
@@ -75,17 +85,17 @@ const FAQ_ITEMS = [
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Shared Family Calendar App With Nanny Scheduling | Our Family Calendar" },
+      { title: "Family Calendar With Childcare Scheduling & Timesheets | Our Family Calendar" },
       {
         name: "description",
         content:
-          "A shared family calendar app for kids' activities, work and childcare. Color-code each person, sync Google Calendar, schedule your nanny and review caregiver timesheets.",
+          "Keep family plans together, schedule babysitters and nannies, and review scheduled versus actual childcare hours with caregiver timesheets in one shared calendar.",
       },
-      { property: "og:title", content: "Shared Family Calendar App With Nanny Scheduling | Our Family Calendar" },
+      { property: "og:title", content: "Family Calendar With Childcare Scheduling & Timesheets | Our Family Calendar" },
       {
         property: "og:description",
         content:
-          "A shared family calendar app for kids' activities, work and childcare. Color-code each person, sync Google Calendar, schedule your nanny and review caregiver timesheets.",
+          "Keep family plans together, schedule babysitters and nannies, and review scheduled versus actual childcare hours with caregiver timesheets in one shared calendar.",
       },
       { property: "og:url", content: `${SITE_URL}/` },
       { property: "og:image", content: OG_IMAGE_URL },
@@ -185,7 +195,7 @@ const STEPS = [
   },
   {
     title: "Everyone knows what's next",
-    body: "Check the schedule from a phone or computer.",
+    body: "Check upcoming plans, then review caregiver timesheets after scheduled shifts.",
   },
 ];
 
@@ -444,11 +454,11 @@ function LandingPage() {
               <Baby className="h-5 w-5 text-accent-foreground" aria-hidden />
             </div>
             <h2 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
-              A nanny schedule that fits your family calendar
+              More than a family calendar — childcare scheduling and timesheets in one place.
             </h2>
             <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-              Plan nanny shifts and babysitter coverage right in the family calendar, then track
-              the hours — all in one place.
+              Plan babysitter and nanny shifts beside your family activities. Keep scheduled
+              hours connected to actual hours, so parents and caregivers have a clear record to review.
             </p>
             <ol className="mt-6 grid gap-3 sm:grid-cols-3 sm:gap-4">
               {[
@@ -477,21 +487,22 @@ function LandingPage() {
                 </li>
               ))}
             </ol>
-            <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Link
-                to="/features/childcare-scheduling"
-                className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-input bg-card px-4 text-[13px] font-bold text-primary hover:bg-accent sm:h-11 sm:w-auto sm:px-5 sm:text-sm"
-              >
-                Explore the nanny schedule app
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </Link>
+            <div className="mt-7 grid gap-6 border-t border-border-soft pt-6 sm:grid-cols-2">
+              <div>
+                <h3 className="font-display text-xl font-bold">For Families</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Assign shifts, compare scheduled and actual hours, and review caregiver time cards.</p>
+                <Button asChild variant="outline" className="mt-4 h-auto min-h-11 w-full rounded-full px-4 py-3 font-bold whitespace-normal sm:w-auto">
+                  <Link to="/features/childcare-scheduling">Explore family childcare tools <ArrowRight className="size-4 shrink-0" aria-hidden /></Link>
+                </Button>
+              </div>
+              <div>
+                <h3 className="font-display text-xl font-bold">For Babysitters &amp; Nannies</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Organize your own shifts across families and track worked hours in a private workspace.</p>
+                <Button asChild variant="outline" className="mt-4 h-auto min-h-11 w-full rounded-full px-4 py-3 font-bold whitespace-normal sm:w-auto">
+                  <Link to="/caregiver">Explore caregiver scheduling &amp; hours <ArrowRight className="size-4 shrink-0" aria-hidden /></Link>
+                </Button>
+              </div>
             </div>
-            <p className="mt-5 text-sm text-muted-foreground">
-              Working independently as a babysitter or nanny?{" "}
-              <Link to="/caregiver" className="font-semibold text-primary underline underline-offset-4">
-                Organize your own shifts and hours.
-              </Link>
-            </p>
           </article>
         </section>
 
@@ -592,16 +603,16 @@ function LandingPage() {
         <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
           <div className="max-w-2xl">
             <h2 className="font-display text-3xl font-bold sm:text-4xl">
-              Built for families who just want the calendar to work
+              More than a shared calendar
             </h2>
           </div>
 
           <div className="mt-6 max-w-3xl">
             <p className="text-base text-muted-foreground sm:text-lg">
-              No meal planner. No recipe collection. No chore economy. No new screen for your
-              kitchen. Our Family Calendar focuses on the shared schedule itself — including
-              childcare shifts, caregiver access and timesheets that typical organizers and
-              wall-calendar devices don't handle the same way.
+              A calendar tells you when childcare is planned. Text messages can coordinate changes,
+              and a spreadsheet can record hours. Our Family Calendar connects those steps:
+              scheduled shifts prefill time cards, caregivers record actual hours, and parents
+              review and confirm them without matching separate records by hand.
             </p>
             <p className="mt-4 text-sm text-muted-foreground">
               See the full{" "}
