@@ -486,6 +486,12 @@ function LandingPage() {
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
             </div>
+            <p className="mt-5 text-sm text-muted-foreground">
+              Working independently as a babysitter or nanny?{" "}
+              <Link to="/caregiver" className="font-semibold text-primary underline underline-offset-4">
+                Organize your own shifts and hours.
+              </Link>
+            </p>
           </article>
         </section>
 

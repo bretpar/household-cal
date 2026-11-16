@@ -1,5 +1,10 @@
 # Roadmap
 
+## Independent caregiver public landing page
+- [x] Add mobile-first /caregiver with verified scheduling, per-family hours, three-step setup, FAQs and existing signup links; retain Welcome role selection.
+- [x] Add metadata, verified SoftwareApplication data, matching share photo, sitemap entry and subtle homepage childcare link; preserve existing canonical hostname and robots rules.
+- [x] Automatic compilation passes; sitemap and robots inspected. Commit prepared without QA tests, browser tests or publishing. Existing signup keeps the Welcome caregiver choice; canonical uses the site's non-www hostname.
+
 ## Shared caregiver interface
 - [x] Reuse OFC ShellChrome, three-day AgendaView, MobileMonthView, MonthScrollView, DayStripView and WeekView through the private caregiver adapter; bounded window changes preserve mounted scroll surfaces and verified-account scope.
 - [x] Reuse SyncStatusControl header presentation with personal-only sync actions/status/retry; preserve Settings, calendar selection and scheduled-hours behavior. No server logic or schema changes.

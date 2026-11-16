@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BabysitterScheduleTemplateRouteImport } from './routes/babysitter-schedule-template'
 import { Route as BestSharedCalendarAppRouteImport } from './routes/best-shared-calendar-app'
+import { Route as CaregiverRouteImport } from './routes/caregiver'
 import { Route as CoziSkylightAlternativeRouteImport } from './routes/cozi-skylight-alternative'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as NativeGoogleAuthRouteImport } from './routes/native-google-auth'
@@ -77,6 +78,11 @@ const BabysitterScheduleTemplateRoute =
 const BestSharedCalendarAppRoute = BestSharedCalendarAppRouteImport.update({
   id: '/best-shared-calendar-app',
   path: '/best-shared-calendar-app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CaregiverRoute = CaregiverRouteImport.update({
+  id: '/caregiver',
+  path: '/caregiver',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CoziSkylightAlternativeRoute = CoziSkylightAlternativeRouteImport.update({
@@ -299,6 +305,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/babysitter-schedule-template': typeof BabysitterScheduleTemplateRoute
   '/best-shared-calendar-app': typeof BestSharedCalendarAppRoute
+  '/caregiver': typeof CaregiverRoute
   '/cozi-skylight-alternative': typeof CoziSkylightAlternativeRoute
   '/mcp': typeof McpRoute
   '/native-google-auth': typeof NativeGoogleAuthRoute
@@ -344,6 +351,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/babysitter-schedule-template': typeof BabysitterScheduleTemplateRoute
   '/best-shared-calendar-app': typeof BestSharedCalendarAppRoute
+  '/caregiver': typeof CaregiverRoute
   '/cozi-skylight-alternative': typeof CoziSkylightAlternativeRoute
   '/mcp': typeof McpRoute
   '/native-google-auth': typeof NativeGoogleAuthRoute
@@ -391,6 +399,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/babysitter-schedule-template': typeof BabysitterScheduleTemplateRoute
   '/best-shared-calendar-app': typeof BestSharedCalendarAppRoute
+  '/caregiver': typeof CaregiverRoute
   '/cozi-skylight-alternative': typeof CoziSkylightAlternativeRoute
   '/mcp': typeof McpRoute
   '/native-google-auth': typeof NativeGoogleAuthRoute
@@ -438,6 +447,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/babysitter-schedule-template'
     | '/best-shared-calendar-app'
+    | '/caregiver'
     | '/cozi-skylight-alternative'
     | '/mcp'
     | '/native-google-auth'
@@ -483,6 +493,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/babysitter-schedule-template'
     | '/best-shared-calendar-app'
+    | '/caregiver'
     | '/cozi-skylight-alternative'
     | '/mcp'
     | '/native-google-auth'
@@ -529,6 +540,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/babysitter-schedule-template'
     | '/best-shared-calendar-app'
+    | '/caregiver'
     | '/cozi-skylight-alternative'
     | '/mcp'
     | '/native-google-auth'
@@ -576,6 +588,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   BabysitterScheduleTemplateRoute: typeof BabysitterScheduleTemplateRoute
   BestSharedCalendarAppRoute: typeof BestSharedCalendarAppRoute
+  CaregiverRoute: typeof CaregiverRoute
   CoziSkylightAlternativeRoute: typeof CoziSkylightAlternativeRoute
   McpRoute: typeof McpRoute
   NativeGoogleAuthRoute: typeof NativeGoogleAuthRoute
@@ -638,6 +651,13 @@ declare module '@tanstack/react-router' {
       path: '/best-shared-calendar-app'
       fullPath: '/best-shared-calendar-app'
       preLoaderRoute: typeof BestSharedCalendarAppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/caregiver': {
+      id: '/caregiver'
+      path: '/caregiver'
+      fullPath: '/caregiver'
+      preLoaderRoute: typeof CaregiverRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cozi-skylight-alternative': {
@@ -959,6 +979,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   BabysitterScheduleTemplateRoute: BabysitterScheduleTemplateRoute,
   BestSharedCalendarAppRoute: BestSharedCalendarAppRoute,
+  CaregiverRoute: CaregiverRoute,
   CoziSkylightAlternativeRoute: CoziSkylightAlternativeRoute,
   McpRoute: McpRoute,
   NativeGoogleAuthRoute: NativeGoogleAuthRoute,
