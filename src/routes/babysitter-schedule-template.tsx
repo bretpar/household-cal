@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-import monthAsset from "@/assets/landing-hero-month-desktop.png.asset.json";
+import monthAsset from "@/assets/babysitter-schedule-builder-monthly-desktop.webp.asset.json";
 import { MarketingFeaturePage, linkClass, SITE_URL } from "@/components/MarketingFeaturePage";
 
 const TITLE = "Babysitter Schedule Template & Monthly Planner | Our Family Calendar";
@@ -105,7 +105,7 @@ function BabysitterScheduleTemplatePage() {
       eyebrow="Our Family Calendar · Monthly babysitter planner"
       heading="Babysitter Scheduling for Families Who Don’t Work 9 to 5"
       intro="Your work schedule changes. Your childcare schedule should be able to change with it. Build a monthly babysitter schedule, start from a reusable template, and adjust individual shifts as your family’s needs change."
-      image={{ src: monthAsset.url, alt: "Our Family Calendar desktop Month view with color-coded family activities and childcare shifts" }}
+      image={{ src: monthAsset.url, alt: "Our Family Calendar monthly Babysitter Schedule Builder with shifts assigned to two fictional caregivers.", width: 1440, height: 1510 }}
       secondaryCta={<p className="max-w-xl text-sm text-muted-foreground">Monthly schedule building is desktop-first. View published shifts on your phone, tablet or computer.</p>}
       sectionsTitle="A Monday–Friday nanny schedule doesn't fit every family"
       sections={SECTIONS}

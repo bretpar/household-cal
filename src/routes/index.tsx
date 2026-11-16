@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 
 import logoAsset from "@/assets/logo.png.asset.json";
 import heroMonthAsset from "@/assets/landing-hero-month-desktop.png.asset.json";
+import scheduleBuilderAsset from "@/assets/babysitter-schedule-builder-monthly-desktop.webp.asset.json";
 import mobileDayAsset from "@/assets/landing-mobile-day.png.asset.json";
 import ogImageAsset from "@/assets/landing-og-image.png.asset.json";
 import { Button } from "@/components/ui/button";
@@ -416,12 +417,15 @@ function LandingPage() {
               </div>
               <figure className="min-w-0">
                 <img
-                  src={heroMonthAsset.url}
-                  alt="Our Family Calendar shared Month view with color-coded family events and childcare shifts"
+                  src={scheduleBuilderAsset.url}
+                  alt="Our Family Calendar monthly Babysitter Schedule Builder with shifts assigned to two fictional caregivers."
+                  width={1440}
+                  height={1510}
                   className="block h-auto w-full rounded-lg border border-border-soft shadow-lifted"
                   loading="lazy"
+                  decoding="async"
                 />
-                <figcaption className="mt-3 text-sm text-muted-foreground">Published shifts join the shared family calendar. Shown: calendar Month view.</figcaption>
+                <figcaption className="mt-3 text-sm text-muted-foreground">Published shifts join the shared family calendar. Shown: the monthly Babysitter Schedule Builder draft.</figcaption>
               </figure>
             </div>
 
