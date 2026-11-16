@@ -308,16 +308,6 @@ function LandingPage() {
                   Start your family calendar
                 </Button>
               </Link>
-              <Link to="/auth" search={{ mode: "signin" }}>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="h-12 rounded-full px-6 font-bold"
-                  onClick={() => trackEvent("sign_in_click", { location: "hero" })}
-                >
-                  Sign in
-                </Button>
-              </Link>
             </div>
             <p className="mt-4 text-sm text-muted-foreground">
               Works with Google Calendar · Invite caregivers · No special hardware required
