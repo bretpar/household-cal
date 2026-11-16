@@ -15,19 +15,21 @@ const imageUrl = `${SITE_URL}${planningAsset.url}`;
 const signupSearch = { mode: "signup" as const, redirect: "/caregiver/onboarding" };
 const features = [
   { icon: CalendarDays, tone: "bg-member-sky-soft text-member-sky-ink", title: "Every shift, one schedule", body: "Add your babysitting shifts and see what’s next in Today, Day, Week and Month views. Keep the families you work with together in your own calendar." },
-  { icon: Clock3, tone: "bg-member-rose-soft text-member-rose-ink", title: "Know the hours you worked", body: "Start with your scheduled hours, adjust your actual start and end times, and confirm each shift. Review scheduled and confirmed hours in a weekly timesheet for each family." },
+  { icon: Clock3, tone: "bg-member-rose-soft text-member-rose-ink", title: "Know the hours you worked", body: "Start with your scheduled hours, then edit the actual start and end times after the shift. Review scheduled and total hours in a timesheet for each family." },
   { icon: Users, tone: "bg-member-sage-soft text-member-sage-ink", title: "Different families. Less juggling.", body: "Keep family contacts and color-coded shifts organized in your private workspace. Switch between families in Timesheets without mixing their hours." },
 ];
 const steps = [
   { title: "Make it yours", body: "Create an account, then choose “I’m a Caregiver” on the Welcome screen." },
   { title: "Add your families and shifts", body: "Save your family contacts and put upcoming shifts on your calendar." },
-  { title: "Keep your hours up to date", body: "Confirm or adjust your hours after each shift, then check each family’s weekly timesheet." },
+  { title: "Keep your hours up to date", body: "Edit your actual start and end times after each shift, then check each family’s timesheet." },
 ];
 const faq = [
-  { question: "Can I use this if I babysit for more than one family?", answer: "Yes. Your independent caregiver workspace lets you add multiple family contacts and organize their shifts in one calendar. Weekly timesheets are kept separate for each family." },
+  { question: "Can I use this if I babysit for more than one family?", answer: "Yes. Your independent caregiver workspace lets you add multiple family contacts and organize their shifts in one calendar. Timesheets are kept separate for each family." },
   { question: "Do the families I work for need an account?", answer: "No. You can add family contacts and manage your own shifts and hours without asking a parent to sign up. This is your private workspace, not a connection to a family’s household calendar." },
-  { question: "Can I record my actual babysitting hours?", answer: "Yes. Each shift starts with its scheduled times. You can confirm those times or adjust the actual start and end, add a note, and review your confirmed hours by family and week." },
-  { question: "Can I download a timesheet?", answer: "Yes. In the browser, you can download a PDF for the selected family and week. Prepare email downloads that PDF and opens an email draft with a summary; you attach the downloaded PDF yourself before sending." },
+  { question: "Can I record my actual babysitting hours?", answer: "Yes. Each shift starts with its scheduled times. You can keep those times or adjust the actual start and end, add a note, and review your hours by family and period." },
+  { question: "How do scheduled and actual hours work?", answer: "Every shift begins with the hours you scheduled. After the shift, open Timesheets, choose Edit on that shift, and enter your actual start and end times — with a note if you like. The shift then shows as an adjusted actual, and the totals show your scheduled hours alongside your total hours for that family and period." },
+  { question: "How do I review and send a timesheet?", answer: "Choose a family and a period in Timesheets to see every shift with its scheduled and adjusted hours. Set your period to weekly, biweekly or monthly in Settings. Then download the PDF, prepare an email with the PDF and a summary, or share the PDF from the app on iPhone." },
+  { question: "Can I download a timesheet?", answer: "Yes. In the browser, you can download a PDF for the selected family and period. Prepare email downloads the PDF and opens an email draft with a summary; you attach the downloaded PDF yourself before sending." },
   { question: "Can I connect Google Calendar?", answer: "You can optionally connect your own Google Calendar and send your caregiver shifts to a selected calendar. You can also use your workspace without connecting Google. Apple Calendar sync is not included." },
   { question: "Does it handle payroll or connect to a parent’s household?", answer: "No. Independent caregiver timesheets help you keep a record of your hours. They don’t process payments, payroll or taxes, and your workspace is not linked to a parent’s Our Family Calendar household." },
 ];
@@ -46,12 +48,21 @@ export const Route = createFileRoute("/caregiver")({
       { name: "twitter:image", content: imageUrl }, { name: "robots", content: "index, follow" },
     ],
     links: [{ rel: "canonical", href: url }],
-    scripts: [{ type: "application/ld+json", children: JSON.stringify({
-      "@context": "https://schema.org", "@type": "SoftwareApplication",
-      name: "Our Family Calendar", applicationCategory: "ProductivityApplication",
-      operatingSystem: "Web", url, description,
-      featureList: ["Independent caregiver shift scheduling", "Multiple family contacts", "Weekly scheduled and confirmed actual hours", "Family-specific PDF timesheets"],
-    }) }],
+    scripts: [{ type: "application/ld+json", children: JSON.stringify([
+      {
+        "@context": "https://schema.org", "@type": "SoftwareApplication",
+        name: "Our Family Calendar", applicationCategory: "ProductivityApplication",
+        operatingSystem: "Web", url, description,
+        featureList: ["Independent caregiver shift scheduling", "Multiple family contacts", "Scheduled and adjusted actual hours", "Family-specific PDF timesheets"],
+      },
+      {
+        "@context": "https://schema.org", "@type": "FAQPage",
+        mainEntity: faq.map(item => ({
+          "@type": "Question", name: item.question,
+          acceptedAnswer: { "@type": "Answer", text: item.answer },
+        })),
+      },
+    ]) }],
   }),
   component: CaregiverLandingPage,
 });
