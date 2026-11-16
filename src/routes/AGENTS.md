@@ -1,2 +1,3 @@
 - The public comparison guide renders desktop rows and mobile feature lists from the same data. Why: no horizontal scrolling on phones.
 - Public marketing feature pages share MarketingFeaturePage/featureHead (meta, canonical, SoftwareApplication/BreadcrumbList/FAQ JSON-LD); /features/nanny-timesheets targets nanny-timesheet searches and cross-links childcare-scheduling. Why: one SEO metadata convention per public page.
+- A marketing section may carry an optional image, which MarketingFeaturePage renders full-width inside that section's card. Why: a screenshot sits directly under the copy it demonstrates without a per-page layout.
