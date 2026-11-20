@@ -86,6 +86,68 @@ export function assertPublicFeedUrl(url: URL): void {
   }
 }
 
+const REJECTED = "That calendar link is not supported";
+
+function ipv4Octets(ip: string): number[] | null {
+  const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return null;
+  const o = m.slice(1).map(Number);
+  return o.every((n) => n <= 255) ? o : null;
+}
+
+/** True for any IPv4/IPv6 address that is not globally routable unicast. */
+export function isNonPublicIp(ip: string): boolean {
+  const v4 = ipv4Octets(ip);
+  if (v4) {
+    const [a, b] = v4 as [number, number, number, number];
+    return isPrivateIpv4(ip) || (a === 192 && b === 0) || (a === 192 && b === 88) ||
+      (a === 198 && b === 51) || (a === 203 && b === 0);
+  }
+  let h = ip.toLowerCase().replace(/^\[|\]$/g, "").split("%")[0] ?? "";
+  if (!h.includes(":")) return true; // not an IP we understand: fail closed
+  // IPv4-mapped / embedded forms (::ffff:a.b.c.d, ::a.b.c.d, 64:ff9b::a.b.c.d)
+  const tail = h.match(/(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (tail) return true;
+  if (h === "::" || h === "::1") return true;
+  const first = parseInt(h.split(":")[0] || "0", 16);
+  if ((first & 0xfe00) === 0xfc00) return true; // fc00::/7 unique local
+  if ((first & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+  if ((first & 0xffc0) === 0xfec0) return true; // fec0::/10 site-local
+  if ((first & 0xff00) === 0xff00) return true; // ff00::/8 multicast
+  if (h.startsWith("::")) return true; // ::/8 reserved incl. ::ffff:x:y hex mapped
+  if (first === 0x2001 && /^2001:(0?db8|0{0,4}:|0{0,3}[0-1]?[0-9a-f]?:)/.test(h)) return true; // docs, Teredo, ORCHID ranges
+  if (first === 0x2002) return true; // 6to4 can embed private IPv4
+  if (first === 0x0064) return true; // 64:ff9b NAT64
+  if (first === 0x0100) return true; // discard
+  return (first & 0xe000) !== 0x2000; // only 2000::/3 is global unicast
+}
+
+/**
+ * Resolves the host over DNS-over-HTTPS and rejects it when any A/AAAA answer is
+ * non-public or nothing resolves. Runs on every hop immediately before fetch.
+ */
+async function assertResolvesPublic(host: string, signal: AbortSignal): Promise<void> {
+  const addresses: string[] = [];
+  for (const type of ["A", "AAAA"]) {
+    let res: Response;
+    try {
+      res = await fetch(
+        `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=${type}`,
+        { headers: { Accept: "application/dns-json" }, signal },
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") throw error;
+      throw new Error("We couldn't reach that calendar link");
+    }
+    if (!res.ok) throw new Error("We couldn't reach that calendar link");
+    const body = (await res.json()) as { Answer?: { type: number; data: string }[] };
+    for (const ans of body.Answer ?? []) {
+      if (ans.type === 1 || ans.type === 28) addresses.push(ans.data.trim());
+    }
+  }
+  if (!addresses.length || addresses.some(isNonPublicIp)) throw new Error(REJECTED);
+}
+
 /** Safe-to-display remnant of a secret URL: host plus a short tail. */
 export function subscriptionHint(url: string): string {
   try {
@@ -106,6 +168,7 @@ async function fetchFeed(url: string): Promise<string> {
     assertPublicFeedUrl(current);
     let response: Response;
     for (let hop = 0; ; hop++) {
+      await assertResolvesPublic(current.hostname.toLowerCase().replace(/\.$/, ""), controller.signal);
       response = await fetch(current.toString(), {
         redirect: "manual",
         signal: controller.signal,
