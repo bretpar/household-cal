@@ -16,7 +16,7 @@ import { SmartCoverageDialog } from "@/components/SmartCoverageDialog";
 import { suggestionToShift, ignoreSuggestion, setNoCare, parentWorkDays } from "@/lib/smart-coverage";
 import { computeScheduleCoverage, confirmedCoverageGaps, compactWorkTime, workHourLines } from "@/lib/schedule-coverage";
 import { cn } from "@/lib/utils";
-import { endAfterStartChange } from "@/lib/event-duration";
+import { clampSameDayEnd, endAfterStartChange } from "@/lib/event-duration";
 import { workInputInstant, workInput } from "@/lib/caregiver-timezone";
 import { useScheduleDrag } from "@/hooks/use-schedule-drag";
 import { monthDates, shiftMonth, buildTemplate, appendProposals, proposalNeedsReview, proposalOrphaned, convertOrphanToNew, orphanStatus, orphanLabel, existingMonthShifts, draftSchema, templateSchema, canBuildSchedule,
@@ -284,8 +284,7 @@ function ShiftDialog({ shift, month, timeZone, caregivers, onClose, onSave, onRe
   const changeStart = (date: string, start: string) => {
     try {
       const end = endAfterStartChange(workInputInstant(`${value.date}T${value.start}`, timeZone), workInputInstant(`${value.date}T${value.end}`, timeZone), workInputInstant(`${date}T${start}`, timeZone));
-      if (end && workInput(end, timeZone).slice(0, 10) !== date) { setError("This duration crosses midnight; Schedule Builder supports same-day proposals. Use the calendar editor for overnight shifts."); return; }
-      setValue({ ...value, date, start, ...(end ? { end: workInput(end, timeZone).slice(11) } : {}) }); setError("");
+      setValue({ ...value, date, start, end: clampSameDayEnd(date, end ? workInput(end, timeZone) : null) }); setError("");
     } catch { setValue({ ...value, date, start }); }
   };
   return <Dialog open onOpenChange={v => { if (!v) onClose(); }}><DialogContent><DialogHeader><DialogTitle>{viewOnly ? "Shift details" : shift.existing ? "Propose a change" : "Proposed shift"}</DialogTitle></DialogHeader><form className="space-y-4" onSubmit={e => { e.preventDefault(); try { const parsed = draftSchema.parse({ shifts: [value] }); const s = parsed.shifts[0]; if (s) onSave(s); } catch { setError("Enter a name, caregiver, and valid same-day start/end times."); } }}><fieldset disabled={readOnly} className="space-y-4"><label className={cn(fieldClass, "block")}>Title<Input value={value.title} maxLength={200} onChange={e => setValue({ ...value, title: e.target.value })} required /></label><label className={cn(fieldClass, "block")}>Date<Input type="date" min={minDay} max={monthDates(month).at(-1)} value={value.date} onChange={e => changeStart(e.target.value, value.start)} required /></label><div className="grid grid-cols-2 gap-3">{(["start", "end"] as const).map(k => <label key={k} className={fieldClass}>{k === "start" ? "Start" : "End"}<Input type="time" value={value[k]} onChange={e => k === "start" ? changeStart(value.date, e.target.value) : setValue({ ...value, end: e.target.value })} required /></label>)}</div><CaregiverSelect value={value.assignment} onChange={a => setValue({ ...value, assignment: a })} caregivers={caregivers} /></fieldset>{viewOnly ? <p className="text-xs text-muted-foreground">Past dates are view only. Correct historical hours through Timesheets.</p> : lockedShape && <p className="text-xs text-muted-foreground">Only deletion of this selected shift is available here.</p>}{error && <p role="alert" className="text-sm text-destructive">{error}</p>}<div className="flex justify-between gap-2">{onRemove ? <Button type="button" variant="ghost" onClick={onRemove}><Trash2 className="h-4 w-4" />Delete Shift</Button> : <span />}<Button type="submit" disabled={readOnly}>Keep proposal</Button></div></form></DialogContent></Dialog>;
