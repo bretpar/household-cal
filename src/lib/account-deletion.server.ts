@@ -336,6 +336,16 @@ export async function deleteAccount(
       await setJob(db, userId, { status: "rolled_back", last_error: sanitize(reason), sign_in_restored: true });
       return;
     }
+    // Lift only the ban this attempt applied (same check as scheduled recovery).
+    const cur = await db.auth.admin.getUserById(userId).catch((e) => ({ data: { user: null }, error: e }));
+    const until = cur.data?.user?.banned_until;
+    if (!cur.error && isBanned(until) &&
+        !deletionOwnsBan({ ban_provenance: "deletion", deletion_ban_applied_at: appliedAt }, until)) {
+      await setJob(db, userId, {
+        status: "rolled_back", last_error: sanitize(reason), sign_in_restored: true, ban_provenance: "superseded",
+      });
+      return;
+    }
     // Record restoration only when Auth confirmed it; otherwise the recovery
     // worker retries the unban (no data cleanup is repeated for rolled_back).
     const un = await db.auth.admin.updateUserById(userId, { ban_duration: "none" }).catch((e) => ({ error: e }));

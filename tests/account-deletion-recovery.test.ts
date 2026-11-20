@@ -137,4 +137,19 @@ describe("account deletion recovery provenance", () => {
     expect(f.calls.rpc).not.toContain("delete_account_data");
     expect(f.jobs[0]).toMatchObject({ status: "rolled_back", sign_in_restored: true, ban_provenance: "deletion" });
   });
+  it("immediate rollback keeps a ban that replaced the deletion ban", async () => {
+    const replacement = future(3600_000);
+    const f = fake({ users: { u: { banned_until: null } } });
+    f.db.rpc = async () => {
+      f.users["u"]!.banned_until = replacement; // superseding ban before rollback
+      return { data: { ok: false, reason: "refused" }, error: null };
+    };
+    await deleteAccount(f.db, "u", {});
+    expect(f.calls.ban).toBe(1);
+    expect(f.calls.unban).toBe(0);
+    expect(f.users["u"]!.banned_until).toBe(replacement);
+    expect(f.jobs[0]).toMatchObject({ status: "rolled_back", ban_provenance: "superseded", sign_in_restored: true });
+    await recoverStalePendingDeletions(f.db);
+    expect(f.calls.unban).toBe(0);
+  });
 });
