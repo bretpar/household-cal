@@ -76,7 +76,8 @@ export function assertPublicFeedUrl(url: URL): void {
 const REJECTED = "That calendar link is not supported";
 
 function ipv4Octets(ip: string): number[] | null {
-  const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  // Strict dotted-quad: decimal octets 0-255 with no leading zeros.
+  const m = ip.match(/^(0|[1-9]\d{0,2})\.(0|[1-9]\d{0,2})\.(0|[1-9]\d{0,2})\.(0|[1-9]\d{0,2})$/);
   if (!m) return null;
   const o = m.slice(1).map(Number);
   return o.every((n) => n <= 255) ? o : null;
@@ -88,7 +89,7 @@ const ip4 = (a: number, b: number, c: number, d: number) => ((a << 24) | (b << 1
 const NON_PUBLIC_V4: Cidr4[] = [
   [ip4(0, 0, 0, 0), 8], [ip4(10, 0, 0, 0), 8], [ip4(100, 64, 0, 0), 10], [ip4(127, 0, 0, 0), 8],
   [ip4(169, 254, 0, 0), 16], [ip4(172, 16, 0, 0), 12], [ip4(192, 0, 0, 0), 24], [ip4(192, 0, 2, 0), 24],
-  [ip4(192, 31, 196, 0), 24], [ip4(192, 52, 193, 0), 24], [ip4(192, 88, 99, 0), 24], [ip4(192, 168, 0, 0), 16],
+  [ip4(192, 88, 99, 0), 24], [ip4(192, 168, 0, 0), 16],
   [ip4(192, 175, 48, 0), 24], [ip4(198, 18, 0, 0), 15], [ip4(198, 51, 100, 0), 24], [ip4(203, 0, 113, 0), 24],
   [ip4(224, 0, 0, 0), 4], [ip4(240, 0, 0, 0), 4],
 ];
@@ -162,7 +163,15 @@ const NON_PUBLIC_V6_IN_GLOBAL: [number[], number][] = [
  * Fails closed: anything that does not parse as a valid address is non-public.
  */
 export function isNonPublicIp(ip: string): boolean {
-  const s = ip.trim().replace(/^\[|\]$/g, "");
+  if (typeof ip !== "string") return true;
+  let s = ip;
+  if (s.startsWith("[") || s.endsWith("]")) {
+    // Brackets only as one matched outer pair around an IPv6 literal.
+    if (!(s.startsWith("[") && s.endsWith("]"))) return true;
+    s = s.slice(1, -1);
+    if (!s.includes(":")) return true;
+  }
+  if (/[\[\]\s]/.test(s)) return true;
   const v4 = ipv4Octets(s);
   if (v4) return isNonPublicV4(v4);
   if (s.includes("%")) return true; // zone IDs are link-scoped
@@ -198,11 +207,35 @@ export async function assertResolvesPublic(host: string, signal: AbortSignal): P
     }
     // Any non-NOERROR status for either family means the address set is unknown.
     if (body.Status !== 0) throw new Error("We couldn't reach that calendar link");
-    for (const ans of body.Answer ?? []) {
-      if (ans.type === 1 || ans.type === 28) addresses.push(String(ans.data ?? "").trim());
-    }
+    addresses.push(...readDnsAnswers(body, type === "A" ? 1 : 28));
   }
   if (!addresses.length || addresses.some(isNonPublicIp)) throw new Error(REJECTED);
+}
+
+/**
+ * Validates every DNS answer; any malformed entry rejects the whole lookup.
+ * CNAME (5) / DNAME (39) entries must carry a string target; address entries
+ * must match the requested family and parse strictly.
+ */
+export function readDnsAnswers(body: unknown, want: 1 | 28): string[] {
+  const fail = () => new Error("We couldn't reach that calendar link");
+  if (!body || typeof body !== "object") throw fail();
+  const answers = (body as { Answer?: unknown }).Answer;
+  if (answers === undefined) return [];
+  if (!Array.isArray(answers)) throw fail();
+  const out: string[] = [];
+  for (const ans of answers) {
+    if (!ans || typeof ans !== "object") throw fail();
+    const { type, data } = ans as { type?: unknown; data?: unknown };
+    if (typeof type !== "number" || typeof data !== "string" || !data.trim()) throw fail();
+    if (type === 5 || type === 39) continue;
+    if (type !== want) throw fail();
+    const value = data.trim();
+    const isV4 = ipv4Octets(value) !== null;
+    if (want === 1 ? !isV4 : isV4 || parseIpv6(value) === null) throw fail();
+    out.push(value);
+  }
+  return out;
 }
 
 /** Safe-to-display remnant of a secret URL: host plus a short tail. */
