@@ -125,6 +125,8 @@ export type DeleteAccountResult =
   | { ok: false; pending: true };
 
 const BAN = "876000h"; // ~100 years; the account is about to be deleted
+const BAN_MS = 876000 * 3600 * 1000;
+const BAN_TOLERANCE_MS = 24 * 3600 * 1000;
 
 async function setJob(db: DeletionDb, userId: string, patch: Record<string, unknown>) {
   await db.from("account_deletion_jobs").upsert({ user_id: userId, ...patch }, { onConflict: "user_id" });
@@ -138,13 +140,48 @@ const MAX_ATTEMPTS = 50;
 /** An attempt older than this with no running database step is abandoned. */
 const LEASE_MS = 15 * 60 * 1000;
 
+/** True when Auth's current ban is the one this deletion attempt applied. */
+export function deletionOwnsBan(
+  job: { ban_provenance?: string | null; deletion_ban_applied_at?: string | null },
+  bannedUntil: string | null | undefined,
+): boolean {
+  if (job.ban_provenance !== "deletion" || !job.deletion_ban_applied_at || !bannedUntil) return false;
+  const expected = new Date(job.deletion_ban_applied_at).getTime() + BAN_MS;
+  const actual = new Date(bannedUntil).getTime();
+  return Number.isFinite(expected) && Number.isFinite(actual) && Math.abs(actual - expected) <= BAN_TOLERANCE_MS;
+}
+
+function isBanned(until: string | null | undefined): boolean {
+  return Boolean(until && new Date(until).getTime() > Date.now());
+}
+
+type RolledBackJob = {
+  user_id: string;
+  status: string;
+  sign_in_restored: boolean;
+  ban_provenance: string | null;
+  deletion_ban_applied_at: string | null;
+};
+const JOB_COLS = "user_id, status, sign_in_restored, ban_provenance, deletion_ban_applied_at";
+
+async function markRestored(db: DeletionDb, userId: string, patch: Record<string, unknown> = {}) {
+  await db
+    .from("account_deletion_jobs")
+    .update({ sign_in_restored: true, ...patch })
+    .eq("user_id", userId)
+    .eq("status", "rolled_back");
+}
+
 /**
- * Recovers abandoned "pending" jobs. The database step refuses (SKIP LOCKED)
- * while a deletion transaction holds the job, and refuses before the lease
- * expires. A pending job can only be rolled back when nothing was committed,
- * because data removal and the "data_removed" status commit together.
- * Sign-in is restored only after the database confirmed the rollback; a failed
- * restore is retried on the next run (sign_in_restored = false).
+ * Recovers abandoned "pending" jobs, then restores sign-in for rolled-back
+ * jobs awaiting it (sign_in_restored = false). Sign-in is restored only when
+ * the job is still rolled_back (rechecked) and the ban belongs to the deletion:
+ *  - provenance "deletion": Auth's ban must still match the one applied;
+ *  - provenance "preexisting": the original ban is never touched;
+ *  - no provenance (legacy, sign_in_restored = false): the old flow always
+ *    applied the ban, so the previous behavior is kept.
+ * Legacy jobs with sign_in_restored = true are never unbanned automatically;
+ * see listLegacyRecoveryCandidates / restoreLegacyRolledBackSignIn.
  */
 export async function recoverStalePendingDeletions(
   db: DeletionDb,
@@ -166,30 +203,78 @@ export async function recoverStalePendingDeletions(
     .eq("sign_in_restored", false);
   if (onlyUserId) rq = rq.eq("user_id", onlyUserId);
   const pendingRestore = await rq.limit(20);
-  const restoreIds = ((pendingRestore.data ?? []) as { user_id: string }[]).map((j) => j.user_id);
-  // Older runs could record sign_in_restored=true after a failed unban; only
-  // the targeted check (onlyUserId) re-verifies those against Auth.
-  if (onlyUserId && !restoreIds.includes(onlyUserId)) {
-    const done = await db.from("account_deletion_jobs").select("user_id")
-      .eq("user_id", onlyUserId).eq("status", "rolled_back").eq("sign_in_restored", true).maybeSingle();
-    if (done.data) {
-      const u = await db.auth.admin.getUserById(onlyUserId);
-      const until = u.data?.user?.banned_until;
-      if (until && new Date(until).getTime() > Date.now()) restoreIds.push(onlyUserId);
-    }
-  }
   let restored = 0;
-  for (const job of restoreIds.map((user_id) => ({ user_id }))) {
-    const un = await db.auth.admin.updateUserById(job.user_id, { ban_duration: "none" });
+  for (const { user_id } of (pendingRestore.data ?? []) as { user_id: string }[]) {
+    // Recheck immediately before acting.
+    const fresh = await db.from("account_deletion_jobs").select(JOB_COLS).eq("user_id", user_id).maybeSingle();
+    const job = fresh.data as RolledBackJob | null;
+    if (fresh.error || !job || job.status !== "rolled_back" || job.sign_in_restored) continue;
+    if (job.ban_provenance === "preexisting" || job.ban_provenance === "superseded") {
+      await markRestored(db, user_id); // nothing of ours to lift
+      continue;
+    }
+    const u = await db.auth.admin.getUserById(user_id);
+    if (u.error && isUserNotFound(u.error)) { await markRestored(db, user_id); continue; }
+    if (u.error) continue;
+    const until = u.data?.user?.banned_until;
+    if (!isBanned(until)) { await markRestored(db, user_id); continue; }
+    if (job.ban_provenance === "deletion" && !deletionOwnsBan(job, until)) {
+      // Someone replaced the deletion ban; leave it alone and stop retrying.
+      await markRestored(db, user_id, { ban_provenance: "superseded" });
+      continue;
+    }
+    const un = await db.auth.admin.updateUserById(user_id, { ban_duration: "none" });
     if (un.error && !isUserNotFound(un.error)) continue;
-    await db
-      .from("account_deletion_jobs")
-      .update({ sign_in_restored: true })
-      .eq("user_id", job.user_id)
-      .eq("status", "rolled_back");
+    await markRestored(db, user_id);
     restored += 1;
   }
   return { recovered, restored };
+}
+
+/**
+ * Read-only operator helper: legacy rolled-back jobs marked restored, without
+ * ban provenance, whose Auth user is still banned. Never unbans.
+ */
+export async function listLegacyRecoveryCandidates(
+  db: DeletionDb,
+): Promise<{ user_id: string; banned_until: string }[]> {
+  const res = await db
+    .from("account_deletion_jobs")
+    .select(JOB_COLS)
+    .eq("status", "rolled_back")
+    .eq("sign_in_restored", true)
+    .is("ban_provenance", null)
+    .limit(100);
+  if (res.error) throw new Error(`load legacy jobs: ${sanitize(res.error)}`);
+  const out: { user_id: string; banned_until: string }[] = [];
+  for (const job of (res.data ?? []) as RolledBackJob[]) {
+    const u = await db.auth.admin.getUserById(job.user_id);
+    const until = u.data?.user?.banned_until;
+    if (!u.error && until && isBanned(until)) out.push({ user_id: job.user_id, banned_until: until });
+  }
+  return out;
+}
+
+/**
+ * Manual, operator-confirmed restore for one legacy candidate after its ban
+ * provenance was reviewed. Refuses anything that is not a legacy rolled-back job.
+ */
+export async function restoreLegacyRolledBackSignIn(
+  db: DeletionDb,
+  userId: string,
+): Promise<{ restored: boolean; reason?: string }> {
+  const fresh = await db.from("account_deletion_jobs").select(JOB_COLS).eq("user_id", userId).maybeSingle();
+  const job = fresh.data as RolledBackJob | null;
+  if (fresh.error || !job) return { restored: false, reason: "no_job" };
+  if (job.status !== "rolled_back") return { restored: false, reason: "not_rolled_back" };
+  if (job.ban_provenance !== null) return { restored: false, reason: "not_legacy" };
+  const u = await db.auth.admin.getUserById(userId);
+  if (u.error) return { restored: false, reason: "auth_lookup_failed" };
+  if (!isBanned(u.data?.user?.banned_until)) return { restored: false, reason: "not_banned" };
+  const un = await db.auth.admin.updateUserById(userId, { ban_duration: "none" });
+  if (un.error && !isUserNotFound(un.error)) return { restored: false, reason: "unban_failed" };
+  await markRestored(db, userId, { ban_provenance: "superseded" });
+  return { restored: true };
 }
 
 /** Short, credential-free failure text safe to store. */
@@ -226,18 +311,31 @@ export async function deleteAccount(
   const plans = await planAccountDeletion(db, userId, request);
   if (!isPlanReady(plans)) return { ok: false, plans };
 
-  const email = (await db.auth.admin.getUserById(userId)).data.user?.email ?? null;
+  const before = (await db.auth.admin.getUserById(userId)).data.user;
+  const email = before?.email ?? null;
+  const priorBan = isBanned(before?.banned_until) ? before!.banned_until! : null;
+  const appliedAt = new Date().toISOString();
   await setJob(db, userId, {
     status: "pending",
     last_error: null,
     attempt_id: crypto.randomUUID(),
     lease_expires_at: new Date(Date.now() + LEASE_MS).toISOString(),
     sign_in_restored: true,
+    ban_provenance: priorBan ? "preexisting" : "deletion",
+    deletion_ban_applied_at: priorBan ? null : appliedAt,
+    prior_banned_until: priorBan,
   });
-  const ban = await db.auth.admin.updateUserById(userId, { ban_duration: BAN });
-  if (ban.error) throw new Error(`block sign-in: ${ban.error.message ?? ban.error}`);
+  if (!priorBan) {
+    // Only block sign-in when no ban exists; an existing ban is never replaced.
+    const ban = await db.auth.admin.updateUserById(userId, { ban_duration: BAN });
+    if (ban.error) throw new Error(`block sign-in: ${ban.error.message ?? ban.error}`);
+  }
 
   const unblock = async (reason: string) => {
+    if (priorBan) {
+      await setJob(db, userId, { status: "rolled_back", last_error: sanitize(reason), sign_in_restored: true });
+      return;
+    }
     // Record restoration only when Auth confirmed it; otherwise the recovery
     // worker retries the unban (no data cleanup is repeated for rolled_back).
     const un = await db.auth.admin.updateUserById(userId, { ban_duration: "none" }).catch((e) => ({ error: e }));

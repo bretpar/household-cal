@@ -18,10 +18,13 @@ export type Database = {
         Row: {
           attempt_id: string | null
           attempts: number
+          ban_provenance: string | null
           created_at: string
+          deletion_ban_applied_at: string | null
           google_revoke_failures: number
           last_error: string | null
           lease_expires_at: string | null
+          prior_banned_until: string | null
           sign_in_restored: boolean
           status: string
           updated_at: string
@@ -30,10 +33,13 @@ export type Database = {
         Insert: {
           attempt_id?: string | null
           attempts?: number
+          ban_provenance?: string | null
           created_at?: string
+          deletion_ban_applied_at?: string | null
           google_revoke_failures?: number
           last_error?: string | null
           lease_expires_at?: string | null
+          prior_banned_until?: string | null
           sign_in_restored?: boolean
           status?: string
           updated_at?: string
@@ -42,10 +48,13 @@ export type Database = {
         Update: {
           attempt_id?: string | null
           attempts?: number
+          ban_provenance?: string | null
           created_at?: string
+          deletion_ban_applied_at?: string | null
           google_revoke_failures?: number
           last_error?: string | null
           lease_expires_at?: string | null
+          prior_banned_until?: string | null
           sign_in_restored?: boolean
           status?: string
           updated_at?: string

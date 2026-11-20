@@ -456,6 +456,13 @@
       "when": 1794808085122,
       "tag": "0064_caregiver_series_identity_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1795210999203,
+      "tag": "0065_account_deletion_ban_provenance",
+      "breakpoints": true
     }
   ]
 }
