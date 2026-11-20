@@ -48,20 +48,6 @@ export function normalizeSubscriptionUrl(raw: string): string {
   return url.toString();
 }
 
-function isPrivateIpv4(host: string): boolean {
-  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (!m) return false;
-  const [a, b] = [Number(m[1]), Number(m[2])];
-  return (
-    a === 0 || a === 10 || a === 127 || a >= 224 ||
-    (a === 100 && b >= 64 && b <= 127) ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    (a === 198 && (b === 18 || b === 19))
-  );
-}
-
 /** Only public HTTPS hosts on the default port; blocks internal/metadata targets. */
 export function assertPublicFeedUrl(url: URL): void {
   if (url.protocol !== "https:") {
@@ -77,7 +63,8 @@ export function assertPublicFeedUrl(url: URL): void {
     host.includes(":") ||
     /^\d+$/.test(host) ||
     /^0x/i.test(host) ||
-    isPrivateIpv4(host) ||
+    /^[\d.]+$/.test(host) || // any IPv4 literal, public or not
+    ipv4Octets(host) !== null ||
     host === "localhost" ||
     /\.(localhost|local|internal|lan|home|corp|intranet|localdomain)$/.test(host) ||
     host === "metadata.google.internal"
@@ -95,38 +82,101 @@ function ipv4Octets(ip: string): number[] | null {
   return o.every((n) => n <= 255) ? o : null;
 }
 
-/** True for any IPv4/IPv6 address that is not globally routable unicast. */
-export function isNonPublicIp(ip: string): boolean {
-  const v4 = ipv4Octets(ip);
+type Cidr4 = [number, number];
+const ip4 = (a: number, b: number, c: number, d: number) => ((a << 24) | (b << 16) | (c << 8) | d) >>> 0;
+/** RFC 6890 / IANA special-purpose IPv4 blocks that are not globally reachable. */
+const NON_PUBLIC_V4: Cidr4[] = [
+  [ip4(0, 0, 0, 0), 8], [ip4(10, 0, 0, 0), 8], [ip4(100, 64, 0, 0), 10], [ip4(127, 0, 0, 0), 8],
+  [ip4(169, 254, 0, 0), 16], [ip4(172, 16, 0, 0), 12], [ip4(192, 0, 0, 0), 24], [ip4(192, 0, 2, 0), 24],
+  [ip4(192, 31, 196, 0), 24], [ip4(192, 52, 193, 0), 24], [ip4(192, 88, 99, 0), 24], [ip4(192, 168, 0, 0), 16],
+  [ip4(192, 175, 48, 0), 24], [ip4(198, 18, 0, 0), 15], [ip4(198, 51, 100, 0), 24], [ip4(203, 0, 113, 0), 24],
+  [ip4(224, 0, 0, 0), 4], [ip4(240, 0, 0, 0), 4],
+];
+function inCidr4(v: number, [base, bits]: Cidr4): boolean {
+  const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
+  return ((v & mask) >>> 0) === ((base & mask) >>> 0);
+}
+function isNonPublicV4(o: number[]): boolean {
+  const v = ip4(o[0]!, o[1]!, o[2]!, o[3]!);
+  return NON_PUBLIC_V4.some((c) => inCidr4(v, c));
+}
+
+/** Strict IPv6 parser → 8 hextets, or null when malformed. */
+export function parseIpv6(raw: string): number[] | null {
+  let h = raw.toLowerCase();
+  if (!/^[0-9a-f:.]+$/.test(h) || h.length > 45) return null;
+  const words: number[] = [];
+  const v4 = h.match(/^(.*:)(\d{1,3}(?:\.\d{1,3}){3})$/);
+  let tail: number[] = [];
   if (v4) {
-    const [a, b] = v4 as [number, number, number, number];
-    return isPrivateIpv4(ip) || (a === 192 && b === 0) || (a === 192 && b === 88) ||
-      (a === 198 && b === 51) || (a === 203 && b === 0);
+    const o = ipv4Octets(v4[2]!);
+    if (!o) return null;
+    tail = [(o[0]! << 8) | o[1]!, (o[2]! << 8) | o[3]!];
+    h = v4[1]!.endsWith("::") ? v4[1]! : v4[1]!.slice(0, -1);
   }
-  let h = ip.toLowerCase().replace(/^\[|\]$/g, "").split("%")[0] ?? "";
-  if (!h.includes(":")) return true; // not an IP we understand: fail closed
-  // IPv4-mapped / embedded forms (::ffff:a.b.c.d, ::a.b.c.d, 64:ff9b::a.b.c.d)
-  const tail = h.match(/(\d{1,3}(?:\.\d{1,3}){3})$/);
-  if (tail) return true;
-  if (h === "::" || h === "::1") return true;
-  const first = parseInt(h.split(":")[0] || "0", 16);
-  if ((first & 0xfe00) === 0xfc00) return true; // fc00::/7 unique local
-  if ((first & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
-  if ((first & 0xffc0) === 0xfec0) return true; // fec0::/10 site-local
-  if ((first & 0xff00) === 0xff00) return true; // ff00::/8 multicast
-  if (h.startsWith("::")) return true; // ::/8 reserved incl. ::ffff:x:y hex mapped
-  if (first === 0x2001 && /^2001:(0?db8|0{0,4}:|0{0,3}[0-1]?[0-9a-f]?:)/.test(h)) return true; // docs, Teredo, ORCHID ranges
-  if (first === 0x2002) return true; // 6to4 can embed private IPv4
-  if (first === 0x0064) return true; // 64:ff9b NAT64
-  if (first === 0x0100) return true; // discard
-  return (first & 0xe000) !== 0x2000; // only 2000::/3 is global unicast
+  if (h.includes(".")) return null;
+  const parts = h.split("::");
+  if (parts.length > 2) return null;
+  const group = (s: string): number[] | null => {
+    if (s === "") return [];
+    const out: number[] = [];
+    for (const g of s.split(":")) {
+      if (!/^[0-9a-f]{1,4}$/.test(g)) return null;
+      out.push(parseInt(g, 16));
+    }
+    return out;
+  };
+  const head = group(parts[0]!);
+  const rest = parts.length === 2 ? group(parts[1]!) : [];
+  if (!head || !rest) return null;
+  const total = head.length + rest.length + tail.length;
+  if (parts.length === 1) {
+    if (total !== 8) return null;
+    words.push(...head, ...tail);
+  } else {
+    if (total > 7) return null;
+    words.push(...head, ...new Array(8 - total).fill(0), ...rest, ...tail);
+  }
+  return words.length === 8 ? words : null;
+}
+
+/** Prefix match on hextets: [prefix words, prefix length in bits]. */
+function inCidr6(w: number[], prefix: number[], bits: number): boolean {
+  for (let i = 0; bits > 0; i++, bits -= 16) {
+    const take = Math.min(16, bits);
+    const mask = (0xffff << (16 - take)) & 0xffff;
+    if (((w[i] ?? 0) & mask) !== ((prefix[i] ?? 0) & mask)) return false;
+  }
+  return true;
+}
+/** Non-global blocks inside 2000::/3 (IANA IPv6 special-purpose registry). */
+const NON_PUBLIC_V6_IN_GLOBAL: [number[], number][] = [
+  [[0x2001, 0x0000], 23], // IETF protocol assignments (Teredo, ORCHID, benchmarking…)
+  [[0x2001, 0x0db8], 32], // documentation
+  [[0x2002], 16], // 6to4 (can embed private IPv4)
+  [[0x3fff, 0x0000], 20], // documentation (RFC 9637)
+];
+
+/**
+ * True for any IPv4/IPv6 address that is not globally routable unicast.
+ * Fails closed: anything that does not parse as a valid address is non-public.
+ */
+export function isNonPublicIp(ip: string): boolean {
+  const s = ip.trim().replace(/^\[|\]$/g, "");
+  const v4 = ipv4Octets(s);
+  if (v4) return isNonPublicV4(v4);
+  if (s.includes("%")) return true; // zone IDs are link-scoped
+  const w = parseIpv6(s);
+  if (!w) return true;
+  if (!inCidr6(w, [0x2000], 3)) return true; // only 2000::/3 is global unicast
+  return NON_PUBLIC_V6_IN_GLOBAL.some(([p, bits]) => inCidr6(w, p, bits));
 }
 
 /**
  * Resolves the host over DNS-over-HTTPS and rejects it when any A/AAAA answer is
  * non-public or nothing resolves. Runs on every hop immediately before fetch.
  */
-async function assertResolvesPublic(host: string, signal: AbortSignal): Promise<void> {
+export async function assertResolvesPublic(host: string, signal: AbortSignal): Promise<void> {
   const addresses: string[] = [];
   for (const type of ["A", "AAAA"]) {
     let res: Response;
@@ -140,9 +190,16 @@ async function assertResolvesPublic(host: string, signal: AbortSignal): Promise<
       throw new Error("We couldn't reach that calendar link");
     }
     if (!res.ok) throw new Error("We couldn't reach that calendar link");
-    const body = (await res.json()) as { Answer?: { type: number; data: string }[] };
+    let body: { Status?: number; Answer?: { type: number; data: string }[] };
+    try {
+      body = (await res.json()) as typeof body;
+    } catch {
+      throw new Error("We couldn't reach that calendar link");
+    }
+    // Any non-NOERROR status for either family means the address set is unknown.
+    if (body.Status !== 0) throw new Error("We couldn't reach that calendar link");
     for (const ans of body.Answer ?? []) {
-      if (ans.type === 1 || ans.type === 28) addresses.push(ans.data.trim());
+      if (ans.type === 1 || ans.type === 28) addresses.push(String(ans.data ?? "").trim());
     }
   }
   if (!addresses.length || addresses.some(isNonPublicIp)) throw new Error(REJECTED);
