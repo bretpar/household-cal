@@ -164,10 +164,28 @@ type RolledBackJob = {
 };
 const JOB_COLS = "user_id, status, sign_in_restored, ban_provenance, deletion_ban_applied_at";
 
-async function markRestored(db: DeletionDb, userId: string, patch: Record<string, unknown> = {}) {
+export type RestorationReason =
+  | "deletion_ban_lifted"
+  | "preexisting_ban_preserved"
+  | "superseded_ban_preserved"
+  | "user_not_banned"
+  | "user_not_found"
+  | "manual_operator_restore";
+
+async function markRestored(
+  db: DeletionDb,
+  userId: string,
+  reason: RestorationReason,
+  patch: Record<string, unknown> = {},
+) {
   await db
     .from("account_deletion_jobs")
-    .update({ sign_in_restored: true, ...patch })
+    .update({
+      sign_in_restored: true,
+      sign_in_restored_at: new Date().toISOString(),
+      restoration_reason: sanitize(reason),
+      ...patch,
+    })
     .eq("user_id", userId)
     .eq("status", "rolled_back");
 }
@@ -210,22 +228,23 @@ export async function recoverStalePendingDeletions(
     const job = fresh.data as RolledBackJob | null;
     if (fresh.error || !job || job.status !== "rolled_back" || job.sign_in_restored) continue;
     if (job.ban_provenance === "preexisting" || job.ban_provenance === "superseded") {
-      await markRestored(db, user_id); // nothing of ours to lift
+      // Nothing of ours to lift.
+      await markRestored(db, user_id, job.ban_provenance === "preexisting" ? "preexisting_ban_preserved" : "superseded_ban_preserved");
       continue;
     }
     const u = await db.auth.admin.getUserById(user_id);
-    if (u.error && isUserNotFound(u.error)) { await markRestored(db, user_id); continue; }
+    if (u.error && isUserNotFound(u.error)) { await markRestored(db, user_id, "user_not_found"); continue; }
     if (u.error) continue;
     const until = u.data?.user?.banned_until;
-    if (!isBanned(until)) { await markRestored(db, user_id); continue; }
+    if (!isBanned(until)) { await markRestored(db, user_id, "user_not_banned"); continue; }
     if (job.ban_provenance === "deletion" && !deletionOwnsBan(job, until)) {
       // Someone replaced the deletion ban; leave it alone and stop retrying.
-      await markRestored(db, user_id, { ban_provenance: "superseded" });
+      await markRestored(db, user_id, "superseded_ban_preserved", { ban_provenance: "superseded" });
       continue;
     }
     const un = await db.auth.admin.updateUserById(user_id, { ban_duration: "none" });
     if (un.error && !isUserNotFound(un.error)) continue;
-    await markRestored(db, user_id);
+    await markRestored(db, user_id, un.error ? "user_not_found" : "deletion_ban_lifted");
     restored += 1;
   }
   return { recovered, restored };
@@ -273,7 +292,7 @@ export async function restoreLegacyRolledBackSignIn(
   if (!isBanned(u.data?.user?.banned_until)) return { restored: false, reason: "not_banned" };
   const un = await db.auth.admin.updateUserById(userId, { ban_duration: "none" });
   if (un.error && !isUserNotFound(un.error)) return { restored: false, reason: "unban_failed" };
-  await markRestored(db, userId, { ban_provenance: "superseded" });
+  await markRestored(db, userId, "manual_operator_restore", { ban_provenance: "superseded" });
   return { restored: true };
 }
 
@@ -321,6 +340,10 @@ export async function deleteAccount(
     attempt_id: crypto.randomUUID(),
     lease_expires_at: new Date(Date.now() + LEASE_MS).toISOString(),
     sign_in_restored: true,
+    rolled_back_at: null,
+    sign_in_restored_at: null,
+    restoration_reason: null,
+    completed_at: null,
     ban_provenance: priorBan ? "preexisting" : "deletion",
     deletion_ban_applied_at: priorBan ? null : appliedAt,
     prior_banned_until: priorBan,
@@ -332,31 +355,32 @@ export async function deleteAccount(
   }
 
   const unblock = async (reason: string) => {
-    if (priorBan) {
-      await setJob(db, userId, { status: "rolled_back", last_error: sanitize(reason), sign_in_restored: true });
-      return;
-    }
+    const rolledBack = (restoredBy: RestorationReason | null, extra: Record<string, unknown> = {}) => {
+      const now = new Date().toISOString();
+      return setJob(db, userId, {
+        status: "rolled_back",
+        last_error: sanitize(reason),
+        rolled_back_at: now,
+        lease_expires_at: null,
+        sign_in_restored: restoredBy !== null,
+        sign_in_restored_at: restoredBy ? now : null,
+        restoration_reason: restoredBy ? sanitize(restoredBy) : null,
+        ...extra,
+      });
+    };
+    if (priorBan) return rolledBack("preexisting_ban_preserved");
     // Lift only the ban this attempt applied (same check as scheduled recovery).
     const cur = await db.auth.admin.getUserById(userId).catch((e) => ({ data: { user: null }, error: e }));
-    if (cur.error || !cur.data?.user) {
-      await setJob(db, userId, { status: "rolled_back", last_error: sanitize(reason), sign_in_restored: false });
-      return;
-    }
+    if (cur.error || !cur.data?.user) return rolledBack(null);
     const until = cur.data?.user?.banned_until;
-    if (!isBanned(until)) {
-      await setJob(db, userId, { status: "rolled_back", last_error: sanitize(reason), sign_in_restored: true });
-      return;
-    }
+    if (!isBanned(until)) return rolledBack("user_not_banned");
     if (!deletionOwnsBan({ ban_provenance: "deletion", deletion_ban_applied_at: appliedAt }, until)) {
-      await setJob(db, userId, {
-        status: "rolled_back", last_error: sanitize(reason), sign_in_restored: true, ban_provenance: "superseded",
-      });
-      return;
+      return rolledBack("superseded_ban_preserved", { ban_provenance: "superseded" });
     }
     // Record restoration only when Auth confirmed it; otherwise the recovery
     // worker retries the unban (no data cleanup is repeated for rolled_back).
     const un = await db.auth.admin.updateUserById(userId, { ban_duration: "none" }).catch((e) => ({ error: e }));
-    await setJob(db, userId, { status: "rolled_back", last_error: sanitize(reason), sign_in_restored: !un.error });
+    return rolledBack(un.error ? null : "deletion_ban_lifted");
   };
 
   const keys: string[] = [];
@@ -422,7 +446,9 @@ export async function deleteAccount(
     });
     return { ok: false, pending: true };
   }
-  await setJob(db, userId, { status: "completed", last_error: null, google_revoke_failures: failures });
+  await setJob(db, userId, {
+    status: "completed", last_error: null, google_revoke_failures: failures, completed_at: new Date().toISOString(),
+  });
   return { ok: true, google_revoke_failures: failures };
 }
 
@@ -474,7 +500,7 @@ export async function retryPendingAccountDeletions(
     const status = failure === null ? "completed" : attempts >= MAX_ATTEMPTS ? "failed" : "data_removed";
     await db
       .from("account_deletion_jobs")
-      .update({ status, attempts, last_error: failure })
+      .update({ status, attempts, last_error: failure, ...(status === "completed" ? { completed_at: new Date().toISOString() } : {}) })
       .eq("user_id", job.user_id)
       .eq("status", "data_removed");
     if (failure === null) completed += 1;
@@ -489,9 +515,24 @@ export async function retryPendingAccountDeletions(
  * and deletion is retried immediately.
  */
 export async function requeueFailedAccountDeletion(db: DeletionDb, userId: string) {
+  const prior = await db
+    .from("account_deletion_jobs")
+    .select("status, attempts, last_error, requeue_count")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (prior.error) throw new Error(`requeue: ${sanitize(prior.error)}`);
+  if (prior.data?.status !== "failed") return { requeued: false as const };
   const { data, error } = await db
     .from("account_deletion_jobs")
-    .update({ status: "data_removed", attempts: 0 })
+    .update({
+      status: "data_removed",
+      attempts: 0, // fresh retry budget; the cap still applies
+      attempts_before_requeue: prior.data.attempts ?? null,
+      error_before_requeue: prior.data.last_error ? sanitize(prior.data.last_error) : null,
+      requeue_count: (prior.data.requeue_count ?? 0) + 1,
+      last_requeued_at: new Date().toISOString(),
+      last_error: "administratively_requeued",
+    })
     .eq("user_id", userId)
     .eq("status", "failed")
     .select("user_id");

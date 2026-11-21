@@ -18,14 +18,22 @@ export type Database = {
         Row: {
           attempt_id: string | null
           attempts: number
+          attempts_before_requeue: number | null
           ban_provenance: string | null
+          completed_at: string | null
           created_at: string
           deletion_ban_applied_at: string | null
+          error_before_requeue: string | null
           google_revoke_failures: number
           last_error: string | null
+          last_requeued_at: string | null
           lease_expires_at: string | null
           prior_banned_until: string | null
+          requeue_count: number
+          restoration_reason: string | null
+          rolled_back_at: string | null
           sign_in_restored: boolean
+          sign_in_restored_at: string | null
           status: string
           updated_at: string
           user_id: string
@@ -33,14 +41,22 @@ export type Database = {
         Insert: {
           attempt_id?: string | null
           attempts?: number
+          attempts_before_requeue?: number | null
           ban_provenance?: string | null
+          completed_at?: string | null
           created_at?: string
           deletion_ban_applied_at?: string | null
+          error_before_requeue?: string | null
           google_revoke_failures?: number
           last_error?: string | null
+          last_requeued_at?: string | null
           lease_expires_at?: string | null
           prior_banned_until?: string | null
+          requeue_count?: number
+          restoration_reason?: string | null
+          rolled_back_at?: string | null
           sign_in_restored?: boolean
+          sign_in_restored_at?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -48,14 +64,22 @@ export type Database = {
         Update: {
           attempt_id?: string | null
           attempts?: number
+          attempts_before_requeue?: number | null
           ban_provenance?: string | null
+          completed_at?: string | null
           created_at?: string
           deletion_ban_applied_at?: string | null
+          error_before_requeue?: string | null
           google_revoke_failures?: number
           last_error?: string | null
+          last_requeued_at?: string | null
           lease_expires_at?: string | null
           prior_banned_until?: string | null
+          requeue_count?: number
+          restoration_reason?: string | null
+          rolled_back_at?: string | null
           sign_in_restored?: boolean
+          sign_in_restored_at?: string | null
           status?: string
           updated_at?: string
           user_id?: string

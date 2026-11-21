@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -5,6 +6,7 @@ import {
   listLegacyRecoveryCandidates,
   recoverStalePendingDeletions,
   restoreLegacyRolledBackSignIn,
+  requeueFailedAccountDeletion,
   type DeletionDb,
 } from "../src/lib/account-deletion.server";
 
@@ -194,5 +196,84 @@ describe("account deletion recovery provenance", () => {
       expect(f.calls.unban).toBe(0);
       expect(f.calls.rpc.filter((fn) => fn === "delete_account_data")).toHaveLength(1);
     }
+  });
+
+});
+
+describe("account deletion audit trail", () => {
+  const recent = () => new Date().toISOString();
+  const restoredJob = (provenance: string | null, until: string | null, applied = recent()) => {
+    const f = fake({
+      jobs: [{ user_id: "u", status: "rolled_back", sign_in_restored: false, ban_provenance: provenance, deletion_ban_applied_at: applied }],
+      users: { u: { banned_until: until } },
+    });
+    return f;
+  };
+
+  it("stale recovery SQL preserves attempt_id and stamps rolled_back_at", () => {
+    const sql = readFileSync("drizzle/migrations/0066_account_deletion_audit_trail.sql", "utf8");
+    const fn = sql.slice(sql.indexOf("recover_stale_account_deletion"));
+    expect(fn).not.toMatch(/attempt_id\s*=\s*NULL/i);
+    expect(fn).toMatch(/rolled_back_at\s*=\s*now\(\)/i);
+  });
+
+  it("records the reason for each recovery branch", async () => {
+    const cases: [ReturnType<typeof fake>, string][] = [
+      [restoredJob("deletion", future(BAN_MS)), "deletion_ban_lifted"],
+      [restoredJob("preexisting", future(3600_000)), "preexisting_ban_preserved"],
+      [restoredJob("deletion", future(BAN_MS), new Date(Date.now() - 86400_000 * 30).toISOString()), "superseded_ban_preserved"],
+      [restoredJob("deletion", null), "user_not_banned"],
+    ];
+    for (const [f, reason] of cases) {
+      await recoverStalePendingDeletions(f.db);
+      expect(f.jobs[0]).toMatchObject({ sign_in_restored: true, restoration_reason: reason });
+      expect(f.jobs[0]!.sign_in_restored_at).toEqual(expect.any(String));
+    }
+  });
+
+  it("immediate rollback stamps rolled_back_at and the lift reason", async () => {
+    const f = fake({ users: { u: { banned_until: null } }, rpc: () => ({ data: { ok: false, reason: "refused" }, error: null }) });
+    await deleteAccount(f.db, "u", {});
+    expect(f.jobs[0]).toMatchObject({ status: "rolled_back", restoration_reason: "deletion_ban_lifted" });
+    expect(f.jobs[0]!.rolled_back_at).toEqual(expect.any(String));
+    expect(f.jobs[0]!.sign_in_restored_at).toEqual(expect.any(String));
+  });
+
+  it("deferred restoration leaves no restored timestamp", async () => {
+    const f = fake({ users: { u: { banned_until: null } } });
+    f.db.rpc = async () => {
+      f.db.auth.admin.getUserById = async () => ({ data: { user: null }, error: { message: "down" } });
+      return { data: { ok: false }, error: null };
+    };
+    await deleteAccount(f.db, "u", {});
+    expect(f.jobs[0]).toMatchObject({ sign_in_restored: false, sign_in_restored_at: null, restoration_reason: null });
+  });
+
+  it("successful deletion stamps completed_at", async () => {
+    const f = fake({ users: { u: { banned_until: null } }, rpc: () => ({ data: { ok: true }, error: null }) });
+    await deleteAccount(f.db, "u", {});
+    expect(f.jobs[0]).toMatchObject({ status: "completed" });
+    expect(f.jobs[0]!.completed_at).toEqual(expect.any(String));
+  });
+
+  it("manual operator restore records manual_operator_restore", async () => {
+    const f = fake({
+      jobs: [{ user_id: "u", status: "rolled_back", sign_in_restored: true, ban_provenance: null }],
+      users: { u: { banned_until: future(BAN_MS) } },
+    });
+    await restoreLegacyRolledBackSignIn(f.db, "u");
+    expect(f.jobs[0]).toMatchObject({ restoration_reason: "manual_operator_restore" });
+    expect(f.jobs[0]!.sign_in_restored_at).toEqual(expect.any(String));
+  });
+
+  it("requeue preserves prior exhaustion context", async () => {
+    const f = fake({
+      jobs: [{ user_id: "u", status: "failed", attempts: 50, last_error: "auth: boom", requeue_count: 0 }],
+      users: {},
+      rpc: () => ({ data: { ok: false, reason: "x" }, error: null }),
+    });
+    await requeueFailedAccountDeletion(f.db, "u");
+    expect(f.jobs[0]).toMatchObject({ attempts_before_requeue: 50, error_before_requeue: "auth: boom", requeue_count: 1 });
+    expect(f.jobs[0]!.last_requeued_at).toEqual(expect.any(String));
   });
 });
