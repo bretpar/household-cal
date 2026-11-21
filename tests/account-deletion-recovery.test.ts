@@ -152,4 +152,47 @@ describe("account deletion recovery provenance", () => {
     await recoverStalePendingDeletions(f.db);
     expect(f.calls.unban).toBe(0);
   });
+  it("immediate rollback defers restoration when the Auth lookup is unreliable", async () => {
+    for (const failure of ["returned_error", "thrown_error", "missing_user"]) {
+      const f = fake({ users: { u: { banned_until: null } } });
+      const getUser = f.db.auth.admin.getUserById;
+      f.db.rpc = async (fn) => {
+        f.calls.rpc.push(fn);
+        f.db.auth.admin.getUserById = async () => {
+          if (failure === "thrown_error") throw new Error("Auth unavailable");
+          return { data: { user: null }, error: failure === "returned_error" ? { message: "Auth unavailable" } : null };
+        };
+        return { data: { ok: false, reason: "refused" }, error: null };
+      };
+      await deleteAccount(f.db, "u", {});
+      expect(f.calls.unban).toBe(0);
+      expect(f.jobs[0]).toMatchObject({ status: "rolled_back", sign_in_restored: false, ban_provenance: "deletion" });
+      expect(f.users["u"]?.banned_until).not.toBeNull();
+      f.db.auth.admin.getUserById = getUser;
+      await recoverStalePendingDeletions(f.db);
+      await recoverStalePendingDeletions(f.db);
+      expect(f.calls.unban).toBe(1);
+      expect(f.jobs[0]).toMatchObject({ status: "rolled_back", sign_in_restored: true, ban_provenance: "deletion" });
+      expect(f.calls.rpc.filter((fn) => fn === "delete_account_data")).toHaveLength(1);
+    }
+  });
+  it("immediate rollback completes restoration without unbanning when no active ban remains", async () => {
+    for (const until of [null, new Date(Date.now() - 3600_000).toISOString()]) {
+      const f = fake({ users: { u: { banned_until: null } } });
+      f.db.rpc = async (fn) => {
+        f.calls.rpc.push(fn);
+        const user = f.users["u"];
+        if (!user) throw new Error("Missing test user");
+        user.banned_until = until;
+        return { data: { ok: false, reason: "refused" }, error: null };
+      };
+      await deleteAccount(f.db, "u", {});
+      expect(f.calls.unban).toBe(0);
+      expect(f.jobs[0]).toMatchObject({ status: "rolled_back", sign_in_restored: true, ban_provenance: "deletion" });
+      expect(f.users["u"]?.banned_until).toBe(until);
+      await recoverStalePendingDeletions(f.db);
+      expect(f.calls.unban).toBe(0);
+      expect(f.calls.rpc.filter((fn) => fn === "delete_account_data")).toHaveLength(1);
+    }
+  });
 });

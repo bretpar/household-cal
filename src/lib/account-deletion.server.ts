@@ -338,9 +338,16 @@ export async function deleteAccount(
     }
     // Lift only the ban this attempt applied (same check as scheduled recovery).
     const cur = await db.auth.admin.getUserById(userId).catch((e) => ({ data: { user: null }, error: e }));
+    if (cur.error || !cur.data?.user) {
+      await setJob(db, userId, { status: "rolled_back", last_error: sanitize(reason), sign_in_restored: false });
+      return;
+    }
     const until = cur.data?.user?.banned_until;
-    if (!cur.error && isBanned(until) &&
-        !deletionOwnsBan({ ban_provenance: "deletion", deletion_ban_applied_at: appliedAt }, until)) {
+    if (!isBanned(until)) {
+      await setJob(db, userId, { status: "rolled_back", last_error: sanitize(reason), sign_in_restored: true });
+      return;
+    }
+    if (!deletionOwnsBan({ ban_provenance: "deletion", deletion_ban_applied_at: appliedAt }, until)) {
       await setJob(db, userId, {
         status: "rolled_back", last_error: sanitize(reason), sign_in_restored: true, ban_provenance: "superseded",
       });
