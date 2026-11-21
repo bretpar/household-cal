@@ -33,9 +33,8 @@ export const startCaregiverGoogle = createServerFn({ method: "POST" }).middlewar
     if (!key) throw new Error("Google Calendar is not configured");
     const request = getRequest();
     if (!request) throw new Error("Start connecting from the app");
-    const url = new URL(request.url);
-    const host = url.hostname === "localhost" ? request.headers.get("x-forwarded-host") : null;
-    const origin = host ? `https://${host}` : url.origin;
+    const { trustedAppOrigin } = await import("@/lib/app-origin.server");
+    const origin = trustedAppOrigin(request);
     const { authorizeAppUserOAuth } = await import("@/integrations/lovable/appUserConnector");
     const { GOOGLE_SCOPES, GATEWAY_BASE_URL } = await import("@/lib/google/api.server");
     const { randomBytes } = await import("node:crypto");

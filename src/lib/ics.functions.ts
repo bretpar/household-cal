@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Read-only Apple/iCloud calendar subscriptions.
  *
@@ -101,7 +102,13 @@ export const listIcsSubscriptions = createServerFn({ method: "GET" })
 
 export const addIcsSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { url: string; name: string; color: string; member_id?: string | null }) => data)
+  .inputValidator((data: { url: string; name: string; color: string; member_id?: string | null }) =>
+    z.object({
+      url: z.string().trim().min(1).max(2048).regex(/^(https|webcals?):\/\//i, "Use an https:// or webcal:// calendar link"),
+      name: z.string().max(200),
+      color: z.string().max(64),
+      member_id: z.string().uuid().nullable().optional(),
+    }).parse(data))
   .handler(async ({ data, context }) => {
     const db = context.supabase as unknown as Db;
     const familyId = await resolveWritableFamily(db, context.userId);

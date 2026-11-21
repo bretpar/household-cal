@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export interface PlaceSuggestion {
   /** Primary label, e.g. "Riverside Fields" */
@@ -16,6 +17,7 @@ export interface PlaceSuggestion {
  * sync. Returns an empty list when no API key is configured.
  */
 export const suggestPlaces = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data) => z.object({ query: z.string().max(200) }).parse(data))
   .handler(async ({ data }): Promise<PlaceSuggestion[]> => {
     const query = data.query.trim();

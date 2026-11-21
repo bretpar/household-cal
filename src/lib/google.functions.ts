@@ -160,10 +160,8 @@ export const startGoogleCalendarConnect = createServerFn({ method: "POST" })
 
     const request = getRequest();
     if (!request) throw new Error("Connecting Google must start from an app request");
-    const url = new URL(request.url);
-    const sandboxHost =
-      url.hostname === "localhost" ? request.headers.get("x-forwarded-host") : null;
-    const origin = sandboxHost ? `https://${sandboxHost}` : url.origin;
+    const { trustedAppOrigin } = await import("@/lib/app-origin.server");
+    const origin = trustedAppOrigin(request);
     const returnUrl = new URL("/oauth/google-calendar/return", origin).toString();
 
     const { authorizeAppUserOAuth } = await import("@/integrations/lovable/appUserConnector");
