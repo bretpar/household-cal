@@ -105,6 +105,7 @@ function AuthPage() {
     setStage("email");
   };
   const [resetSent, setResetSent] = useState(false);
+  const [confirmSent, setConfirmSent] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   // Read live DOM values at submit so autofill/password managers are honored
@@ -151,12 +152,10 @@ function AuthPage() {
         });
         if (error) throw error;
         if (!data.session) {
-          // No email confirmation step: sign straight in so onboarding continues.
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email: emailValue.trim(),
-            password: passwordValue,
-          });
-          if (signInError) throw signInError;
+          // Email confirmation is required: the account exists but can't sign
+          // in until the link in the confirmation email is clicked.
+          setConfirmSent(true);
+          return;
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -175,7 +174,9 @@ function AuthPage() {
       // A banned account is one whose deletion is in progress or was blocked.
       const message = /user is banned/i.test(raw)
         ? "This account is being deleted and can't be used right now. Contact info@ourfamilycalendar.com if this is unexpected."
-        : raw;
+        : /email not confirmed/i.test(raw)
+          ? "Please confirm your email first — we sent you a confirmation link. Check your inbox (and spam folder)."
+          : raw;
       // Invited (or returning) users who already have an account but landed on
       // the sign-up stage: switch to sign-in instead of showing a raw error.
       if (mode === "signup" && /already (been )?registered|already exists|already in use/i.test(message)) {
@@ -228,6 +229,35 @@ function AuthPage() {
     if (result.redirected) return;
     goHome();
   };
+
+  if (confirmSent) {
+    return (
+      <div className={authPageClassName}>
+        <div className={authCardClassName}>
+          <h1 className="font-display text-2xl font-bold">Check your email</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            We sent a confirmation link to <span className="font-semibold text-foreground">{email}</span>.
+            Click it to activate your account, then sign in.
+          </p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Can't find it? Check your spam or junk folder.
+          </p>
+          <Button
+            className="mt-5 h-11 w-full rounded-full font-bold"
+            type="button"
+            onClick={() => {
+              setConfirmSent(false);
+              setPassword("");
+              setMode("signin");
+              setStage("password");
+            }}
+          >
+            Back to sign in
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (mode === "forgot") {
     return (
