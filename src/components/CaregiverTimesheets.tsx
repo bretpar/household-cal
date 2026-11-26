@@ -16,7 +16,7 @@ import { buildTimesheetPdf, pdfFileName, rangeLabel, timesheetSummary, type Time
 import { workDate, workInput, workInputInstant } from "@/lib/caregiver-timezone";
 import type { CaregiverClient, WorkShift } from "@/lib/independent-caregiver";
 import { cn } from "@/lib/utils";
-import { canShareNativeFile, shareNativePdf } from "@/lib/native-file-share";
+import { canShareNativeFile, canShareWebFile, shareNativePdf, shareWebPdf } from "@/lib/native-file-share";
 import { addDaysKey, payPeriodFor, type PaySettings } from "@/lib/timesheet-periods";
 
 export function CaregiverTimesheets({ userId, clients, timezone, settings }: { userId: string; clients: CaregiverClient[]; timezone: string; settings: PaySettings }) {
@@ -57,12 +57,31 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
   };
   const download = async () => { if (!doc) return; (await buildTimesheetPdf(doc)).save(pdfFileName(doc)); };
   const [native, setNative] = useState(false);
-  useEffect(() => setNative(canShareNativeFile()), []);
+  const [webShare, setWebShare] = useState(false);
+  useEffect(() => { setNative(canShareNativeFile()); setWebShare(!canShareNativeFile() && canShareWebFile()); }, []);
+  const shareTitle = doc ? `Timesheet: ${doc.familyName}, ${rangeLabel(doc)}` : "";
+  // Pre-build the PDF so the share sheet opens within the tap (Safari drops the tap after long waits).
+  const [ready, setReady] = useState<{ doc: TimesheetDoc; blob: Blob } | null>(null);
+  useEffect(() => {
+    if (!webShare || !doc) return;
+    let live = true;
+    const t = setTimeout(() => { void buildTimesheetPdf(doc).then(pdf => { if (live) setReady({ doc, blob: pdf.output("blob") }); }).catch(() => {}); }, 300);
+    return () => { live = false; clearTimeout(t); };
+  }, [webShare, doc]);
   const shareNative = async () => {
     if (!doc) return;
     try { const pdf = await buildTimesheetPdf(doc); const b64 = pdf.output("datauristring").split(",")[1] ?? "";
-      await shareNativePdf(b64, pdfFileName(doc), `Timesheet: ${doc.familyName}, ${rangeLabel(doc)}`); }
+      await shareNativePdf(b64, pdfFileName(doc), shareTitle); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Could not share the PDF"); }
+  };
+  const shareWeb = async () => {
+    if (!doc) return;
+    try {
+      const blob = ready?.doc === doc ? ready.blob : (await buildTimesheetPdf(doc)).output("blob");
+      if (ready?.doc !== doc) setReady({ doc, blob });
+      const result = await shareWebPdf(blob, pdfFileName(doc), shareTitle, timesheetSummary(doc));
+      if (result === "blocked") toast("PDF is ready. Tap Share PDF again to open the share sheet.");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Could not share the PDF"); }
   };
   if (!clients.length) return <p className="text-muted-foreground">Add a family contact in Settings to start a timesheet.</p>;
   return <section className="space-y-4">
@@ -89,7 +108,9 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
           {native ? <div className="space-y-1.5"><button type="button" onClick={() => void shareNative()} className={primaryAction}><Share className="size-4" />Share PDF</button>
             <p className="text-center text-xs opacity-80">Send by Mail, Messages or AirDrop, or save to Files.</p></div>
           : <div className="grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => void download()} className={primaryAction}><Download className="size-4" />Download PDF</button>
-            <button type="button" onClick={() => setSharing(sheet.data?.client.email ?? "")} className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-primary-foreground/15 text-sm font-semibold transition-transform active:scale-[0.98]"><Mail className="size-4" />Prepare email</button></div>}
+            {webShare ? <button type="button" onClick={() => void shareWeb()} className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-primary-foreground/15 text-sm font-semibold transition-transform active:scale-[0.98]"><Share className="size-4" />Share PDF</button>
+              : <button type="button" onClick={() => setSharing(sheet.data?.client.email ?? "")} className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-primary-foreground/15 text-sm font-semibold transition-transform active:scale-[0.98]"><Mail className="size-4" />Email PDF</button>}
+            {webShare && <p className="text-center text-xs opacity-80 sm:col-span-2">Share PDF attaches the file. Choose Mail or another app.</p>}</div>}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -130,13 +151,14 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
         {editing.row.confirmed && <Button type="button" variant="ghost" className="w-full" disabled={busy} onClick={async () => { if (await persist(editing.row, editing.row.actualStart, editing.row.actualEnd, false, null)) setEditing(null); }}>Reset to scheduled hours</Button>}
       </form>}
     </DialogContent></Dialog>
-    <Dialog open={sharing !== null} onOpenChange={o => { if (!o) setSharing(null); }}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Email timesheet</DialogTitle><DialogDescription>We'll download the PDF and open an email draft with a summary. Attach the downloaded PDF before sending.</DialogDescription></DialogHeader>
+    <Dialog open={sharing !== null} onOpenChange={o => { if (!o) setSharing(null); }}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Email PDF</DialogTitle><DialogDescription>Your browser can't attach files to email automatically. We'll download the PDF and open an email draft with a summary. Attach the downloaded PDF to the email before sending.</DialogDescription></DialogHeader>
       {sharing !== null && doc && <form className="space-y-4" onSubmit={async e => { e.preventDefault();
         await download();
         window.location.href = `mailto:${encodeURIComponent(sharing.trim())}?subject=${encodeURIComponent(`Timesheet: ${doc.familyName}, ${rangeLabel(doc)}`)}&body=${encodeURIComponent(timesheetSummary(doc))}`;
         setSharing(null); }}>
         <div className="space-y-1"><Label htmlFor="share-email">Send to</Label><Input id="share-email" type="email" required value={sharing} onChange={e => setSharing(e.target.value)} /></div>
         <Button type="submit" className="w-full">Download PDF and open email</Button>
+        <p className="text-xs text-muted-foreground">The PDF is not attached automatically. Look for {doc ? pdfFileName(doc) : "it"} in your Downloads folder.</p>
       </form>}
     </DialogContent></Dialog>
   </section>;
