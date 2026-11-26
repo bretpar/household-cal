@@ -187,7 +187,7 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
         </div>}
       </CaregiverCalendarStore>}
     </div>
-    <Dialog open={Boolean(shiftForm)} onOpenChange={open => { if (!open && !busy) setShiftForm(null); }}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-md"><DialogHeader><DialogTitle>{shiftForm?.original ? "Edit work shift" : "New work shift"}</DialogTitle><DialogDescription>{shiftForm?.original ? "Update this family’s scheduled shift." : "Schedule work for one family."}</DialogDescription></DialogHeader>
+    <Dialog open={Boolean(shiftForm)} onOpenChange={open => { if (!open && !busy) setShiftForm(null); }}><DialogContent mobileViewportSafe className="max-h-[85dvh] overflow-y-auto sm:max-w-md"><DialogHeader><DialogTitle>{shiftForm?.original ? "Edit work shift" : "New work shift"}</DialogTitle><DialogDescription>{shiftForm?.original ? "Update this family’s scheduled shift." : "Schedule work for one family."}</DialogDescription></DialogHeader>
       {shiftForm && <form className="space-y-4" onSubmit={e => { e.preventDefault(); void run(() => {
         if (!timezone) throw new Error("Your work time zone is not available.");
         const start_at = workInputInstant(shiftForm.start, timezone, shiftForm.original?.start_at, shiftForm.startOccurrence);

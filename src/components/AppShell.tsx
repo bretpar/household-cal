@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useElementScrollRestoration, useRouterState } from "@tanstack/react-router";
 import { CalendarDays, ClipboardList, Home, Settings, Sparkles, Users } from "lucide-react";
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
@@ -234,7 +234,59 @@ function ShellChrome({ children, active, fitViewport, compactMobileLandscape, lo
   const showContentSkeleton =
     isTransitioning && tabPaths.some((to) => activeTab.startsWith(to)) && !fitViewport;
 
+  // The router saves this container's position, but its first restoration can
+  // run while async route content still has no scroll range. Retry only when
+  // that content changes, and never pull the page back after user interaction.
+  const mainRef = useRef<HTMLElement>(null);
+  const locationHref = useRouterState({ select: (s) => s.location.href });
+  const savedScroll = useElementScrollRestoration({ id: "app-shell-main" });
+  useLayoutEffect(() => {
+    const main = mainRef.current;
+    if (!main || window.getComputedStyle(main).overflowY !== "auto") return;
+    if (!savedScroll) {
+      main.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      return;
+    }
+    const element: HTMLElement = main;
+    const saved = savedScroll;
 
+    let frame = 0;
+    let stopped = false;
+    const mutations = new MutationObserver(attempt);
+    const resize = new ResizeObserver(attempt);
+    const stop = () => {
+      stopped = true;
+      cancelAnimationFrame(frame);
+      mutations.disconnect();
+      resize.disconnect();
+      element.removeEventListener("load", attempt, true);
+      element.removeEventListener("pointerdown", stop);
+      element.removeEventListener("touchstart", stop);
+      element.removeEventListener("wheel", stop);
+      element.removeEventListener("keydown", stop);
+    };
+    function attempt() {
+      if (stopped) return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (stopped) return;
+        const range = Math.max(0, element.scrollHeight - element.clientHeight);
+        if (range + 1 < saved.scrollY) return;
+        element.scrollTo({ top: saved.scrollY, left: saved.scrollX, behavior: "auto" });
+        stop();
+      });
+    }
+
+    mutations.observe(element, { childList: true, subtree: true });
+    resize.observe(element);
+    element.addEventListener("load", attempt, true);
+    element.addEventListener("pointerdown", stop, { passive: true });
+    element.addEventListener("touchstart", stop, { passive: true });
+    element.addEventListener("wheel", stop, { passive: true });
+    element.addEventListener("keydown", stop);
+    attempt();
+    return stop;
+  }, [locationHref, savedScroll]);
 
   return (
 
@@ -286,6 +338,7 @@ function ShellChrome({ children, active, fitViewport, compactMobileLandscape, lo
       </header>}
 
       <main
+        ref={mainRef}
         data-scroll-restoration-id="app-shell-main"
         className={cn(
           !active ? "contents" : "app-shell-main mx-auto w-full max-w-6xl",

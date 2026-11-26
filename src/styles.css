@@ -374,11 +374,11 @@ body:has(.app-tour-layer[data-tour-tab="/settings"]) .app-shell-bottom-link[data
   padding-top: env(safe-area-inset-top);
 }
 
-/* iOS web only: a separate layer avoids the floating nav's backdrop-filter
-   becoming the blur's backdrop root. Fixed bottom follows Safari's changing
+/* Normal iOS browser tabs only: a separate layer avoids the floating nav's
+   backdrop-filter becoming the blur's backdrop root. Fixed bottom follows Safari's changing
    viewport; it adds no layout space and never intercepts page/nav taps. */
 @supports (-webkit-touch-callout: none) {
-  @media (max-width: 767px) {
+  @media (max-width: 767px) and (display-mode: browser) {
     html:not(.native-shell) body:has(.app-shell-bottom-nav)::after {
       content: "";
       position: fixed;
@@ -439,7 +439,7 @@ body:has(.app-tour-layer[data-tour-tab="/settings"]) .app-shell-bottom-link[data
     }
   }
 
-  @media (max-width: 767px) and (orientation: landscape) and (max-height: 600px) {
+  @media (max-width: 767px) and (display-mode: browser) and (orientation: landscape) and (max-height: 600px) {
     html:not(.native-shell) body:has(.calendar-three-day-landscape)::after {
       display: none;
     }

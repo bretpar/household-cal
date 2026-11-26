@@ -9,3 +9,6 @@
 - [x] Narrow-screen actual-hours editors without automatic picker focus
 - [x] Keep closed household shift labels tied to saved actual-time confirmation
 - [x] Return verified caregiver names for direct upcoming-period PDF exports
+- [x] Restore Safari content scrolling only after its saved range is available
+- [x] Limit Safari chrome overrides to normal phone browser tabs
+- [x] Keep caregiver shift notes visible with the keyboard open
