@@ -161,11 +161,11 @@ function CountTile({ label, count, tone, target }: { label: string; count: numbe
       type="button"
       disabled={!active}
       onClick={() => document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" })}
-      className={`flex min-h-[68px] min-w-0 flex-col justify-between rounded-2xl border border-border-soft bg-card px-4 py-3 text-left transition-transform active:scale-[0.98] disabled:cursor-default ${active ? "" : "opacity-80"}`}
+      className={`flex min-h-[76px] min-w-0 flex-col justify-between gap-1 rounded-2xl border border-border-soft bg-card px-4 py-3 text-left transition-transform active:scale-[0.98] disabled:cursor-default ${active ? "" : "opacity-80"}`}
     >
-      <span className="truncate text-xs font-semibold text-muted-foreground">{label}</span>
+      <span className="truncate text-[13px] font-medium text-muted-foreground">{label}</span>
       <span className="flex items-center gap-2">
-        <span className={`text-2xl font-bold tabular-nums ${active ? tone : "text-muted-foreground"}`}>{count ?? "–"}</span>
+        <span className={`text-[28px] font-bold leading-none tracking-tight tabular-nums ${active ? tone : "text-muted-foreground"}`}>{count ?? "–"}</span>
         {active ? <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" aria-hidden /> : <span className="text-xs text-muted-foreground">All clear</span>}
       </span>
     </button>
@@ -174,9 +174,9 @@ function CountTile({ label, count, tone, target }: { label: string; count: numbe
 
 function SectionTitle({ id, title, count }: { id?: string; title: string; count?: number }) {
   return (
-    <div id={id} className="flex scroll-mt-24 items-baseline gap-2 px-1">
-      <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
-      {count !== undefined ? <span className="text-xs font-semibold text-muted-foreground">{count}</span> : null}
+    <div id={id} className="flex scroll-mt-24 items-baseline gap-1.5 px-1 pb-0.5">
+      <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{title}</h2>
+      {count !== undefined ? <span className="text-xs font-medium tabular-nums text-muted-foreground/80">{count}</span> : null}
     </div>
   );
 }
@@ -212,7 +212,7 @@ export function OwnerTimesheets({ readOnly = false }: { readOnly?: boolean }) {
   const fetch = useServerFn(listHouseholdTimesheets);
   const { data } = useQuery({ queryKey: ["household-timesheets"], queryFn: () => fetch() });
   return (
-    <div className="mx-auto max-w-3xl space-y-6 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0">
+    <div className="mx-auto max-w-3xl space-y-7 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0">
       {readOnly ? (
         <p className="rounded-2xl border border-dashed border-border bg-surface-muted/50 p-3 text-xs text-muted-foreground">
           Timesheets are off. Turn them on in Settings to review or approve time cards.
@@ -453,22 +453,22 @@ function ReviewCard({ sheet, readOnly = false, variant = "card" }: { sheet: Time
   return (
     <div className={variant === "row" ? "text-sm" : variant === "featured" ? "overflow-hidden rounded-3xl border border-border-soft bg-card text-sm" : "space-y-2 rounded-2xl border border-border-soft bg-card p-4 text-sm"}>
       {variant === "featured" ? (
-        <div className="bg-summary space-y-4 p-5 text-primary-foreground">
+        <div className="bg-summary space-y-5 p-5 sm:p-6 text-primary-foreground">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-medium opacity-75">{fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end)}</p>
-              <p className="mt-1 truncate text-xl font-bold tracking-tight">{sheet.caregiver_name}</p>
+              <p className="text-[13px] font-medium opacity-80">{fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end)}</p>
+              <p className="mt-0.5 truncate text-[22px] font-bold leading-tight tracking-tight">{sheet.caregiver_name}</p>
             </div>
             <span className="shrink-0 rounded-full bg-primary-foreground/15 px-2.5 py-1 text-[11px] font-semibold">{STATUS_LABEL[sheet.status]}</span>
           </div>
           <dl className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-primary-foreground/10 px-3 py-2.5">
-              <dt className="text-[11px] font-medium opacity-75">Scheduled</dt>
-              <dd className="text-lg font-bold tabular-nums">{formatDisplayHours(scheduled)}</dd>
+            <div className="rounded-2xl bg-primary-foreground/10 px-3.5 py-3">
+              <dt className="text-xs font-medium opacity-80">Scheduled</dt>
+              <dd className="mt-0.5 text-xl font-bold leading-tight tabular-nums">{formatDisplayHours(scheduled)}</dd>
             </div>
-            <div className="rounded-2xl bg-primary-foreground/10 px-3 py-2.5">
-              <dt className="text-[11px] font-medium opacity-75">Actual</dt>
-              <dd className={`font-bold tabular-nums ${actualRecorded ? "text-lg" : "pt-1 text-sm opacity-80"}`}>{actualLabel}</dd>
+            <div className="rounded-2xl bg-primary-foreground/10 px-3.5 py-3">
+              <dt className="text-xs font-medium opacity-80">Actual</dt>
+              <dd className={`font-bold tabular-nums ${actualRecorded ? "mt-0.5 text-xl leading-tight" : "mt-1 text-[15px] opacity-85"}`}>{actualLabel}</dd>
             </div>
           </dl>
           <button type="button" onClick={() => setOpen((o) => !o)}
@@ -478,11 +478,11 @@ function ReviewCard({ sheet, readOnly = false, variant = "card" }: { sheet: Time
         </div>
       ) : variant === "row" ? (
         <button type="button" onClick={() => setOpen((o) => !o)}
-          className="flex min-h-[64px] w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-surface-muted">
+          className="flex min-h-[68px] w-full items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-surface-muted">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary text-xs font-bold text-secondary-foreground">{initials(sheet.caregiver_name)}</span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-semibold">{sheet.caregiver_name}</span>
-            <span className="block truncate text-xs text-muted-foreground">{fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end)} · {actualRecorded ? actualLabel : `${formatDisplayHours(scheduled)} scheduled`}</span>
+            <span className="block truncate text-[15px] font-semibold leading-snug">{sheet.caregiver_name}</span>
+            <span className="mt-0.5 block truncate text-[13px] tabular-nums text-muted-foreground">{fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end)} · {actualRecorded ? actualLabel : `${formatDisplayHours(scheduled)} scheduled`}</span>
           </span>
           <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_TONE[sheet.status] ?? STATUS_TONE["draft"]}`}>{STATUS_LABEL[sheet.status]}</span>
           <ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} aria-hidden />
