@@ -380,11 +380,15 @@ body:has(.app-tour-layer[data-tour-tab="/settings"]) .app-shell-bottom-link[data
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 767px) {
     html:not(.native-shell) body:has(.app-shell-bottom-nav)::after {
+      /* Overdraw Safari's full toolbar envelope and safe area, plus the blur
+         radius, so its lower sampling edge stays outside the visible page.
+         Add the same distance to height to keep the upper fade stationary. */
+      --bottom-nav-frost-overdraw: calc(max(env(safe-area-inset-bottom, 0px), 100lvh - 100svh) + 18px);
       content: "";
       position: fixed;
       inset-inline: 0;
-      bottom: 0;
-      height: calc(8rem + env(safe-area-inset-bottom));
+      bottom: calc(0px - var(--bottom-nav-frost-overdraw));
+      height: calc(8rem + env(safe-area-inset-bottom) + var(--bottom-nav-frost-overdraw));
       z-index: 29;
       pointer-events: none;
       background: var(--bottom-nav-frost-tint);
