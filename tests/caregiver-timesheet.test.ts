@@ -57,4 +57,12 @@ describe("caregiver timesheet rows", () => {
   it("keeps future unsaved shifts scheduled and out of needs confirmation", () => {
     expect(timesheetRowStatus(statusRow(false), Date.parse("2026-11-09T00:00:00Z"))).toBe("future");
   });
+  it("changes the calculated status only at the scheduled start, not on each clock tick", () => {
+    const row = statusRow(false);
+    const start = Date.parse(row.scheduledStart);
+    expect(timesheetRowStatus(row, start - 120000)).toBe("future");
+    expect(timesheetRowStatus(row, start - 60000)).toBe("future");
+    expect(timesheetRowStatus(row, start)).toBe("unconfirmed");
+    expect(timesheetRowStatus(row, start + 60000)).toBe("unconfirmed");
+  });
 });

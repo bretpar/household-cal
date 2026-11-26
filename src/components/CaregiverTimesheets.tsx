@@ -24,8 +24,9 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
   const save = useServerFn(saveCaregiverActual);
   const [clientId, setClientId] = useState(() => clients.find(c => !c.archived)?.id ?? clients[0]?.id ?? "");
   const [periodOffset, setPeriodOffset] = useState(0);
-  const [today, setToday] = useState(() => format(workDate(Date.now(), timezone), "yyyy-MM-dd"));
-  useEffect(() => { const timer = window.setInterval(() => setToday(format(workDate(Date.now(), timezone), "yyyy-MM-dd")), 60000); return () => clearInterval(timer); }, [timezone]);
+  const [now, setNow] = useState(() => Date.now());
+  const today = format(workDate(now, timezone), "yyyy-MM-dd");
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(timer); }, []);
   const period = payPeriodFor(settings, today, periodOffset);
   const weekStart = new Date(workInputInstant(`${period.start}T00:00`, timezone));
   const [editing, setEditing] = useState<{ row: TimesheetRow; start: string; end: string; note: string } | null>(null);
@@ -41,8 +42,8 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
   const totals = timesheetTotals(rows);
   // Identity is stable across local UI updates, but never across users, families or periods.
   const doc: TimesheetDoc | null = useMemo(() => sheet.data ? { caregiverName: sheet.data.caregiverName, familyName: sheet.data.client.name, from: new Date(fromIso), to: new Date(toIso), timezone, rows } : null, [sheet.data, userId, clientId, fromIso, toIso, timezone, rows]);
-  const now = Date.now();
   const rowStatus = (r: TimesheetRow) => timesheetRowStatus(r, now);
+  const statusKey = rows.map(rowStatus).join(",");
   const confirmedCount = rows.filter(r => r.confirmed).length;
   const needsCount = rows.filter(r => rowStatus(r) === "unconfirmed").length;
   const futureCount = rows.filter(r => rowStatus(r) === "future").length;
@@ -64,15 +65,15 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
   useEffect(() => { setNative(canShareNativeFile()); setWebShare(!canShareNativeFile() && canShareWebFile()); }, []);
   const shareTitle = doc ? `Timesheet: ${doc.familyName}, ${rangeLabel(doc)}` : "";
   // Pre-build the PDF so the share sheet opens within the tap (Safari drops the tap after long waits).
-  const [ready, setReady] = useState<{ doc: TimesheetDoc; file: File } | null>(null);
-  const preparedFile = ready?.doc === doc ? ready.file : null;
+  const [ready, setReady] = useState<{ doc: TimesheetDoc; statusKey: string; file: File } | null>(null);
+  const preparedFile = ready?.doc === doc && ready.statusKey === statusKey ? ready.file : null;
   useEffect(() => {
     setReady(null);
     if (!webShare || !doc) return;
     let live = true;
-    const t = setTimeout(() => { void buildTimesheetPdf(doc).then(pdf => { if (live) setReady({ doc, file: new File([pdf.output("blob")], pdfFileName(doc), { type: "application/pdf" }) }); }).catch(() => {}); }, 300);
+    const t = setTimeout(() => { void buildTimesheetPdf(doc).then(pdf => { if (live) setReady({ doc, statusKey, file: new File([pdf.output("blob")], pdfFileName(doc), { type: "application/pdf" }) }); }).catch(() => {}); }, 300);
     return () => { live = false; clearTimeout(t); };
-  }, [webShare, doc]);
+  }, [webShare, doc, statusKey]);
   const shareNative = async () => {
     if (!doc) return;
     try { const pdf = await buildTimesheetPdf(doc); const b64 = pdf.output("datauristring").split(",")[1] ?? "";
