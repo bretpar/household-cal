@@ -164,14 +164,22 @@ describe("membership resolution without email-based claims", () => {
   });
 });
 
-describe("pending invitation refresh", () => {
-  function refreshDb(status: "pending" | "accepted" | "revoked") {
+describe("invitation refresh", () => {
+  function refreshDb(status: "pending" | "accepted" | "expired" | "revoked") {
     const filters = new Map<string, string>();
+    let allowedStatuses: string[] | null = null;
     const query = {
       eq(column: string, value: string) { filters.set(column, value); return query; },
+      in(column: string, values: string[]) {
+        if (column === "status") allowedStatuses = values;
+        return query;
+      },
       select() { return query; },
       async single() {
-        return status === filters.get("status")
+        const matches = allowedStatuses
+          ? allowedStatuses.includes(status)
+          : status === filters.get("status");
+        return matches
           ? { data: { token: TOKEN }, error: null }
           : { data: null, error: new Error("No pending invitation") };
       },
@@ -199,5 +207,13 @@ describe("pending invitation refresh", () => {
 
   it("preserves refreshing a pending invitation", async () => {
     await expect(refreshInvitation(refreshDb("pending"), USER_ID, "invite")).resolves.toEqual({ token: TOKEN });
+  });
+
+  it("resends an invitation stored as expired", async () => {
+    await expect(refreshInvitation(refreshDb("expired"), USER_ID, "invite")).resolves.toEqual({ token: TOKEN });
+  });
+
+  it("cannot resend a revoked invitation", async () => {
+    await expect(refreshInvitation(refreshDb("revoked"), USER_ID, "invite")).rejects.toThrow("No pending invitation");
   });
 });

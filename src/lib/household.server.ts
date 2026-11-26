@@ -319,7 +319,9 @@ export async function refreshInvitation(
     .update({ status: "pending", expires_at: expires })
     .eq("id", invitationId)
     .eq("family_id", current.familyId)
-    .eq("status", "pending")
+    // A lapsed invite is stored as "expired" once the invitee opens it; owners can
+    // still resend it. Accepted invitations are blocked by the DB reactivation trigger.
+    .in("status", ["pending", "expired"])
     .select("token")
     .single();
   if (error) throw error;
