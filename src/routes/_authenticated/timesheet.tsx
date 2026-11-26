@@ -6,7 +6,7 @@ import { ChevronRight, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
 import { format, startOfWeek } from "date-fns";
 import { getVerifiedMembership, subscribeVerifiedMembership } from "@/lib/auth-guard";
-import { compactPeriod, ShiftStatus, SummaryStat, summaryAction, TimesheetSummaryCard } from "@/components/BabysitterTimesheetPresentation";
+import { compactPeriod, SummaryStat, summaryAction, TimesheetSummaryCard } from "@/components/BabysitterTimesheetPresentation";
 import { BabysitterTimesheetPdfActions } from "@/components/BabysitterTimesheetPdfActions";
 import { householdTimesheetDoc, householdShiftStatus } from "@/lib/household-timesheet-pdf";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -174,7 +174,6 @@ function HouseholdSummary({ sheet, familyName, scopeKey, preview, now, statusRev
     <TimesheetSummaryCard familyName={familyName} period={sheet ? compactPeriod(sheet.period_start, sheet.period_end) : ""} previous={previous} next={next} nextDisabled={!sheet?.can_next} current={sheet?.offset !== 0 ? current : undefined} loading={!sheet}>
       <dl className="grid grid-cols-3 gap-2"><SummaryStat label="Total" value={formatHoursLabel(total)} /><SummaryStat label="Scheduled" value={formatHoursLabel(scheduled)} /><SummaryStat label="Difference" value={`${total > scheduled ? "+" : ""}${formatHoursLabel(total - scheduled)}`} /></dl>
       <PaidSummary entries={entries} total={total} className="text-xs text-primary-foreground/80" />
-      {needs > 0 || statuses.includes("future") ? <p className="text-xs opacity-80">Unconfirmed scheduled hours are not verified actual work.</p> : null}
       {!sheet?.upcoming && <Button className={summaryAction} disabled={!editable || mutation.isPending} onClick={() => mutation.mutate()}>{mutation.isPending ? "Submitting…" : label}</Button>}
       <BabysitterTimesheetPdfActions doc={doc} scopeKey={`${scopeKey}:${sheet?.id ?? "loading"}`} statusKey={statuses.join(",")} disabled={!statusRevalidated || !doc?.caregiverName} />
     </TimesheetSummaryCard>
@@ -310,14 +309,13 @@ function EntryCard({
   };
   const status = householdShiftStatus(entry, sheet, now);
   return <li>
-    <Button variant="ghost" className="flex h-auto min-h-[72px] w-full items-center justify-start gap-2 whitespace-normal rounded-none px-3 py-3 text-left hover:bg-surface-muted sm:gap-3 sm:px-4" onClick={() => { if (editable) setEditing(true); else openInCalendar(); }}>
+    <Button variant="ghost" className="flex h-auto min-h-14 w-full items-center justify-start gap-2 whitespace-normal rounded-none px-3 py-2.5 text-left hover:bg-surface-muted sm:gap-3 sm:px-4" onClick={() => { if (editable) setEditing(true); else openInCalendar(); }}>
       <span className="w-10 shrink-0 text-center"><span className="block text-[11px] font-semibold uppercase text-muted-foreground">{fmtDate(entry.work_date, { weekday: "short" })}</span><span className="block text-lg font-bold">{fmtDate(entry.work_date, { day: "numeric" })}</span></span>
       <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold tabular-nums">{fmtTime(entry.actual_start, tz)} – {fmtTime(entry.actual_end, tz)}</span>
         {status === "adjusted" && entry.scheduled_start && <span className="block text-xs tabular-nums text-muted-foreground">Scheduled {fmtTime(entry.scheduled_start, tz)} – {fmtTime(entry.scheduled_end, tz)}</span>}
-        <ShiftStatus status={status} />
         {entry.note && <span className="mt-1 block break-words text-xs font-normal text-muted-foreground">{entry.note}</span>}
       </span>
-      <span className="w-12 shrink-0 text-right text-[15px] font-semibold tabular-nums">{Number(hours.toFixed(2))} h</span><ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+      <span className="w-16 shrink-0 text-right text-[15px] font-semibold tabular-nums">{Number(hours.toFixed(2))} hrs</span><ChevronRight className="size-4 shrink-0 text-muted-foreground" />
     </Button>
     <Dialog open={editing && editable} onOpenChange={open => { if (!open) { setEditing(false); onPreview(null); } }}>
       <DialogContent mobileViewportSafe className="overflow-y-auto sm:max-w-md" onOpenAutoFocus={e => e.preventDefault()}><DialogHeader><DialogTitle>Edit hours</DialogTitle><DialogDescription>Times are in {tz}.</DialogDescription></DialogHeader>

@@ -19,11 +19,11 @@ export function TimesheetSummaryCard({ familyName, families, familyId, onFamilyC
   familyName: string; families?: { id: string; name: string }[]; familyId?: string; onFamilyChange?: (id: string) => void;
   period: string; previous: () => void; next: () => void; nextDisabled?: boolean; current?: (() => void) | undefined; loading?: boolean; children: ReactNode;
 }) {
-  return <div className="bg-summary space-y-4 overflow-hidden rounded-3xl p-5 text-primary-foreground sm:p-6" aria-busy={loading}>
+  return <div className="bg-summary space-y-3 overflow-hidden rounded-3xl p-4 text-primary-foreground sm:p-6" aria-busy={loading}>
     <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
       <div className="min-w-0">
         {families && families.length > 1 && onFamilyChange ? <Select value={familyId ?? ""} onValueChange={onFamilyChange}>
-          <SelectTrigger aria-label="Family" className="h-auto min-h-11 w-full min-w-0 border-0 bg-transparent px-0 text-left text-lg font-bold shadow-none [&>span]:whitespace-normal [&>span]:break-words"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Family" className="h-auto min-h-11 w-auto max-w-full min-w-0 justify-start gap-1.5 border-0 bg-transparent px-0 text-left text-lg font-bold shadow-none [&>span]:whitespace-normal [&>span]:break-words"><SelectValue /></SelectTrigger>
           <SelectContent>{families.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent>
         </Select> : <h2 className="break-words pt-2 text-lg font-bold leading-tight sm:text-[22px]">{familyName}</h2>}
       </div>

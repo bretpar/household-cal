@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ActualDateTimeFields, compactPeriod, ShiftStatus, SummaryStat, TimesheetSummaryCard } from "@/components/BabysitterTimesheetPresentation";
+import { ActualDateTimeFields, compactPeriod, SummaryStat, TimesheetSummaryCard } from "@/components/BabysitterTimesheetPresentation";
 import { BabysitterTimesheetPdfActions } from "@/components/BabysitterTimesheetPdfActions";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getCaregiverTimesheet, saveCaregiverActual } from "@/lib/independent-caregiver.functions";
@@ -16,7 +16,6 @@ import { buildTimesheetRows, formatHoursValue, sortTimesheetRows, timesheetTotal
 import { type TimesheetDoc } from "@/lib/caregiver-timesheet-pdf";
 import { workDate, workInput, workInputInstant } from "@/lib/caregiver-timezone";
 import type { CaregiverClient, WorkShift } from "@/lib/independent-caregiver";
-import { cn } from "@/lib/utils";
 import { addDaysKey, payPeriodFor, type PaySettings } from "@/lib/timesheet-periods";
 
 export function CaregiverTimesheets({ userId, clients, timezone, settings }: { userId: string; clients: CaregiverClient[]; timezone: string; settings: PaySettings }) {
@@ -43,9 +42,6 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
   const doc: TimesheetDoc | null = useMemo(() => sheet.data ? { caregiverName: sheet.data.caregiverName, familyName: sheet.data.client.name, from: new Date(fromIso), to: new Date(toIso), timezone, rows } : null, [sheet.data, userId, clientId, fromIso, toIso, timezone, rows]);
   const rowStatus = (r: TimesheetRow) => timesheetRowStatus(r, now);
   const statusKey = rows.map(rowStatus).join(",");
-  const confirmedCount = rows.filter(r => r.confirmed).length;
-  const needsCount = rows.filter(r => rowStatus(r) === "unconfirmed").length;
-  const futureCount = rows.filter(r => rowStatus(r) === "future").length;
   const diff = totals.effective - totals.scheduled;
   const weeks: { key: string; rows: TimesheetRow[] }[] = [];
   for (const r of rows) { const key = format(startOfWeek(new Date(`${r.workDate}T12:00:00`), { weekStartsOn: 1 }), "yyyy-MM-dd"); const last = weeks[weeks.length - 1];
@@ -59,39 +55,33 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
     finally { setBusy(false); }
   };
   if (!clients.length) return <p className="text-muted-foreground">Add a family contact in Settings to start a timesheet.</p>;
-  return <section className="min-w-0 space-y-4 pb-4 md:pb-0">
+  return <section className="min-w-0 space-y-3 pb-4 md:pb-0">
     <TimesheetSummaryCard familyName={clients.find(c => c.id === clientId)?.name ?? "Family"} families={clients} familyId={clientId} onFamilyChange={setClientId}
       period={compactPeriod(period.start, period.end)} previous={() => setPeriodOffset(periodOffset - 1)} next={() => setPeriodOffset(periodOffset + 1)}
-      current={periodOffset !== 0 ? () => setPeriodOffset(0) : undefined} loading={!sheet.data}>
+      loading={!sheet.data}>
       <dl className="grid grid-cols-3 gap-2 sm:gap-3">
-        <SummaryStat label="Total" value={`${formatHoursValue(totals.effective)} h`} />
-        <SummaryStat label="Scheduled" value={`${formatHoursValue(totals.scheduled)} h`} />
-        <SummaryStat label="Difference" value={`${diff > 0 ? "+" : diff < 0 ? "−" : ""}${formatHoursValue(Math.abs(diff))} h`} />
+        <SummaryStat label="Total" value={`${formatHoursValue(totals.effective)} hrs`} />
+        <SummaryStat label="Scheduled" value={`${formatHoursValue(totals.scheduled)} hrs`} />
+        <SummaryStat label="Difference" value={`${diff > 0 ? "+" : diff < 0 ? "−" : ""}${formatHoursValue(Math.abs(diff))} hrs`} />
       </dl>
-      {needsCount > 0 || futureCount > 0 ? <p className="text-xs opacity-80">Total uses scheduled hours for shifts that aren't confirmed yet.</p> : null}
       <BabysitterTimesheetPdfActions doc={doc} statusKey={statusKey} scopeKey={`${userId}:${clientId}:${fromIso}:${toIso}`} disabled={sheet.isFetching} email={sheet.data?.client.email ?? ""} />
     </TimesheetSummaryCard>
     {sheet.isError && <div role="alert" className="space-y-2 rounded-2xl border border-border-soft bg-card p-4"><p className="text-destructive">Could not load this timesheet.</p><Button variant="outline" onClick={() => void sheet.refetch()}>Try again</Button></div>}
     {sheet.data && <>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex min-h-[76px] flex-col justify-between gap-1 rounded-2xl border border-border-soft bg-card px-4 py-3"><span className="text-[13px] font-medium text-muted-foreground">Confirmed</span><span className="text-[28px] font-bold leading-none tabular-nums">{confirmedCount}</span></div>
-        <div className="flex min-h-[76px] flex-col justify-between gap-1 rounded-2xl border border-border-soft bg-card px-4 py-3"><span className="text-[13px] font-medium text-muted-foreground">Needs confirmation</span><span className={cn("text-[28px] font-bold leading-none tabular-nums", needsCount ? "text-warning-foreground" : "text-muted-foreground")}>{needsCount}</span></div>
-      </div>
       {weeks.length ? weeks.map(w => <section key={w.key} className="space-y-2">
         <h3 className="px-1 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Week of {format(new Date(`${w.key}T12:00:00`), "MMM d")}</h3>
         <div className="divide-y divide-border-soft overflow-hidden rounded-2xl border border-border-soft bg-card">
           {w.rows.map(r => { const st = rowStatus(r); const adjusted = st === "adjusted";
             return <Button variant="ghost" key={r.shift.id} type="button" disabled={busy || sheet.isFetching} onClick={() => setEditing({ row: r, start: workInput(r.actualStart, timezone), end: workInput(r.actualEnd, timezone), note: r.note ?? "" })}
-              className="flex h-auto min-h-[72px] w-full items-center justify-start gap-2 whitespace-normal rounded-none px-3 py-3 text-left hover:bg-surface-muted active:bg-surface-muted disabled:opacity-70 sm:gap-3 sm:px-4">
+              className="flex h-auto min-h-14 w-full items-center justify-start gap-2 whitespace-normal rounded-none px-3 py-2.5 text-left hover:bg-surface-muted active:bg-surface-muted disabled:opacity-70 sm:gap-3 sm:px-4">
               <span className="w-12 shrink-0 text-center"><span className="block text-[11px] font-semibold uppercase text-muted-foreground">{format(new Date(`${r.workDate}T12:00:00`), "EEE")}</span><span className="block text-lg font-bold leading-tight tabular-nums">{format(new Date(`${r.workDate}T12:00:00`), "d")}</span></span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[15px] font-semibold tabular-nums">{time(r.actualStart)} – {time(r.actualEnd)}</span>
                 {adjusted && <span className="block break-words text-xs tabular-nums text-muted-foreground">Scheduled {time(r.scheduledStart)} – {time(r.scheduledEnd)}</span>}
                 {r.removed && <span className="block break-words text-xs text-muted-foreground">Removed from calendar</span>}
                 {r.note && <span className="block break-words text-xs text-muted-foreground">{r.note}</span>}
-                <ShiftStatus status={st} />
               </span>
-              <span className="w-12 shrink-0 text-right text-[15px] font-semibold tabular-nums">{formatHoursValue(r.actualHours)} h</span>
+              <span className="w-16 shrink-0 text-right text-[15px] font-semibold tabular-nums">{formatHoursValue(r.actualHours)} hrs</span>
               <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
             </Button>; })}
         </div>
@@ -122,6 +112,6 @@ function actualPreview(start: string, end: string, timezone: string, row: Timesh
     const a = workInputInstant(start, timezone, row.actualStart);
     const b = workInputInstant(end, timezone, row.actualEnd);
     const elapsed = Date.parse(b) - Date.parse(a);
-    return elapsed >= 0 ? `${formatHoursValue(elapsed / 3600000)} h` : "Check end date and time";
+    return elapsed >= 0 ? `${formatHoursValue(elapsed / 3600000)} hrs` : "Check end date and time";
   } catch { return "—"; }
 }
