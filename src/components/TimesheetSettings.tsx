@@ -174,7 +174,7 @@ function CountTile({ label, count, tone, target }: { label: string; count: numbe
 
 function SectionTitle({ id, title, count }: { id?: string; title: string; count?: number }) {
   return (
-    <div id={id} className="flex scroll-mt-24 items-baseline gap-1.5 px-1 pb-0.5">
+    <div id={id} className="flex scroll-mt-[calc(1.5rem+env(safe-area-inset-top))] items-baseline gap-1.5 px-1 pb-0.5">
       <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{title}</h2>
       {count !== undefined ? <span className="text-xs font-medium tabular-nums text-muted-foreground/80">{count}</span> : null}
     </div>
@@ -212,7 +212,7 @@ export function OwnerTimesheets({ readOnly = false }: { readOnly?: boolean }) {
   const fetch = useServerFn(listHouseholdTimesheets);
   const { data } = useQuery({ queryKey: ["household-timesheets"], queryFn: () => fetch() });
   return (
-    <div className="mx-auto max-w-3xl space-y-7 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0">
+    <div className="mx-auto w-full min-w-0 max-w-3xl space-y-7 pb-4 md:pb-0">
       {readOnly ? (
         <p className="rounded-2xl border border-dashed border-border bg-surface-muted/50 p-3 text-xs text-muted-foreground">
           Timesheets are off. Turn them on in Settings to review or approve time cards.
