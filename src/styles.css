@@ -164,6 +164,8 @@
 
   /* Warm neutral surfaces */
   --background: #faf8f4;
+  --bottom-nav-frost-tint: color-mix(in srgb, var(--background) 45%, transparent);
+  --bottom-nav-frost-mask: linear-gradient(to bottom, transparent, #000 1.5rem);
   --foreground: #263a45;
   --surface: #ffffff;
   --surface-muted: #f3f0ea;
@@ -370,6 +372,32 @@ body:has(.app-tour-layer[data-tour-tab="/settings"]) .app-shell-bottom-link[data
    and status bar. The inset is 0 in normal browsers, so web layout is unchanged. */
 .app-shell-header {
   padding-top: env(safe-area-inset-top);
+}
+
+/* iOS web only: a separate layer avoids the floating nav's backdrop-filter
+   becoming the blur's backdrop root. Fixed bottom follows Safari's changing
+   viewport; it adds no layout space and never intercepts page/nav taps. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 767px) {
+    html:not(.native-shell) body:has(.app-shell-bottom-nav)::after {
+      content: "";
+      position: fixed;
+      inset-inline: 0;
+      bottom: 0;
+      height: calc(8rem + env(safe-area-inset-bottom));
+      z-index: 29;
+      pointer-events: none;
+      background: var(--bottom-nav-frost-tint);
+      backdrop-filter: blur(18px);
+      mask-image: var(--bottom-nav-frost-mask);
+    }
+  }
+
+  @media (max-width: 767px) and (orientation: landscape) and (max-height: 600px) {
+    html:not(.native-shell) body:has(.calendar-three-day-landscape)::after {
+      display: none;
+    }
+  }
 }
 
 /* Native welcome replaces marketing only in the existing iOS shell. */
