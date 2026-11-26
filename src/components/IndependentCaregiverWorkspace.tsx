@@ -32,6 +32,7 @@ import { getCaregiverWorkTimezone, getCaregiverWorkspace, saveCaregiverShift, de
 import { workEvents, type CaregiverClient, type WorkShift } from "@/lib/independent-caregiver";
 import { MEMBER_COLORS, styleForColor } from "@/lib/family-data";
 import { supabase } from "@/integrations/supabase/client";
+import { StartupWaitScreen } from "@/components/StartupSplash";
 import { cn } from "@/lib/utils";
 import { workDate, workInput, workInputInstant, workInputInstants, workDateInput, workOffset } from "@/lib/caregiver-timezone";
 
@@ -60,6 +61,7 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
   const [busy, setBusy] = useState(false);
   const submission = useRef(false);
   const lastDuration = useRef<number | null>(null);
+  const verifiedUser = useRef<string | null>(null);
   const identity = useQuery({ queryKey: ["caregiver-verified-user"], queryFn: async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw new Error("Sign in to view your work calendar");
@@ -141,13 +143,17 @@ export function IndependentCaregiverWorkspace({ tab }: { tab: CaregiverTab }) {
   };
   if (workspace.data?.workspace.onboarding_finished_at === null) return <Navigate to="/caregiver/onboarding" replace />;
   // Setup state decides the destination: keep the startup screen until known.
-  if (!workspace.data && !workspace.isError && !identity.isError && !zone.isError) return <div className="min-h-dvh bg-background" aria-busy="true" />;
+  // Once this user's setup is verified, the shell stays mounted across tabs/reloads.
+  if (workspace.data && identity.data) verifiedUser.current = identity.data;
+  if (identity.data && verifiedUser.current && verifiedUser.current !== identity.data) verifiedUser.current = null;
+  const shellReady = Boolean(identity.data && verifiedUser.current === identity.data);
+  if (!shellReady && !workspace.isError && !identity.isError && !zone.isError) return <StartupWaitScreen />;
   return <IndependentCaregiverShell fitViewport={tab === "calendar"} syncControl={identity.data ? <CaregiverSyncStatusIndicator userId={identity.data} /> : null}>
     <div className={cn("space-y-3", tab === "calendar" && "flex min-h-0 flex-1 flex-col md:h-[calc(100dvh-9rem)]")}>
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3"><div>{tab === "today" && <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{format(today, "EEEE")}</p>}<h1 className="text-2xl font-bold sm:text-3xl">{tab === "today" ? format(today, "MMMM d") : tab === "calendar" ? "My work calendar" : tab === "timesheets" ? "Timesheets" : "My settings"}</h1></div>
         {tab !== "settings" && <Button disabled={busy || !workspace.data} onClick={() => newShift()}><Plus className="size-4" />Add shift</Button>}
       </header>
-      {identity.isError || workspace.isError || zone.isError ? <div role="alert" className="space-y-3"><p className="text-destructive">Could not load your private work calendar.</p><Button variant="outline" onClick={() => { void identity.refetch(); void zone.refetch(); void workspace.refetch(); }}>Try again</Button></div> : !workspace.data || !identity.data || !timezone ? <p className="text-muted-foreground">Loading your work calendar…</p> : <CaregiverCalendarStore clients={clients} shifts={shifts} timezone={timezone} openShift={openShift}
+      {identity.isError || workspace.isError || zone.isError ? <div role="alert" className="space-y-3"><p className="text-destructive">Could not load your private work calendar.</p><Button variant="outline" onClick={() => { void identity.refetch(); void zone.refetch(); void workspace.refetch(); }}>Try again</Button></div> : !workspace.data || !identity.data || !timezone ? <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><span className="size-2 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />Loading…</p> : <CaregiverCalendarStore clients={clients} shifts={shifts} timezone={timezone} openShift={openShift}
         moveShift={async (shift, draft) => {
           await saveShift({ data: { id: shift.id, version: shift.version, client_id: shift.client_id, start_at: draft.start_at, end_at: draft.end_at, notes: shift.notes } });
           await workspace.refetch();

@@ -23,6 +23,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as DotwellKnownAppleAppSiteAssociationRouteImport } from './routes/[.]well-known.apple-app-site-association'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as AuthenticatedCaregiverAppRouteImport } from './routes/_authenticated/_caregiverApp'
 import { Route as AuthenticatedActivitiesRouteImport } from './routes/_authenticated/activities'
 import { Route as AuthenticatedBabysitterScheduleRouteImport } from './routes/_authenticated/babysitter-schedule'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
@@ -39,12 +40,12 @@ import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as NativeAuthCallbackRouteImport } from './routes/native-auth.callback'
 import { Route as UnsubscribeTokenRouteImport } from './routes/unsubscribe.$token'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
-import { Route as AuthenticatedCaregiverCalendarRouteImport } from './routes/_authenticated/caregiver.calendar'
 import { Route as AuthenticatedCaregiverOnboardingRouteImport } from './routes/_authenticated/caregiver.onboarding'
-import { Route as AuthenticatedCaregiverSettingsRouteImport } from './routes/_authenticated/caregiver.settings'
-import { Route as AuthenticatedCaregiverTimesheetsRouteImport } from './routes/_authenticated/caregiver.timesheets'
-import { Route as AuthenticatedCaregiverTodayRouteImport } from './routes/_authenticated/caregiver.today'
 import { Route as OauthGoogleCalendarReturnRouteImport } from './routes/oauth/google-calendar/return'
+import { Route as AuthenticatedCaregiverAppCaregiverCalendarRouteImport } from './routes/_authenticated/_caregiverApp/caregiver.calendar'
+import { Route as AuthenticatedCaregiverAppCaregiverSettingsRouteImport } from './routes/_authenticated/_caregiverApp/caregiver.settings'
+import { Route as AuthenticatedCaregiverAppCaregiverTimesheetsRouteImport } from './routes/_authenticated/_caregiverApp/caregiver.timesheets'
+import { Route as AuthenticatedCaregiverAppCaregiverTodayRouteImport } from './routes/_authenticated/_caregiverApp/caregiver.today'
 import { Route as ApiPublicAccountDeletionRequeueRouteImport } from './routes/api/public/account-deletion/requeue'
 import { Route as ApiPublicCaregiverGoogleReturnRouteImport } from './routes/api/public/caregiver-google/return'
 import { Route as ApiPublicEmailSummariesDispatchRouteImport } from './routes/api/public/email-summaries/dispatch'
@@ -126,6 +127,11 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
     id: '/.well-known/oauth-protected-resource',
     path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedCaregiverAppRoute =
+  AuthenticatedCaregiverAppRouteImport.update({
+    id: '/_caregiverApp',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedActivitiesRoute = AuthenticatedActivitiesRouteImport.update({
   id: '/activities',
@@ -210,34 +216,10 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   path: '/.lovable/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedCaregiverCalendarRoute =
-  AuthenticatedCaregiverCalendarRouteImport.update({
-    id: '/caregiver/calendar',
-    path: '/caregiver/calendar',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedCaregiverOnboardingRoute =
   AuthenticatedCaregiverOnboardingRouteImport.update({
     id: '/caregiver/onboarding',
     path: '/caregiver/onboarding',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCaregiverSettingsRoute =
-  AuthenticatedCaregiverSettingsRouteImport.update({
-    id: '/caregiver/settings',
-    path: '/caregiver/settings',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCaregiverTimesheetsRoute =
-  AuthenticatedCaregiverTimesheetsRouteImport.update({
-    id: '/caregiver/timesheets',
-    path: '/caregiver/timesheets',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCaregiverTodayRoute =
-  AuthenticatedCaregiverTodayRouteImport.update({
-    id: '/caregiver/today',
-    path: '/caregiver/today',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const OauthGoogleCalendarReturnRoute =
@@ -245,6 +227,30 @@ const OauthGoogleCalendarReturnRoute =
     id: '/oauth/google-calendar/return',
     path: '/oauth/google-calendar/return',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedCaregiverAppCaregiverCalendarRoute =
+  AuthenticatedCaregiverAppCaregiverCalendarRouteImport.update({
+    id: '/caregiver/calendar',
+    path: '/caregiver/calendar',
+    getParentRoute: () => AuthenticatedCaregiverAppRoute,
+  } as any)
+const AuthenticatedCaregiverAppCaregiverSettingsRoute =
+  AuthenticatedCaregiverAppCaregiverSettingsRouteImport.update({
+    id: '/caregiver/settings',
+    path: '/caregiver/settings',
+    getParentRoute: () => AuthenticatedCaregiverAppRoute,
+  } as any)
+const AuthenticatedCaregiverAppCaregiverTimesheetsRoute =
+  AuthenticatedCaregiverAppCaregiverTimesheetsRouteImport.update({
+    id: '/caregiver/timesheets',
+    path: '/caregiver/timesheets',
+    getParentRoute: () => AuthenticatedCaregiverAppRoute,
+  } as any)
+const AuthenticatedCaregiverAppCaregiverTodayRoute =
+  AuthenticatedCaregiverAppCaregiverTodayRouteImport.update({
+    id: '/caregiver/today',
+    path: '/caregiver/today',
+    getParentRoute: () => AuthenticatedCaregiverAppRoute,
   } as any)
 const ApiPublicAccountDeletionRequeueRoute =
   ApiPublicAccountDeletionRequeueRouteImport.update({
@@ -330,12 +336,12 @@ export interface FileRoutesByFullPath {
   '/native-auth/callback': typeof NativeAuthCallbackRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
-  '/caregiver/calendar': typeof AuthenticatedCaregiverCalendarRoute
   '/caregiver/onboarding': typeof AuthenticatedCaregiverOnboardingRoute
-  '/caregiver/settings': typeof AuthenticatedCaregiverSettingsRoute
-  '/caregiver/timesheets': typeof AuthenticatedCaregiverTimesheetsRoute
-  '/caregiver/today': typeof AuthenticatedCaregiverTodayRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/caregiver/calendar': typeof AuthenticatedCaregiverAppCaregiverCalendarRoute
+  '/caregiver/settings': typeof AuthenticatedCaregiverAppCaregiverSettingsRoute
+  '/caregiver/timesheets': typeof AuthenticatedCaregiverAppCaregiverTimesheetsRoute
+  '/caregiver/today': typeof AuthenticatedCaregiverAppCaregiverTodayRoute
   '/api/public/account-deletion/requeue': typeof ApiPublicAccountDeletionRequeueRoute
   '/api/public/caregiver-google/return': typeof ApiPublicCaregiverGoogleReturnRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
@@ -376,12 +382,12 @@ export interface FileRoutesByTo {
   '/native-auth/callback': typeof NativeAuthCallbackRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
-  '/caregiver/calendar': typeof AuthenticatedCaregiverCalendarRoute
   '/caregiver/onboarding': typeof AuthenticatedCaregiverOnboardingRoute
-  '/caregiver/settings': typeof AuthenticatedCaregiverSettingsRoute
-  '/caregiver/timesheets': typeof AuthenticatedCaregiverTimesheetsRoute
-  '/caregiver/today': typeof AuthenticatedCaregiverTodayRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/caregiver/calendar': typeof AuthenticatedCaregiverAppCaregiverCalendarRoute
+  '/caregiver/settings': typeof AuthenticatedCaregiverAppCaregiverSettingsRoute
+  '/caregiver/timesheets': typeof AuthenticatedCaregiverAppCaregiverTimesheetsRoute
+  '/caregiver/today': typeof AuthenticatedCaregiverAppCaregiverTodayRoute
   '/api/public/account-deletion/requeue': typeof ApiPublicAccountDeletionRequeueRoute
   '/api/public/caregiver-google/return': typeof ApiPublicCaregiverGoogleReturnRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
@@ -408,6 +414,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/.well-known/apple-app-site-association': typeof DotwellKnownAppleAppSiteAssociationRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/_authenticated/_caregiverApp': typeof AuthenticatedCaregiverAppRouteWithChildren
   '/_authenticated/activities': typeof AuthenticatedActivitiesRoute
   '/_authenticated/babysitter-schedule': typeof AuthenticatedBabysitterScheduleRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
@@ -424,12 +431,12 @@ export interface FileRoutesById {
   '/native-auth/callback': typeof NativeAuthCallbackRoute
   '/unsubscribe/$token': typeof UnsubscribeTokenRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
-  '/_authenticated/caregiver/calendar': typeof AuthenticatedCaregiverCalendarRoute
   '/_authenticated/caregiver/onboarding': typeof AuthenticatedCaregiverOnboardingRoute
-  '/_authenticated/caregiver/settings': typeof AuthenticatedCaregiverSettingsRoute
-  '/_authenticated/caregiver/timesheets': typeof AuthenticatedCaregiverTimesheetsRoute
-  '/_authenticated/caregiver/today': typeof AuthenticatedCaregiverTodayRoute
   '/oauth/google-calendar/return': typeof OauthGoogleCalendarReturnRoute
+  '/_authenticated/_caregiverApp/caregiver/calendar': typeof AuthenticatedCaregiverAppCaregiverCalendarRoute
+  '/_authenticated/_caregiverApp/caregiver/settings': typeof AuthenticatedCaregiverAppCaregiverSettingsRoute
+  '/_authenticated/_caregiverApp/caregiver/timesheets': typeof AuthenticatedCaregiverAppCaregiverTimesheetsRoute
+  '/_authenticated/_caregiverApp/caregiver/today': typeof AuthenticatedCaregiverAppCaregiverTodayRoute
   '/api/public/account-deletion/requeue': typeof ApiPublicAccountDeletionRequeueRoute
   '/api/public/caregiver-google/return': typeof ApiPublicCaregiverGoogleReturnRoute
   '/api/public/email-summaries/dispatch': typeof ApiPublicEmailSummariesDispatchRoute
@@ -472,12 +479,12 @@ export interface FileRouteTypes {
     | '/native-auth/callback'
     | '/unsubscribe/$token'
     | '/.lovable/oauth/consent'
-    | '/caregiver/calendar'
     | '/caregiver/onboarding'
+    | '/oauth/google-calendar/return'
+    | '/caregiver/calendar'
     | '/caregiver/settings'
     | '/caregiver/timesheets'
     | '/caregiver/today'
-    | '/oauth/google-calendar/return'
     | '/api/public/account-deletion/requeue'
     | '/api/public/caregiver-google/return'
     | '/api/public/email-summaries/dispatch'
@@ -518,12 +525,12 @@ export interface FileRouteTypes {
     | '/native-auth/callback'
     | '/unsubscribe/$token'
     | '/.lovable/oauth/consent'
-    | '/caregiver/calendar'
     | '/caregiver/onboarding'
+    | '/oauth/google-calendar/return'
+    | '/caregiver/calendar'
     | '/caregiver/settings'
     | '/caregiver/timesheets'
     | '/caregiver/today'
-    | '/oauth/google-calendar/return'
     | '/api/public/account-deletion/requeue'
     | '/api/public/caregiver-google/return'
     | '/api/public/email-summaries/dispatch'
@@ -549,6 +556,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/.well-known/apple-app-site-association'
     | '/.well-known/oauth-protected-resource'
+    | '/_authenticated/_caregiverApp'
     | '/_authenticated/activities'
     | '/_authenticated/babysitter-schedule'
     | '/_authenticated/calendar'
@@ -565,12 +573,12 @@ export interface FileRouteTypes {
     | '/native-auth/callback'
     | '/unsubscribe/$token'
     | '/.lovable/oauth/consent'
-    | '/_authenticated/caregiver/calendar'
     | '/_authenticated/caregiver/onboarding'
-    | '/_authenticated/caregiver/settings'
-    | '/_authenticated/caregiver/timesheets'
-    | '/_authenticated/caregiver/today'
     | '/oauth/google-calendar/return'
+    | '/_authenticated/_caregiverApp/caregiver/calendar'
+    | '/_authenticated/_caregiverApp/caregiver/settings'
+    | '/_authenticated/_caregiverApp/caregiver/timesheets'
+    | '/_authenticated/_caregiverApp/caregiver/today'
     | '/api/public/account-deletion/requeue'
     | '/api/public/caregiver-google/return'
     | '/api/public/email-summaries/dispatch'
@@ -716,6 +724,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/_caregiverApp': {
+      id: '/_authenticated/_caregiverApp'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedCaregiverAppRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/activities': {
       id: '/_authenticated/activities'
       path: '/activities'
@@ -828,39 +843,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DotlovableOauthConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/caregiver/calendar': {
-      id: '/_authenticated/caregiver/calendar'
-      path: '/caregiver/calendar'
-      fullPath: '/caregiver/calendar'
-      preLoaderRoute: typeof AuthenticatedCaregiverCalendarRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/caregiver/onboarding': {
       id: '/_authenticated/caregiver/onboarding'
       path: '/caregiver/onboarding'
       fullPath: '/caregiver/onboarding'
       preLoaderRoute: typeof AuthenticatedCaregiverOnboardingRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/caregiver/settings': {
-      id: '/_authenticated/caregiver/settings'
-      path: '/caregiver/settings'
-      fullPath: '/caregiver/settings'
-      preLoaderRoute: typeof AuthenticatedCaregiverSettingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/caregiver/timesheets': {
-      id: '/_authenticated/caregiver/timesheets'
-      path: '/caregiver/timesheets'
-      fullPath: '/caregiver/timesheets'
-      preLoaderRoute: typeof AuthenticatedCaregiverTimesheetsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/caregiver/today': {
-      id: '/_authenticated/caregiver/today'
-      path: '/caregiver/today'
-      fullPath: '/caregiver/today'
-      preLoaderRoute: typeof AuthenticatedCaregiverTodayRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/oauth/google-calendar/return': {
@@ -869,6 +856,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/oauth/google-calendar/return'
       preLoaderRoute: typeof OauthGoogleCalendarReturnRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/_caregiverApp/caregiver/calendar': {
+      id: '/_authenticated/_caregiverApp/caregiver/calendar'
+      path: '/caregiver/calendar'
+      fullPath: '/caregiver/calendar'
+      preLoaderRoute: typeof AuthenticatedCaregiverAppCaregiverCalendarRouteImport
+      parentRoute: typeof AuthenticatedCaregiverAppRoute
+    }
+    '/_authenticated/_caregiverApp/caregiver/settings': {
+      id: '/_authenticated/_caregiverApp/caregiver/settings'
+      path: '/caregiver/settings'
+      fullPath: '/caregiver/settings'
+      preLoaderRoute: typeof AuthenticatedCaregiverAppCaregiverSettingsRouteImport
+      parentRoute: typeof AuthenticatedCaregiverAppRoute
+    }
+    '/_authenticated/_caregiverApp/caregiver/timesheets': {
+      id: '/_authenticated/_caregiverApp/caregiver/timesheets'
+      path: '/caregiver/timesheets'
+      fullPath: '/caregiver/timesheets'
+      preLoaderRoute: typeof AuthenticatedCaregiverAppCaregiverTimesheetsRouteImport
+      parentRoute: typeof AuthenticatedCaregiverAppRoute
+    }
+    '/_authenticated/_caregiverApp/caregiver/today': {
+      id: '/_authenticated/_caregiverApp/caregiver/today'
+      path: '/caregiver/today'
+      fullPath: '/caregiver/today'
+      preLoaderRoute: typeof AuthenticatedCaregiverAppCaregiverTodayRouteImport
+      parentRoute: typeof AuthenticatedCaregiverAppRoute
     }
     '/api/public/account-deletion/requeue': {
       id: '/api/public/account-deletion/requeue'
@@ -936,7 +951,32 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedCaregiverAppRouteChildren {
+  AuthenticatedCaregiverAppCaregiverCalendarRoute: typeof AuthenticatedCaregiverAppCaregiverCalendarRoute
+  AuthenticatedCaregiverAppCaregiverSettingsRoute: typeof AuthenticatedCaregiverAppCaregiverSettingsRoute
+  AuthenticatedCaregiverAppCaregiverTimesheetsRoute: typeof AuthenticatedCaregiverAppCaregiverTimesheetsRoute
+  AuthenticatedCaregiverAppCaregiverTodayRoute: typeof AuthenticatedCaregiverAppCaregiverTodayRoute
+}
+
+const AuthenticatedCaregiverAppRouteChildren: AuthenticatedCaregiverAppRouteChildren =
+  {
+    AuthenticatedCaregiverAppCaregiverCalendarRoute:
+      AuthenticatedCaregiverAppCaregiverCalendarRoute,
+    AuthenticatedCaregiverAppCaregiverSettingsRoute:
+      AuthenticatedCaregiverAppCaregiverSettingsRoute,
+    AuthenticatedCaregiverAppCaregiverTimesheetsRoute:
+      AuthenticatedCaregiverAppCaregiverTimesheetsRoute,
+    AuthenticatedCaregiverAppCaregiverTodayRoute:
+      AuthenticatedCaregiverAppCaregiverTodayRoute,
+  }
+
+const AuthenticatedCaregiverAppRouteWithChildren =
+  AuthenticatedCaregiverAppRoute._addFileChildren(
+    AuthenticatedCaregiverAppRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCaregiverAppRoute: typeof AuthenticatedCaregiverAppRouteWithChildren
   AuthenticatedActivitiesRoute: typeof AuthenticatedActivitiesRoute
   AuthenticatedBabysitterScheduleRoute: typeof AuthenticatedBabysitterScheduleRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
@@ -946,14 +986,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTimesheetRoute: typeof AuthenticatedTimesheetRoute
   AuthenticatedTodayRoute: typeof AuthenticatedTodayRoute
-  AuthenticatedCaregiverCalendarRoute: typeof AuthenticatedCaregiverCalendarRoute
   AuthenticatedCaregiverOnboardingRoute: typeof AuthenticatedCaregiverOnboardingRoute
-  AuthenticatedCaregiverSettingsRoute: typeof AuthenticatedCaregiverSettingsRoute
-  AuthenticatedCaregiverTimesheetsRoute: typeof AuthenticatedCaregiverTimesheetsRoute
-  AuthenticatedCaregiverTodayRoute: typeof AuthenticatedCaregiverTodayRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCaregiverAppRoute: AuthenticatedCaregiverAppRouteWithChildren,
   AuthenticatedActivitiesRoute: AuthenticatedActivitiesRoute,
   AuthenticatedBabysitterScheduleRoute: AuthenticatedBabysitterScheduleRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
@@ -963,11 +1000,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTimesheetRoute: AuthenticatedTimesheetRoute,
   AuthenticatedTodayRoute: AuthenticatedTodayRoute,
-  AuthenticatedCaregiverCalendarRoute: AuthenticatedCaregiverCalendarRoute,
   AuthenticatedCaregiverOnboardingRoute: AuthenticatedCaregiverOnboardingRoute,
-  AuthenticatedCaregiverSettingsRoute: AuthenticatedCaregiverSettingsRoute,
-  AuthenticatedCaregiverTimesheetsRoute: AuthenticatedCaregiverTimesheetsRoute,
-  AuthenticatedCaregiverTodayRoute: AuthenticatedCaregiverTodayRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
