@@ -126,8 +126,8 @@ async function resolveGuardUncached(pathname: string, gen: number) {
   }
   const data = { user };
 
-  // resolves an existing membership or claims a pending invitation; brand-new
-  // users get no household and are sent to onboarding to create their own.
+  // Resolves an existing membership only; brand-new users get no household and
+  // are sent to onboarding. Invited users accept through their token link.
   // A failed lookup must NOT be treated as "no household" — keep established
   // users in the app instead of bouncing them through onboarding.
   const onOnboarding = pathname.startsWith("/onboarding");

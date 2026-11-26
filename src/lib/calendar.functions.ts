@@ -23,18 +23,15 @@ import {
 import type { AnyDb } from "@/lib/timesheets.server";
 
 /**
- * Resolves the caller's household (claiming any pending invitation for their email).
+ * Resolves the caller's existing household membership. Invitations are accepted
+ * only through their explicit token flow, never by email alone.
  * Returns `family_id: null` for brand-new users, who are sent through onboarding.
  */
 export const ensureFamilyMembership = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { claimPendingInvitations } = await import("@/lib/household.server");
-    const email = (context.claims as { email?: string }).email ?? null;
-    const familyId = await resolveMembership(supabaseAdmin as unknown as Db, context.userId, () =>
-      claimPendingInvitations(supabaseAdmin as never, context.userId, email),
-    );
+    const familyId = await resolveMembership(supabaseAdmin as unknown as Db, context.userId);
     // Role lets the client choose its navigation without waiting for the full
     // calendar bundle. Data access is still enforced by RLS everywhere.
     let role: string | null = null;

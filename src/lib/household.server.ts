@@ -412,34 +412,3 @@ export async function acceptInvitationByToken(
   await admin.from("profiles").upsert({ id: userId }, { onConflict: "id" });
   return acceptAtomically(admin, invite.id, userId);
 }
-
-/** Consumes any pending invitations addressed to this email (used at first sign-in). */
-export async function claimPendingInvitations(
-  admin: AdminDb,
-  userId: string,
-  userEmail: string | null,
-): Promise<string | null> {
-  if (!userEmail) return null;
-  const clean = normalizeEmail(userEmail);
-  const { data } = await admin
-    .from("family_invitations")
-    .select("id, family_id, role, expires_at")
-    .eq("status", "pending")
-    .ilike("email", clean);
-  const invites = data ?? [];
-  let firstFamily: string | null = null;
-  for (const invite of invites) {
-    if (new Date(invite.expires_at) < new Date()) {
-      await admin.from("family_invitations").update({ status: "expired" }).eq("id", invite.id);
-      continue;
-    }
-    try {
-      await acceptAtomically(admin, invite.id, userId);
-    } catch (e) {
-      console.error("[household] could not claim invitation", invite.id, e);
-      continue;
-    }
-    firstFamily = firstFamily ?? (invite.family_id as string);
-  }
-  return firstFamily;
-}

@@ -356,3 +356,8 @@
 ## Reset monthly schedule colors after publishing
 - [x] Reconcile only authoritatively applied additions, modifications and removals out of the active draft; retain failed operations and pending deletions.
 - [x] Render published proposals as the blue calendar baseline, including fallback presentation during refresh; complete/partial/repeated publication rules covered by 81 focused tests and a clean type check. No migration, live schedule writes or deployment.
+
+## Low-friction signup and invitation security
+- [x] Remove email-only automatic household invitation claims while preserving explicit token acceptance, recipient checks and existing memberships.
+- [x] Restore immediate post-signup onboarding and hosted auto-confirm; keep six-character, length-only password validation. Leaked-password protection disabled live; hosted minimum length/character-class settings require manual confirmation.
+- [x] Eight focused invitation tests, type checking and preview compilation pass; Codex owns targeted live verification. No migration, broad QA or publishing.

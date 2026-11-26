@@ -724,16 +724,14 @@ export async function applyEventDelete(
 }
 
 /**
- * Resolves the household the signed-in user belongs to, without ever creating one.
- *
- * Order: existing membership → pending invitation for their email. Users with
- * neither get `null` and are sent through onboarding to create their own
- * household. Nothing here claims demo/sample households.
+ * Resolves the household the signed-in user already belongs to, without ever
+ * creating one or granting access from an email address. Users with no
+ * membership get `null` and are sent through onboarding; invited users must
+ * accept their explicit invitation token first.
  */
 export async function resolveMembership(
   admin: Db,
   userId: string,
-  claimInvitations?: () => Promise<string | null>,
 ): Promise<string | null> {
   await admin.from("profiles").upsert({ id: userId }, { onConflict: "id" });
 
@@ -744,11 +742,6 @@ export async function resolveMembership(
     .order("created_at", { ascending: true })
     .limit(1);
   if (existing && existing.length > 0) return existing[0].family_id as string;
-
-  if (claimInvitations) {
-    const invited = await claimInvitations();
-    if (invited) return invited;
-  }
 
   return null;
 }
