@@ -236,11 +236,21 @@ function ShellChrome({ children, active, fitViewport, compactMobileLandscape, lo
 
 
 
+  // Mobile Safari bounds page scrolling to <main>; reset it per page since
+  // the router's window scroll restoration no longer applies there.
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = mainRef.current;
+    if (el && el.scrollTop > 0) el.scrollTop = 0;
+  }, [pathname]);
+
   return (
 
     <div
       className={cn(
         !active && "contents",
+        active && "app-shell-root",
+        active && fitViewport && "app-shell-fit",
         active && "bg-background",
         compactMobileLandscape && "calendar-three-day-landscape",
         !active ? null : fitViewport
@@ -284,6 +294,7 @@ function ShellChrome({ children, active, fitViewport, compactMobileLandscape, lo
       </header>}
 
       <main
+        ref={mainRef}
         className={cn(
           !active ? "contents" : "app-shell-main mx-auto w-full max-w-6xl",
           !active ? null : fitViewport

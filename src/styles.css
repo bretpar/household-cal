@@ -408,22 +408,36 @@ body:has(.app-tour-layer[data-tour-tab="/settings"]) .app-shell-bottom-link[data
       backdrop-filter: blur(8px);
     }
 
-    /* Solid, unfiltered edge below the nav gives Safari's toolbar a plain
-       cream sample instead of sharp page content. */
-    html:not(.native-shell) body:has(.app-shell-bottom-nav)::before {
-      content: "";
-      position: fixed;
-      inset-inline: 0;
-      bottom: 0;
-      height: calc(0.75rem + env(safe-area-inset-bottom));
-      z-index: 29;
-      pointer-events: none;
-      background: var(--background);
+  }
+
+  /* Browser tab only (not standalone/native): bound scrolling to <main> so
+     page content ends at the opaque cream band below the floating nav and
+     never runs beneath Safari's toolbar. The band replaces the old fixed
+     solid-edge overlay; the frost above still sits over <main>. */
+  @media (max-width: 767px) and (display-mode: browser) {
+    html:not(.native-shell) .app-shell-root:not(.calendar-three-day-landscape) {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      min-height: 0;
+      overflow: hidden;
+      padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+      background: #faf8f4;
+    }
+
+    html:not(.native-shell) .app-shell-root:not(.calendar-three-day-landscape) > .app-shell-main {
+      padding-bottom: 5.75rem;
+    }
+
+    html:not(.native-shell) .app-shell-root:not(.app-shell-fit):not(.calendar-three-day-landscape) > .app-shell-main {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior-y: contain;
     }
   }
 
   @media (max-width: 767px) and (orientation: landscape) and (max-height: 600px) {
-    html:not(.native-shell) body:has(.calendar-three-day-landscape)::before,
     html:not(.native-shell) body:has(.calendar-three-day-landscape)::after {
       display: none;
     }
