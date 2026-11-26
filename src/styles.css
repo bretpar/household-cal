@@ -434,6 +434,8 @@ body:has(.app-tour-layer[data-tour-tab="/settings"]) .app-shell-bottom-link[data
       min-height: 0;
       overflow-y: auto;
       overscroll-behavior-y: contain;
+      /* Focused fields scrolled into view (keyboard) clear the floating nav. */
+      scroll-padding-bottom: 6.5rem;
     }
   }
 

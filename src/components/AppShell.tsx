@@ -236,14 +236,6 @@ function ShellChrome({ children, active, fitViewport, compactMobileLandscape, lo
 
 
 
-  // Mobile Safari bounds page scrolling to <main>; reset it per page since
-  // the router's window scroll restoration no longer applies there.
-  const mainRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const el = mainRef.current;
-    if (el && el.scrollTop > 0) el.scrollTop = 0;
-  }, [pathname]);
-
   return (
 
     <div
@@ -294,7 +286,7 @@ function ShellChrome({ children, active, fitViewport, compactMobileLandscape, lo
       </header>}
 
       <main
-        ref={mainRef}
+        data-scroll-restoration-id="app-shell-main"
         className={cn(
           !active ? "contents" : "app-shell-main mx-auto w-full max-w-6xl",
           !active ? null : fitViewport
