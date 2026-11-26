@@ -392,6 +392,22 @@ body:has(.app-tour-layer[data-tour-tab="/settings"]) .app-shell-bottom-link[data
       mask-image: var(--bottom-nav-frost-mask);
     }
 
+    /* Solid outer header so Safari samples one color for the status bar;
+       the blur moves to an inset layer below the safe-area padding. */
+    html:not(.native-shell) .app-shell-header {
+      background: var(--surface);
+      backdrop-filter: none;
+    }
+
+    html:not(.native-shell) .app-shell-header::before {
+      content: "";
+      position: absolute;
+      inset: env(safe-area-inset-top) 0 0;
+      z-index: -1;
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+    }
+
     /* Solid, unfiltered edge below the nav gives Safari's toolbar a plain
        cream sample instead of sharp page content. */
     html:not(.native-shell) body:has(.app-shell-bottom-nav)::before {
