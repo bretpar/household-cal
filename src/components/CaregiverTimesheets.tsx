@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { format } from "date-fns";
+import { format, startOfWeek } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { ChevronLeft, ChevronRight, Download, Mail, Share } from "lucide-react";
 import { toast } from "sonner";
@@ -38,6 +38,15 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
   const rows = sheet.data ? buildTimesheetRows(sheet.data.shifts as WorkShift[], sheet.data.actuals, weekStart, weekEnd, timezone) : [];
   const totals = timesheetTotals(rows);
   const doc: TimesheetDoc | null = sheet.data ? { caregiverName: sheet.data.caregiverName, familyName: sheet.data.client.name, from: weekStart, to: weekEnd, timezone, rows } : null;
+  const now = Date.now();
+  const rowStatus = (r: TimesheetRow): RowStatus => r.confirmed ? (r.actualStart === r.scheduledStart && r.actualEnd === r.scheduledEnd ? "confirmed" : "adjusted") : Date.parse(r.scheduledStart) > now ? "future" : "unconfirmed";
+  const confirmedCount = rows.filter(r => r.confirmed).length;
+  const needsCount = rows.filter(r => rowStatus(r) === "unconfirmed").length;
+  const futureCount = rows.filter(r => rowStatus(r) === "future").length;
+  const diff = totals.effective - totals.scheduled;
+  const weeks: { key: string; rows: TimesheetRow[] }[] = [];
+  for (const r of rows) { const key = format(startOfWeek(new Date(`${r.workDate}T12:00:00`), { weekStartsOn: 1 }), "yyyy-MM-dd"); const last = weeks[weeks.length - 1];
+    if (last?.key === key) last.rows.push(r); else weeks.push({ key, rows: [r] }); }
   const time = (iso: string) => formatInTimeZone(iso, timezone, "h:mm a");
   const persist = async (row: TimesheetRow, actual_start: string, actual_end: string, confirmed: boolean, note: string | null) => {
     if (busy) return false;
@@ -65,23 +74,46 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
         <Button size="icon" variant="ghost" aria-label="Next period" onClick={() => setPeriodOffset(periodOffset + 1)}><ChevronRight className="size-4" /></Button>
         <Button size="sm" variant="outline" onClick={() => setPeriodOffset(0)}>Current period</Button></div>
     </div>
-    {sheet.isError ? <div role="alert" className="space-y-2"><p className="text-destructive">Could not load this timesheet.</p><Button variant="outline" onClick={() => void sheet.refetch()}>Try again</Button></div>
-      : !sheet.data ? <p className="text-muted-foreground">Loading timesheet…</p> : <>
-      <div className="flex flex-wrap gap-6"><div><p className="text-xs font-bold uppercase text-muted-foreground">Scheduled</p><p className="text-2xl font-bold">{formatHoursValue(totals.scheduled)} h</p></div>
-        <div><p className="text-xs font-bold uppercase text-muted-foreground">Total hours</p><p className="text-2xl font-bold">{formatHoursValue(totals.effective)} h</p></div></div>
-      <div className="divide-y divide-border-soft rounded-2xl border border-border-soft bg-surface">
-        {rows.length ? rows.map(r => <div key={r.shift.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
-          <div className="min-w-0"><p className="font-semibold">{formatInTimeZone(r.scheduledStart, timezone, "EEE, MMM d")}</p>
-            <p className="text-sm text-muted-foreground">{r.removed ? "Removed from calendar" : `Scheduled ${time(r.scheduledStart)} – ${time(r.scheduledEnd)}`}</p>
-            <p className={cn("text-sm", r.confirmed ? "font-medium" : "text-muted-foreground")}>{r.confirmed ? "Adjusted actual" : "Scheduled"} {time(r.actualStart)} – {time(r.actualEnd)} · {formatHoursValue(r.actualHours)} h</p>
-            {r.note && <p className="text-xs text-muted-foreground">{r.note}</p>}</div>
-          <div className="flex gap-1"><Button size="sm" variant="outline" disabled={busy || sheet.isFetching} onClick={() => setEditing({ row: r, start: workInput(r.actualStart, timezone), end: workInput(r.actualEnd, timezone), note: r.note ?? "" })}>Edit</Button></div>
-        </div>) : <p className="p-4 text-sm text-muted-foreground">No shifts for this family this period.</p>}
+    {sheet.isError ? <div role="alert" className="space-y-2 rounded-2xl border border-border-soft bg-card p-4"><p className="text-destructive">Could not load this timesheet.</p><Button variant="outline" onClick={() => void sheet.refetch()}>Try again</Button></div>
+      : !sheet.data ? <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><span className="size-2 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />Loading timesheet…</p> : <>
+      <div className="overflow-hidden rounded-3xl border border-border-soft bg-card">
+        <div className="bg-summary space-y-5 p-5 text-primary-foreground sm:p-6">
+          <div className="min-w-0"><p className="text-[13px] font-medium opacity-80">{doc ? rangeLabel(doc) : ""}</p>
+            <p className="mt-0.5 truncate text-[22px] font-bold leading-tight tracking-tight">{sheet.data.client.name}</p></div>
+          <dl className="grid grid-cols-3 gap-2 sm:gap-3">
+            <SummaryStat label="Timesheet total" value={`${formatHoursValue(totals.effective)} h`} />
+            <SummaryStat label="Scheduled" value={`${formatHoursValue(totals.scheduled)} h`} />
+            <SummaryStat label="Difference" value={`${diff > 0 ? "+" : diff < 0 ? "−" : ""}${formatHoursValue(Math.abs(diff))} h`} />
+          </dl>
+          {needsCount > 0 || futureCount > 0 ? <p className="text-xs opacity-80">Total uses scheduled hours for shifts that aren't confirmed yet.</p> : null}
+          {native ? <div className="space-y-1.5"><button type="button" onClick={() => void shareNative()} className={primaryAction}><Share className="size-4" />Share PDF</button>
+            <p className="text-center text-xs opacity-80">Send by Mail, Messages or AirDrop, or save to Files.</p></div>
+          : <div className="grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => void download()} className={primaryAction}><Download className="size-4" />Download PDF</button>
+            <button type="button" onClick={() => setSharing(sheet.data?.client.email ?? "")} className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-primary-foreground/15 text-sm font-semibold transition-transform active:scale-[0.98]"><Mail className="size-4" />Prepare email</button></div>}
+        </div>
       </div>
-      {native ? <div className="space-y-1"><Button variant="outline" onClick={() => void shareNative()}><Share className="size-4" />Share PDF</Button>
-        <p className="text-xs text-muted-foreground">Send the PDF by Mail, Messages or AirDrop, or save it to Files.</p></div>
-      : <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void download()}><Download className="size-4" />Download PDF</Button>
-        <Button variant="outline" onClick={() => setSharing(sheet.data?.client.email ?? "")}><Mail className="size-4" />Prepare email</Button></div>}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex min-h-[76px] flex-col justify-between gap-1 rounded-2xl border border-border-soft bg-card px-4 py-3"><span className="text-[13px] font-medium text-muted-foreground">Confirmed</span><span className="text-[28px] font-bold leading-none tabular-nums">{confirmedCount}</span></div>
+        <div className="flex min-h-[76px] flex-col justify-between gap-1 rounded-2xl border border-border-soft bg-card px-4 py-3"><span className="text-[13px] font-medium text-muted-foreground">Needs confirmation</span><span className={cn("text-[28px] font-bold leading-none tabular-nums", needsCount ? "text-warning-foreground" : "text-muted-foreground")}>{needsCount}</span></div>
+      </div>
+      {weeks.length ? weeks.map(w => <section key={w.key} className="space-y-2">
+        <h3 className="px-1 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Week of {format(new Date(`${w.key}T12:00:00`), "MMM d")}</h3>
+        <div className="divide-y divide-border-soft overflow-hidden rounded-2xl border border-border-soft bg-card">
+          {w.rows.map(r => { const st = rowStatus(r); const adjusted = st === "adjusted";
+            return <button key={r.shift.id} type="button" disabled={busy || sheet.isFetching} onClick={() => setEditing({ row: r, start: workInput(r.actualStart, timezone), end: workInput(r.actualEnd, timezone), note: r.note ?? "" })}
+              className="flex min-h-[64px] w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-surface-muted disabled:opacity-70">
+              <span className="w-12 shrink-0 text-center"><span className="block text-[11px] font-semibold uppercase text-muted-foreground">{formatInTimeZone(r.scheduledStart, timezone, "EEE")}</span><span className="block text-lg font-bold leading-tight tabular-nums">{formatInTimeZone(r.scheduledStart, timezone, "d")}</span></span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-semibold tabular-nums">{time(r.actualStart)} – {time(r.actualEnd)}</span>
+                {adjusted && <span className="block truncate text-xs tabular-nums text-muted-foreground">Scheduled {time(r.scheduledStart)} – {time(r.scheduledEnd)}</span>}
+                {r.removed && <span className="block truncate text-xs text-muted-foreground">Removed from calendar</span>}
+                {r.note && <span className="block truncate text-xs text-muted-foreground">{r.note}</span>}
+              </span>
+              <span className="shrink-0 text-right"><span className="block text-[15px] font-semibold tabular-nums">{formatHoursValue(r.actualHours)} h</span><span className={cn("mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold", STATUS[st].tone)}>{STATUS[st].label}</span></span>
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            </button>; })}
+        </div>
+      </section>) : <p className="rounded-2xl border border-border-soft bg-card p-4 text-sm text-muted-foreground">No shifts for this family this period.</p>}
     </>}
     <Dialog open={Boolean(editing)} onOpenChange={o => { if (!o && !busy) setEditing(null); }}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Edit hours</DialogTitle><DialogDescription>Times are in {timezone}.</DialogDescription></DialogHeader>
       {editing && <form className="space-y-4" onSubmit={async e => { e.preventDefault();
@@ -108,4 +140,16 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
       </form>}
     </DialogContent></Dialog>
   </section>;
+}
+
+type RowStatus = "confirmed" | "adjusted" | "unconfirmed" | "future";
+const STATUS: Record<RowStatus, { label: string; tone: string }> = {
+  confirmed: { label: "Confirmed", tone: "bg-success/15 text-success" },
+  adjusted: { label: "Adjusted", tone: "bg-primary/10 text-primary" },
+  unconfirmed: { label: "Needs confirmation", tone: "bg-warning/20 text-warning-foreground" },
+  future: { label: "Scheduled", tone: "bg-secondary text-secondary-foreground" },
+};
+const primaryAction = "flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-primary-foreground text-sm font-semibold text-primary transition-transform active:scale-[0.98]";
+function SummaryStat({ label, value }: { label: string; value: string }) {
+  return <div className="min-w-0 rounded-2xl bg-primary-foreground/10 px-3 py-3"><dt className="truncate text-xs font-medium opacity-80">{label}</dt><dd className="mt-0.5 truncate text-lg font-bold leading-tight tabular-nums sm:text-xl">{value}</dd></div>;
 }
