@@ -4,7 +4,7 @@ import { useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CalendarDays, Flag } from "lucide-react";
+import { CalendarDays, ChevronRight, Flag } from "lucide-react";
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
@@ -140,13 +140,46 @@ export function useMyTimesheetActionCount(enabled: boolean) {
   return enabled ? data?.count ?? 0 : 0;
 }
 
-const GROUPS: { label: string; match: (t: TimesheetView) => boolean; empty: string | null }[] = [
-  { label: "Current / upcoming", match: (t) => t.status === "draft" && !!t.is_current, empty: null },
-  { label: "Needs review", match: (t) => t.status === "submitted", empty: "Nothing waiting for review." },
-  { label: "Needs correction", match: (t) => t.status === "needs_correction", empty: "No timesheets waiting on caregiver changes." },
-  { label: "Open past periods", match: (t) => t.status === "draft" && !t.is_current, empty: null },
-  { label: "Approved / recent history", match: (t) => t.status === "approved" || t.status === "closed", empty: "No approved timesheets yet." },
-];
+const isOpenCurrent = (t: TimesheetView) => t.status === "draft" && !!t.is_current;
+const isHistory = (t: TimesheetView) => t.status === "approved" || t.status === "closed";
+
+const STATUS_TONE: Record<string, string> = {
+  draft: "bg-secondary text-secondary-foreground",
+  submitted: "bg-warning-soft text-warning-foreground",
+  needs_correction: "bg-destructive/10 text-destructive",
+  approved: "bg-success-soft text-success",
+  closed: "bg-surface-muted text-muted-foreground",
+};
+
+const initials = (name: string) =>
+  name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("") || "?";
+
+function CountTile({ label, count, tone, target }: { label: string; count: number | null; tone: string; target: string }) {
+  const active = !!count;
+  return (
+    <button
+      type="button"
+      disabled={!active}
+      onClick={() => document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+      className={`flex min-h-[68px] min-w-0 flex-col justify-between rounded-2xl border border-border-soft bg-card px-4 py-3 text-left transition-transform active:scale-[0.98] disabled:cursor-default ${active ? "" : "opacity-80"}`}
+    >
+      <span className="truncate text-xs font-semibold text-muted-foreground">{label}</span>
+      <span className="flex items-center gap-2">
+        <span className={`text-2xl font-bold tabular-nums ${active ? tone : "text-muted-foreground"}`}>{count ?? "–"}</span>
+        {active ? <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" aria-hidden /> : <span className="text-xs text-muted-foreground">All clear</span>}
+      </span>
+    </button>
+  );
+}
+
+function SectionTitle({ id, title, count }: { id?: string; title: string; count?: number }) {
+  return (
+    <div id={id} className="flex scroll-mt-24 items-baseline gap-2 px-1">
+      <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
+      {count !== undefined ? <span className="text-xs font-semibold text-muted-foreground">{count}</span> : null}
+    </div>
+  );
+}
 
 /** Owner action: close an unfinished timesheet (kept as read-only history). */
 function CloseTimesheetButton({ id, onClosed }: { id: string; onClosed: () => void }) {
@@ -179,7 +212,7 @@ export function OwnerTimesheets({ readOnly = false }: { readOnly?: boolean }) {
   const fetch = useServerFn(listHouseholdTimesheets);
   const { data } = useQuery({ queryKey: ["household-timesheets"], queryFn: () => fetch() });
   return (
-    <div className="space-y-5 pb-8 md:pb-0">
+    <div className="mx-auto max-w-3xl space-y-6 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0">
       {readOnly ? (
         <p className="rounded-2xl border border-dashed border-border bg-surface-muted/50 p-3 text-xs text-muted-foreground">
           Timesheets are off. Turn them on in Settings to review or approve time cards.
@@ -187,24 +220,47 @@ export function OwnerTimesheets({ readOnly = false }: { readOnly?: boolean }) {
       ) : (
         <OwnerManagedSection />
       )}
-      {GROUPS.map((g) => {
-        const items = (data ?? []).filter((t) => g.match(t));
-        if (g.empty === null && items.length === 0) return null;
+      {(() => {
+        const all = data ?? [];
+        const current = all.filter(isOpenCurrent);
+        const review = all.filter((t) => t.status === "submitted");
+        const correction = all.filter((t) => t.status === "needs_correction");
+        const openPast = all.filter((t) => t.status === "draft" && !t.is_current);
+        const history = all.filter(isHistory);
+        const loaded = !!data;
         return (
-          <section key={g.label} className="space-y-3">
-            <div className="flex items-baseline gap-2">
-              <h2 className="text-base font-bold">{g.label}</h2>
-              <span className="text-xs font-semibold text-muted-foreground">{items.length}</span>
-            </div>
-            {data && items.length === 0 && g.empty ? (
-              <p className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-                {g.empty}
-              </p>
+          <>
+            {current.length ? (
+              <section className="space-y-3">
+                <SectionTitle title={current.length > 1 ? "Current pay periods" : "Current pay period"} />
+                <div className={current.length > 1 ? "grid gap-3 md:grid-cols-2" : "space-y-3"}>
+                  {current.map((t) => <ReviewCard key={t.id} sheet={t} readOnly={readOnly} variant="featured" />)}
+                </div>
+              </section>
             ) : null}
-            {items.map((t) => <ReviewCard key={t.id} sheet={t} readOnly={readOnly} />)}
-          </section>
+            <div className="grid grid-cols-2 gap-3">
+              <CountTile label="Needs review" count={loaded ? review.length : null} tone="text-warning-foreground" target="ts-needs-review" />
+              <CountTile label="Needs correction" count={loaded ? correction.length : null} tone="text-destructive" target="ts-needs-correction" />
+            </div>
+            {[
+              { id: "ts-needs-review", title: "Needs review", items: review },
+              { id: "ts-needs-correction", title: "Needs correction", items: correction },
+              { id: "ts-open-past", title: "Open past periods", items: openPast },
+              { id: "ts-history", title: "History", items: history },
+            ].map((g) => g.items.length ? (
+              <section key={g.id} className="space-y-2">
+                <SectionTitle id={g.id} title={g.title} count={g.items.length} />
+                <div className="overflow-hidden rounded-2xl border border-border-soft bg-card divide-y divide-border-soft">
+                  {g.items.map((t) => <ReviewCard key={t.id} sheet={t} readOnly={readOnly} variant="row" />)}
+                </div>
+              </section>
+            ) : null)}
+            {loaded && history.length === 0 ? (
+              <p className="px-1 text-sm text-muted-foreground">No approved timesheets yet.</p>
+            ) : null}
+          </>
         );
-      })}
+      })()}
     </div>
   );
 }
@@ -361,7 +417,7 @@ function NotificationSettings() {
   );
 }
 
-function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnly?: boolean }) {
+function ReviewCard({ sheet, readOnly = false, variant = "card" }: { sheet: TimesheetView; readOnly?: boolean; variant?: "card" | "featured" | "row" }) {
   const qc = useQueryClient();
   const review = useServerFn(reviewTimesheet);
   const resolveDuplicate = useServerFn(ownerResolveDuplicateConflict);
@@ -373,6 +429,11 @@ function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnl
   const tz = sheet.time_zone;
   const scheduled = sheet.entries.filter(countsTowardTotals).reduce((n, e) => n + hoursBetween(e.scheduled_start, e.scheduled_end), 0);
   const actual = sheet.entries.filter(countsTowardTotals).reduce((n, e) => n + hoursBetween(e.actual_start, e.actual_end), 0);
+  // Draft actual times mirror the schedule until confirmed; only submitted/finalized or confirmed entries count as recorded.
+  const counted = sheet.entries.filter(countsTowardTotals);
+  const actualRecorded = counted.length > 0 && (sheet.status === "submitted" || sheet.status === "approved" || sheet.status === "closed"
+    || counted.some((e) => e.actual_time_confirmed || !!e.owner_edited_at || e.is_manual));
+  const actualLabel = actualRecorded ? formatDisplayHours(actual) : "Not recorded";
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["household-timesheets"] });
     void qc.invalidateQueries({ queryKey: PENDING_TIMESHEETS_KEY });
@@ -390,7 +451,43 @@ function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnl
   });
   const editable = !readOnly && (sheet.status === "submitted" || sheet.status === "approved");
   return (
-    <div className="space-y-2 rounded-2xl border border-border-soft bg-card p-4 text-sm">
+    <div className={variant === "row" ? "text-sm" : variant === "featured" ? "overflow-hidden rounded-3xl border border-border-soft bg-card text-sm" : "space-y-2 rounded-2xl border border-border-soft bg-card p-4 text-sm"}>
+      {variant === "featured" ? (
+        <div className="bg-summary space-y-4 p-5 text-primary-foreground">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium opacity-75">{fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end)}</p>
+              <p className="mt-1 truncate text-xl font-bold tracking-tight">{sheet.caregiver_name}</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-primary-foreground/15 px-2.5 py-1 text-[11px] font-semibold">{STATUS_LABEL[sheet.status]}</span>
+          </div>
+          <dl className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-primary-foreground/10 px-3 py-2.5">
+              <dt className="text-[11px] font-medium opacity-75">Scheduled</dt>
+              <dd className="text-lg font-bold tabular-nums">{formatDisplayHours(scheduled)}</dd>
+            </div>
+            <div className="rounded-2xl bg-primary-foreground/10 px-3 py-2.5">
+              <dt className="text-[11px] font-medium opacity-75">Actual</dt>
+              <dd className={`font-bold tabular-nums ${actualRecorded ? "text-lg" : "pt-1 text-sm opacity-80"}`}>{actualLabel}</dd>
+            </div>
+          </dl>
+          <button type="button" onClick={() => setOpen((o) => !o)}
+            className="flex min-h-11 w-full items-center justify-center gap-1 rounded-full bg-primary-foreground text-sm font-semibold text-primary transition-transform active:scale-[0.98]">
+            {open ? "Hide Timesheet" : "View Timesheet"}{open ? null : <ChevronRight className="h-4 w-4" aria-hidden />}
+          </button>
+        </div>
+      ) : variant === "row" ? (
+        <button type="button" onClick={() => setOpen((o) => !o)}
+          className="flex min-h-[64px] w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-surface-muted">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary text-xs font-bold text-secondary-foreground">{initials(sheet.caregiver_name)}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-semibold">{sheet.caregiver_name}</span>
+            <span className="block truncate text-xs text-muted-foreground">{fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end)} · {actualRecorded ? actualLabel : `${formatDisplayHours(scheduled)} scheduled`}</span>
+          </span>
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_TONE[sheet.status] ?? STATUS_TONE["draft"]}`}>{STATUS_LABEL[sheet.status]}</span>
+          <ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} aria-hidden />
+        </button>
+      ) : (
       <button type="button" className="flex w-full items-start justify-between gap-2 text-left" onClick={() => setOpen((o) => !o)}>
         <span className="min-w-0">
           <span className="block font-bold">{sheet.caregiver_name}</span>
@@ -403,10 +500,11 @@ function ReviewCard({ sheet, readOnly = false }: { sheet: TimesheetView; readOnl
           {open ? "Close" : sheet.status === "submitted" ? "Review" : "View"}
         </span>
       </button>
+      )}
       {open ? (
-        <div className="space-y-2 border-t border-border-soft pt-2">
+        <div className={variant === "card" ? "space-y-2 border-t border-border-soft pt-2" : "space-y-2 border-t border-border-soft p-4"}>
           <p className="text-xs">
-            Scheduled {formatDisplayHours(scheduled)} · <span className="font-semibold">Total · {formatDisplayHours(actual).replace(" h", actual === 1 ? " hour" : " hours")}</span>
+            Scheduled {formatDisplayHours(scheduled)} · <span className="font-semibold">Total · {actualRecorded ? formatDisplayHours(actual).replace(" h", actual === 1 ? " hour" : " hours") : "Not recorded"}</span>
           </p>
           <PaidSummary entries={sheet.entries} total={actual} />
           <TimesheetConflicts

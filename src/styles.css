@@ -195,6 +195,8 @@
   --warning: #d99a3c;
   --warning-soft: #faf1de;
   --warning-foreground: #6b4a10;
+  --gradient-summary: linear-gradient(140deg, #123f63 0%, #174e78 45%, #1f7a80 100%);
+  --shadow-summary: 0 18px 40px -20px rgba(18, 63, 99, 0.55);
 
   --member-sky: #b9d8ea;
   --member-sky-soft: #eaf3f9;
@@ -570,3 +572,8 @@ body:has(.app-tour-layer[data-tour-tab="/settings"]) .app-shell-bottom-link[data
   }
 }
 
+
+@utility bg-summary {
+  background: var(--gradient-summary);
+  box-shadow: var(--shadow-summary);
+}
