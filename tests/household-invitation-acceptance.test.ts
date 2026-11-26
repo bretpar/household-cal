@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { resolveMembership } from "@/lib/calendar-ops";
-import { acceptInvitationByToken, type AdminDb } from "@/lib/household.server";
+import { acceptInvitationByToken, refreshInvitation, type AdminDb } from "@/lib/household.server";
 
 const TOKEN = "valid-invitation-token";
 const USER_ID = "11111111-1111-1111-1111-111111111111";
@@ -161,5 +161,43 @@ describe("membership resolution without email-based claims", () => {
     await expect(resolveMembership(f.db, USER_ID)).resolves.toBeNull();
     expect(f.tables).toEqual(["profiles", "family_users"]);
     expect(f.tables).not.toContain("family_invitations");
+  });
+});
+
+describe("pending invitation refresh", () => {
+  function refreshDb(status: "pending" | "accepted" | "revoked") {
+    const filters = new Map<string, string>();
+    const query = {
+      eq(column: string, value: string) { filters.set(column, value); return query; },
+      select() { return query; },
+      async single() {
+        return status === filters.get("status")
+          ? { data: { token: TOKEN }, error: null }
+          : { data: null, error: new Error("No pending invitation") };
+      },
+    };
+    return {
+      from(table: string) {
+        if (table === "family_users") {
+          const membership = {
+            select: () => membership,
+            eq: () => membership,
+            order: () => membership,
+            limit: async () => ({ data: [{ family_id: "family", role: "owner" }], error: null }),
+          };
+          return membership;
+        }
+        if (table === "family_invitations") return { update: () => query };
+        throw new Error(`Unexpected table: ${table}`);
+      },
+    };
+  }
+
+  it("cannot reactivate an old accepted invitation through refresh", async () => {
+    await expect(refreshInvitation(refreshDb("accepted"), USER_ID, "invite")).rejects.toThrow("No pending invitation");
+  });
+
+  it("preserves refreshing a pending invitation", async () => {
+    await expect(refreshInvitation(refreshDb("pending"), USER_ID, "invite")).resolves.toEqual({ token: TOKEN });
   });
 });

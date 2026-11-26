@@ -470,6 +470,20 @@
       "when": 1795297295507,
       "tag": "0066_account_deletion_audit_trail",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1795659663737,
+      "tag": "0067_bind_accepted_invitation_membership",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1795659754759,
+      "tag": "0068_prevent_accepted_invitation_reactivation",
+      "breakpoints": true
     }
   ]
 }

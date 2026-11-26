@@ -1,5 +1,10 @@
 # Roadmap
 
+## Codex access-control corrections
+- [x] Bind accepted invitation retries to the original surviving membership; migrations 0067–0068 applied to the live database, with accepted-link reactivation blocked even for older clients. Function definition and service-only grants inspected.
+- [x] Disable privileged QA reset until immutable IDs are securely provisioned; retain ordinary QA logins. Code awaits publication.
+- [x] Focused migration-contract and authorization regressions pass; automatic compilation clean. No publishing or signup configuration changes; Codex owns live flow verification.
+
 ## Caregiver scheduling and timesheet simplicity
 - [x] Add bounded weekly recurring work shifts with stable occurrences, exceptions and existing personal Google delivery.
 - [x] Add caregiver-wide weekly/biweekly/monthly timesheet schedules using shared period math; preserve saved adjustment dates/families. Monthly follows household calendar-month boundaries; no immutable PDF archive exists.

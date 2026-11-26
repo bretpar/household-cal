@@ -13,6 +13,7 @@ import {
 import {
   QA_OWNER_EMAILS,
   QA_VIEWER_EMAIL,
+  QA_RESET_ENABLED,
   authorizeQaCaller,
   resetQaHousehold,
   type AdminDb,
@@ -23,7 +24,8 @@ import {
  * safety guarantees: unrelated households untouched, viewer and non-QA denied.
  */
 
-const suite = hasBackendCredentials ? describe : describe.skip;
+// Destructive baseline tests must not run while privileged reset is disabled.
+const suite = hasBackendCredentials && QA_RESET_ENABLED ? describe : describe.skip;
 
 let db: AdminDb;
 let qaIds: Record<string, string>;

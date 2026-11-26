@@ -319,6 +319,7 @@ export async function refreshInvitation(
     .update({ status: "pending", expires_at: expires })
     .eq("id", invitationId)
     .eq("family_id", current.familyId)
+    .eq("status", "pending")
     .select("token")
     .single();
   if (error) throw error;

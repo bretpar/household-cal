@@ -91,19 +91,11 @@ export async function loadQaUsers(admin: AdminDb): Promise<QaUserMap> {
   return { byEmail, ids: new Set(byEmail.values()) };
 }
 
-/**
- * Authorization: the caller must be signed in as one of the two QA owner logins.
- * The QA viewer and every ordinary user are refused — no client-supplied id is trusted.
- */
-export async function authorizeQaCaller(admin: AdminDb, userId: string): Promise<QaAuthorization> {
-  const qa = await loadQaUsers(admin);
-  const email =
-    [...qa.byEmail.entries()].find(([, id]) => id === userId)?.[0] ?? null;
-  if (!email) return { authorized: false, email: null, reason: "not a QA test account" };
-  if (!QA_OWNER_EMAILS.some((e) => normalize(e) === email)) {
-    return { authorized: false, email, reason: "QA reset requires a QA owner account" };
-  }
-  return { authorized: true, email };
+/** No immutable QA identity provisioning exists; privileged reset fails closed. */
+export const QA_RESET_ENABLED = false;
+
+export async function authorizeQaCaller(_admin: AdminDb, _userId: string): Promise<QaAuthorization> {
+  return { authorized: false, email: null, reason: "QA reset disabled until immutable user IDs are provisioned" };
 }
 
 /**

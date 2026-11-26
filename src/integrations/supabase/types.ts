@@ -1732,6 +1732,7 @@ export type Database = {
         Row: {
           accepted_at: string | null
           accepted_by: string | null
+          accepted_membership_id: string | null
           babysitter_calendar_ids: string[]
           babysitter_date_scope:
             | Database["public"]["Enums"]["babysitter_date_scope"]
@@ -1753,6 +1754,7 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           accepted_by?: string | null
+          accepted_membership_id?: string | null
           babysitter_calendar_ids?: string[]
           babysitter_date_scope?:
             | Database["public"]["Enums"]["babysitter_date_scope"]
@@ -1774,6 +1776,7 @@ export type Database = {
         Update: {
           accepted_at?: string | null
           accepted_by?: string | null
+          accepted_membership_id?: string | null
           babysitter_calendar_ids?: string[]
           babysitter_date_scope?:
             | Database["public"]["Enums"]["babysitter_date_scope"]
