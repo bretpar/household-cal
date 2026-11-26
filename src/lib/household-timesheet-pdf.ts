@@ -11,7 +11,7 @@ export function householdPdfRow(entry: TimesheetEntry, sheet: TimesheetView): Ti
     scheduledStart: entry.scheduled_start ?? entry.actual_start, scheduledEnd: entry.scheduled_end ?? entry.actual_end,
     scheduledHours: hoursBetween(entry.scheduled_start, entry.scheduled_end),
     actualStart: entry.actual_start, actualEnd: entry.actual_end, actualHours: hoursBetween(entry.actual_start, entry.actual_end),
-    confirmed: !sheet.upcoming && Boolean(entry.actual_time_confirmed || entry.is_manual || entry.owner_edited_at || ["submitted", "approved", "closed"].includes(sheet.status)),
+    confirmed: !sheet.upcoming && entry.actual_time_confirmed === true,
     note: entry.note,
   };
 }

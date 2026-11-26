@@ -150,7 +150,7 @@ export const getMyTimesheet = createServerFn({ method: "POST" })
       const shifts = (await s.scheduledShifts(admin, me.familyId, me.memberId, period, tz))
         .filter((sh) => !startDate || sh.work_date >= startDate);
       return {
-        id: `upcoming:${period.start}`, caregiver_name: "", period_start: period.start, period_end: period.end,
+        id: `upcoming:${period.start}`, caregiver_name: me.name, period_start: period.start, period_end: period.end,
         status: "draft", parent_note: null, submitted_at: null, time_zone: tz, offset, can_next, upcoming: true,
         entries: shifts.map((sh) => ({
           id: `upcoming:${sh.work_date}:${sh.start}`, event_id: null, work_date: sh.work_date, scheduled_title: null,

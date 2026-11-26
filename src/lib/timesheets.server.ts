@@ -62,10 +62,10 @@ export async function myCaregiver(userDb: AnyDb, userId: string, mode: Timesheet
   const { data, error } = await userDb.rpc("my_caregiver_member_id", { _family_id: familyId });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Timesheets are only available to caregivers");
-  const m = await (await adminDb()).from("family_members").select("timesheets_enabled").eq("id", data).maybeSingle();
+  const m = await (await adminDb()).from("family_members").select("name, timesheets_enabled").eq("id", data).maybeSingle();
   if (m.data?.timesheets_enabled !== true) throw new Error("Timesheets are turned off for you in this household");
   await assertHouseholdMode(familyId, mode);
-  return { familyId, memberId: data as string };
+  return { familyId, memberId: data as string, name: m.data.name as string };
 }
 
 /**

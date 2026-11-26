@@ -23,6 +23,13 @@ describe("household babysitter PDF presentation", () => {
     expect(householdShiftStatus({ ...entry, actual_time_confirmed: true }, sheet, Date.now())).toBe("confirmed");
     expect(householdShiftStatus({ ...entry, actual_time_confirmed: true, actual_end: "2026-11-10T22:00:00Z" }, sheet, Date.now())).toBe("adjusted");
   });
+  it("does not treat closing a timesheet as confirming its shifts", () => {
+    const closed = { ...sheet, status: "closed" as const };
+    const afterShift = Date.parse("2026-11-11T00:00:00Z");
+    expect(householdShiftStatus(entry, closed, afterShift)).toBe("unconfirmed");
+    expect(householdTimesheetDoc(closed, "Parker Family", "").rows[0]?.confirmed).toBe(false);
+    expect(householdShiftStatus({ ...entry, actual_time_confirmed: true }, closed, afterShift)).toBe("confirmed");
+  });
   it("keeps retained dates and actual hours in household exports", () => {
     const moved = { ...entry, actual_time_confirmed: true, actual_end: "2026-11-10T22:30:00Z", scheduled_start: "2026-12-10T17:00:00Z", scheduled_end: "2026-12-10T21:00:00Z" };
     const doc = householdTimesheetDoc({ ...sheet, entries: [moved] }, "Parker Family", "");

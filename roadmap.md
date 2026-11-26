@@ -7,3 +7,5 @@
 - [x] Shared babysitter summary, compact period navigation and shift presentation
 - [x] Household authorized PDF download/share and existing submission inside summary
 - [x] Narrow-screen actual-hours editors without automatic picker focus
+- [x] Keep closed household shift labels tied to saved actual-time confirmation
+- [x] Return verified caregiver names for direct upcoming-period PDF exports
