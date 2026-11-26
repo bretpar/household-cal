@@ -14,3 +14,4 @@
 - Desktop MonthScrollView track has no permanent will-change; month cells use instant hover (no transition-colors). Why: an always-promoted multi-month layer and fading hover trails produced gray shading while scrolling.
 - Independent caregivers share ShellChrome, SyncStatusControl, AgendaView and responsive Month/DayStrip/Week renderers via their private adapter; household hooks remain in ShellFrame only. Why: identical OFC presentation without household queries or sync actions.
 - Unpublished draft proposals on past dates show a Discard control (draft-only removal). Why: planPublish blocks them and the locked editor otherwise left the month unpublishable.
+- Babysitter timesheet cards, statuses and PDF controls share presentation only; each caller supplies scoped saved rows and retains its own editing/submission gates. Why: consistent iPhone layouts without mixing household and independent workflows.

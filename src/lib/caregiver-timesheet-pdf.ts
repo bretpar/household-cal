@@ -1,10 +1,13 @@
 import { formatInTimeZone } from "date-fns-tz";
 import { formatHoursValue, timesheetTotals, timesheetRowStatus, TIMESHEET_STATUS_LABELS, type TimesheetRow } from "./caregiver-timesheet";
 
-export interface TimesheetDoc { caregiverName: string; familyName: string; from: Date; to: Date; timezone: string; rows: TimesheetRow[] }
+export interface TimesheetDoc { caregiverName: string; familyName: string; from: Date; to: Date; timezone: string; rows: Omit<TimesheetRow, "shift">[] }
 const t = (iso: string, tz: string) => formatInTimeZone(iso, tz, "h:mm a");
 export const rangeLabel = (d: TimesheetDoc) => `${formatInTimeZone(d.from, d.timezone, "MMM d")} – ${formatInTimeZone(d.to.getTime() - 1, d.timezone, "MMM d, yyyy")}`;
 export const pdfFileName = (d: TimesheetDoc) => `Timesheet ${d.familyName} ${formatInTimeZone(d.from, d.timezone, "yyyy-MM-dd")}.pdf`.replace(/[^\w .-]+/g, "");
+
+export const timesheetShareSubject = (d: TimesheetDoc) => `${formatInTimeZone(d.from, d.timezone, "MMMM")} Timesheet – ${d.caregiverName}`;
+export const timesheetShareMessage = (d: TimesheetDoc) => `Hi ${d.familyName},\n\n${d.caregiverName} has shared their timesheet with you. Please review the attached PDF for their hours worked during ${rangeLabel(d)}.\n\nThank you!\n\nShared using Our Family Calendar\nwww.ourfamilycalendar.com`;
 
 /** The same effective schedule/adjustment hours as the screen. */
 export function timesheetSummary(d: TimesheetDoc) {

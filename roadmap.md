@@ -4,3 +4,6 @@
 - [x] Retained caregiver actual dates in ordering, week groups and badges
 - [x] Stable, scope-safe prepared PDF sharing directly from a tap
 - [x] Consistent caregiver confirmation statuses in UI, PDF and email
+- [x] Shared babysitter summary, compact period navigation and shift presentation
+- [x] Household authorized PDF download/share and existing submission inside summary
+- [x] Narrow-screen actual-hours editors without automatic picker focus

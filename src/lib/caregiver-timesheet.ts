@@ -33,7 +33,7 @@ export function buildTimesheetRows(shifts: WorkShift[], actuals: ShiftActual[], 
         actualStart, actualEnd, actualHours: hours(actualStart, actualEnd), confirmed, note: confirmed ? saved?.note ?? null : null };
     });
 }
-export function timesheetTotals(rows: TimesheetRow[]) {
+export function timesheetTotals(rows: Pick<TimesheetRow, "scheduledHours" | "actualHours" | "confirmed">[]) {
   return { scheduled: rows.reduce((s, r) => s + r.scheduledHours, 0), effective: rows.reduce((s, r) => s + r.actualHours, 0),
     adjusted: rows.filter(r => r.confirmed).length };
 }
@@ -51,7 +51,7 @@ export const TIMESHEET_STATUS_LABELS: Record<TimesheetRowStatus, string> = {
   confirmed: "Confirmed", adjusted: "Adjusted", unconfirmed: "Needs confirmation", future: "Scheduled",
 };
 /** Compare instants so equivalent timestamp formats still count as unchanged. */
-export function timesheetRowStatus(row: TimesheetRow, now = Date.now()): TimesheetRowStatus {
+export function timesheetRowStatus(row: Pick<TimesheetRow, "confirmed" | "actualStart" | "actualEnd" | "scheduledStart" | "scheduledEnd">, now = Date.now()): TimesheetRowStatus {
   if (row.confirmed) return Date.parse(row.actualStart) === Date.parse(row.scheduledStart)
     && Date.parse(row.actualEnd) === Date.parse(row.scheduledEnd) ? "confirmed" : "adjusted";
   return Date.parse(row.scheduledStart) > now ? "future" : "unconfirmed";

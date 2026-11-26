@@ -2,8 +2,14 @@ import { PaidSummary, TimesheetPaidFields, usePaidState } from "@/components/Tim
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ChevronRight, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
+import { format, startOfWeek } from "date-fns";
+import { getVerifiedMembership, subscribeVerifiedMembership } from "@/lib/auth-guard";
+import { compactPeriod, ShiftStatus, SummaryStat, summaryAction, TimesheetSummaryCard } from "@/components/BabysitterTimesheetPresentation";
+import { BabysitterTimesheetPdfActions } from "@/components/BabysitterTimesheetPdfActions";
+import { householdTimesheetDoc, householdShiftStatus } from "@/lib/household-timesheet-pdf";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
@@ -26,10 +32,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  STATUS_LABEL,
   formatHoursLabel,
   hoursBetween,
   localHours,
+  addDaysKey,
 } from "@/lib/timesheet-periods";
 import { MY_TIMESHEET_ACTIONS_KEY } from "@/components/TimesheetSettings";
 import {
@@ -89,13 +95,25 @@ function TimesheetPage() {
   const [linkPeriod, setLinkPeriod] = useState(() => period ?? readTimesheetPeriod());
   const [offset, setOffset] = useState(0);
   const fetchSheet = useServerFn(getMyTimesheet);
+  const { family } = useCalendar();
+  const membership = useSyncExternalStore(subscribeVerifiedMembership, getVerifiedMembership, () => null);
+  const scopeKey = membership && family?.id === membership.family_id ? `${membership.userId}:${membership.family_id}:${membership.role}` : "";
+  const [previewState, setPreviewState] = useState<{ key: string; values: Record<string, number> }>({ key: "", values: {} });
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(timer); }, []);
   const query = useQuery({
-    queryKey: ["my-timesheet", linkPeriod ? `p:${linkPeriod}` : offset],
+    queryKey: ["my-timesheet", scopeKey, linkPeriod ? `p:${linkPeriod}` : offset],
+    enabled: Boolean(scopeKey),
     queryFn: () => fetchSheet({ data: { offset, period_start: linkPeriod } }),
     staleTime: 0,
     refetchOnMount: "always",
   });
-  const sheet = query.data;
+  const sheet = scopeKey ? query.data : undefined;
+  const previewKey = `${scopeKey}:${sheet?.id ?? "loading"}`;
+  const preview = previewState.key === previewKey ? previewState.values : {};
+  const setPreview: Dispatch<SetStateAction<Record<string, number>>> = update => setPreviewState(prior => ({
+    key: previewKey, values: typeof update === "function" ? update(prior.key === previewKey ? prior.values : {}) : update,
+  }));
   // Remember the shown pay period for this session so returning restores it.
   useEffect(() => {
     if (sheet) writeTimesheetPeriod(sheet.period_start);
@@ -114,99 +132,81 @@ function TimesheetPage() {
   };
 
   return (
-    <div className="mx-auto max-w-lg space-y-4 pb-8 md:pb-0">
-      <header className="flex items-center justify-between gap-2">
-        <Button variant="outline" size="icon" aria-label="Previous pay period" onClick={() => move(-1)}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <div className="text-center">
-          <h1 className="text-xl font-bold">Timesheet</h1>
-          {sheet ? (
-            <p className="text-sm text-muted-foreground">
-              {fmtDate(sheet.period_start)} – {fmtDate(sheet.period_end, { month: "short", day: "numeric", year: "numeric" })}
-            </p>
-          ) : null}
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Next pay period"
-          disabled={!sheet?.can_next}
-          onClick={() => move(1)}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </header>
-      {sheet && sheet.offset !== 0 ? (
-        <div className="flex justify-center">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 rounded-full px-3 text-xs"
-            onClick={goCurrent}
-          >
-            Current Pay Period
-          </Button>
-        </div>
-      ) : null}
-      {query.isLoading ? <p className="text-center text-sm text-muted-foreground">Loading…</p> : null}
+    <div className="mx-auto min-w-0 max-w-2xl space-y-4 pb-4 md:pb-0">
+      <HouseholdSummary sheet={sheet} familyName={scopeKey ? family?.name ?? "Family" : "Family"} scopeKey={scopeKey} preview={preview} now={now}
+        statusRevalidated={timesheetStatusRevalidated(query)} previous={() => move(-1)} next={() => move(1)} current={goCurrent} />
       {query.error ? (
         <p className="text-center text-sm text-destructive">
           {query.error instanceof Error ? query.error.message : "Could not load timesheet"}
         </p>
       ) : null}
-      {sheet ? (sheet.upcoming ? <UpcomingBody sheet={sheet} /> : <SheetBody sheet={sheet} statusRevalidated={timesheetStatusRevalidated(query)} />) : null}
+      {query.error && <Button variant="outline" className="w-full" onClick={() => void query.refetch()}>Try again</Button>}
+      {sheet ? (sheet.upcoming ? <UpcomingBody sheet={sheet} now={now} /> : <SheetBody key={`${scopeKey}:${sheet.id}`} sheet={sheet} now={now} preview={preview} setPreview={setPreview} statusRevalidated={timesheetStatusRevalidated(query)} />) : null}
     </div>
   );
 }
 
-/** Read-only preview of a future pay period: scheduled shifts only, no actions. */
-function UpcomingBody({ sheet }: { sheet: TimesheetView }) {
-  const tz = sheet.time_zone;
-  const hrs = (e: TimesheetEntry) => hoursBetween(e.scheduled_start, e.scheduled_end);
-  const total = sheet.entries.reduce((n, e) => n + hrs(e), 0);
-  return (
-    <>
-      <div className="flex items-center justify-between rounded-2xl border border-border-soft bg-card px-4 py-3.5">
-        <div>
-          <p className="text-xs text-muted-foreground">Status</p>
-          <p className="text-base font-bold">Upcoming</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground">Scheduled</p>
-          <p className="text-base font-bold">{formatHoursLabel(total)}</p>
-          <PaidSummary entries={sheet.entries} total={total} className="text-[11px] text-muted-foreground" />
-        </div>
-      </div>
-      <ul className="space-y-3">
-        {sheet.entries.length === 0 ? (
-          <li className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-            No shifts scheduled for this pay period.
-          </li>
-        ) : null}
-        {sheet.entries.map((e) => (
-          <li key={e.id} className="flex items-center justify-between gap-3 rounded-2xl bg-card px-4 py-3">
-            <div className="min-w-0">
-              <p className="font-bold">{fmtDate(e.work_date, { weekday: "short", month: "short", day: "numeric" })}</p>
-              <p className="truncate text-sm text-muted-foreground">
-                {fmtTime(e.scheduled_start, tz)} – {fmtTime(e.scheduled_end, tz)}
-              </p>
-            </div>
-            <p className="shrink-0 text-sm font-semibold">{formatHoursLabel(hrs(e))}</p>
-          </li>
-        ))}
-      </ul>
-    </>
-  );
-}
-
-function SheetBody({ sheet, statusRevalidated }: { sheet: TimesheetView; statusRevalidated: boolean }) {
+function HouseholdSummary({ sheet, familyName, scopeKey, preview, now, statusRevalidated, previous, next, current }: {
+  sheet: (TimesheetView & { offset: number; can_next: boolean }) | undefined; familyName: string; scopeKey: string;
+  preview: Record<string, number>; now: number; statusRevalidated: boolean; previous: () => void; next: () => void; current: () => void;
+}) {
   const qc = useQueryClient();
   const submit = useServerFn(submitTimesheet);
+  const doc = useMemo(() => {
+    if (!sheet) return null;
+    const cachedName = qc.getQueriesData<TimesheetView>({ queryKey: ["my-timesheet", scopeKey] }).find(([, data]) => data?.caregiver_name)?.[1]?.caregiver_name ?? "";
+    return householdTimesheetDoc({ ...sheet, entries: sheet.entries.filter(countsTowardTotals) }, familyName, cachedName);
+  }, [sheet, familyName, scopeKey, qc]);
+  const entries = sheet?.entries.filter(countsTowardTotals) ?? [];
+  const total = entries.reduce((n, e) => n + (preview[e.id] ?? hoursBetween(e.actual_start, e.actual_end)), 0) + (preview["new"] ?? 0);
+  const scheduled = entries.reduce((n, e) => n + hoursBetween(e.scheduled_start, e.scheduled_end), 0);
+  const statuses = sheet ? entries.map(e => householdShiftStatus(e, sheet, now)) : [];
+  const needs = statuses.filter(s => s === "unconfirmed").length;
+  const confirmed = statuses.filter(s => s === "confirmed" || s === "adjusted").length;
+  const editable = Boolean(sheet && !sheet.upcoming && statusRevalidated && (sheet.status === "draft" || sheet.status === "needs_correction") && !sheet.before_start && !sheet.read_only);
+  const mutation = useMutation({
+    mutationFn: () => { if (!sheet || !editable) throw new Error("This timesheet cannot be submitted"); return submit({ data: { timesheet_id: sheet.id } }); },
+    onSuccess: () => { toast.success("Timesheet submitted"); void qc.invalidateQueries({ queryKey: ["my-timesheet"] }); void qc.invalidateQueries({ queryKey: MY_TIMESHEET_ACTIONS_KEY }); },
+    onError: e => toast.error(e instanceof Error ? e.message : "Could not submit"),
+  });
+  const label = !sheet ? "Submit Timesheet" : sheet.status === "submitted" ? "Awaiting Review" : sheet.status === "needs_correction" ? "Resubmit Timesheet" : sheet.status === "approved" ? "Approved" : sheet.status === "closed" ? "Closed" : "Submit Timesheet";
+  return <>
+    <TimesheetSummaryCard familyName={familyName} period={sheet ? compactPeriod(sheet.period_start, sheet.period_end) : ""} previous={previous} next={next} nextDisabled={!sheet?.can_next} current={sheet?.offset !== 0 ? current : undefined} loading={!sheet}>
+      <dl className="grid grid-cols-3 gap-2"><SummaryStat label="Total" value={formatHoursLabel(total)} /><SummaryStat label="Scheduled" value={formatHoursLabel(scheduled)} /><SummaryStat label="Difference" value={`${total > scheduled ? "+" : ""}${formatHoursLabel(total - scheduled)}`} /></dl>
+      <PaidSummary entries={entries} total={total} className="text-xs text-primary-foreground/80" />
+      {needs > 0 || statuses.includes("future") ? <p className="text-xs opacity-80">Unconfirmed scheduled hours are not verified actual work.</p> : null}
+      {!sheet?.upcoming && <Button className={summaryAction} disabled={!editable || mutation.isPending} onClick={() => mutation.mutate()}>{mutation.isPending ? "Submitting…" : label}</Button>}
+      <BabysitterTimesheetPdfActions doc={doc} scopeKey={`${scopeKey}:${sheet?.id ?? "loading"}`} statusKey={statuses.join(",")} disabled={!statusRevalidated || !doc?.caregiverName} />
+    </TimesheetSummaryCard>
+    {sheet && <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-1 rounded-2xl border border-border-soft bg-card px-4 py-3"><p className="text-[13px] font-medium text-muted-foreground">Confirmed</p><p className="text-[28px] font-bold leading-none tabular-nums">{confirmed}</p></div>
+      <div className="space-y-1 rounded-2xl border border-border-soft bg-card px-4 py-3"><p className="text-[13px] font-medium text-muted-foreground">Needs confirmation</p><p className="text-[28px] font-bold leading-none tabular-nums text-warning-foreground">{needs}</p></div>
+    </div>}
+  </>;
+}
+
+function groupEntries(entries: TimesheetEntry[]) {
+  const weeks = new Map<string, TimesheetEntry[]>();
+  for (const e of [...entries].sort((a, b) => a.work_date.localeCompare(b.work_date) || Date.parse(a.actual_start) - Date.parse(b.actual_start))) {
+    const week = format(startOfWeek(new Date(`${e.work_date}T12:00:00`), { weekStartsOn: 1 }), "yyyy-MM-dd");
+    weeks.set(week, [...(weeks.get(week) ?? []), e]);
+  }
+  return [...weeks];
+}
+
+/** Future previews remain read-only and keep the household's configured period. */
+function UpcomingBody({ sheet, now }: { sheet: TimesheetView; now: number }) {
+  return <>{groupEntries(sheet.entries).map(([week, entries]) => <section key={week} className="space-y-2">
+    <h3 className="px-1 text-[13px] font-semibold uppercase text-muted-foreground">Week of {fmtDate(week)}</h3>
+    <ul className="divide-y divide-border-soft overflow-hidden rounded-2xl border border-border-soft bg-card">{entries.map(e => <EntryCard key={e.id} entry={e} sheet={sheet} now={now} editable={false} hours={hoursBetween(e.scheduled_start, e.scheduled_end)} onPreview={() => {}} onSaved={() => {}} />)}</ul>
+  </section>)}{!sheet.entries.length && <p className="p-4 text-sm text-muted-foreground">No shifts scheduled for this pay period.</p>}</>;
+}
+
+function SheetBody({ sheet, statusRevalidated, preview, setPreview, now }: { sheet: TimesheetView; statusRevalidated: boolean; preview: Record<string, number>; setPreview: Dispatch<SetStateAction<Record<string, number>>>; now: number }) {
+  const qc = useQueryClient();
   const resolveConflict = useServerFn(resolveShiftConflict);
   const [adding, setAdding] = useState(() => !!readTimesheetDraft(draftKey(sheet.id, null)));
   // Display-only hours while an editor is open or a save is refreshing; server stays authoritative.
-  const [preview, setPreview] = useState<Record<string, number>>({});
   const setPreviewFor = (key: string, hours: number | null) =>
     setPreview((p) => {
       const next = { ...p };
@@ -216,33 +216,12 @@ function SheetBody({ sheet, statusRevalidated }: { sheet: TimesheetView; statusR
     });
   const editable = statusRevalidated && (sheet.status === "draft" || sheet.status === "needs_correction") && !sheet.before_start && !sheet.read_only;
   const hoursFor = (e: TimesheetEntry) => preview[e.id] ?? hoursBetween(e.actual_start, e.actual_end);
-  const total = sheet.entries.filter(countsTowardTotals).reduce((n, e) => n + hoursFor(e), 0) + (preview["new"] ?? 0);
   const refresh = async () => {
     await qc.invalidateQueries({ queryKey: ["my-timesheet"] });
     void qc.invalidateQueries({ queryKey: MY_TIMESHEET_ACTIONS_KEY });
   };
-  const submitMutation = useMutation({
-    mutationFn: () => submit({ data: { timesheet_id: sheet.id } }),
-    onSuccess: () => {
-      toast.success("Timesheet submitted");
-      void refresh();
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not submit"),
-  });
-
   return (
     <>
-      <div className="flex items-center justify-between rounded-2xl border border-border-soft bg-card px-4 py-3.5">
-        <div>
-          <p className="text-xs text-muted-foreground">Status</p>
-          <p className="text-base font-bold">{STATUS_LABEL[sheet.status]}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground">Total</p>
-          <p className="text-base font-bold">{formatHoursLabel(total)}</p>
-          <PaidSummary entries={sheet.entries} total={total} className="text-[11px] text-muted-foreground" />
-        </div>
-      </div>
       {sheet.read_only ? (
         <p className="rounded-2xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
           Timesheets are turned off by your family. Past time cards are kept for your records.
@@ -272,24 +251,11 @@ function SheetBody({ sheet, statusRevalidated }: { sheet: TimesheetView; statusR
         } : undefined}
       />
 
-      <ul className="space-y-3">
-        {sheet.entries.length === 0 ? (
-          <li className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-            No shifts in this pay period.
-          </li>
-        ) : null}
-        {sheet.entries.map((e) => (
-          <EntryCard
-            key={e.id}
-            entry={e}
-            sheet={sheet}
-            editable={editable}
-            hours={hoursFor(e)}
-            onPreview={(h) => setPreviewFor(e.id, h)}
-            onSaved={async () => { await refresh(); setPreviewFor(e.id, null); }}
-          />
-        ))}
-      </ul>
+      {groupEntries(sheet.entries).map(([week, entries]) => <section key={week} className="space-y-2">
+        <h3 className="px-1 text-[13px] font-semibold uppercase text-muted-foreground">Week of {fmtDate(week)}</h3>
+        <ul className="divide-y divide-border-soft overflow-hidden rounded-2xl border border-border-soft bg-card">{entries.map(e => <EntryCard key={e.id} entry={e} sheet={sheet} now={now} editable={editable} hours={hoursFor(e)} onPreview={h => setPreviewFor(e.id, h)} onSaved={async () => { await refresh(); setPreviewFor(e.id, null); }} />)}</ul>
+      </section>)}
+      {!sheet.entries.length && <p className="p-4 text-sm text-muted-foreground">No shifts in this pay period.</p>}
 
       {editable ? (
         <div className="space-y-3">
@@ -305,9 +271,7 @@ function SheetBody({ sheet, statusRevalidated }: { sheet: TimesheetView; statusR
               <Plus className="mr-1 h-4 w-4" /> Add missing shift
             </Button>
           )}
-          <Button className="w-full" disabled={submitMutation.isPending} onClick={() => submitMutation.mutate()}>
-            {sheet.status === "needs_correction" ? "Resubmit timesheet" : "Submit timesheet"}
-          </Button>
+
         </div>
       ) : null}
     </>
@@ -315,6 +279,7 @@ function SheetBody({ sheet, statusRevalidated }: { sheet: TimesheetView; statusR
 }
 
 function EntryCard({
+  now,
   entry,
   sheet,
   editable,
@@ -322,6 +287,7 @@ function EntryCard({
   onPreview,
   onSaved,
 }: {
+  now: number;
   entry: TimesheetEntry;
   sheet: TimesheetView;
   editable: boolean;
@@ -342,65 +308,27 @@ function EntryCard({
     requestCalendarDayView();
     void navigate({ to: "/calendar" });
   };
-  // A restored draft must not reopen the editor once the sheet is read-only.
-  if (editing && editable) {
-    return (
-      <li>
-        <EntryEditor
-          sheet={sheet}
-          entry={entry}
-          hours={hours}
-          onPreview={onPreview}
-          onDone={() => { setEditing(false); void onSaved(); }}
-          onCancel={() => { setEditing(false); onPreview(null); }}
-        />
-      </li>
-    );
-  }
-  return (
-    <li className="rounded-2xl border border-border-soft bg-card px-4 py-3.5">
-      <div className="flex items-start justify-between gap-3">
-        <button
-          type="button"
-          onClick={openInCalendar}
-          aria-label={`View ${fmtDate(entry.work_date, { weekday: "long", month: "long", day: "numeric" })} in Calendar`}
-          className="min-w-0 rounded-lg text-left text-lg font-bold leading-tight text-primary underline decoration-primary/30 underline-offset-4 transition-colors hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {fmtDate(entry.work_date, { weekday: "short", month: "short", day: "numeric" })}
-        </button>
-        <p className="shrink-0 text-base font-bold">{formatHoursLabel(hours)}</p>
-      </div>
-      <div className="mt-1 flex items-center justify-between gap-3">
-        <p className="min-w-0 text-base text-muted-foreground">
-          {fmtTime(entry.actual_start, tz)}–{fmtTime(entry.actual_end, tz)}
-        </p>
-        {editable ? (
-          <div className="flex shrink-0 items-center gap-1">
-            {entry.is_manual ? (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-10 w-10"
-                aria-label="Remove entry"
-                onClick={async () => {
-                  try {
-                    await remove({ data: { timesheet_id: sheet.id, entry_id: entry.id } });
-                    void onSaved();
-                  } catch (e) {
-                    toast.error(e instanceof Error ? e.message : "Could not remove");
-                  }
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            ) : null}
-            <Button size="sm" variant="outline" className="h-10 rounded-xl px-5" onClick={() => setEditing(true)}>Edit</Button>
-          </div>
-        ) : null}
-      </div>
-      {entry.note ? <p className="mt-1 text-xs text-muted-foreground">{entry.note}</p> : null}
-    </li>
-  );
+  const status = householdShiftStatus(entry, sheet, now);
+  return <li>
+    <Button variant="ghost" className="flex h-auto min-h-[72px] w-full items-center justify-start gap-2 whitespace-normal rounded-none px-3 py-3 text-left hover:bg-surface-muted sm:gap-3 sm:px-4" onClick={() => { if (editable) setEditing(true); else openInCalendar(); }}>
+      <span className="w-10 shrink-0 text-center"><span className="block text-[11px] font-semibold uppercase text-muted-foreground">{fmtDate(entry.work_date, { weekday: "short" })}</span><span className="block text-lg font-bold">{fmtDate(entry.work_date, { day: "numeric" })}</span></span>
+      <span className="min-w-0 flex-1"><span className="block text-[15px] font-semibold tabular-nums">{fmtTime(entry.actual_start, tz)} – {fmtTime(entry.actual_end, tz)}</span>
+        {status === "adjusted" && entry.scheduled_start && <span className="block text-xs tabular-nums text-muted-foreground">Scheduled {fmtTime(entry.scheduled_start, tz)} – {fmtTime(entry.scheduled_end, tz)}</span>}
+        <ShiftStatus status={status} />
+        {entry.note && <span className="mt-1 block break-words text-xs font-normal text-muted-foreground">{entry.note}</span>}
+      </span>
+      <span className="w-12 shrink-0 text-right text-[15px] font-semibold tabular-nums">{Number(hours.toFixed(2))} h</span><ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+    </Button>
+    <Dialog open={editing && editable} onOpenChange={open => { if (!open) { setEditing(false); onPreview(null); } }}>
+      <DialogContent mobileViewportSafe className="overflow-y-auto sm:max-w-md" onOpenAutoFocus={e => e.preventDefault()}><DialogHeader><DialogTitle>Edit hours</DialogTitle><DialogDescription>Times are in {tz}.</DialogDescription></DialogHeader>
+        {editing && editable && <EntryEditor sheet={sheet} entry={entry} hours={hours} onPreview={onPreview} onDone={() => { setEditing(false); void onSaved(); }} onCancel={() => { setEditing(false); onPreview(null); }} />}
+        {entry.is_manual && editable && <Button variant="ghost" className="w-full text-destructive" onClick={async () => {
+          try { await remove({ data: { timesheet_id: sheet.id, entry_id: entry.id } }); clearTimesheetDraft(draftKey(sheet.id, entry.id)); setEditing(false); onPreview(null); void onSaved(); }
+          catch (e) { toast.error(e instanceof Error ? e.message : "Could not remove"); }
+        }}><Trash2 className="size-4" />Remove entry</Button>}
+      </DialogContent>
+    </Dialog>
+  </li>;
 }
 
 function EntryEditor({
@@ -439,7 +367,7 @@ function EntryEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live]);
   return (
-    <div className="space-y-3 rounded-2xl border border-primary/40 bg-card p-4">
+    <div className="min-w-0 space-y-3">
       <div className="flex items-center justify-between gap-2 text-sm">
         <p className="min-w-0 truncate font-bold">
           {entry ? fmtDate(entry.work_date, { weekday: "short", month: "short", day: "numeric" }) : "Add missing shift"}
@@ -451,20 +379,19 @@ function EntryEditor({
           Scheduled · {fmtTime(entry.scheduled_start, sheet.time_zone)}–{fmtTime(entry.scheduled_end, sheet.time_zone)}
         </p>
       ) : null}
-      {!entry ? (
-        <div className="space-y-1">
-          <Label htmlFor="ts-date" className="text-xs">Date</Label>
-          <Input id="ts-date" type="date" className="w-full min-w-0" min={sheet.period_start} max={sheet.period_end} value={date} onChange={(e) => setDate(e.target.value)} />
+      <fieldset className="min-w-0 space-y-2"><legend className="text-sm font-semibold">Actual start</legend>
+        <div className="grid min-w-0 grid-cols-1 gap-2 min-[380px]:grid-cols-2">
+          <div className="min-w-0 space-y-1"><Label htmlFor={`ts-date-${entry?.id ?? "new"}`} className="text-xs">Date</Label><Input id={`ts-date-${entry?.id ?? "new"}`} type="date" className="block w-full min-w-0 max-w-full appearance-none" readOnly={Boolean(entry)} min={sheet.period_start} max={sheet.period_end} value={date} onChange={e => setDate(e.target.value)} /></div>
+          <div className="min-w-0 space-y-1"><Label htmlFor={`ts-start-${entry?.id ?? "new"}`} className="text-xs">Time</Label><TimeField id={`ts-start-${entry?.id ?? "new"}`} value={start} onChange={setStart} /></div>
         </div>
-      ) : null}
-      <div className="space-y-1">
-        <Label className="text-xs">Actual</Label>
-        <div className="time-row grid min-w-0 grid-cols-1 items-center gap-2 min-[340px]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-          <TimeField id={`ts-start-${entry?.id ?? "new"}`} value={start} onChange={setStart} />
-          <span className="hidden text-muted-foreground min-[340px]:block" aria-hidden>→</span>
-          <TimeField id={`ts-end-${entry?.id ?? "new"}`} value={end} onChange={setEnd} />
+      </fieldset>
+      <fieldset className="min-w-0 space-y-2"><legend className="text-sm font-semibold">Actual end</legend>
+        <div className="grid min-w-0 grid-cols-1 gap-2 min-[380px]:grid-cols-2">
+          <div className="min-w-0 space-y-1"><Label htmlFor={`ts-end-date-${entry?.id ?? "new"}`} className="text-xs">Date</Label><Input id={`ts-end-date-${entry?.id ?? "new"}`} type="date" className="block w-full min-w-0 max-w-full appearance-none" readOnly value={date && end <= start ? addDaysKey(date, 1) : date} /></div>
+          <div className="min-w-0 space-y-1"><Label htmlFor={`ts-end-${entry?.id ?? "new"}`} className="text-xs">Time</Label><TimeField id={`ts-end-${entry?.id ?? "new"}`} value={end} onChange={setEnd} /></div>
         </div>
-      </div>
+      </fieldset>
+      <p className="text-sm font-semibold">Actual hours · {formatHoursLabel(live)}</p>
       <div className="space-y-1">
         <Label htmlFor={`ts-note-${entry?.id ?? "new"}`} className="text-xs">Add note (optional)</Label>
         <Input id={`ts-note-${entry?.id ?? "new"}`} className="w-full" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
