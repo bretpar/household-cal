@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { format, startOfWeek } from "date-fns";
@@ -11,12 +11,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getCaregiverTimesheet, saveCaregiverActual } from "@/lib/independent-caregiver.functions";
-import { buildTimesheetRows, formatHoursValue, timesheetTotals, type TimesheetRow } from "@/lib/caregiver-timesheet";
+import { buildTimesheetRows, formatHoursValue, sortTimesheetRows, timesheetTotals, timesheetRowStatus, TIMESHEET_STATUS_LABELS, type TimesheetRow, type TimesheetRowStatus } from "@/lib/caregiver-timesheet";
 import { buildTimesheetPdf, pdfFileName, rangeLabel, timesheetSummary, type TimesheetDoc } from "@/lib/caregiver-timesheet-pdf";
 import { workDate, workInput, workInputInstant } from "@/lib/caregiver-timezone";
 import type { CaregiverClient, WorkShift } from "@/lib/independent-caregiver";
 import { cn } from "@/lib/utils";
-import { canShareNativeFile, canShareWebFile, shareNativePdf, shareWebPdf } from "@/lib/native-file-share";
+import { canShareNativeFile, canShareWebFile, shareNativePdf } from "@/lib/native-file-share";
 import { addDaysKey, payPeriodFor, type PaySettings } from "@/lib/timesheet-periods";
 
 export function CaregiverTimesheets({ userId, clients, timezone, settings }: { userId: string; clients: CaregiverClient[]; timezone: string; settings: PaySettings }) {
@@ -35,11 +35,14 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
   const weekEnd = new Date(workInputInstant(`${addDaysKey(period.end, 1)}T00:00`, timezone));
   const sheet = useQuery({ queryKey: ["caregiver-timesheet", userId, clientId, weekStart.toISOString(), weekEnd.toISOString()], enabled: Boolean(clientId),
     queryFn: () => load({ data: { client_id: clientId, from: weekStart.toISOString(), to: weekEnd.toISOString() } }) });
-  const rows = sheet.data ? buildTimesheetRows(sheet.data.shifts as WorkShift[], sheet.data.actuals, weekStart, weekEnd, timezone) : [];
+  const fromIso = weekStart.toISOString();
+  const toIso = weekEnd.toISOString();
+  const rows = useMemo(() => sheet.data ? sortTimesheetRows(buildTimesheetRows(sheet.data.shifts as WorkShift[], sheet.data.actuals, new Date(fromIso), new Date(toIso), timezone)) : [], [sheet.data, fromIso, toIso, timezone]);
   const totals = timesheetTotals(rows);
-  const doc: TimesheetDoc | null = sheet.data ? { caregiverName: sheet.data.caregiverName, familyName: sheet.data.client.name, from: weekStart, to: weekEnd, timezone, rows } : null;
+  // Identity is stable across local UI updates, but never across users, families or periods.
+  const doc: TimesheetDoc | null = useMemo(() => sheet.data ? { caregiverName: sheet.data.caregiverName, familyName: sheet.data.client.name, from: new Date(fromIso), to: new Date(toIso), timezone, rows } : null, [sheet.data, userId, clientId, fromIso, toIso, timezone, rows]);
   const now = Date.now();
-  const rowStatus = (r: TimesheetRow): RowStatus => r.confirmed ? (r.actualStart === r.scheduledStart && r.actualEnd === r.scheduledEnd ? "confirmed" : "adjusted") : Date.parse(r.scheduledStart) > now ? "future" : "unconfirmed";
+  const rowStatus = (r: TimesheetRow) => timesheetRowStatus(r, now);
   const confirmedCount = rows.filter(r => r.confirmed).length;
   const needsCount = rows.filter(r => rowStatus(r) === "unconfirmed").length;
   const futureCount = rows.filter(r => rowStatus(r) === "future").length;
@@ -61,11 +64,13 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
   useEffect(() => { setNative(canShareNativeFile()); setWebShare(!canShareNativeFile() && canShareWebFile()); }, []);
   const shareTitle = doc ? `Timesheet: ${doc.familyName}, ${rangeLabel(doc)}` : "";
   // Pre-build the PDF so the share sheet opens within the tap (Safari drops the tap after long waits).
-  const [ready, setReady] = useState<{ doc: TimesheetDoc; blob: Blob } | null>(null);
+  const [ready, setReady] = useState<{ doc: TimesheetDoc; file: File } | null>(null);
+  const preparedFile = ready?.doc === doc ? ready.file : null;
   useEffect(() => {
+    setReady(null);
     if (!webShare || !doc) return;
     let live = true;
-    const t = setTimeout(() => { void buildTimesheetPdf(doc).then(pdf => { if (live) setReady({ doc, blob: pdf.output("blob") }); }).catch(() => {}); }, 300);
+    const t = setTimeout(() => { void buildTimesheetPdf(doc).then(pdf => { if (live) setReady({ doc, file: new File([pdf.output("blob")], pdfFileName(doc), { type: "application/pdf" }) }); }).catch(() => {}); }, 300);
     return () => { live = false; clearTimeout(t); };
   }, [webShare, doc]);
   const shareNative = async () => {
@@ -74,14 +79,17 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
       await shareNativePdf(b64, pdfFileName(doc), shareTitle); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Could not share the PDF"); }
   };
-  const shareWeb = async () => {
-    if (!doc) return;
-    try {
-      const blob = ready?.doc === doc ? ready.blob : (await buildTimesheetPdf(doc)).output("blob");
-      if (ready?.doc !== doc) setReady({ doc, blob });
-      const result = await shareWebPdf(blob, pdfFileName(doc), shareTitle, timesheetSummary(doc));
-      if (result === "blocked") toast("PDF is ready. Tap Share PDF again to open the share sheet.");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Could not share the PDF"); }
+  const shareWeb = () => {
+    if (!doc || !preparedFile) return;
+    const failed = (e: unknown) => {
+      const name = (e as DOMException)?.name;
+      if (name === "AbortError") return;
+      if (name === "NotAllowedError") { toast("PDF is ready. Tap Share PDF again to open the share sheet."); return; }
+      toast.error(e instanceof Error ? e.message : "Could not share the PDF");
+    };
+    // No generation or await before sharing: retain Safari's tap activation.
+    try { void navigator.share({ files: [preparedFile], title: shareTitle, text: timesheetSummary(doc) }).catch(failed); }
+    catch (e) { failed(e); }
   };
   if (!clients.length) return <p className="text-muted-foreground">Add a family contact in Settings to start a timesheet.</p>;
   return <section className="space-y-4">
@@ -108,7 +116,7 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
           {native ? <div className="space-y-1.5"><button type="button" onClick={() => void shareNative()} className={primaryAction}><Share className="size-4" />Share PDF</button>
             <p className="text-center text-xs opacity-80">Send by Mail, Messages or AirDrop, or save to Files.</p></div>
           : <div className="grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => void download()} className={primaryAction}><Download className="size-4" />Download PDF</button>
-            {webShare ? <button type="button" onClick={() => void shareWeb()} className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-primary-foreground/15 text-sm font-semibold transition-transform active:scale-[0.98]"><Share className="size-4" />Share PDF</button>
+            {webShare ? <Button type="button" variant="ghost" disabled={!preparedFile} onClick={shareWeb} className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-primary-foreground/15 text-sm font-semibold transition-transform active:scale-[0.98] disabled:opacity-50"><Share className="size-4" />Share PDF</Button>
               : <button type="button" onClick={() => setSharing(sheet.data?.client.email ?? "")} className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-primary-foreground/15 text-sm font-semibold transition-transform active:scale-[0.98]"><Mail className="size-4" />Email PDF</button>}
             {webShare && <p className="text-center text-xs opacity-80 sm:col-span-2">Share PDF attaches the file. Choose Mail or another app.</p>}</div>}
         </div>
@@ -123,14 +131,14 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
           {w.rows.map(r => { const st = rowStatus(r); const adjusted = st === "adjusted";
             return <button key={r.shift.id} type="button" disabled={busy || sheet.isFetching} onClick={() => setEditing({ row: r, start: workInput(r.actualStart, timezone), end: workInput(r.actualEnd, timezone), note: r.note ?? "" })}
               className="flex min-h-[64px] w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-surface-muted disabled:opacity-70">
-              <span className="w-12 shrink-0 text-center"><span className="block text-[11px] font-semibold uppercase text-muted-foreground">{formatInTimeZone(r.scheduledStart, timezone, "EEE")}</span><span className="block text-lg font-bold leading-tight tabular-nums">{formatInTimeZone(r.scheduledStart, timezone, "d")}</span></span>
+              <span className="w-12 shrink-0 text-center"><span className="block text-[11px] font-semibold uppercase text-muted-foreground">{format(new Date(`${r.workDate}T12:00:00`), "EEE")}</span><span className="block text-lg font-bold leading-tight tabular-nums">{format(new Date(`${r.workDate}T12:00:00`), "d")}</span></span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-semibold tabular-nums">{time(r.actualStart)} – {time(r.actualEnd)}</span>
                 {adjusted && <span className="block truncate text-xs tabular-nums text-muted-foreground">Scheduled {time(r.scheduledStart)} – {time(r.scheduledEnd)}</span>}
                 {r.removed && <span className="block truncate text-xs text-muted-foreground">Removed from calendar</span>}
                 {r.note && <span className="block truncate text-xs text-muted-foreground">{r.note}</span>}
               </span>
-              <span className="shrink-0 text-right"><span className="block text-[15px] font-semibold tabular-nums">{formatHoursValue(r.actualHours)} h</span><span className={cn("mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold", STATUS[st].tone)}>{STATUS[st].label}</span></span>
+              <span className="shrink-0 text-right"><span className="block text-[15px] font-semibold tabular-nums">{formatHoursValue(r.actualHours)} h</span><span className={cn("mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold", STATUS[st].tone)}>{TIMESHEET_STATUS_LABELS[st]}</span></span>
               <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
             </button>; })}
         </div>
@@ -164,12 +172,11 @@ export function CaregiverTimesheets({ userId, clients, timezone, settings }: { u
   </section>;
 }
 
-type RowStatus = "confirmed" | "adjusted" | "unconfirmed" | "future";
-const STATUS: Record<RowStatus, { label: string; tone: string }> = {
-  confirmed: { label: "Confirmed", tone: "bg-success/15 text-success" },
-  adjusted: { label: "Adjusted", tone: "bg-primary/10 text-primary" },
-  unconfirmed: { label: "Needs confirmation", tone: "bg-warning/20 text-warning-foreground" },
-  future: { label: "Scheduled", tone: "bg-secondary text-secondary-foreground" },
+const STATUS: Record<TimesheetRowStatus, { tone: string }> = {
+  confirmed: { tone: "bg-success/15 text-success" },
+  adjusted: { tone: "bg-primary/10 text-primary" },
+  unconfirmed: { tone: "bg-warning/20 text-warning-foreground" },
+  future: { tone: "bg-secondary text-secondary-foreground" },
 };
 const primaryAction = "flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-primary-foreground text-sm font-semibold text-primary transition-transform active:scale-[0.98]";
 function SummaryStat({ label, value }: { label: string; value: string }) {

@@ -38,3 +38,21 @@ export function timesheetTotals(rows: TimesheetRow[]) {
     adjusted: rows.filter(r => r.confirmed).length };
 }
 export const formatHoursValue = (h: number) => Number(h.toFixed(2)).toString();
+
+/** Presentation order follows the retained work date, not a moved calendar shift. */
+export function sortTimesheetRows(rows: TimesheetRow[]): TimesheetRow[] {
+  return [...rows].sort((a, b) => a.workDate.localeCompare(b.workDate)
+    || Date.parse(a.actualStart) - Date.parse(b.actualStart)
+    || a.shift.id.localeCompare(b.shift.id));
+}
+
+export type TimesheetRowStatus = "confirmed" | "adjusted" | "unconfirmed" | "future";
+export const TIMESHEET_STATUS_LABELS: Record<TimesheetRowStatus, string> = {
+  confirmed: "Confirmed", adjusted: "Adjusted", unconfirmed: "Needs confirmation", future: "Scheduled",
+};
+/** Compare instants so equivalent timestamp formats still count as unchanged. */
+export function timesheetRowStatus(row: TimesheetRow, now = Date.now()): TimesheetRowStatus {
+  if (row.confirmed) return Date.parse(row.actualStart) === Date.parse(row.scheduledStart)
+    && Date.parse(row.actualEnd) === Date.parse(row.scheduledEnd) ? "confirmed" : "adjusted";
+  return Date.parse(row.scheduledStart) > now ? "future" : "unconfirmed";
+}

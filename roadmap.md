@@ -1,3 +1,6 @@
 - [x] Timesheets dashboard redesign
 - [x] Typography/spacing polish
 - [x] iPhone bottom-nav spacing
+- [x] Retained caregiver actual dates in ordering, week groups and badges
+- [x] Stable, scope-safe prepared PDF sharing directly from a tap
+- [x] Consistent caregiver confirmation statuses in UI, PDF and email
