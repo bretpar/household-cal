@@ -248,7 +248,7 @@ function ShellChrome({ children, active, fitViewport, compactMobileLandscape, lo
           : "min-h-screen",
       )}
     >
-      {active && <header className="app-shell-header sticky top-0 z-30 shrink-0 border-b border-border-soft bg-surface/90 backdrop-blur">
+      {active && <header className="app-shell-header sticky top-0 z-30 shrink-0 border-b border-border-soft bg-surface">
         <div className="app-shell-header-inner mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 lg:px-8">
 
           <Link to={home} className="flex min-w-0 items-center gap-2">
