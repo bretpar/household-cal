@@ -484,6 +484,13 @@
       "when": 1795659754759,
       "tag": "0068_prevent_accepted_invitation_reactivation",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1795753700571,
+      "tag": "0069_restrict_schedule_publish_journal_writes",
+      "breakpoints": true
     }
   ]
 }

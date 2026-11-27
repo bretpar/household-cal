@@ -353,8 +353,9 @@ export const syncNow = createServerFn({ method: "POST" })
       attemptId: lock.attempt_id,
     });
     const request = getRequest();
+    const { trustedAppOrigin } = await import("@/lib/app-origin.server");
     const callbackUrl = request
-      ? new URL("/api/public/google-calendar/manual-sync", request.url).toString()
+      ? new URL("/api/public/google-calendar/manual-sync", trustedAppOrigin(request)).toString()
       : null;
     const { error: enqueueError } = callbackUrl
       ? await supabaseAdmin.rpc("enqueue_google_manual_sync", {

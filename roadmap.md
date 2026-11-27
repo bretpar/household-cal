@@ -12,3 +12,6 @@
 - [x] Restore Safari content scrolling only after its saved range is available
 - [x] Limit Safari chrome overrides to normal phone browser tabs
 - [x] Keep caregiver shift notes visible with the keyboard open
+- [x] Throttle household invitation email delivery
+- [x] Bind manual-sync callbacks to trusted app origins
+- [x] Restrict schedule publish journal writes to the server
