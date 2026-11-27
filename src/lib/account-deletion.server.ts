@@ -129,7 +129,8 @@ const BAN_MS = 876000 * 3600 * 1000;
 const BAN_TOLERANCE_MS = 24 * 3600 * 1000;
 
 async function setJob(db: DeletionDb, userId: string, patch: Record<string, unknown>) {
-  await db.from("account_deletion_jobs").upsert({ user_id: userId, ...patch }, { onConflict: "user_id" });
+  const res = await db.from("account_deletion_jobs").upsert({ user_id: userId, ...patch }, { onConflict: "user_id" });
+  if (res.error) throw new Error(`record deletion job: ${sanitize(res.error)}`);
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
@@ -178,7 +179,7 @@ async function markRestored(
   reason: RestorationReason,
   patch: Record<string, unknown> = {},
 ) {
-  await db
+  const res = await db
     .from("account_deletion_jobs")
     .update({
       sign_in_restored: true,
@@ -188,6 +189,7 @@ async function markRestored(
     })
     .eq("user_id", userId)
     .eq("status", "rolled_back");
+  if (res.error) throw new Error(`record deletion recovery: ${sanitize(res.error)}`);
 }
 
 /**
@@ -498,11 +500,12 @@ export async function retryPendingAccountDeletions(
       failure = sanitize(e);
     }
     const status = failure === null ? "completed" : attempts >= MAX_ATTEMPTS ? "failed" : "data_removed";
-    await db
+    const update = await db
       .from("account_deletion_jobs")
       .update({ status, attempts, last_error: failure, ...(status === "completed" ? { completed_at: new Date().toISOString() } : {}) })
       .eq("user_id", job.user_id)
       .eq("status", "data_removed");
+    if (update.error) throw new Error(`record deletion retry: ${sanitize(update.error)}`);
     if (failure === null) completed += 1;
     else if (status === "failed") exhausted += 1;
   }

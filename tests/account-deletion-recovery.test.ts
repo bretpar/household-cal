@@ -7,13 +7,19 @@ import {
   recoverStalePendingDeletions,
   restoreLegacyRolledBackSignIn,
   requeueFailedAccountDeletion,
+  retryPendingAccountDeletions,
   type DeletionDb,
 } from "../src/lib/account-deletion.server";
 
 type Row = Record<string, any>;
 const BAN_MS = 876000 * 3600 * 1000;
 
-function fake(opts: { jobs?: Row[]; users?: Record<string, { banned_until: string | null }>; rpc?: (fn: string) => any } = {}) {
+function fake(opts: {
+  jobs?: Row[];
+  users?: Record<string, { banned_until: string | null }>;
+  rpc?: (fn: string) => any;
+  jobWriteError?: (operation: "upsert" | "update", patch: Row) => string | null;
+} = {}) {
   const jobs: Row[] = opts.jobs ?? [];
   const users = opts.users ?? {};
   const calls = { unban: 0, ban: 0, rpc: [] as string[] };
@@ -33,6 +39,8 @@ function fake(opts: { jobs?: Row[]; users?: Record<string, { banned_until: strin
       maybeSingle: () => Promise.resolve({ data: run().data[0] ?? null, error: null }),
       update: (p: Row) => ((patch = p), b),
       upsert: (p: Row) => {
+        const writeError = opts.jobWriteError?.("upsert", p);
+        if (writeError) return Promise.resolve({ error: { message: writeError } });
         const ex = jobs.find((j) => j.user_id === p["user_id"]);
         if (ex) Object.assign(ex, p);
         else jobs.push({ ban_provenance: null, ...p });
@@ -41,6 +49,8 @@ function fake(opts: { jobs?: Row[]; users?: Record<string, { banned_until: strin
       then: (res: any, rej: any) => Promise.resolve(run()).then(res, rej),
     };
     const run = () => {
+      const writeError = patch ? opts.jobWriteError?.("update", patch) : null;
+      if (writeError) return { data: [] as Row[], error: { message: writeError } };
       const r = rows();
       if (patch) r.forEach((x) => Object.assign(x, patch));
       return { data: name === "family_users" ? [] : r, error: null };
@@ -275,5 +285,75 @@ describe("account deletion audit trail", () => {
     await requeueFailedAccountDeletion(f.db, "u");
     expect(f.jobs[0]).toMatchObject({ attempts_before_requeue: 50, error_before_requeue: "auth: boom", requeue_count: 1 });
     expect(f.jobs[0]!.last_requeued_at).toEqual(expect.any(String));
+  });
+});
+
+describe("account deletion job persistence", () => {
+  it("stops before banning when the initial recovery job cannot be persisted", async () => {
+    const f = fake({
+      users: { u: { banned_until: null } },
+      jobWriteError: (operation, patch) =>
+        operation === "upsert" && patch["status"] === "pending" ? "job storage unavailable" : null,
+    });
+
+    await expect(deleteAccount(f.db, "u", {})).rejects.toThrow("record deletion job: job storage unavailable");
+    expect(f.calls.ban).toBe(0);
+    expect(f.calls.unban).toBe(0);
+    expect(f.calls.rpc).toEqual([]);
+    expect(f.jobs).toEqual([]);
+    expect(f.users["u"]!.banned_until).toBeNull();
+  });
+
+  it("surfaces an immediate rollback job write failure", async () => {
+    const f = fake({
+      users: { u: { banned_until: null } },
+      rpc: () => ({ data: { ok: false, reason: "refused" }, error: null }),
+      jobWriteError: (operation, patch) =>
+        operation === "upsert" && patch["status"] === "rolled_back" ? "rollback write unavailable" : null,
+    });
+
+    await expect(deleteAccount(f.db, "u", {})).rejects.toThrow("record deletion job: rollback write unavailable");
+    expect(f.calls.unban).toBe(1);
+    expect(f.jobs[0]).toMatchObject({ status: "pending" });
+  });
+
+  it("surfaces a final completion job write failure", async () => {
+    const f = fake({
+      users: { u: { banned_until: null } },
+      rpc: () => ({ data: { ok: true }, error: null }),
+      jobWriteError: (operation, patch) =>
+        operation === "upsert" && patch["status"] === "completed" ? "completion write unavailable" : null,
+    });
+
+    await expect(deleteAccount(f.db, "u", {})).rejects.toThrow("record deletion job: completion write unavailable");
+    expect(f.jobs[0]).toMatchObject({ status: "pending" });
+  });
+
+  it("surfaces a scheduled recovery status update failure without changing a preexisting ban", async () => {
+    const original = future(3600_000);
+    const f = fake({
+      jobs: [{ user_id: "u", status: "rolled_back", sign_in_restored: false, ban_provenance: "preexisting" }],
+      users: { u: { banned_until: original } },
+      jobWriteError: (operation, patch) =>
+        operation === "update" && patch["sign_in_restored"] === true ? "recovery update unavailable" : null,
+    });
+
+    await expect(recoverStalePendingDeletions(f.db)).rejects.toThrow("record deletion recovery: recovery update unavailable");
+    expect(f.calls.unban).toBe(0);
+    expect(f.users["u"]!.banned_until).toBe(original);
+    expect(f.jobs[0]).toMatchObject({ status: "rolled_back", sign_in_restored: false });
+  });
+
+  it("surfaces a scheduled completion update failure", async () => {
+    const f = fake({
+      jobs: [{ user_id: "u", status: "data_removed", attempts: 0 }],
+      users: { u: { banned_until: future(BAN_MS) } },
+      rpc: () => ({ data: { ok: true }, error: null }),
+      jobWriteError: (operation, patch) =>
+        operation === "update" && patch["status"] === "completed" ? "retry completion unavailable" : null,
+    });
+
+    await expect(retryPendingAccountDeletions(f.db)).rejects.toThrow("record deletion retry: retry completion unavailable");
+    expect(f.jobs[0]).toMatchObject({ status: "data_removed", attempts: 0 });
   });
 });
