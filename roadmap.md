@@ -15,3 +15,5 @@
 - [x] Throttle household invitation email delivery
 - [x] Bind manual-sync callbacks to trusted app origins
 - [x] Restrict schedule publish journal writes to the server
+- [x] Require exact deletion-ban ownership before restoring sign-in
+- [x] Surface stale-recovery job persistence failures for safe retry

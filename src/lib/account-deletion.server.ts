@@ -19,7 +19,10 @@ export type DeletionDb = {
   rpc: (fn: string, args: Record<string, unknown>) => Promise<Res>;
   auth: {
     admin: {
-      updateUserById: (id: string, attrs: { ban_duration: string }) => Promise<{ error: any }>;
+      updateUserById: (id: string, attrs: { ban_duration: string }) => Promise<{
+        data?: { user: { banned_until?: string | null } | null };
+        error: any;
+      }>;
       getUserById: (id: string) => Promise<{ data: { user: { email?: string | null; banned_until?: string | null } | null }; error?: any }>;
       deleteUser: (id: string) => Promise<{ error: any }>;
     };
@@ -125,8 +128,6 @@ export type DeleteAccountResult =
   | { ok: false; pending: true };
 
 const BAN = "876000h"; // ~100 years; the account is about to be deleted
-const BAN_MS = 876000 * 3600 * 1000;
-const BAN_TOLERANCE_MS = 24 * 3600 * 1000;
 
 async function setJob(db: DeletionDb, userId: string, patch: Record<string, unknown>) {
   const res = await db.from("account_deletion_jobs").upsert({ user_id: userId, ...patch }, { onConflict: "user_id" });
@@ -141,15 +142,15 @@ const MAX_ATTEMPTS = 50;
 /** An attempt older than this with no running database step is abandoned. */
 const LEASE_MS = 15 * 60 * 1000;
 
-/** True when Auth's current ban is the one this deletion attempt applied. */
+/** True only when Auth's ban exactly matches the expiry returned for this attempt. */
 export function deletionOwnsBan(
-  job: { ban_provenance?: string | null; deletion_ban_applied_at?: string | null },
+  job: { ban_provenance?: string | null; deletion_ban_expires_at?: string | null },
   bannedUntil: string | null | undefined,
 ): boolean {
-  if (job.ban_provenance !== "deletion" || !job.deletion_ban_applied_at || !bannedUntil) return false;
-  const expected = new Date(job.deletion_ban_applied_at).getTime() + BAN_MS;
+  if (job.ban_provenance !== "deletion" || !job.deletion_ban_expires_at || !bannedUntil) return false;
+  const expected = new Date(job.deletion_ban_expires_at).getTime();
   const actual = new Date(bannedUntil).getTime();
-  return Number.isFinite(expected) && Number.isFinite(actual) && Math.abs(actual - expected) <= BAN_TOLERANCE_MS;
+  return Number.isFinite(expected) && Number.isFinite(actual) && actual === expected;
 }
 
 function isBanned(until: string | null | undefined): boolean {
@@ -162,8 +163,9 @@ type RolledBackJob = {
   sign_in_restored: boolean;
   ban_provenance: string | null;
   deletion_ban_applied_at: string | null;
+  deletion_ban_expires_at: string | null;
 };
-const JOB_COLS = "user_id, status, sign_in_restored, ban_provenance, deletion_ban_applied_at";
+const JOB_COLS = "user_id, status, sign_in_restored, ban_provenance, deletion_ban_applied_at, deletion_ban_expires_at";
 
 export type RestorationReason =
   | "deletion_ban_lifted"
@@ -195,11 +197,10 @@ async function markRestored(
 /**
  * Recovers abandoned "pending" jobs, then restores sign-in for rolled-back
  * jobs awaiting it (sign_in_restored = false). Sign-in is restored only when
- * the job is still rolled_back (rechecked) and the ban belongs to the deletion:
- *  - provenance "deletion": Auth's ban must still match the one applied;
- *  - provenance "preexisting": the original ban is never touched;
- *  - no provenance (legacy, sign_in_restored = false): the old flow always
- *    applied the ban, so the previous behavior is kept.
+ * the job is still rolled_back (rechecked) and the ban exactly matches Auth's
+ * recorded response for this deletion attempt. Preexisting and superseding bans
+ * are never touched. Legacy or incomplete jobs without an exact recorded expiry
+ * remain banned and surface an unresolved-ownership error for operator review.
  * Legacy jobs with sign_in_restored = true are never unbanned automatically;
  * see listLegacyRecoveryCandidates / restoreLegacyRolledBackSignIn.
  */
@@ -214,7 +215,8 @@ export async function recoverStalePendingDeletions(
   let recovered = 0;
   for (const job of (data ?? []) as { user_id: string }[]) {
     const r = await db.rpc("recover_stale_account_deletion", { _user_id: job.user_id });
-    if (!r.error && r.data === "rolled_back") recovered += 1;
+    if (r.error) throw new Error(`record deletion recovery: ${sanitize(r.error)}`);
+    if (r.data === "rolled_back") recovered += 1;
   }
   let rq = db
     .from("account_deletion_jobs")
@@ -239,8 +241,11 @@ export async function recoverStalePendingDeletions(
     if (u.error) continue;
     const until = u.data?.user?.banned_until;
     if (!isBanned(until)) { await markRestored(db, user_id, "user_not_banned"); continue; }
-    if (job.ban_provenance === "deletion" && !deletionOwnsBan(job, until)) {
-      // Someone replaced the deletion ban; leave it alone and stop retrying.
+    if (job.ban_provenance !== "deletion" || !Number.isFinite(Date.parse(job.deletion_ban_expires_at ?? ""))) {
+      throw new Error("deletion ban ownership unresolved");
+    }
+    if (!deletionOwnsBan(job, until)) {
+      // A different exact expiry proves the deletion ban was replaced.
       await markRestored(db, user_id, "superseded_ban_preserved", { ban_provenance: "superseded" });
       continue;
     }
@@ -348,12 +353,26 @@ export async function deleteAccount(
     completed_at: null,
     ban_provenance: priorBan ? "preexisting" : "deletion",
     deletion_ban_applied_at: priorBan ? null : appliedAt,
+    deletion_ban_expires_at: null,
     prior_banned_until: priorBan,
   });
   if (!priorBan) {
     // Only block sign-in when no ban exists; an existing ban is never replaced.
     const ban = await db.auth.admin.updateUserById(userId, { ban_duration: BAN });
     if (ban.error) throw new Error(`block sign-in: ${ban.error.message ?? ban.error}`);
+    const deletionBanExpiresAt = ban.data?.user?.banned_until ?? null;
+    if (!Number.isFinite(Date.parse(deletionBanExpiresAt ?? ""))) {
+      await setJob(db, userId, {
+        status: "rolled_back",
+        last_error: "deletion ban ownership unresolved",
+        rolled_back_at: new Date().toISOString(),
+        lease_expires_at: null,
+        sign_in_restored: false,
+      });
+      throw new Error("Could not delete your account safely. Please try again later.");
+    }
+    // Persist Auth's exact response; scheduled recovery must never infer ownership from time windows.
+    await setJob(db, userId, { deletion_ban_expires_at: deletionBanExpiresAt });
   }
 
   const unblock = async (reason: string) => {
@@ -376,7 +395,16 @@ export async function deleteAccount(
     if (cur.error || !cur.data?.user) return rolledBack(null);
     const until = cur.data?.user?.banned_until;
     if (!isBanned(until)) return rolledBack("user_not_banned");
-    if (!deletionOwnsBan({ ban_provenance: "deletion", deletion_ban_applied_at: appliedAt }, until)) {
+    const ownedJob = await db
+      .from("account_deletion_jobs")
+      .select("deletion_ban_expires_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const deletionBanExpiresAt = ownedJob.data?.deletion_ban_expires_at as string | null | undefined;
+    if (ownedJob.error || !deletionBanExpiresAt || !Number.isFinite(Date.parse(deletionBanExpiresAt))) {
+      return rolledBack(null, { last_error: "deletion ban ownership unresolved" });
+    }
+    if (!deletionOwnsBan({ ban_provenance: "deletion", deletion_ban_expires_at: deletionBanExpiresAt }, until)) {
       return rolledBack("superseded_ban_preserved", { ban_provenance: "superseded" });
     }
     // Record restoration only when Auth confirmed it; otherwise the recovery

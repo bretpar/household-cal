@@ -66,7 +66,7 @@ function fake(opts: {
         updateUserById: async (id, a) => {
           if (a.ban_duration === "none") { calls.unban++; users[id]!.banned_until = null; }
           else { calls.ban++; users[id]!.banned_until = new Date(Date.now() + BAN_MS).toISOString(); }
-          return { error: null };
+          return { data: { user: { banned_until: users[id]!.banned_until } }, error: null };
         },
         deleteUser: async () => ({ error: null }),
       },
@@ -83,8 +83,10 @@ describe("account deletion recovery provenance", () => {
     await deleteAccount(f.db, "u", {});
     // Simulate a failed unban during rollback.
     f.jobs[0]!.sign_in_restored = false;
-    f.users["u"]!.banned_until = future(BAN_MS);
+    const ownedExpiry = future(BAN_MS);
+    f.users["u"]!.banned_until = ownedExpiry;
     f.jobs[0]!.deletion_ban_applied_at = new Date().toISOString();
+    f.jobs[0]!.deletion_ban_expires_at = ownedExpiry;
     const r = await recoverStalePendingDeletions(f.db);
     expect(r.restored).toBe(1);
     expect(f.users["u"]!.banned_until).toBeNull();
@@ -130,7 +132,7 @@ describe("account deletion recovery provenance", () => {
 
   it("F: a replacement administrative ban is never lifted", async () => {
     const f = fake({
-      jobs: [{ user_id: "u", status: "rolled_back", sign_in_restored: false, ban_provenance: "deletion", deletion_ban_applied_at: new Date(Date.now() - 86400_000 * 30).toISOString() }],
+      jobs: [{ user_id: "u", status: "rolled_back", sign_in_restored: false, ban_provenance: "deletion", deletion_ban_applied_at: new Date(Date.now() - 86400_000 * 30).toISOString(), deletion_ban_expires_at: future(BAN_MS - 3600_000) }],
       users: { u: { banned_until: future(BAN_MS) } },
     });
     await recoverStalePendingDeletions(f.db);
@@ -138,10 +140,36 @@ describe("account deletion recovery provenance", () => {
     expect(f.jobs[0]!.ban_provenance).toBe("superseded");
   });
 
-  it("G: repeated recovery is idempotent and never re-runs cleanup", async () => {
+  it("does not lift a replacement ban only two hours beyond the deletion expiry", async () => {
+    const deletionExpiry = future(BAN_MS);
+    const replacementExpiry = new Date(Date.parse(deletionExpiry) + 2 * 3600_000).toISOString();
     const f = fake({
-      jobs: [{ user_id: "u", status: "rolled_back", sign_in_restored: false, ban_provenance: "deletion", deletion_ban_applied_at: new Date().toISOString() }],
+      jobs: [{ user_id: "u", status: "rolled_back", sign_in_restored: false, ban_provenance: "deletion", deletion_ban_applied_at: new Date().toISOString(), deletion_ban_expires_at: deletionExpiry }],
+      users: { u: { banned_until: replacementExpiry } },
+    });
+
+    await recoverStalePendingDeletions(f.db);
+    expect(f.calls.unban).toBe(0);
+    expect(f.users["u"]!.banned_until).toBe(replacementExpiry);
+    expect(f.jobs[0]).toMatchObject({ ban_provenance: "superseded", restoration_reason: "superseded_ban_preserved" });
+  });
+
+  it("leaves an ambiguous ban unchanged and surfaces unresolved ownership", async () => {
+    const f = fake({
+      jobs: [{ user_id: "u", status: "rolled_back", sign_in_restored: false, ban_provenance: "deletion", deletion_ban_applied_at: new Date().toISOString(), deletion_ban_expires_at: null }],
       users: { u: { banned_until: future(BAN_MS) } },
+    });
+
+    await expect(recoverStalePendingDeletions(f.db)).rejects.toThrow("deletion ban ownership unresolved");
+    expect(f.calls.unban).toBe(0);
+    expect(f.jobs[0]).toMatchObject({ status: "rolled_back", sign_in_restored: false, ban_provenance: "deletion" });
+  });
+
+  it("G: repeated recovery is idempotent and never re-runs cleanup", async () => {
+    const ownedExpiry = future(BAN_MS);
+    const f = fake({
+      jobs: [{ user_id: "u", status: "rolled_back", sign_in_restored: false, ban_provenance: "deletion", deletion_ban_applied_at: new Date().toISOString(), deletion_ban_expires_at: ownedExpiry }],
+      users: { u: { banned_until: ownedExpiry } },
     });
     await recoverStalePendingDeletions(f.db);
     await recoverStalePendingDeletions(f.db);
@@ -212,9 +240,9 @@ describe("account deletion recovery provenance", () => {
 
 describe("account deletion audit trail", () => {
   const recent = () => new Date().toISOString();
-  const restoredJob = (provenance: string | null, until: string | null, applied = recent()) => {
+  const restoredJob = (provenance: string | null, until: string | null, applied = recent(), recordedExpiry = until) => {
     const f = fake({
-      jobs: [{ user_id: "u", status: "rolled_back", sign_in_restored: false, ban_provenance: provenance, deletion_ban_applied_at: applied }],
+      jobs: [{ user_id: "u", status: "rolled_back", sign_in_restored: false, ban_provenance: provenance, deletion_ban_applied_at: applied, deletion_ban_expires_at: provenance === "deletion" ? recordedExpiry : null }],
       users: { u: { banned_until: until } },
     });
     return f;
@@ -231,7 +259,7 @@ describe("account deletion audit trail", () => {
     const cases: [ReturnType<typeof fake>, string][] = [
       [restoredJob("deletion", future(BAN_MS)), "deletion_ban_lifted"],
       [restoredJob("preexisting", future(3600_000)), "preexisting_ban_preserved"],
-      [restoredJob("deletion", future(BAN_MS), new Date(Date.now() - 86400_000 * 30).toISOString()), "superseded_ban_preserved"],
+      [restoredJob("deletion", future(BAN_MS), recent(), future(BAN_MS - 3600_000)), "superseded_ban_preserved"],
       [restoredJob("deletion", null), "user_not_banned"],
     ];
     for (const [f, reason] of cases) {
@@ -342,6 +370,48 @@ describe("account deletion job persistence", () => {
     expect(f.calls.unban).toBe(0);
     expect(f.users["u"]!.banned_until).toBe(original);
     expect(f.jobs[0]).toMatchObject({ status: "rolled_back", sign_in_restored: false });
+  });
+
+  it("surfaces a stale-pending transition failure instead of reporting an idle run", async () => {
+    const bannedUntil = future(BAN_MS);
+    const jobs = [{ user_id: "u", status: "pending", sign_in_restored: true, ban_provenance: "deletion", deletion_ban_expires_at: bannedUntil }];
+    const f = fake({
+      jobs,
+      users: { u: { banned_until: bannedUntil } },
+      rpc: (fn) => fn === "recover_stale_account_deletion"
+        ? { data: null, error: { message: "rollback transition unavailable" } }
+        : { data: null, error: null },
+    });
+
+    await expect(recoverStalePendingDeletions(f.db)).rejects.toThrow("record deletion recovery: rollback transition unavailable");
+    expect(f.calls.unban).toBe(0);
+    expect(jobs[0]).toMatchObject({ status: "pending", sign_in_restored: true });
+    expect(f.users["u"]!.banned_until).toBe(bannedUntil);
+  });
+
+  it("retries stale recovery successfully after the transition write recovers", async () => {
+    const bannedUntil = future(BAN_MS);
+    const jobs = [{ user_id: "u", status: "pending", sign_in_restored: true, ban_provenance: "deletion", deletion_ban_expires_at: bannedUntil }];
+    let storageUnavailable = true;
+    const f = fake({
+      jobs,
+      users: { u: { banned_until: bannedUntil } },
+      rpc: (fn) => {
+        if (fn !== "recover_stale_account_deletion") return { data: null, error: null };
+        if (storageUnavailable) return { data: null, error: { message: "temporary storage failure" } };
+        Object.assign(jobs[0]!, { status: "rolled_back", sign_in_restored: false });
+        return { data: "rolled_back", error: null };
+      },
+    });
+
+    await expect(recoverStalePendingDeletions(f.db)).rejects.toThrow("temporary storage failure");
+    expect(f.calls.unban).toBe(0);
+    storageUnavailable = false;
+    await expect(recoverStalePendingDeletions(f.db)).resolves.toEqual({ recovered: 1, restored: 1 });
+    expect(f.calls.unban).toBe(1);
+    expect(f.calls.rpc.filter((fn) => fn === "recover_stale_account_deletion")).toHaveLength(2);
+    expect(jobs[0]).toMatchObject({ status: "rolled_back", sign_in_restored: true, restoration_reason: "deletion_ban_lifted" });
+    expect(f.users["u"]!.banned_until).toBeNull();
   });
 
   it("surfaces a scheduled completion update failure", async () => {

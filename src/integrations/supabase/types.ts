@@ -23,6 +23,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           deletion_ban_applied_at: string | null
+          deletion_ban_expires_at: string | null
           error_before_requeue: string | null
           google_revoke_failures: number
           last_error: string | null
@@ -46,6 +47,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           deletion_ban_applied_at?: string | null
+          deletion_ban_expires_at?: string | null
           error_before_requeue?: string | null
           google_revoke_failures?: number
           last_error?: string | null
@@ -69,6 +71,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           deletion_ban_applied_at?: string | null
+          deletion_ban_expires_at?: string | null
           error_before_requeue?: string | null
           google_revoke_failures?: number
           last_error?: string | null
