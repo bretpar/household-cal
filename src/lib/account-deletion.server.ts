@@ -201,6 +201,8 @@ async function markRestored(
  * recorded response for this deletion attempt. Preexisting and superseding bans
  * are never touched. Legacy or incomplete jobs without an exact recorded expiry
  * remain banned and surface an unresolved-ownership error for operator review.
+ * Individual failures are reported after both batches finish, never blocking
+ * recovery of the other jobs selected for this run.
  * Legacy jobs with sign_in_restored = true are never unbanned automatically;
  * see listLegacyRecoveryCandidates / restoreLegacyRolledBackSignIn.
  */
@@ -212,11 +214,16 @@ export async function recoverStalePendingDeletions(
   if (onlyUserId) q = q.eq("user_id", onlyUserId);
   const { data, error } = await q.limit(20);
   if (error) throw new Error(`load pending jobs: ${sanitize(error)}`);
+  const failures: string[] = [];
   let recovered = 0;
   for (const job of (data ?? []) as { user_id: string }[]) {
-    const r = await db.rpc("recover_stale_account_deletion", { _user_id: job.user_id });
-    if (r.error) throw new Error(`record deletion recovery: ${sanitize(r.error)}`);
-    if (r.data === "rolled_back") recovered += 1;
+    try {
+      const r = await db.rpc("recover_stale_account_deletion", { _user_id: job.user_id });
+      if (r.error) throw new Error(`record deletion recovery: ${sanitize(r.error)}`);
+      if (r.data === "rolled_back") recovered += 1;
+    } catch (failure) {
+      failures.push(sanitize(failure));
+    }
   }
   let rq = db
     .from("account_deletion_jobs")
@@ -225,35 +232,43 @@ export async function recoverStalePendingDeletions(
     .eq("sign_in_restored", false);
   if (onlyUserId) rq = rq.eq("user_id", onlyUserId);
   const pendingRestore = await rq.limit(20);
+  if (pendingRestore.error) throw new Error(`load rolled-back jobs: ${sanitize(pendingRestore.error)}`);
   let restored = 0;
   for (const { user_id } of (pendingRestore.data ?? []) as { user_id: string }[]) {
-    // Recheck immediately before acting.
-    const fresh = await db.from("account_deletion_jobs").select(JOB_COLS).eq("user_id", user_id).maybeSingle();
-    const job = fresh.data as RolledBackJob | null;
-    if (fresh.error || !job || job.status !== "rolled_back" || job.sign_in_restored) continue;
-    if (job.ban_provenance === "preexisting" || job.ban_provenance === "superseded") {
-      // Nothing of ours to lift.
-      await markRestored(db, user_id, job.ban_provenance === "preexisting" ? "preexisting_ban_preserved" : "superseded_ban_preserved");
-      continue;
+    try {
+      // Recheck immediately before acting.
+      const fresh = await db.from("account_deletion_jobs").select(JOB_COLS).eq("user_id", user_id).maybeSingle();
+      const job = fresh.data as RolledBackJob | null;
+      if (fresh.error || !job || job.status !== "rolled_back" || job.sign_in_restored) continue;
+      if (job.ban_provenance === "preexisting" || job.ban_provenance === "superseded") {
+        // Nothing of ours to lift.
+        await markRestored(db, user_id, job.ban_provenance === "preexisting" ? "preexisting_ban_preserved" : "superseded_ban_preserved");
+        continue;
+      }
+      const u = await db.auth.admin.getUserById(user_id);
+      if (u.error && isUserNotFound(u.error)) { await markRestored(db, user_id, "user_not_found"); continue; }
+      if (u.error) continue;
+      const until = u.data?.user?.banned_until;
+      if (!isBanned(until)) { await markRestored(db, user_id, "user_not_banned"); continue; }
+      if (job.ban_provenance !== "deletion" || !Number.isFinite(Date.parse(job.deletion_ban_expires_at ?? ""))) {
+        throw new Error("deletion ban ownership unresolved");
+      }
+      if (!deletionOwnsBan(job, until)) {
+        // A different exact expiry proves the deletion ban was replaced.
+        await markRestored(db, user_id, "superseded_ban_preserved", { ban_provenance: "superseded" });
+        continue;
+      }
+      const un = await db.auth.admin.updateUserById(user_id, { ban_duration: "none" });
+      if (un.error && !isUserNotFound(un.error)) continue;
+      await markRestored(db, user_id, un.error ? "user_not_found" : "deletion_ban_lifted");
+      restored += 1;
+    } catch (failure) {
+      failures.push(sanitize(failure));
     }
-    const u = await db.auth.admin.getUserById(user_id);
-    if (u.error && isUserNotFound(u.error)) { await markRestored(db, user_id, "user_not_found"); continue; }
-    if (u.error) continue;
-    const until = u.data?.user?.banned_until;
-    if (!isBanned(until)) { await markRestored(db, user_id, "user_not_banned"); continue; }
-    if (job.ban_provenance !== "deletion" || !Number.isFinite(Date.parse(job.deletion_ban_expires_at ?? ""))) {
-      throw new Error("deletion ban ownership unresolved");
-    }
-    if (!deletionOwnsBan(job, until)) {
-      // A different exact expiry proves the deletion ban was replaced.
-      await markRestored(db, user_id, "superseded_ban_preserved", { ban_provenance: "superseded" });
-      continue;
-    }
-    const un = await db.auth.admin.updateUserById(user_id, { ban_duration: "none" });
-    if (un.error && !isUserNotFound(un.error)) continue;
-    await markRestored(db, user_id, un.error ? "user_not_found" : "deletion_ban_lifted");
-    restored += 1;
   }
+  // Keep unresolved ownership and failed writes visible to the scheduler/caller,
+  // but only after allowing unrelated accounts to recover.
+  if (failures.length) throw new Error(`Deletion recovery incomplete: ${failures.join("; ")}`);
   return { recovered, restored };
 }
 

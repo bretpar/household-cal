@@ -317,6 +317,67 @@ describe("account deletion audit trail", () => {
 });
 
 describe("account deletion job persistence", () => {
+  it("recovers other accounts after an unresolved ban, including on repeated runs", async () => {
+    const expiry = future(BAN_MS);
+    const f = fake({
+      jobs: [
+        { user_id: "stuck", status: "rolled_back", sign_in_restored: false, ban_provenance: "deletion", deletion_ban_expires_at: null },
+        { user_id: "ready", status: "rolled_back", sign_in_restored: false, ban_provenance: "deletion", deletion_ban_expires_at: expiry },
+      ],
+      users: { stuck: { banned_until: expiry }, ready: { banned_until: expiry } },
+    });
+    for (let run = 0; run < 2; run++) {
+      await expect(recoverStalePendingDeletions(f.db)).rejects.toThrow("deletion ban ownership unresolved");
+      expect(f.users["stuck"]?.banned_until).toBe(expiry);
+      expect(f.users["ready"]?.banned_until).toBeNull();
+      expect(f.jobs[0]).toMatchObject({ sign_in_restored: false });
+      expect(f.jobs[1]).toMatchObject({ sign_in_restored: true });
+    }
+    expect(f.calls.unban).toBe(1);
+  });
+
+  it("continues pending transitions and restorations after a returned or thrown RPC error", async () => {
+    for (const failure of ["returned", "thrown"]) {
+      const expiry = future(BAN_MS);
+      const jobs = ["stuck", "ready"].map((user_id) => ({
+        user_id, status: "pending", sign_in_restored: false, ban_provenance: "deletion", deletion_ban_expires_at: expiry,
+      }));
+      const f = fake({ jobs, users: { stuck: { banned_until: expiry }, ready: { banned_until: expiry } } });
+      f.db.rpc = async (_fn, args) => {
+        if (args["_user_id"] === "stuck") {
+          if (failure === "thrown") throw new Error("transition unavailable");
+          return { data: null, error: { message: "transition unavailable" } };
+        }
+        const ready = jobs[1];
+        if (!ready) throw new Error("Missing ready job");
+        ready.status = "rolled_back";
+        return { data: "rolled_back", error: null };
+      };
+      await expect(recoverStalePendingDeletions(f.db)).rejects.toThrow("transition unavailable");
+      expect(jobs[0]).toMatchObject({ status: "pending", sign_in_restored: false });
+      expect(jobs[1]).toMatchObject({ status: "rolled_back", sign_in_restored: true });
+      expect(f.users["stuck"]?.banned_until).toBe(expiry);
+      expect(f.users["ready"]?.banned_until).toBeNull();
+    }
+  });
+
+  it("continues restoring other accounts after a recovery persistence failure", async () => {
+    const expiry = future(BAN_MS);
+    const f = fake({
+      jobs: [
+        { user_id: "stuck", status: "rolled_back", sign_in_restored: false, ban_provenance: "preexisting" },
+        { user_id: "ready", status: "rolled_back", sign_in_restored: false, ban_provenance: "deletion", deletion_ban_expires_at: expiry },
+      ],
+      users: { stuck: { banned_until: expiry }, ready: { banned_until: expiry } },
+      jobWriteError: (_operation, patch) => patch["restoration_reason"] === "preexisting_ban_preserved" ? "recovery write unavailable" : null,
+    });
+    await expect(recoverStalePendingDeletions(f.db)).rejects.toThrow("recovery write unavailable");
+    expect(f.users["stuck"]?.banned_until).toBe(expiry);
+    expect(f.jobs[0]).toMatchObject({ sign_in_restored: false });
+    expect(f.users["ready"]?.banned_until).toBeNull();
+    expect(f.jobs[1]).toMatchObject({ sign_in_restored: true });
+  });
+
   it("stops before banning when the initial recovery job cannot be persisted", async () => {
     const f = fake({
       users: { u: { banned_until: null } },
