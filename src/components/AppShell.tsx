@@ -7,7 +7,7 @@ import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { reportShellMount, reportShellUnmount } from "@/lib/shell-remount-probe";
 import { cn } from "@/lib/utils";
 import { useCaregiver } from "@/lib/use-caregiver";
-import { useMyTimesheetActionCount, usePendingTimesheetCount } from "@/components/TimesheetSettings";
+import { useMyTimesheetActionCount, useNativeReviewBadge, usePendingTimesheetCount } from "@/components/TimesheetSettings";
 import { useCalendar } from "@/lib/calendar-store";
 import { hasFeature } from "@/lib/features";
 import { useTimesheetsStatus } from "@/lib/use-timesheets-status";
@@ -180,6 +180,8 @@ function ShellFrame({
       ? CAREGIVER_NAV.filter((n) => n.to !== "/timesheet" || chromeTimesheetsOn)
       : NAV;
   const ownerPending = usePendingTimesheetCount(!isCaregiver && isOwner && timesheetsActive);
+  // App icon shows only the Owner review count; 0 for everyone else (clears).
+  useNativeReviewBadge(!isCaregiver && isOwner && timesheetsActive ? ownerPending : 0);
   const myActions = useMyTimesheetActionCount(isCaregiver && timesheetsActive);
   const badgeTo = isCaregiver ? "/timesheet" : "/activities";
   const pendingReview = isCaregiver ? myActions : ownerPending;

@@ -2,7 +2,16 @@ import { PaidSummary, TimesheetPaidFields, usePaidState } from "@/components/Tim
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { getVerifiedMembership, subscribeVerifiedMembership } from "@/lib/auth-guard";
+import { useAppResume } from "@/lib/use-app-resume";
+import {
+  appBadgePreference,
+  appBadgeSupported,
+  setAppBadge,
+  setAppBadgePreference,
+  subscribeAppBadgePreference,
+} from "@/lib/app-badge";
 import { toast } from "sonner";
 import { CalendarDays, ChevronRight, Flag } from "lucide-react";
 import { format } from "date-fns";
@@ -74,6 +83,7 @@ export function TimesheetSettings() {
         <>
           <PayPeriodSettings />
           <NotificationSettings />
+          <AppBadgeToggle />
         </>
       ) : null}
     </div>
@@ -111,17 +121,65 @@ export function TimesheetsMasterToggle({ active, disabled }: { active: boolean; 
 
 export const PENDING_TIMESHEETS_KEY = ["timesheet-pending-count"] as const;
 
-/** Server-authoritative count of submitted timesheets awaiting owner review. */
+/**
+ * Server-authoritative count of submitted timesheets awaiting owner review.
+ * One cache per verified user + household (prefix PENDING_TIMESHEETS_KEY so
+ * existing transition invalidations still refresh it). Responses that arrive
+ * after the verified scope changed are discarded.
+ */
 export function usePendingTimesheetCount(enabled: boolean) {
   const fetch = useServerFn(countPendingTimesheets);
-  const { data } = useQuery({
-    queryKey: PENDING_TIMESHEETS_KEY,
-    queryFn: () => fetch(),
-    enabled,
-    staleTime: 60_000,
+  const scope = useSyncExternalStore(subscribeVerifiedMembership, getVerifiedMembership, () => null);
+  const scopeKey = scope ? `${scope.userId}:${scope.family_id}` : null;
+  const on = enabled && !!scopeKey;
+  const { data, refetch } = useQuery({
+    queryKey: [...PENDING_TIMESHEETS_KEY, scopeKey],
+    queryFn: async () => {
+      const res = await fetch();
+      const now = getVerifiedMembership();
+      if (!now || `${now.userId}:${now.family_id}` !== scopeKey) throw new Error("stale session");
+      return res;
+    },
+    enabled: on,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
-  return enabled ? data?.count ?? 0 : 0;
+  useAppResume(() => { if (on) void refetch(); }, 0);
+  return on ? data?.count ?? 0 : 0;
+}
+
+/** Mirrors the owner review count to the native app icon (absolute, 0 clears) when enabled. */
+export function useNativeReviewBadge(count: number) {
+  const enabled = useSyncExternalStore(subscribeAppBadgePreference, appBadgePreference, () => false);
+  useEffect(() => {
+    void setAppBadge(enabled ? count : 0);
+  }, [enabled, count]);
+}
+
+/** Settings control: badge-only permission, never banners or sounds. */
+export function AppBadgeToggle() {
+  const enabled = useSyncExternalStore(subscribeAppBadgePreference, appBadgePreference, () => false);
+  const [busy, setBusy] = useState(false);
+  if (!appBadgeSupported()) return null;
+  const change = async (v: boolean) => {
+    setBusy(true);
+    const state = await setAppBadgePreference(v);
+    setBusy(false);
+    if (v && state === "denied") toast.error("Badges are off for this app. Turn them on in iPhone Settings › Notifications.");
+    else if (v && state !== "granted") toast.error("Could not turn on app icon badges.");
+  };
+  return (
+    <label className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4">
+      <span className="min-w-0">
+        <span className="block font-semibold">App icon badge</span>
+        <span className="block text-xs text-muted-foreground">Show the number of timesheets waiting for your review.</span>
+      </span>
+      <Switch checked={enabled} disabled={busy} onCheckedChange={(v) => void change(v)} />
+    </label>
+  );
 }
 
 export const MY_TIMESHEET_ACTIONS_KEY = ["timesheet-my-actions"] as const;
