@@ -2,13 +2,13 @@ import { PaidSummary, TimesheetPaidFields, usePaidState } from "@/components/Tim
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { getVerifiedMembership, subscribeVerifiedMembership } from "@/lib/auth-guard";
 import { useAppResume } from "@/lib/use-app-resume";
 import {
   appBadgePreference,
   appBadgeSupported,
-  setAppBadge,
+  reconcileAppBadge,
   setAppBadgePreference,
   subscribeAppBadgePreference,
 } from "@/lib/app-badge";
@@ -154,9 +154,16 @@ export function usePendingTimesheetCount(enabled: boolean) {
 /** Mirrors the owner review count to the native app icon (absolute, 0 clears) when enabled. */
 export function useNativeReviewBadge(count: number) {
   const enabled = useSyncExternalStore(subscribeAppBadgePreference, appBadgePreference, () => false);
+  const scope = useSyncExternalStore(subscribeVerifiedMembership, getVerifiedMembership, () => null);
+  const current = useRef<() => void>(() => {});
   useEffect(() => {
-    void setAppBadge(enabled ? count : 0);
-  }, [enabled, count]);
+    let active = true;
+    const reconcile = () => { void reconcileAppBadge(count, () => active && getVerifiedMembership() === scope); };
+    current.current = reconcile;
+    reconcile();
+    return () => { active = false; };
+  }, [enabled, count, scope]);
+  useAppResume(() => current.current(), 0);
 }
 
 /** Settings control: badge-only permission, never banners or sounds. */
@@ -267,6 +274,8 @@ function CloseTimesheetButton({ id, onClosed }: { id: string; onClosed: () => vo
 
 /** Owner Timesheet hub shown inside Activities. */
 export function OwnerTimesheets({ readOnly = false }: { readOnly?: boolean }) {
+  const { isOwner, family } = useCalendar();
+  const pendingCount = usePendingTimesheetCount(isOwner && !readOnly && hasFeature("timesheets", { familyId: family?.id }));
   const fetch = useServerFn(listHouseholdTimesheets);
   const { data } = useQuery({ queryKey: ["household-timesheets"], queryFn: () => fetch() });
   return (
@@ -297,7 +306,7 @@ export function OwnerTimesheets({ readOnly = false }: { readOnly?: boolean }) {
               </section>
             ) : null}
             <div className="grid grid-cols-2 gap-3">
-              <CountTile label="Needs review" count={loaded ? review.length : null} tone="text-warning-foreground" target="ts-needs-review" />
+              <CountTile label="Needs review" count={pendingCount} tone="text-warning-foreground" target="ts-needs-review" />
               <CountTile label="Needs correction" count={loaded ? correction.length : null} tone="text-destructive" target="ts-needs-correction" />
             </div>
             {[

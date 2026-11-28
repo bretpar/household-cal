@@ -36,6 +36,17 @@ export async function setAppBadge(count: number): Promise<void> {
   try { await AppBadge.setCount({ count: Math.max(0, Math.floor(count)) }); } catch { /* denied/unavailable */ }
 }
 
+/** Recheck system settings on resume, even when the count and opt-in are unchanged. */
+export async function reconcileAppBadge(count: number, isCurrent: () => boolean): Promise<void> {
+  if (!appBadgeSupported()) return;
+  const scope = getVerifiedMembership();
+  const permission = await appBadgePermission();
+  // Never apply a count captured before sign-out, scope changes or a newer render.
+  if (!isCurrent() || getVerifiedMembership() !== scope) return;
+  const allowed = permission === "granted" && appBadgePreference() && scope?.role === "owner";
+  await setAppBadge(allowed ? count : 0);
+}
+
 /** Enabling asks for badge-only permission; returns the resulting state. */
 export async function setAppBadgePreference(enabled: boolean): Promise<BadgePermission> {
   let state: BadgePermission = "unavailable";

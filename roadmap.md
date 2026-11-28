@@ -17,3 +17,5 @@
 - [x] Restrict schedule publish journal writes to the server
 - [x] Require exact deletion-ban ownership before restoring sign-in
 - [x] Surface stale-recovery job persistence failures for safe retry
+- [x] Use the shared authorized count for the Owner Needs Review tile
+- [x] Reconcile native badge permission and absolute count on every resume
